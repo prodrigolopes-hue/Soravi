@@ -29,3 +29,8 @@
 - Verificação da presença do token de recuperação.
 - Aplicação da logo oficial da Soravi no Header e no Footer.
 - Inclusão dos ativos iniciais da identidade visual.
+- Configuração inicial segura da API.
+- Prefixo global `/api/v1`.
+- Validação de entradas e variáveis de ambiente.
+- CORS restrito e cabeçalhos de segurança.
+- Health Check padronizado.
