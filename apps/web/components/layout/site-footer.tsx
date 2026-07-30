@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 
@@ -52,14 +53,19 @@ export function SiteFooter() {
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:px-8">
         <div className="max-w-sm">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-            aria-label="Soravi — Página inicial"
-          >
-            Soravi
-          </Link>
-
+<Link
+  href="/"
+  className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+  aria-label="Soravi — Página inicial"
+>
+  <Image
+    src="/brand/soravi-logo-horizontal.png"
+    alt=""
+    width={877}
+    height={231}
+    className="h-auto w-36"
+  />
+</Link>
           <p className="mt-4 text-sm leading-6 text-slate-600">
             A Soravi conecta pessoas a profissionais e soluções de serviços de
             forma simples, rápida e segura.

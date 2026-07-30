@@ -27,3 +27,5 @@
 - Página inicial de redefinição de senha.
 - Validação de senha segura e confirmação.
 - Verificação da presença do token de recuperação.
+- Aplicação da logo oficial da Soravi no Header e no Footer.
+- Inclusão dos ativos iniciais da identidade visual.

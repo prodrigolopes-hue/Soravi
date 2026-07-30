@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
@@ -26,13 +27,20 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
-          href="/"
-          className="text-2xl font-bold tracking-tight text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          aria-label="Soravi — Página inicial"
-          onClick={closeMenu}
-        >
-          Soravi
-        </Link>
+  href="/"
+  className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+  aria-label="Soravi — Página inicial"
+  onClick={closeMenu}
+>
+  <Image
+    src="/brand/soravi-logo-horizontal.png"
+    alt=""
+    width={877}
+    height={231}
+    priority
+    className="h-auto w-32 sm:w-36"
+  />
+</Link>
 
         <nav
           aria-label="Navegação principal"
