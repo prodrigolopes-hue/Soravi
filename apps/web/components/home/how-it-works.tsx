@@ -46,10 +46,11 @@ const steps: Step[] = [
 
 export function HowItWorks() {
   return (
-    <section
-      aria-labelledby="how-it-works-title"
-      className="bg-slate-50 py-16 sm:py-20"
-    >
+<section
+  id="como-funciona"
+  aria-labelledby="how-it-works-title"
+  className="bg-slate-50 py-16 sm:py-20"
+>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
           <p className="font-semibold text-blue-600">Como funciona</p>
