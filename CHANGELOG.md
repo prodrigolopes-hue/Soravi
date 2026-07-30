@@ -24,3 +24,6 @@
 - Página inicial de recuperação de senha.
 - Validação do e-mail utilizado na solicitação.
 - Mensagem neutra para proteção das contas cadastradas.
+- Página inicial de redefinição de senha.
+- Validação de senha segura e confirmação.
+- Verificação da presença do token de recuperação.
