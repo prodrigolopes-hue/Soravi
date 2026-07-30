@@ -6,3 +6,6 @@
 - API NestJS
 - PostgreSQL e Redis
 - Documentação inicial
+- Página inicial de entrada.
+- Formulário de login com validação de e-mail e senha.
+- Controle para mostrar ou ocultar a senha.
