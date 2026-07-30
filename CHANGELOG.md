@@ -21,3 +21,6 @@
 - Estrutura inicial dos Termos de Uso.
 - Estrutura inicial da Política de Privacidade.
 - Aviso de revisão jurídica pendente nas páginas legais.
+- Página inicial de recuperação de senha.
+- Validação do e-mail utilizado na solicitação.
+- Mensagem neutra para proteção das contas cadastradas.
