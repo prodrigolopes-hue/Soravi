@@ -12,3 +12,6 @@
 - Página de escolha do tipo de conta.
 - Jornadas separadas para clientes e profissionais.
 - Componente reutilizável para opções de cadastro.
+- Formulário inicial de cadastro de cliente.
+- Validação de nome, e-mail, telefone e senha.
+- Confirmação de senha e aceite dos documentos jurídicos.
