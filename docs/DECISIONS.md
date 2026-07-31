@@ -1821,3 +1821,27 @@ A Soravi deverá evoluir de maneira incremental, segura e orientada às necessid
 As decisões registradas neste documento não são imutáveis, mas não poderão ser alteradas sem análise, justificativa e novo registro.
 
 O objetivo é preservar consistência sem impedir a evolução.
+
+## 2026-07-31 — Estados permitidos no login
+
+### Decisão
+
+Usuários com status `PENDING` ou `ACTIVE` podem validar suas
+credenciais no login.
+
+Usuários com status `SUSPENDED`, `BLOCKED` ou `DEACTIVATED`
+não podem acessar a plataforma.
+
+### Motivo
+
+O cadastro inicial cria usuários com status `PENDING`. Bloquear
+o login nesse estado impediria o acesso de todas as contas
+recém-criadas antes da implementação da verificação de e-mail.
+
+### Impacto
+
+Contas pendentes poderão autenticar, mas funcionalidades futuras
+poderão exigir e-mail ou telefone verificado.
+
+O login implementado nesta etapa não gera JWT, refresh token
+ou sessão persistente.

@@ -3027,3 +3027,17 @@ Os endpoints não deverão representar apenas operações genéricas de banco de
 Cada ação crítica deverá expressar claramente a intenção do usuário, validar o estado atual e preservar a consistência da plataforma.
 
 A implementação será incremental, acompanhando o modelo de dados, a arquitetura e as decisões oficiais do projeto.
+
+## Login
+
+### POST /api/v1/auth/login
+
+Autentica um usuário com e-mail e senha.
+
+#### Corpo da requisição
+
+```json
+{
+  "email": "cliente@soravi.com.br",
+  "password": "SenhaSegura123"
+}
