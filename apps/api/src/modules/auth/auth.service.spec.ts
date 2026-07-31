@@ -1,10 +1,13 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import {
   argon2id,
   hash as hashPassword,
+  verify as verifyPassword,
 } from "argon2";
 
 import {
@@ -16,11 +19,13 @@ import { PrismaService } from "../../database/prisma.service";
 import { UserResponseDto } from "../users/dto/user-response.dto";
 import { UsersService } from "../users/users.service";
 import { AuthService } from "./auth.service";
+import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
 
 jest.mock("argon2", () => ({
   argon2id: 2,
   hash: jest.fn(),
+  verify: jest.fn(),
 }));
 
 interface TransactionClientMock {
@@ -44,6 +49,11 @@ describe("AuthService", () => {
 
   const hashPasswordMock =
     hashPassword as jest.MockedFunction<typeof hashPassword>;
+
+  const verifyPasswordMock =
+    verifyPassword as jest.MockedFunction<
+      typeof verifyPassword
+    >;
 
   let authService: AuthService;
 
@@ -91,6 +101,9 @@ describe("AuthService", () => {
 
     hashPasswordMock.mockReset();
     hashPasswordMock.mockResolvedValue("hashed-password");
+
+    verifyPasswordMock.mockReset();
+    verifyPasswordMock.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -263,7 +276,7 @@ describe("AuthService", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("deve normalizar o e-mail antes da consulta", async () => {
+  it("deve normalizar o e-mail antes da consulta de cadastro", async () => {
     const input = createRegistrationInput(Role.CUSTOMER);
 
     input.email = "  MARIA.TESTE@SORAVI.COM.BR  ";
@@ -287,6 +300,148 @@ describe("AuthService", () => {
     });
   });
 
+  it.each([
+    UserStatus.PENDING,
+    UserStatus.ACTIVE,
+  ])(
+    "deve permitir login para usuário com status %s",
+    async (status) => {
+      const input = createLoginInput();
+
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: userId,
+        passwordHash: "hashed-password",
+        status,
+      });
+
+      const safeUser = createCustomerResponse(status);
+
+      usersServiceMock.findSafeById.mockResolvedValue(safeUser);
+
+      const response = await authService.login(input);
+
+      expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          emailNormalized: "maria.teste@soravi.com.br",
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          passwordHash: true,
+          status: true,
+        },
+      });
+
+      expect(verifyPasswordMock).toHaveBeenCalledWith(
+        "hashed-password",
+        input.password,
+      );
+
+      expect(
+        usersServiceMock.findSafeById,
+      ).toHaveBeenCalledWith(userId);
+
+      expect(response.data).toEqual(safeUser);
+      expect(response.data).not.toHaveProperty("password");
+      expect(response.data).not.toHaveProperty(
+        "passwordHash",
+      );
+      expect(response.data).not.toHaveProperty("sessions");
+      expect(response).not.toHaveProperty("accessToken");
+      expect(response).not.toHaveProperty("refreshToken");
+    },
+  );
+
+  it("deve normalizar o e-mail antes da consulta de login", async () => {
+  const input: LoginUserDto = {
+    ...createLoginInput(),
+    email: "  MARIA.TESTE@SORAVI.COM.BR  ",
+  };
+
+  prismaMock.user.findFirst.mockResolvedValue(null);
+
+  await expect(
+    authService.login(input),
+  ).rejects.toBeInstanceOf(UnauthorizedException);
+
+  expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+    where: {
+      emailNormalized: "maria.teste@soravi.com.br",
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      passwordHash: true,
+      status: true,
+    },
+  });
+});
+
+
+  it("deve rejeitar login quando o e-mail não existe", async () => {
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      authService.login(createLoginInput()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(verifyPasswordMock).not.toHaveBeenCalled();
+    expect(
+      usersServiceMock.findSafeById,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar login quando a senha está incorreta", async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: userId,
+      passwordHash: "hashed-password",
+      status: UserStatus.ACTIVE,
+    });
+
+    verifyPasswordMock.mockResolvedValue(false);
+
+    await expect(
+      authService.login(createLoginInput()),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(verifyPasswordMock).toHaveBeenCalledWith(
+      "hashed-password",
+      "SenhaSegura123",
+    );
+
+    expect(
+      usersServiceMock.findSafeById,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    UserStatus.SUSPENDED,
+    UserStatus.BLOCKED,
+    UserStatus.DEACTIVATED,
+  ])(
+    "deve rejeitar login para usuário com status %s",
+    async (status) => {
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: userId,
+        passwordHash: "hashed-password",
+        status,
+      });
+
+      await expect(
+        authService.login(createLoginInput()),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(verifyPasswordMock).toHaveBeenCalledWith(
+        "hashed-password",
+        "SenhaSegura123",
+      );
+
+      expect(
+        usersServiceMock.findSafeById,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],
   ): RegisterUserDto {
@@ -301,13 +456,22 @@ describe("AuthService", () => {
     };
   }
 
-  function createCustomerResponse(): UserResponseDto {
+  function createLoginInput(): LoginUserDto {
+    return {
+      email: "maria.teste@soravi.com.br",
+      password: "SenhaSegura123",
+    };
+  }
+
+  function createCustomerResponse(
+    status: UserStatus = UserStatus.PENDING,
+  ): UserResponseDto {
     return new UserResponseDto({
       id: userId,
       name: "Maria da Silva",
       email: "maria.teste@soravi.com.br",
       phone: "+55 11 99999-9999",
-      status: UserStatus.PENDING,
+      status,
       roles: [Role.CUSTOMER],
       emailVerified: false,
       phoneVerified: false,

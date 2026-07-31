@@ -5,6 +5,7 @@ import {
 import {
   argon2id,
   hash as hashPassword,
+  verify as verifyPassword,
 } from "argon2";
 
 import {
@@ -15,13 +16,22 @@ import {
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { UsersService } from "../users/users.service";
-import { RegisterUserDto } from "./dto/register-user.dto";
+import { LoginResponseDto } from "./dto/login-response.dto";
+import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterResponseDto } from "./dto/register-response.dto";
+import { RegisterUserDto } from "./dto/register-user.dto";
+import { AccountUnavailableException } from "./errors/account-unavailable.exception";
 import { EmailAlreadyInUseException } from "./errors/email-already-in-use.exception";
+import { InvalidCredentialsException } from "./errors/invalid-credentials.exception";
 
 const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.CUSTOMER,
   Role.PROFESSIONAL,
+];
+
+const LOGIN_ALLOWED_STATUSES: readonly UserStatus[] = [
+  UserStatus.PENDING,
+  UserStatus.ACTIVE,
 ];
 
 @Injectable()
@@ -132,6 +142,44 @@ export class AuthService {
     return new RegisterResponseDto(safeUser);
   }
 
+  async login(
+    input: LoginUserDto,
+  ): Promise<LoginResponseDto> {
+    const normalizedEmail = this.normalizeEmail(input.email);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailNormalized: normalizedEmail,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+      },
+    });
+
+    if (!user) {
+      throw new InvalidCredentialsException();
+    }
+
+    const passwordMatches = await verifyPassword(
+      user.passwordHash,
+      input.password,
+    );
+
+    if (!passwordMatches) {
+      throw new InvalidCredentialsException();
+    }
+
+    this.ensureLoginAllowed(user.status);
+
+    const safeUser =
+      await this.usersService.findSafeById(user.id);
+
+    return new LoginResponseDto(safeUser);
+  }
+
   private ensurePublicRegistrationRole(role: Role): void {
     if (!PUBLIC_REGISTRATION_ROLES.includes(role)) {
       throw new BadRequestException({
@@ -139,6 +187,12 @@ export class AuthService {
         message:
           "O papel inicial deve ser CUSTOMER ou PROFESSIONAL.",
       });
+    }
+  }
+
+  private ensureLoginAllowed(status: UserStatus): void {
+    if (!LOGIN_ALLOWED_STATUSES.includes(status)) {
+      throw new AccountUnavailableException();
     }
   }
 
