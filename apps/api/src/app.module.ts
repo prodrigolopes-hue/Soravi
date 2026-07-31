@@ -4,6 +4,7 @@ import { ConfigModule } from "@nestjs/config";
 import { validateEnvironment } from "./config/environment.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
+import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 
 @Module({
@@ -16,6 +17,7 @@ import { UsersModule } from "./modules/users/users.module";
     }),
     PrismaModule,
     UsersModule,
+    AuthModule,
   ],
   controllers: [HealthController],
 })
