@@ -12,3 +12,6 @@ dist/
 coverage/
 *.tsbuildinfo
 /soravi/
+
+# Prisma generated client
+/apps/api/src/generated/prisma/

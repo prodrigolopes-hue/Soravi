@@ -1,0 +1,181 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  DEACTIVATED
+}
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  MODERATOR
+  ADMIN
+}
+
+enum ProfessionalVerificationStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LegalDocumentType {
+  TERMS_OF_USE
+  PRIVACY_POLICY
+  COMMUNICATION_CONSENT
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String     @db.VarChar(120)
+  email           String     @db.VarChar(254)
+  emailNormalized String     @unique(map: "users_email_normalized_key") @map("email_normalized") @db.VarChar(254)
+  passwordHash    String     @map("password_hash") @db.VarChar(255)
+  phone           String?    @db.VarChar(32)
+  phoneNormalized String?    @unique(map: "users_phone_normalized_key") @map("phone_normalized") @db.VarChar(32)
+  status          UserStatus @default(PENDING)
+
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+  phoneVerifiedAt DateTime? @map("phone_verified_at") @db.Timestamptz(3)
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(3)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  roles                   UserRole[]
+  customerProfile         CustomerProfile?
+  professionalProfile     ProfessionalProfile?
+  sessions                AuthSession[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  legalAcceptances        LegalAcceptance[]
+
+  @@index([status, createdAt], map: "users_status_created_at_idx")
+  @@index([createdAt], map: "users_created_at_idx")
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role], map: "user_roles_user_id_role_key")
+  @@index([role], map: "user_roles_role_idx")
+  @@map("user_roles")
+}
+
+model CustomerProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique(map: "customer_profiles_user_id_key") @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+model ProfessionalProfile {
+  id                     String                         @id @default(uuid()) @db.Uuid
+  userId                 String                         @unique(map: "professional_profiles_user_id_key") @map("user_id") @db.Uuid
+  displayName            String                         @map("display_name") @db.VarChar(120)
+  bio                    String?                        @db.VarChar(1000)
+  verificationStatus     ProfessionalVerificationStatus @default(NOT_STARTED) @map("verification_status")
+  averageRating          Decimal                        @default(0) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount            Int                            @default(0) @map("review_count")
+  servicesCompletedCount Int                            @default(0) @map("services_completed_count")
+  isAvailable            Boolean                        @default(true) @map("is_available")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
+  @@index([isAvailable], map: "professional_profiles_is_available_idx")
+  @@index([averageRating], map: "professional_profiles_average_rating_idx")
+  @@map("professional_profiles")
+}
+
+model LegalAcceptance {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  documentType    LegalDocumentType @map("document_type")
+  documentVersion String            @map("document_version") @db.VarChar(32)
+  acceptedAt      DateTime          @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  ipAddress       String?           @map("ip_address") @db.VarChar(45)
+  userAgent       String?           @map("user_agent") @db.VarChar(512)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, documentType, documentVersion], map: "legal_acceptances_user_document_version_key")
+  @@index([userId, acceptedAt], map: "legal_acceptances_user_accepted_at_idx")
+  @@map("legal_acceptances")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique(map: "auth_sessions_refresh_token_hash_key") @map("refresh_token_hash") @db.VarChar(255)
+  userAgent        String?   @map("user_agent") @db.VarChar(512)
+  ipAddress        String?   @map("ip_address") @db.VarChar(45)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt], map: "auth_sessions_user_expires_at_idx")
+  @@index([expiresAt], map: "auth_sessions_expires_at_idx")
+  @@index([revokedAt], map: "auth_sessions_revoked_at_idx")
+  @@map("auth_sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique(map: "password_reset_tokens_token_hash_key") @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "password_reset_tokens_user_created_at_idx")
+  @@index([expiresAt], map: "password_reset_tokens_expires_at_idx")
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique(map: "email_verification_tokens_token_hash_key") @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "email_verification_tokens_user_created_at_idx")
+  @@index([expiresAt], map: "email_verification_tokens_expires_at_idx")
+  @@map("email_verification_tokens")
+}
