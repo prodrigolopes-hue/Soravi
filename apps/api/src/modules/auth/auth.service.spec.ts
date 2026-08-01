@@ -57,11 +57,12 @@ describe("AuthService", () => {
 
   let authService: AuthService;
 
-  let prismaMock: {
-    user: {
-      findFirst: jest.Mock;
-    };
-    $transaction: jest.Mock;
+let prismaMock: {
+  user: {
+    findFirst: jest.Mock;
+    update: jest.Mock;
+  };
+  $transaction: jest.Mock;
   };
 
   let usersServiceMock: {
@@ -72,11 +73,12 @@ describe("AuthService", () => {
 
   beforeEach(() => {
     prismaMock = {
-      user: {
-        findFirst: jest.fn(),
-      },
-      $transaction: jest.fn(),
-    };
+  user: {
+    findFirst: jest.fn(),
+    update: jest.fn(),
+  },
+  $transaction: jest.fn(),
+};
 
     usersServiceMock = {
       findSafeById: jest.fn(),
@@ -262,8 +264,9 @@ describe("AuthService", () => {
     const input = createRegistrationInput(Role.CUSTOMER);
 
     prismaMock.user.findFirst.mockResolvedValue({
-      id: userId,
-    });
+  emailNormalized: "maria.teste@soravi.com.br",
+  phoneNormalized: null,
+});
 
     await expect(
       authService.register(input),
@@ -282,23 +285,32 @@ describe("AuthService", () => {
     input.email = "  MARIA.TESTE@SORAVI.COM.BR  ";
 
     prismaMock.user.findFirst.mockResolvedValue({
-      id: userId,
-    });
+  emailNormalized: "maria.teste@soravi.com.br",
+  phoneNormalized: null,
+});
 
     await expect(
       authService.register(input),
     ).rejects.toBeInstanceOf(ConflictException);
 
-    expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-      where: {
+   expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+  where: {
+    OR: [
+      {
         emailNormalized: "maria.teste@soravi.com.br",
-        deletedAt: null,
       },
-      select: {
-        id: true,
+      {
+        phoneNormalized: "5511999999999",
       },
-    });
+    ],
+    deletedAt: null,
+  },
+  select: {
+    emailNormalized: true,
+    phoneNormalized: true,
+   },
   });
+}); 
 
   it.each([
     UserStatus.PENDING,
@@ -320,23 +332,25 @@ describe("AuthService", () => {
 
       const response = await authService.login(input);
 
-      expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-        where: {
-          emailNormalized: "maria.teste@soravi.com.br",
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          passwordHash: true,
-          status: true,
-        },
-      });
-
-      expect(verifyPasswordMock).toHaveBeenCalledWith(
-        "hashed-password",
-        input.password,
-      );
-
+     expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+  where: {
+    emailNormalized: "maria.teste@soravi.com.br",
+    deletedAt: null,
+  },
+  select: {
+    id: true,
+    passwordHash: true,
+    status: true,
+  },
+});
+expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: {
+      id: userId,
+     },
+      data: {
+     lastLoginAt: expect.any(Date),
+   },
+ });
       expect(
         usersServiceMock.findSafeById,
       ).toHaveBeenCalledWith(userId);

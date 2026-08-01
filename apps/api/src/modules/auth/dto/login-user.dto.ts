@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import {
   IsEmail,
   IsNotEmpty,
@@ -6,6 +7,11 @@ import {
 } from "class-validator";
 
 export class LoginUserDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string"
+      ? value.trim().toLowerCase()
+      : value,
+  )
   @IsEmail(
     {},
     {

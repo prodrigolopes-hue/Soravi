@@ -1,6 +1,8 @@
 import {
   Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
 } from "@nestjs/common";
 
@@ -24,6 +26,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @HttpCode(HttpStatus.OK)
   login(
     @Body() input: LoginUserDto,
   ): Promise<LoginResponseDto> {

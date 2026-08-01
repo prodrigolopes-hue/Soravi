@@ -23,9 +23,15 @@ export class RegisterUserDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? value.trim() : value,
   )
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
+  @IsString({
+    message: "O nome deve ser um texto.",
+  })
+  @MinLength(2, {
+    message: "O nome deve possuir pelo menos 2 caracteres.",
+  })
+  @MaxLength(120, {
+    message: "O nome deve possuir no máximo 120 caracteres.",
+  })
   name!: string;
 
   @Transform(({ value }: { value: unknown }) =>
@@ -33,25 +39,38 @@ export class RegisterUserDto {
       ? value.trim().toLowerCase()
       : value,
   )
-  @IsEmail()
-  @MaxLength(254)
+  @IsEmail(
+    {},
+    {
+      message: "Informe um e-mail válido.",
+    },
+  )
+  @MaxLength(254, {
+    message: "O e-mail deve possuir no máximo 254 caracteres.",
+  })
   email!: string;
 
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? value.trim() : value,
   )
   @IsOptional()
-  @IsString()
+  @IsString({
+    message: "O telefone deve ser um texto.",
+  })
   @Matches(/^\+?[0-9()\-\s]{10,24}$/, {
     message: "Informe um telefone válido.",
   })
   phone?: string;
 
-  @IsString()
+  @IsString({
+    message: "A senha deve ser um texto.",
+  })
   @MinLength(12, {
     message: "A senha deve possuir pelo menos 12 caracteres.",
   })
-  @MaxLength(128)
+  @MaxLength(128, {
+    message: "A senha deve possuir no máximo 128 caracteres.",
+  })
   @Matches(/[A-Za-zÀ-ÿ]/, {
     message: "A senha deve possuir pelo menos uma letra.",
   })
@@ -60,7 +79,9 @@ export class RegisterUserDto {
   })
   password!: string;
 
-  @IsEnum(Role)
+  @IsEnum(Role, {
+    message: "O tipo de conta informado é inválido.",
+  })
   initialRole!: InitialRegistrationRole;
 
   @IsString()

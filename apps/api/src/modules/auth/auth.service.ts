@@ -8,13 +8,13 @@ import {
   verify as verifyPassword,
 } from "argon2";
 
+import { PrismaService } from "../../database/prisma.service";
 import {
   LegalDocumentType,
   Prisma,
   Role,
   UserStatus,
 } from "../../generated/prisma/client";
-import { PrismaService } from "../../database/prisma.service";
 import { UsersService } from "../users/users.service";
 import { LoginResponseDto } from "./dto/login-response.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
@@ -23,6 +23,7 @@ import { RegisterUserDto } from "./dto/register-user.dto";
 import { AccountUnavailableException } from "./errors/account-unavailable.exception";
 import { EmailAlreadyInUseException } from "./errors/email-already-in-use.exception";
 import { InvalidCredentialsException } from "./errors/invalid-credentials.exception";
+import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
 
 const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.CUSTOMER,
@@ -51,16 +52,35 @@ export class AuthService {
 
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        emailNormalized: normalizedEmail,
+        OR: [
+          {
+            emailNormalized: normalizedEmail,
+          },
+          ...(normalizedPhone
+            ? [
+                {
+                  phoneNormalized: normalizedPhone,
+                },
+              ]
+            : []),
+        ],
         deletedAt: null,
       },
       select: {
-        id: true,
+        emailNormalized: true,
+        phoneNormalized: true,
       },
     });
 
-    if (existingUser) {
+    if (existingUser?.emailNormalized === normalizedEmail) {
       throw new EmailAlreadyInUseException();
+    }
+
+    if (
+      normalizedPhone &&
+      existingUser?.phoneNormalized === normalizedPhone
+    ) {
+      throw new PhoneAlreadyInUseException();
     }
 
     const passwordHash = await hashPassword(input.password, {
@@ -129,10 +149,7 @@ export class AuthService {
         },
       );
     } catch (error: unknown) {
-      if (this.isUniqueConstraintError(error)) {
-        throw new EmailAlreadyInUseException();
-      }
-
+      this.handleUniqueConstraintError(error);
       throw error;
     }
 
@@ -174,6 +191,15 @@ export class AuthService {
 
     this.ensureLoginAllowed(user.status);
 
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        lastLoginAt: new Date(),
+      },
+    });
+
     const safeUser =
       await this.usersService.findSafeById(user.id);
 
@@ -212,9 +238,44 @@ export class AuthService {
     return digits.length > 0 ? digits : null;
   }
 
+  private handleUniqueConstraintError(
+    error: unknown,
+  ): void {
+    if (!this.isUniqueConstraintError(error)) {
+      return;
+    }
+
+    const target = this.getUniqueConstraintTarget(error);
+
+    if (target.includes("phone_normalized")) {
+      throw new PhoneAlreadyInUseException();
+    }
+
+    throw new EmailAlreadyInUseException();
+  }
+
+  private getUniqueConstraintTarget(
+    error: Prisma.PrismaClientKnownRequestError,
+  ): string[] {
+    const target = error.meta?.target;
+
+    if (Array.isArray(target)) {
+      return target.filter(
+        (value): value is string =>
+          typeof value === "string",
+      );
+    }
+
+    if (typeof target === "string") {
+      return [target];
+    }
+
+    return [];
+  }
+
   private isUniqueConstraintError(
     error: unknown,
-  ): boolean {
+  ): error is Prisma.PrismaClientKnownRequestError {
     return (
       error instanceof
         Prisma.PrismaClientKnownRequestError &&

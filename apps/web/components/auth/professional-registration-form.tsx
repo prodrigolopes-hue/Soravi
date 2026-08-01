@@ -92,7 +92,7 @@ const professionalRegistrationSchema = z
     password: z
       .string()
       .min(1, "Crie uma senha.")
-      .min(8, "A senha deve ter pelo menos 8 caracteres.")
+      .min(12, "A senha deve ter pelo menos 12 caracteres.")
       .regex(/[a-z]/, "A senha deve possuir uma letra minúscula.")
       .regex(/[A-Z]/, "A senha deve possuir uma letra maiúscula.")
       .regex(/\d/, "A senha deve possuir pelo menos um número."),
@@ -501,7 +501,7 @@ export function ProfessionalRegistrationForm() {
         </div>
 
         <p id="password-help" className="mt-2 text-xs leading-5 text-slate-500">
-          Use pelo menos 8 caracteres, com letra maiúscula, minúscula e número.
+          Use pelo menos 12 caracteres, com letra maiúscula, minúscula e número.
         </p>
 
         {errors.password ? (
