@@ -34,3 +34,8 @@
 - Validação de entradas e variáveis de ambiente.
 - CORS restrito e cabeçalhos de segurança.
 - Health Check padronizado.
+- Correção das mensagens de validação da autenticação.
+- Login ajustado para responder com HTTP 200.
+- Registro da data do último login válido.
+- Tratamento separado para e-mail e telefone duplicados.
+- Regra de senha alinhada entre frontend e backend.
