@@ -6,6 +6,7 @@ import {
   IsString,
   Max,
   Min,
+  MinLength,
   validateSync,
 } from "class-validator";
 
@@ -32,6 +33,24 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CORS_ORIGIN = "http://localhost:3000";
+
+  @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  @Max(86400)
+  @IsOptional()
+  JWT_ACCESS_EXPIRES_IN_SECONDS = 900;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  @IsOptional()
+  JWT_REFRESH_EXPIRES_IN_DAYS = 30;
 }
 
 export function validateEnvironment(

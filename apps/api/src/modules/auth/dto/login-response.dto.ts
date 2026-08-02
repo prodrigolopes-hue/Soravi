@@ -1,9 +1,16 @@
 import { UserResponseDto } from "../../users/dto/user-response.dto";
 
-export class LoginResponseDto {
-  readonly data: UserResponseDto;
+interface LoginResponseData {
+  user: UserResponseDto;
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresIn: number;
+}
 
-  constructor(user: UserResponseDto) {
-    this.data = user;
+export class LoginResponseDto {
+  readonly data: LoginResponseData;
+
+  constructor(data: LoginResponseData) {
+    this.data = data;
   }
 }

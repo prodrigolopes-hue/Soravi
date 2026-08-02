@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   BadRequestException,
   Injectable,
@@ -24,6 +26,7 @@ import { AccountUnavailableException } from "./errors/account-unavailable.except
 import { EmailAlreadyInUseException } from "./errors/email-already-in-use.exception";
 import { InvalidCredentialsException } from "./errors/invalid-credentials.exception";
 import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
+import { AuthTokensService } from "./auth-tokens.service";
 
 const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.CUSTOMER,
@@ -37,10 +40,11 @@ const LOGIN_ALLOWED_STATUSES: readonly UserStatus[] = [
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly usersService: UsersService,
-  ) {}
+constructor(
+  private readonly prisma: PrismaService,
+  private readonly usersService: UsersService,
+  private readonly authTokensService: AuthTokensService,
+) {}
 
   async register(
     input: RegisterUserDto,
@@ -160,51 +164,85 @@ export class AuthService {
   }
 
   async login(
-    input: LoginUserDto,
-  ): Promise<LoginResponseDto> {
-    const normalizedEmail = this.normalizeEmail(input.email);
+  input: LoginUserDto,
+): Promise<LoginResponseDto> {
+  const normalizedEmail = this.normalizeEmail(input.email);
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        emailNormalized: normalizedEmail,
-        deletedAt: null,
+  const user = await this.prisma.user.findFirst({
+    where: {
+      emailNormalized: normalizedEmail,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      passwordHash: true,
+      status: true,
+      roles: {
+        select: {
+          role: true,
+        },
       },
-      select: {
-        id: true,
-        passwordHash: true,
-        status: true,
-      },
+    },
+  });
+
+  if (!user) {
+    throw new InvalidCredentialsException();
+  }
+
+  const passwordMatches = await verifyPassword(
+    user.passwordHash,
+    input.password,
+  );
+
+  if (!passwordMatches) {
+    throw new InvalidCredentialsException();
+  }
+
+  this.ensureLoginAllowed(user.status);
+
+  const sessionId = randomUUID();
+
+  const roles = user.roles.map(
+    (userRole) => userRole.role,
+  );
+
+  const tokens =
+    await this.authTokensService.createTokens({
+      userId: user.id,
+      sessionId,
+      roles,
     });
 
-    if (!user) {
-      throw new InvalidCredentialsException();
-    }
-
-    const passwordMatches = await verifyPassword(
-      user.passwordHash,
-      input.password,
-    );
-
-    if (!passwordMatches) {
-      throw new InvalidCredentialsException();
-    }
-
-    this.ensureLoginAllowed(user.status);
-
-    await this.prisma.user.update({
+  await this.prisma.$transaction([
+    this.prisma.authSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        refreshTokenHash: tokens.refreshTokenHash,
+        expiresAt: tokens.refreshTokenExpiresAt,
+      },
+    }),
+    this.prisma.user.update({
       where: {
         id: user.id,
       },
       data: {
         lastLoginAt: new Date(),
       },
-    });
+    }),
+  ]);
 
-    const safeUser =
-      await this.usersService.findSafeById(user.id);
+  const safeUser =
+    await this.usersService.findSafeById(user.id);
 
-    return new LoginResponseDto(safeUser);
-  }
+  return new LoginResponseDto({
+    user: safeUser,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    accessTokenExpiresIn:
+      tokens.accessTokenExpiresIn,
+  });
+}
 
   private ensurePublicRegistrationRole(role: Role): void {
     if (!PUBLIC_REGISTRATION_ROLES.includes(role)) {

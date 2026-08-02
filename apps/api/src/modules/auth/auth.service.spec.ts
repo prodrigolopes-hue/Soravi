@@ -19,6 +19,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { UserResponseDto } from "../users/dto/user-response.dto";
 import { UsersService } from "../users/users.service";
 import { AuthService } from "./auth.service";
+import { AuthTokensService } from "./auth-tokens.service";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
 
@@ -62,12 +63,19 @@ let prismaMock: {
     findFirst: jest.Mock;
     update: jest.Mock;
   };
-  $transaction: jest.Mock;
+  authSession: {
+    create: jest.Mock;
   };
+  $transaction: jest.Mock;
+};
 
   let usersServiceMock: {
     findSafeById: jest.Mock;
   };
+
+  let authTokensServiceMock: {
+  createTokens: jest.Mock;
+};
 
   let transactionClientMock: TransactionClientMock;
 
@@ -77,12 +85,53 @@ let prismaMock: {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
+  authSession: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
+
+prismaMock.user.update.mockResolvedValue({
+  id: userId,
+});
+
+prismaMock.authSession.create.mockResolvedValue({
+  id: "session-id-test",
+});
+
+prismaMock.$transaction.mockImplementation(
+  async (
+    input:
+      | ((
+          transaction: TransactionClientMock,
+        ) => Promise<unknown>)
+      | Promise<unknown>[],
+  ) => {
+    if (typeof input === "function") {
+      return input(transactionClientMock);
+    }
+
+    return Promise.all(input);
+  },
+);
 
     usersServiceMock = {
       findSafeById: jest.fn(),
     };
+
+    authTokensServiceMock = {
+  createTokens: jest.fn(),
+};
+
+authTokensServiceMock.createTokens.mockResolvedValue({
+  accessToken: "access-token-test",
+  refreshToken: "refresh-token-test",
+  refreshTokenHash: "refresh-token-hash-test",
+  accessTokenExpiresIn: 900,
+  refreshTokenExpiresAt: new Date(
+    "2026-08-31T12:00:00.000Z",
+  ),
+});
 
     transactionClientMock = {
       user: {
@@ -96,10 +145,11 @@ let prismaMock: {
       },
     };
 
-    authService = new AuthService(
-      prismaMock as unknown as PrismaService,
-      usersServiceMock as unknown as UsersService,
-    );
+  authService = new AuthService(
+   prismaMock as unknown as PrismaService,
+   usersServiceMock as unknown as UsersService,
+   authTokensServiceMock as unknown as AuthTokensService,
+ );
 
     hashPasswordMock.mockReset();
     hashPasswordMock.mockResolvedValue("hashed-password");
@@ -126,13 +176,6 @@ let prismaMock: {
       userId,
     });
 
-    prismaMock.$transaction.mockImplementation(
-      async (
-        callback: (
-          transaction: TransactionClientMock,
-        ) => Promise<string>,
-      ) => callback(transactionClientMock),
-    );
 
     const safeUser = createCustomerResponse();
 
@@ -320,11 +363,16 @@ let prismaMock: {
     async (status) => {
       const input = createLoginInput();
 
-      prismaMock.user.findFirst.mockResolvedValue({
-        id: userId,
-        passwordHash: "hashed-password",
-        status,
-      });
+    prismaMock.user.findFirst.mockResolvedValue({
+  id: userId,
+  passwordHash: "hashed-password",
+  status,
+  roles: [
+    {
+      role: Role.CUSTOMER,
+    },
+  ],
+});
 
       const safeUser = createCustomerResponse(status);
 
@@ -341,6 +389,11 @@ let prismaMock: {
     id: true,
     passwordHash: true,
     status: true,
+        roles: {
+      select: {
+        role: true,
+      },
+    },
   },
 });
 expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -355,18 +408,25 @@ expect(prismaMock.user.update).toHaveBeenCalledWith({
         usersServiceMock.findSafeById,
       ).toHaveBeenCalledWith(userId);
 
-      expect(response.data).toEqual(safeUser);
-      expect(response.data).not.toHaveProperty("password");
-      expect(response.data).not.toHaveProperty(
-        "passwordHash",
-      );
-      expect(response.data).not.toHaveProperty("sessions");
-      expect(response).not.toHaveProperty("accessToken");
-      expect(response).not.toHaveProperty("refreshToken");
+      expect(response.data.user).toEqual(safeUser);
+
+expect(response.data.user).not.toHaveProperty("password");
+expect(response.data.user).not.toHaveProperty(
+  "passwordHash",
+);
+expect(response.data.user).not.toHaveProperty("sessions");
+
+expect(response.data.accessToken).toBe(
+  "access-token-test",
+);
+expect(response.data.refreshToken).toBe(
+  "refresh-token-test",
+);
+expect(response.data.accessTokenExpiresIn).toBe(900);
     },
   );
 
-  it("deve normalizar o e-mail antes da consulta de login", async () => {
+ it("deve normalizar o e-mail antes da consulta de login", async () => {
   const input: LoginUserDto = {
     ...createLoginInput(),
     email: "  MARIA.TESTE@SORAVI.COM.BR  ",
@@ -387,10 +447,14 @@ expect(prismaMock.user.update).toHaveBeenCalledWith({
       id: true,
       passwordHash: true,
       status: true,
+      roles: {
+        select: {
+          role: true,
+        },
+      },
     },
   });
 });
-
 
   it("deve rejeitar login quando o e-mail não existe", async () => {
     prismaMock.user.findFirst.mockResolvedValue(null);
@@ -407,10 +471,15 @@ expect(prismaMock.user.update).toHaveBeenCalledWith({
 
   it("deve rejeitar login quando a senha está incorreta", async () => {
     prismaMock.user.findFirst.mockResolvedValue({
-      id: userId,
-      passwordHash: "hashed-password",
-      status: UserStatus.ACTIVE,
-    });
+  id: userId,
+  passwordHash: "hashed-password",
+  status: UserStatus.ACTIVE,
+  roles: [
+    {
+      role: Role.CUSTOMER,
+    },
+  ],
+});
 
     verifyPasswordMock.mockResolvedValue(false);
 
@@ -436,10 +505,15 @@ expect(prismaMock.user.update).toHaveBeenCalledWith({
     "deve rejeitar login para usuário com status %s",
     async (status) => {
       prismaMock.user.findFirst.mockResolvedValue({
-        id: userId,
-        passwordHash: "hashed-password",
-        status,
-      });
+  id: userId,
+  passwordHash: "hashed-password",
+  status,
+  roles: [
+    {
+      role: Role.CUSTOMER,
+    },
+  ],
+});
 
       await expect(
         authService.login(createLoginInput()),

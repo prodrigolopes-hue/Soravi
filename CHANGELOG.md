@@ -39,3 +39,7 @@
 - Registro da data do último login válido.
 - Tratamento separado para e-mail e telefone duplicados.
 - Regra de senha alinhada entre frontend e backend.
+- Emissão inicial de access token e refresh token no login.
+- Criação de sessão autenticada no PostgreSQL.
+- Armazenamento protegido do hash do refresh token.
+- Configuração de validade dos tokens por variáveis de ambiente.
