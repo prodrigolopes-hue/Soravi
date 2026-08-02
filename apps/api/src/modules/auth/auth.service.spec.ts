@@ -47,10 +47,12 @@ describe("AuthService", () => {
     "26c03da3-548b-4de6-bf75-783b1fade521";
   const professionalProfileId =
     "46c03da3-548b-4de6-bf75-783b1fade999";
-
+  const sessionId =
+    "725afb87-2b81-4de7-9606-8f382fff3341";
+  const validRefreshToken =
+    "valid-refresh-token-with-more-than-thirty-two-characters";
   const hashPasswordMock =
     hashPassword as jest.MockedFunction<typeof hashPassword>;
-
   const verifyPasswordMock =
     verifyPassword as jest.MockedFunction<
       typeof verifyPassword
@@ -58,80 +60,96 @@ describe("AuthService", () => {
 
   let authService: AuthService;
 
-let prismaMock: {
-  user: {
-    findFirst: jest.Mock;
-    update: jest.Mock;
+  let prismaMock: {
+    user: {
+      findFirst: jest.Mock;
+      update: jest.Mock;
+    };
+    authSession: {
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+    };
+    $transaction: jest.Mock;
   };
-  authSession: {
-    create: jest.Mock;
-  };
-  $transaction: jest.Mock;
-};
 
   let usersServiceMock: {
     findSafeById: jest.Mock;
   };
 
   let authTokensServiceMock: {
-  createTokens: jest.Mock;
-};
+    createTokens: jest.Mock;
+    hashRefreshToken: jest.Mock;
+  };
 
   let transactionClientMock: TransactionClientMock;
 
   beforeEach(() => {
     prismaMock = {
-  user: {
-    findFirst: jest.fn(),
-    update: jest.fn(),
-  },
-  authSession: {
-    create: jest.fn(),
-  },
-  $transaction: jest.fn(),
-};
+      user: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      authSession: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
 
-prismaMock.user.update.mockResolvedValue({
-  id: userId,
-});
+    prismaMock.user.update.mockResolvedValue({
+      id: userId,
+    });
 
-prismaMock.authSession.create.mockResolvedValue({
-  id: "session-id-test",
-});
+    prismaMock.authSession.create.mockResolvedValue({
+      id: "session-id-test",
+    });
 
-prismaMock.$transaction.mockImplementation(
-  async (
-    input:
-      | ((
-          transaction: TransactionClientMock,
-        ) => Promise<unknown>)
-      | Promise<unknown>[],
-  ) => {
-    if (typeof input === "function") {
-      return input(transactionClientMock);
-    }
+    prismaMock.authSession.findUnique.mockResolvedValue(null);
 
-    return Promise.all(input);
-  },
-);
+    prismaMock.authSession.updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    prismaMock.$transaction.mockImplementation(
+      async (
+        input:
+          | ((
+            transaction: TransactionClientMock,
+          ) => Promise<unknown>)
+          | Promise<unknown>[],
+      ) => {
+        if (typeof input === "function") {
+          return input(transactionClientMock);
+        }
+
+        return Promise.all(input);
+      },
+    );
 
     usersServiceMock = {
       findSafeById: jest.fn(),
     };
 
     authTokensServiceMock = {
-  createTokens: jest.fn(),
-};
+      createTokens: jest.fn(),
+      hashRefreshToken: jest.fn(),
+    };
 
-authTokensServiceMock.createTokens.mockResolvedValue({
-  accessToken: "access-token-test",
-  refreshToken: "refresh-token-test",
-  refreshTokenHash: "refresh-token-hash-test",
-  accessTokenExpiresIn: 900,
-  refreshTokenExpiresAt: new Date(
-    "2026-08-31T12:00:00.000Z",
-  ),
-});
+    authTokensServiceMock.hashRefreshToken.mockReturnValue(
+      "current-refresh-token-hash",
+    );
+
+    authTokensServiceMock.createTokens.mockResolvedValue({
+      accessToken: "access-token-test",
+      refreshToken: "refresh-token-test",
+      refreshTokenHash: "refresh-token-hash-test",
+      accessTokenExpiresIn: 900,
+      refreshTokenExpiresAt: new Date(
+        "2026-08-31T12:00:00.000Z",
+      ),
+    });
 
     transactionClientMock = {
       user: {
@@ -145,11 +163,11 @@ authTokensServiceMock.createTokens.mockResolvedValue({
       },
     };
 
-  authService = new AuthService(
-   prismaMock as unknown as PrismaService,
-   usersServiceMock as unknown as UsersService,
-   authTokensServiceMock as unknown as AuthTokensService,
- );
+    authService = new AuthService(
+      prismaMock as unknown as PrismaService,
+      usersServiceMock as unknown as UsersService,
+      authTokensServiceMock as unknown as AuthTokensService,
+    );
 
     hashPasswordMock.mockReset();
     hashPasswordMock.mockResolvedValue("hashed-password");
@@ -307,9 +325,9 @@ authTokensServiceMock.createTokens.mockResolvedValue({
     const input = createRegistrationInput(Role.CUSTOMER);
 
     prismaMock.user.findFirst.mockResolvedValue({
-  emailNormalized: "maria.teste@soravi.com.br",
-  phoneNormalized: null,
-});
+      emailNormalized: "maria.teste@soravi.com.br",
+      phoneNormalized: null,
+    });
 
     await expect(
       authService.register(input),
@@ -328,32 +346,32 @@ authTokensServiceMock.createTokens.mockResolvedValue({
     input.email = "  MARIA.TESTE@SORAVI.COM.BR  ";
 
     prismaMock.user.findFirst.mockResolvedValue({
-  emailNormalized: "maria.teste@soravi.com.br",
-  phoneNormalized: null,
-});
+      emailNormalized: "maria.teste@soravi.com.br",
+      phoneNormalized: null,
+    });
 
     await expect(
       authService.register(input),
     ).rejects.toBeInstanceOf(ConflictException);
 
-   expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-  where: {
-    OR: [
-      {
-        emailNormalized: "maria.teste@soravi.com.br",
+    expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          {
+            emailNormalized: "maria.teste@soravi.com.br",
+          },
+          {
+            phoneNormalized: "5511999999999",
+          },
+        ],
+        deletedAt: null,
       },
-      {
-        phoneNormalized: "5511999999999",
+      select: {
+        emailNormalized: true,
+        phoneNormalized: true,
       },
-    ],
-    deletedAt: null,
-  },
-  select: {
-    emailNormalized: true,
-    phoneNormalized: true,
-   },
+    });
   });
-}); 
 
   it.each([
     UserStatus.PENDING,
@@ -363,16 +381,16 @@ authTokensServiceMock.createTokens.mockResolvedValue({
     async (status) => {
       const input = createLoginInput();
 
-    prismaMock.user.findFirst.mockResolvedValue({
-  id: userId,
-  passwordHash: "hashed-password",
-  status,
-  roles: [
-    {
-      role: Role.CUSTOMER,
-    },
-  ],
-});
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: userId,
+        passwordHash: "hashed-password",
+        status,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      });
 
       const safeUser = createCustomerResponse(status);
 
@@ -380,81 +398,81 @@ authTokensServiceMock.createTokens.mockResolvedValue({
 
       const response = await authService.login(input);
 
-     expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-  where: {
-    emailNormalized: "maria.teste@soravi.com.br",
-    deletedAt: null,
-  },
-  select: {
-    id: true,
-    passwordHash: true,
-    status: true,
-        roles: {
-      select: {
-        role: true,
-      },
-    },
-  },
-});
-expect(prismaMock.user.update).toHaveBeenCalledWith({
-      where: {
-      id: userId,
-     },
-      data: {
-     lastLoginAt: expect.any(Date),
-   },
- });
+      expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          emailNormalized: "maria.teste@soravi.com.br",
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          passwordHash: true,
+          status: true,
+          roles: {
+            select: {
+              role: true,
+            },
+          },
+        },
+      });
+      expect(prismaMock.user.update).toHaveBeenCalledWith({
+        where: {
+          id: userId,
+        },
+        data: {
+          lastLoginAt: expect.any(Date),
+        },
+      });
       expect(
         usersServiceMock.findSafeById,
       ).toHaveBeenCalledWith(userId);
 
       expect(response.data.user).toEqual(safeUser);
 
-expect(response.data.user).not.toHaveProperty("password");
-expect(response.data.user).not.toHaveProperty(
-  "passwordHash",
-);
-expect(response.data.user).not.toHaveProperty("sessions");
+      expect(response.data.user).not.toHaveProperty("password");
+      expect(response.data.user).not.toHaveProperty(
+        "passwordHash",
+      );
+      expect(response.data.user).not.toHaveProperty("sessions");
 
-expect(response.data.accessToken).toBe(
-  "access-token-test",
-);
-expect(response.data.refreshToken).toBe(
-  "refresh-token-test",
-);
-expect(response.data.accessTokenExpiresIn).toBe(900);
+      expect(response.data.accessToken).toBe(
+        "access-token-test",
+      );
+      expect(response.data.refreshToken).toBe(
+        "refresh-token-test",
+      );
+      expect(response.data.accessTokenExpiresIn).toBe(900);
     },
   );
 
- it("deve normalizar o e-mail antes da consulta de login", async () => {
-  const input: LoginUserDto = {
-    ...createLoginInput(),
-    email: "  MARIA.TESTE@SORAVI.COM.BR  ",
-  };
+  it("deve normalizar o e-mail antes da consulta de login", async () => {
+    const input: LoginUserDto = {
+      ...createLoginInput(),
+      email: "  MARIA.TESTE@SORAVI.COM.BR  ",
+    };
 
-  prismaMock.user.findFirst.mockResolvedValue(null);
+    prismaMock.user.findFirst.mockResolvedValue(null);
 
-  await expect(
-    authService.login(input),
-  ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      authService.login(input),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
 
-  expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
-    where: {
-      emailNormalized: "maria.teste@soravi.com.br",
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-      passwordHash: true,
-      status: true,
-      roles: {
-        select: {
-          role: true,
+    expect(prismaMock.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        emailNormalized: "maria.teste@soravi.com.br",
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+        roles: {
+          select: {
+            role: true,
+          },
         },
       },
-    },
+    });
   });
-});
 
   it("deve rejeitar login quando o e-mail não existe", async () => {
     prismaMock.user.findFirst.mockResolvedValue(null);
@@ -471,15 +489,15 @@ expect(response.data.accessTokenExpiresIn).toBe(900);
 
   it("deve rejeitar login quando a senha está incorreta", async () => {
     prismaMock.user.findFirst.mockResolvedValue({
-  id: userId,
-  passwordHash: "hashed-password",
-  status: UserStatus.ACTIVE,
-  roles: [
-    {
-      role: Role.CUSTOMER,
-    },
-  ],
-});
+      id: userId,
+      passwordHash: "hashed-password",
+      status: UserStatus.ACTIVE,
+      roles: [
+        {
+          role: Role.CUSTOMER,
+        },
+      ],
+    });
 
     verifyPasswordMock.mockResolvedValue(false);
 
@@ -505,15 +523,15 @@ expect(response.data.accessTokenExpiresIn).toBe(900);
     "deve rejeitar login para usuário com status %s",
     async (status) => {
       prismaMock.user.findFirst.mockResolvedValue({
-  id: userId,
-  passwordHash: "hashed-password",
-  status,
-  roles: [
-    {
-      role: Role.CUSTOMER,
-    },
-  ],
-});
+        id: userId,
+        passwordHash: "hashed-password",
+        status,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      });
 
       await expect(
         authService.login(createLoginInput()),
@@ -529,7 +547,244 @@ expect(response.data.accessTokenExpiresIn).toBe(900);
       ).not.toHaveBeenCalled();
     },
   );
+  it("deve renovar os tokens e rotacionar a sessão", async () => {
+    const expiresAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    );
 
+    prismaMock.authSession.findUnique.mockResolvedValue({
+      id: sessionId,
+      userId,
+      expiresAt,
+      revokedAt: null,
+      user: {
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      },
+    });
+
+    const response = await authService.refresh({
+      refreshToken: validRefreshToken,
+    });
+
+    expect(
+      authTokensServiceMock.hashRefreshToken,
+    ).toHaveBeenCalledWith(validRefreshToken);
+
+    expect(
+      prismaMock.authSession.findUnique,
+    ).toHaveBeenCalledWith({
+      where: {
+        refreshTokenHash:
+          "current-refresh-token-hash",
+      },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        user: {
+          select: {
+            status: true,
+            deletedAt: true,
+            roles: {
+              select: {
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(
+      authTokensServiceMock.createTokens,
+    ).toHaveBeenCalledWith({
+      userId,
+      sessionId,
+      roles: [Role.CUSTOMER],
+    });
+
+    expect(
+      prismaMock.authSession.updateMany,
+    ).toHaveBeenCalledWith({
+      where: {
+        id: sessionId,
+        refreshTokenHash:
+          "current-refresh-token-hash",
+        revokedAt: null,
+        expiresAt: {
+          gt: expect.any(Date),
+        },
+      },
+      data: {
+        refreshTokenHash:
+          "refresh-token-hash-test",
+        expiresAt: new Date(
+          "2026-08-31T12:00:00.000Z",
+        ),
+        lastUsedAt: expect.any(Date),
+      },
+    });
+
+    expect(response.data).toEqual({
+      accessToken: "access-token-test",
+      refreshToken: "refresh-token-test",
+      accessTokenExpiresIn: 900,
+    });
+  });
+
+  it("deve rejeitar refresh token inexistente", async () => {
+    prismaMock.authSession.findUnique.mockResolvedValue(
+      null,
+    );
+
+    await expect(
+      authService.refresh({
+        refreshToken: validRefreshToken,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(
+      authTokensServiceMock.createTokens,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      prismaMock.authSession.updateMany,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar sessão revogada", async () => {
+    prismaMock.authSession.findUnique.mockResolvedValue({
+      id: sessionId,
+      userId,
+      expiresAt: new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      ),
+      revokedAt: new Date(),
+      user: {
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      },
+    });
+
+    await expect(
+      authService.refresh({
+        refreshToken: validRefreshToken,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(
+      authTokensServiceMock.createTokens,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar sessão expirada", async () => {
+    prismaMock.authSession.findUnique.mockResolvedValue({
+      id: sessionId,
+      userId,
+      expiresAt: new Date(
+        Date.now() - 24 * 60 * 60 * 1000,
+      ),
+      revokedAt: null,
+      user: {
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      },
+    });
+
+    await expect(
+      authService.refresh({
+        refreshToken: validRefreshToken,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(
+      authTokensServiceMock.createTokens,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar reutilização do refresh token", async () => {
+    prismaMock.authSession.findUnique.mockResolvedValue({
+      id: sessionId,
+      userId,
+      expiresAt: new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      ),
+      revokedAt: null,
+      user: {
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        roles: [
+          {
+            role: Role.CUSTOMER,
+          },
+        ],
+      },
+    });
+
+    prismaMock.authSession.updateMany.mockResolvedValue({
+      count: 0,
+    });
+
+    await expect(
+      authService.refresh({
+        refreshToken: validRefreshToken,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("deve revogar a sessão no logout", async () => {
+    await authService.logout({
+      refreshToken: validRefreshToken,
+    });
+
+    expect(
+      authTokensServiceMock.hashRefreshToken,
+    ).toHaveBeenCalledWith(validRefreshToken);
+
+    expect(
+      prismaMock.authSession.updateMany,
+    ).toHaveBeenCalledWith({
+      where: {
+        refreshTokenHash:
+          "current-refresh-token-hash",
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: expect.any(Date),
+        lastUsedAt: expect.any(Date),
+      },
+    });
+  });
+
+  it("deve concluir logout mesmo quando a sessão não existe", async () => {
+    prismaMock.authSession.updateMany.mockResolvedValue({
+      count: 0,
+    });
+
+    await expect(
+      authService.logout({
+        refreshToken: validRefreshToken,
+      }),
+    ).resolves.toBeUndefined();
+  });
+  
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],
   ): RegisterUserDto {

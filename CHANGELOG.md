@@ -43,3 +43,8 @@
 - Criação de sessão autenticada no PostgreSQL.
 - Armazenamento protegido do hash do refresh token.
 - Configuração de validade dos tokens por variáveis de ambiente.
+- Renovação de access token com rotação segura do refresh token.
+- Prevenção de reutilização de refresh tokens antigos.
+- Encerramento de sessão por logout.
+- Revogação de sessões no PostgreSQL.
+- Testes automatizados de refresh e logout.

@@ -26,7 +26,10 @@ import { AccountUnavailableException } from "./errors/account-unavailable.except
 import { EmailAlreadyInUseException } from "./errors/email-already-in-use.exception";
 import { InvalidCredentialsException } from "./errors/invalid-credentials.exception";
 import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
+import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthTokensService } from "./auth-tokens.service";
+import { RefreshResponseDto } from "./dto/refresh-response.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.CUSTOMER,
@@ -40,11 +43,11 @@ const LOGIN_ALLOWED_STATUSES: readonly UserStatus[] = [
 
 @Injectable()
 export class AuthService {
-constructor(
-  private readonly prisma: PrismaService,
-  private readonly usersService: UsersService,
-  private readonly authTokensService: AuthTokensService,
-) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+    private readonly authTokensService: AuthTokensService,
+  ) { }
 
   async register(
     input: RegisterUserDto,
@@ -62,10 +65,10 @@ constructor(
           },
           ...(normalizedPhone
             ? [
-                {
-                  phoneNormalized: normalizedPhone,
-                },
-              ]
+              {
+                phoneNormalized: normalizedPhone,
+              },
+            ]
             : []),
         ],
         deletedAt: null,
@@ -164,85 +167,194 @@ constructor(
   }
 
   async login(
-  input: LoginUserDto,
-): Promise<LoginResponseDto> {
-  const normalizedEmail = this.normalizeEmail(input.email);
+    input: LoginUserDto,
+  ): Promise<LoginResponseDto> {
+    const normalizedEmail = this.normalizeEmail(input.email);
 
-  const user = await this.prisma.user.findFirst({
-    where: {
-      emailNormalized: normalizedEmail,
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-      passwordHash: true,
-      status: true,
-      roles: {
-        select: {
-          role: true,
+    const user = await this.prisma.user.findFirst({
+      where: {
+        emailNormalized: normalizedEmail,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        passwordHash: true,
+        status: true,
+        roles: {
+          select: {
+            role: true,
+          },
         },
       },
-    },
-  });
-
-  if (!user) {
-    throw new InvalidCredentialsException();
-  }
-
-  const passwordMatches = await verifyPassword(
-    user.passwordHash,
-    input.password,
-  );
-
-  if (!passwordMatches) {
-    throw new InvalidCredentialsException();
-  }
-
-  this.ensureLoginAllowed(user.status);
-
-  const sessionId = randomUUID();
-
-  const roles = user.roles.map(
-    (userRole) => userRole.role,
-  );
-
-  const tokens =
-    await this.authTokensService.createTokens({
-      userId: user.id,
-      sessionId,
-      roles,
     });
 
-  await this.prisma.$transaction([
-    this.prisma.authSession.create({
-      data: {
-        id: sessionId,
+    if (!user) {
+      throw new InvalidCredentialsException();
+    }
+
+    const passwordMatches = await verifyPassword(
+      user.passwordHash,
+      input.password,
+    );
+
+    if (!passwordMatches) {
+      throw new InvalidCredentialsException();
+    }
+
+    this.ensureLoginAllowed(user.status);
+
+    const sessionId = randomUUID();
+
+    const roles = user.roles.map(
+      (userRole) => userRole.role,
+    );
+
+    const tokens =
+      await this.authTokensService.createTokens({
         userId: user.id,
-        refreshTokenHash: tokens.refreshTokenHash,
-        expiresAt: tokens.refreshTokenExpiresAt,
-      },
-    }),
-    this.prisma.user.update({
+        sessionId,
+        roles,
+      });
+
+    await this.prisma.$transaction([
+      this.prisma.authSession.create({
+        data: {
+          id: sessionId,
+          userId: user.id,
+          refreshTokenHash: tokens.refreshTokenHash,
+          expiresAt: tokens.refreshTokenExpiresAt,
+        },
+      }),
+      this.prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          lastLoginAt: new Date(),
+        },
+      }),
+    ]);
+
+    const safeUser =
+      await this.usersService.findSafeById(user.id);
+
+    return new LoginResponseDto({
+      user: safeUser,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenExpiresIn:
+        tokens.accessTokenExpiresIn,
+    });
+  }
+
+  async refresh(
+    input: RefreshTokenDto,
+  ): Promise<RefreshResponseDto> {
+    const refreshTokenHash =
+      this.authTokensService.hashRefreshToken(
+        input.refreshToken,
+      );
+
+    const session =
+      await this.prisma.authSession.findUnique({
+        where: {
+          refreshTokenHash,
+        },
+        select: {
+          id: true,
+          userId: true,
+          expiresAt: true,
+          revokedAt: true,
+          user: {
+            select: {
+              status: true,
+              deletedAt: true,
+              roles: {
+                select: {
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+    const now = new Date();
+
+    if (
+      !session ||
+      session.revokedAt !== null ||
+      session.expiresAt <= now ||
+      session.user.deletedAt !== null
+    ) {
+      throw new InvalidRefreshTokenException();
+    }
+
+    this.ensureLoginAllowed(session.user.status);
+
+    const roles = session.user.roles.map(
+      (userRole) => userRole.role,
+    );
+
+    const tokens =
+      await this.authTokensService.createTokens({
+        userId: session.userId,
+        sessionId: session.id,
+        roles,
+      });
+
+    const rotationResult =
+      await this.prisma.authSession.updateMany({
+        where: {
+          id: session.id,
+          refreshTokenHash,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          refreshTokenHash:
+            tokens.refreshTokenHash,
+          expiresAt:
+            tokens.refreshTokenExpiresAt,
+          lastUsedAt: now,
+        },
+      });
+
+    if (rotationResult.count !== 1) {
+      throw new InvalidRefreshTokenException();
+    }
+
+    return new RefreshResponseDto({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenExpiresIn:
+        tokens.accessTokenExpiresIn,
+    });
+  }
+
+  async logout(
+    input: RefreshTokenDto,
+  ): Promise<void> {
+    const refreshTokenHash =
+      this.authTokensService.hashRefreshToken(
+        input.refreshToken,
+      );
+
+    const now = new Date();
+
+    await this.prisma.authSession.updateMany({
       where: {
-        id: user.id,
+        refreshTokenHash,
+        revokedAt: null,
       },
       data: {
-        lastLoginAt: new Date(),
+        revokedAt: now,
+        lastUsedAt: now,
       },
-    }),
-  ]);
-
-  const safeUser =
-    await this.usersService.findSafeById(user.id);
-
-  return new LoginResponseDto({
-    user: safeUser,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    accessTokenExpiresIn:
-      tokens.accessTokenExpiresIn,
-  });
-}
+    });
+  }
 
   private ensurePublicRegistrationRole(role: Role): void {
     if (!PUBLIC_REGISTRATION_ROLES.includes(role)) {
@@ -316,7 +428,7 @@ constructor(
   ): error is Prisma.PrismaClientKnownRequestError {
     return (
       error instanceof
-        Prisma.PrismaClientKnownRequestError &&
+      Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     );
   }
