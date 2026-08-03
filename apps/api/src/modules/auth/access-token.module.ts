@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenGuard } from "./guards/access-token.guard";
+import { RolesGuard } from "./guards/roles.guard";
 
 @Module({
   imports: [
@@ -11,10 +12,14 @@ import { AccessTokenGuard } from "./guards/access-token.guard";
     PrismaModule,
     JwtModule.register({}),
   ],
-  providers: [AccessTokenGuard],
+  providers: [
+    AccessTokenGuard,
+    RolesGuard,
+  ],
   exports: [
     JwtModule,
     AccessTokenGuard,
+    RolesGuard,
   ],
 })
-export class AccessTokenModule {}
+export class AccessTokenModule { }

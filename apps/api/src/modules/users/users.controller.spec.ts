@@ -1,4 +1,4 @@
-import { Role, UserStatus } from "../../generated/prisma/client";
+import { Role, UserStatus, } from "../../generated/prisma/client";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UsersController } from "./users.controller";
@@ -69,7 +69,21 @@ describe("UsersController", () => {
 
         expect(response).toEqual(safeUser);
         expect(response).not.toHaveProperty("password");
-        expect(response).not.toHaveProperty("passwordHash");
+        expect(response).not.toHaveProperty(
+            "passwordHash",
+        );
         expect(response).not.toHaveProperty("sessions");
+    });
+
+    it("deve confirmar acesso profissional", () => {
+        const response =
+            controller.validateProfessionalAccess();
+
+        expect(response).toEqual({
+            data: {
+                authorized: true,
+                role: Role.PROFESSIONAL,
+            },
+        });
     });
 });

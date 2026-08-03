@@ -53,3 +53,8 @@
 - Invalidação de access tokens vinculados a sessões revogadas ou expiradas.
 - Criação da rota protegida `GET /api/v1/users/me`.
 - Testes automatizados do guard JWT e do controller de usuários.
+- Autorização de rotas por papéis de usuário.
+- Criação do decorator `@Roles`.
+- Criação do `RolesGuard`.
+- Resposta `INSUFFICIENT_PERMISSIONS` para acessos não autorizados.
+- Validação de acesso profissional com testes automatizados.
