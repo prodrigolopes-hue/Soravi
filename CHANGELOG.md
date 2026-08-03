@@ -48,3 +48,8 @@
 - Encerramento de sessão por logout.
 - Revogação de sessões no PostgreSQL.
 - Testes automatizados de refresh e logout.
+- Validação de access token JWT em rotas protegidas.
+- Verificação da sessão autenticada no PostgreSQL.
+- Invalidação de access tokens vinculados a sessões revogadas ou expiradas.
+- Criação da rota protegida `GET /api/v1/users/me`.
+- Testes automatizados do guard JWT e do controller de usuários.
