@@ -58,3 +58,8 @@
 - Criação do `RolesGuard`.
 - Resposta `INSUFFICIENT_PERMISSIONS` para acessos não autorizados.
 - Validação de acesso profissional com testes automatizados.
+- Criação do modelo de categorias de serviços.
+- Criação do fluxo de solicitações de novas categorias por profissionais.
+- Inclusão dos estados `PENDING`, `APPROVED`, `REJECTED` e `MERGED`.
+- Estrutura para análise administrativa e vinculação a categorias existentes.
+- Regra de que a ausência de categoria não impede o cadastro profissional.

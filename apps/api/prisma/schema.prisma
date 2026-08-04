@@ -36,6 +36,13 @@ enum LegalDocumentType {
   COMMUNICATION_CONSENT
 }
 
+enum CategoryRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MERGED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -54,13 +61,14 @@ model User {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  roles                   UserRole[]
-  customerProfile         CustomerProfile?
-  professionalProfile     ProfessionalProfile?
-  sessions                AuthSession[]
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-  legalAcceptances        LegalAcceptance[]
+  roles                    UserRole[]
+  customerProfile          CustomerProfile?
+  professionalProfile      ProfessionalProfile?
+  sessions                 AuthSession[]
+  passwordResetTokens      PasswordResetToken[]
+  emailVerificationTokens  EmailVerificationToken[]
+  legalAcceptances         LegalAcceptance[]
+  reviewedCategoryRequests CategoryRequest[]        @relation("CategoryRequestReviewer")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -106,7 +114,8 @@ model ProfessionalProfile {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryRequests CategoryRequest[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -178,4 +187,50 @@ model EmailVerificationToken {
   @@index([userId, createdAt], map: "email_verification_tokens_user_created_at_idx")
   @@index([expiresAt], map: "email_verification_tokens_expires_at_idx")
   @@map("email_verification_tokens")
+}
+
+model Category {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String  @db.VarChar(120)
+  slug         String  @unique(map: "categories_slug_key") @db.VarChar(120)
+  description  String? @db.VarChar(500)
+  icon         String? @db.VarChar(64)
+  isActive     Boolean @default(true) @map("is_active")
+  displayOrder Int     @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  requests CategoryRequest[] @relation("CategoryRequestResolution")
+
+  @@index([isActive, displayOrder], map: "categories_active_display_order_idx")
+  @@index([name], map: "categories_name_idx")
+  @@map("categories")
+}
+
+model CategoryRequest {
+  id                      String                @id @default(uuid()) @db.Uuid
+  professionalProfileId   String                @map("professional_profile_id") @db.Uuid
+  suggestedName           String                @map("suggested_name") @db.VarChar(120)
+  suggestedNameNormalized String                @map("suggested_name_normalized") @db.VarChar(120)
+  description             String?               @db.VarChar(1000)
+  status                  CategoryRequestStatus @default(PENDING)
+  reviewNotes             String?               @map("review_notes") @db.VarChar(1000)
+  resolvedCategoryId      String?               @map("resolved_category_id") @db.Uuid
+  reviewedByUserId        String?               @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt              DateTime?             @map("reviewed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  resolvedCategory    Category?           @relation("CategoryRequestResolution", fields: [resolvedCategoryId], references: [id], onDelete: SetNull)
+  reviewedByUser      User?               @relation("CategoryRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt], map: "category_requests_status_created_at_idx")
+  @@index([professionalProfileId, status], map: "category_requests_professional_status_idx")
+  @@index([suggestedNameNormalized, status], map: "category_requests_normalized_name_status_idx")
+  @@index([resolvedCategoryId], map: "category_requests_resolved_category_idx")
+  @@index([reviewedByUserId], map: "category_requests_reviewer_idx")
+  @@map("category_requests")
 }
