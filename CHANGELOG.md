@@ -63,3 +63,34 @@
 - Inclusão dos estados `PENDING`, `APPROVED`, `REJECTED` e `MERGED`.
 - Estrutura para análise administrativa e vinculação a categorias existentes.
 - Regra de que a ausência de categoria não impede o cadastro profissional.
+## Autenticação e autorização
+
+- Cadastro seguro de clientes e profissionais.
+- Login com hash de senha Argon2id.
+- Emissão de access token e refresh token.
+- Criação de sessões autenticadas no PostgreSQL.
+- Rotação segura de refresh tokens.
+- Prevenção de reutilização de refresh tokens antigos.
+- Logout com revogação da sessão.
+- Validação de access token e sessão.
+- Criação da rota protegida `GET /api/v1/users/me`.
+- Autorização por papéis com `@Roles` e `RolesGuard`.
+- Resposta `INSUFFICIENT_PERMISSIONS` para acessos não autorizados.
+
+## Categorias
+
+- Criação do modelo de categorias de serviços.
+- Criação do fluxo de solicitações de novas categorias.
+- Inclusão dos estados `PENDING`, `APPROVED`, `REJECTED` e `MERGED`.
+- Estrutura para revisão por administradores ou moderadores.
+- Possibilidade de vincular solicitações a categorias existentes.
+- Regra de que a ausência de categoria não impede o cadastro profissional.
+
+## Categorias de serviços
+
+- Criação do módulo de categorias.
+- Criação da rota pública `GET /api/v1/categories`.
+- Listagem exclusiva de categorias ativas.
+- Ordenação por ordem de exibição e nome.
+- Retorno de dados públicos por DTO.
+- Testes automatizados do service e controller.

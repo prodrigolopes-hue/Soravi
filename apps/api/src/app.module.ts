@@ -5,6 +5,7 @@ import { validateEnvironment } from "./config/environment.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
+import { CategoriesModule } from "./modules/categories/categories.module";
 import { UsersModule } from "./modules/users/users.module";
 
 @Module({
