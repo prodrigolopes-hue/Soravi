@@ -145,8 +145,8 @@ Cada tarefa somente será considerada concluída quando:
 
 ### Próximos itens
 
-- [ ] Criar módulo de categorias.
-- [ ] Criar listagem pública de categorias ativas.
+- [x] Criar módulo de categorias.
+- [x] Criar listagem pública de categorias ativas.
 - [x] Criar carga inicial de categorias.
 - [ ] Criar solicitação de categoria pelo profissional.
 - [ ] Detectar categorias e solicitações semelhantes.
