@@ -147,7 +147,7 @@ Cada tarefa somente será considerada concluída quando:
 
 - [ ] Criar módulo de categorias.
 - [ ] Criar listagem pública de categorias ativas.
-- [ ] Criar carga inicial de categorias.
+- [x] Criar carga inicial de categorias.
 - [ ] Criar solicitação de categoria pelo profissional.
 - [ ] Detectar categorias e solicitações semelhantes.
 - [ ] Criar painel administrativo de análise.

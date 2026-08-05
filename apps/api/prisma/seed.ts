@@ -125,14 +125,12 @@ main()
         message: error.message,
         code: prismaError.code,
         meta: prismaError.meta,
-        stack: error.stack,
       });
     } else {
-      console.error("Seed failed:", {
-        error,
-      });
+      console.error("Seed failed: Unknown error");
     }
-    process.exit(1);
+
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();
