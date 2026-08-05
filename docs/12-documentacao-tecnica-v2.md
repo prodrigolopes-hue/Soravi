@@ -101,6 +101,24 @@ Fase 4 - Microsserviços (se necessário)
 
 ------------------------------------------------------------------------
 
+## Pré-lançamento
+
+A modelagem da lista de interesse no lançamento foi adicionada ao banco.
+
+Inclui:
+
+- identificação como cliente, profissional ou ambos;
+- origem do interesse;
+- normalização e prevenção de duplicidade de e-mail;
+- telefone opcional;
+- registro do aceite do aviso de privacidade;
+- consentimento opcional de marketing;
+- preparação para confirmação de e-mail e cancelamento de comunicações.
+
+A rota pública e o formulário ainda não foram implementados.
+
+------------------------------------------------------------------------
+
 # Diretriz Final
 
 Toda evolução técnica deve preservar simplicidade, segurança, desempenho

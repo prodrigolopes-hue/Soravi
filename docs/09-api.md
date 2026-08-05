@@ -88,6 +88,18 @@ PUT /api/v1/admin/users/{id}/block
 
 ------------------------------------------------------------------------
 
+## Lista de interesse no lançamento
+
+A API pública para registro de interesse no lançamento será implementada em um incremento posterior.
+
+Rota planejada:
+
+- `POST /api/v1/launch-interests`
+
+O registro não cria uma conta de usuário e não solicita senha, CPF, CNPJ ou documentos.
+
+------------------------------------------------------------------------
+
 # Códigos HTTP
 
 200 OK

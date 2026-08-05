@@ -156,6 +156,19 @@ de produto.
 - o access token deve estar vinculado a uma sessão válida;
 - dados sensíveis, como senha e hashes de tokens, nunca devem ser retornados pela API.
 
+## Pré-cadastro de interesse no lançamento
+
+Regras específicas para o formulário "Acompanhe o lançamento":
+
+- o pré-cadastro não cria uma conta de usuário no sistema;
+- não solicitar senha, CPF, CNPJ ou outros documentos neste fluxo;
+- o telefone é opcional e deve ser normalizado quando fornecido;
+- `marketingConsentAt` é opcional e representa o consentimento para comunicações de marketing;
+- o usuário pode cancelar comunicações a qualquer momento (campo `unsubscribedAt`);
+- o e-mail deve ser normalizado antes de persistir e é único entre registros de interesse;
+- a confirmação por e-mail (`emailConfirmedAt`) será implementada em uma entrega futura;
+- este pré-cadastro faz parte do MVP de pré-lançamento e não gera sessão nem conta de usuário.
+
 ## Autorização por papéis
 
 - rotas protegidas exigem um access token válido;

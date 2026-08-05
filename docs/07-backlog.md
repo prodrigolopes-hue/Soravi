@@ -88,6 +88,7 @@ Sprint 1
 -   Login
 -   Estrutura do banco
 -   Autenticação
+ -   Pré-cadastro: modelagem `LaunchInterest` (Prisma)
 
 ------------------------------------------------------------------------
 
