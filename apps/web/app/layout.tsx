@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { SiteFooter } from "../components/layout/site-footer";
-import { SiteHeader } from "../components/layout/site-header";
+import { PageHeader } from "../components/layout/page-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="pt-BR">
       <body className="min-h-screen bg-white text-slate-950 antialiased">
         <div className="flex min-h-screen flex-col">
-          <SiteHeader />
+          <PageHeader />
 
           <div className="flex-1">{children}</div>
 
