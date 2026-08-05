@@ -1,11 +1,28 @@
 import { PrismaService } from "../../database/prisma.service";
+import {
+  CategoryRequestStatus,
+} from "../../generated/prisma/client";
 import { CategoryRequestsService } from "./category-requests.service";
+import { CreateCategoryRequestDto } from "./dto/create-category-request.dto";
 import { CategoryRequestAlreadyPendingException } from "./errors/category-request-already-pending.exception";
 import { ProfessionalProfileNotFoundException } from "./errors/professional-profile-not-found.exception";
-import { CategoryRequestStatus } from "../../generated/prisma/client";
 
 describe("CategoryRequestsService", () => {
+  const userId =
+    "525afb87-2b81-4de7-9606-8f382fff3341";
+
+  const professionalProfileId =
+    "professional-profile-id";
+
+  const categoryRequestId =
+    "725afb87-2b81-4de7-9606-8f382fff3341";
+
+  const createdAt = new Date(
+    "2026-08-04T18:00:00.000Z",
+  );
+
   let service: CategoryRequestsService;
+
   let prismaMock: {
     professionalProfile: {
       findFirst: jest.Mock;
@@ -30,52 +47,75 @@ describe("CategoryRequestsService", () => {
     service = new CategoryRequestsService(
       prismaMock as unknown as PrismaService,
     );
+
+    prismaMock.professionalProfile.findFirst
+      .mockResolvedValue({
+        id: professionalProfileId,
+      });
+
+    prismaMock.categoryRequest.findFirst
+      .mockResolvedValue(null);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it("deve criar solicitação PENDING usando o perfil profissional do usuário autenticado", async () => {
-    prismaMock.professionalProfile.findFirst.mockResolvedValue({
-      id: "professional-profile-id",
-    });
-    prismaMock.categoryRequest.findFirst.mockResolvedValue(null);
-    prismaMock.categoryRequest.create.mockResolvedValue({
-      id: "request-id",
-      suggestedName: "Eletricista residencial",
-      description: "Descrição opcional",
-      status: CategoryRequestStatus.PENDING,
-      createdAt: new Date("2026-08-04T12:00:00.000Z"),
-    });
+  it("deve criar uma solicitação com status PENDING", async () => {
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Eletricista",
+      description: "Instalações residenciais.",
+    };
 
-    const result = await service.createCategoryRequest(
-      "user-id",
-      {
-        suggestedName: "Eletricista residencial",
-        description: "Descrição opcional",
-      },
-    );
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        description: "Instalações residenciais.",
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
 
-    expect(prismaMock.professionalProfile.findFirst).toHaveBeenCalledWith({
+    const result =
+      await service.createCategoryRequest(
+        userId,
+        input,
+      );
+
+    expect(
+      prismaMock.professionalProfile.findFirst,
+    ).toHaveBeenCalledWith({
       where: {
-        userId: "user-id",
+        userId,
         deletedAt: null,
       },
-    });
-    expect(prismaMock.categoryRequest.findFirst).toHaveBeenCalledWith({
-      where: {
-        professionalProfileId: "professional-profile-id",
-        status: CategoryRequestStatus.PENDING,
-        suggestedNameNormalized: "eletricista residencial",
+      select: {
+        id: true,
       },
     });
-    expect(prismaMock.categoryRequest.create).toHaveBeenCalledWith({
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized: "eletricista",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
       data: {
-        professionalProfileId: "professional-profile-id",
-        suggestedName: "Eletricista residencial",
-        suggestedNameNormalized: "eletricista residencial",
-        description: "Descrição opcional",
+        professionalProfileId,
+        suggestedName: "Eletricista",
+        suggestedNameNormalized: "eletricista",
+        description: "Instalações residenciais.",
+        status: CategoryRequestStatus.PENDING,
       },
       select: {
         id: true,
@@ -85,48 +125,63 @@ describe("CategoryRequestsService", () => {
         createdAt: true,
       },
     });
+
     expect(result).toEqual({
-      id: "request-id",
-      suggestedName: "Eletricista residencial",
-      description: "Descrição opcional",
+      id: categoryRequestId,
+      suggestedName: "Eletricista",
+      description: "Instalações residenciais.",
       status: CategoryRequestStatus.PENDING,
-      createdAt: new Date("2026-08-04T12:00:00.000Z"),
+      createdAt,
     });
   });
 
   it("deve normalizar o nome sugerido e preservar o nome original aparado", async () => {
-    prismaMock.professionalProfile.findFirst.mockResolvedValue({
-      id: "professional-profile-id",
-    });
-    prismaMock.categoryRequest.findFirst.mockResolvedValue(null);
-    prismaMock.categoryRequest.create.mockResolvedValue({
-      id: "request-id",
-      suggestedName: "  Eletricista   Residencial  ",
-      description: null,
-      status: CategoryRequestStatus.PENDING,
-      createdAt: new Date("2026-08-04T12:00:00.000Z"),
-    });
+    const input: CreateCategoryRequestDto = {
+      suggestedName:
+        "  Elétricista   Residêncial  ",
+    };
 
-    const result = await service.createCategoryRequest(
-      "user-id",
-      {
-        suggestedName: "  Elétricista   Residêncial  ",
-      },
-    );
-
-    expect(prismaMock.categoryRequest.findFirst).toHaveBeenCalledWith({
-      where: {
-        professionalProfileId: "professional-profile-id",
-        status: CategoryRequestStatus.PENDING,
-        suggestedNameNormalized: "eletricista residencial",
-      },
-    });
-    expect(prismaMock.categoryRequest.create).toHaveBeenCalledWith({
-      data: {
-        professionalProfileId: "professional-profile-id",
-        suggestedName: "  Elétricista   Residêncial  ",
-        suggestedNameNormalized: "eletricista residencial",
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName:
+          "Elétricista Residêncial",
         description: null,
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
+
+    const result =
+      await service.createCategoryRequest(
+        userId,
+        input,
+      );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized:
+          "eletricista residencial",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        professionalProfileId,
+        suggestedName:
+          "Elétricista Residêncial",
+        suggestedNameNormalized:
+          "eletricista residencial",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
       },
       select: {
         id: true,
@@ -136,37 +191,110 @@ describe("CategoryRequestsService", () => {
         createdAt: true,
       },
     });
+
     expect(result.suggestedName).toBe(
-      "  Elétricista   Residêncial  ",
+      "Elétricista Residêncial",
     );
+  });
+
+  it("deve aparar a descrição informada", async () => {
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Eletricista",
+      description:
+        "  Instalação de painéis solares.  ",
+    };
+
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        description:
+          "Instalação de painéis solares.",
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
+
+    await service.createCategoryRequest(
+      userId,
+      input,
+    );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized: "eletricista",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        professionalProfileId,
+        suggestedName: "Eletricista",
+        suggestedNameNormalized: "eletricista",
+        description:
+          "Instalação de painéis solares.",
+        status: CategoryRequestStatus.PENDING,
+      },
+      select: {
+        id: true,
+        suggestedName: true,
+        description: true,
+        status: true,
+        createdAt: true,
+      },
+    });
   });
 
   it("deve tratar descrição opcional como nula quando ausente", async () => {
-    prismaMock.professionalProfile.findFirst.mockResolvedValue({
-      id: "professional-profile-id",
-    });
-    prismaMock.categoryRequest.findFirst.mockResolvedValue(null);
-    prismaMock.categoryRequest.create.mockResolvedValue({
-      id: "request-id",
+    const input: CreateCategoryRequestDto = {
       suggestedName: "Eletricista",
-      description: null,
-      status: CategoryRequestStatus.PENDING,
-      createdAt: new Date("2026-08-04T12:00:00.000Z"),
+    };
+
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
+
+    const result =
+      await service.createCategoryRequest(
+        userId,
+        input,
+      );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized: "eletricista",
+      },
+      select: {
+        id: true,
+      },
     });
 
-    const result = await service.createCategoryRequest(
-      "user-id",
-      {
-        suggestedName: "Eletricista",
-      },
-    );
-
-    expect(prismaMock.categoryRequest.create).toHaveBeenCalledWith({
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
       data: {
-        professionalProfileId: "professional-profile-id",
+        professionalProfileId,
         suggestedName: "Eletricista",
         suggestedNameNormalized: "eletricista",
         description: null,
+        status: CategoryRequestStatus.PENDING,
       },
       select: {
         id: true,
@@ -176,35 +304,189 @@ describe("CategoryRequestsService", () => {
         createdAt: true,
       },
     });
+
     expect(result.description).toBeNull();
   });
 
-  it("deve rejeitar quando o perfil profissional não existir", async () => {
-    prismaMock.professionalProfile.findFirst.mockResolvedValue(null);
+  it("deve tratar descrição vazia como nula", async () => {
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Eletricista",
+      description: "   ",
+    };
+
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
+
+    await service.createCategoryRequest(
+      userId,
+      input,
+    );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized: "eletricista",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        professionalProfileId,
+        suggestedName: "Eletricista",
+        suggestedNameNormalized: "eletricista",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
+      },
+      select: {
+        id: true,
+        suggestedName: true,
+        description: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  });
+
+  it("deve rejeitar quando o perfil profissional não existe", async () => {
+    prismaMock.professionalProfile.findFirst
+      .mockResolvedValue(null);
+
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Eletricista",
+    };
 
     await expect(
-      service.createCategoryRequest("user-id", {
-        suggestedName: "Eletricista",
-      }),
+      service.createCategoryRequest(
+        userId,
+        input,
+      ),
     ).rejects.toBeInstanceOf(
       ProfessionalProfileNotFoundException,
     );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).not.toHaveBeenCalled();
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).not.toHaveBeenCalled();
   });
 
-  it("deve rejeitar solicitação pendente duplicada apenas para mesmo profissional", async () => {
-    prismaMock.professionalProfile.findFirst.mockResolvedValue({
-      id: "professional-profile-id",
-    });
-    prismaMock.categoryRequest.findFirst.mockResolvedValue({
-      id: "existing-request-id",
-    });
+  it("deve rejeitar solicitação PENDING duplicada do mesmo profissional", async () => {
+    prismaMock.categoryRequest.findFirst
+      .mockResolvedValue({
+        id: categoryRequestId,
+      });
+
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Elétricista",
+    };
 
     await expect(
-      service.createCategoryRequest("user-id", {
-        suggestedName: "Eletricista",
-      }),
+      service.createCategoryRequest(
+        userId,
+        input,
+      ),
     ).rejects.toBeInstanceOf(
       CategoryRequestAlreadyPendingException,
     );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized: "eletricista",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve permitir nova solicitação quando não existe outra PENDING", async () => {
+    const input: CreateCategoryRequestDto = {
+      suggestedName: "Instalador Solar",
+    };
+
+    prismaMock.categoryRequest.findFirst
+      .mockResolvedValue(null);
+
+    prismaMock.categoryRequest.create
+      .mockResolvedValue({
+        id: categoryRequestId,
+        suggestedName: "Instalador Solar",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
+        createdAt,
+      });
+
+    const result =
+      await service.createCategoryRequest(
+        userId,
+        input,
+      );
+
+    expect(
+      prismaMock.categoryRequest.findFirst,
+    ).toHaveBeenCalledWith({
+      where: {
+        professionalProfileId,
+        status: CategoryRequestStatus.PENDING,
+        suggestedNameNormalized:
+          "instalador solar",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        professionalProfileId,
+        suggestedName: "Instalador Solar",
+        suggestedNameNormalized:
+          "instalador solar",
+        description: null,
+        status: CategoryRequestStatus.PENDING,
+      },
+      select: {
+        id: true,
+        suggestedName: true,
+        description: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    expect(result.status).toBe(
+      CategoryRequestStatus.PENDING,
+    );
+
+    expect(
+      prismaMock.categoryRequest.create,
+    ).toHaveBeenCalledTimes(1);
   });
 });
