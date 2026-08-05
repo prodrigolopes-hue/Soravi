@@ -9,6 +9,7 @@
     "prisma:format": "prisma format --config prisma.config.ts",
     "prisma:validate": "prisma validate --config prisma.config.ts",
     "prisma:generate": "prisma generate --config prisma.config.ts",
+    "prisma:seed": "prisma db seed --config prisma.config.ts",
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:status": "prisma migrate status --config prisma.config.ts",
     "prebuild": "npm run prisma:generate",
@@ -16,6 +17,16 @@
     "test": "jest --config jest.config.cjs",
     "test:watch": "jest --config jest.config.cjs --watch",
     "test:cov": "jest --config jest.config.cjs --coverage"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.1.28",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "prisma": "^7.8.0",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.7.0",
+    "tsx": "^5.12.0"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -43,6 +54,7 @@
     "jest": "^30.4.2",
     "prisma": "^7.8.0",
     "ts-jest": "^29.4.12",
+    "tsx": "^4.23.5",
     "typescript": "^5.7.0"
   }
 }

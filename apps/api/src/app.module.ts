@@ -19,7 +19,8 @@ import { UsersModule } from "./modules/users/users.module";
     PrismaModule,
     UsersModule,
     AuthModule,
+    CategoriesModule,
   ],
   controllers: [HealthController],
 })
-export class AppModule {}
+export class AppModule { }
