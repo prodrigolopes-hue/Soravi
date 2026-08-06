@@ -43,6 +43,21 @@ enum CategoryRequestStatus {
   MERGED
 }
 
+enum LaunchInterestType {
+  CUSTOMER
+  PROFESSIONAL
+  BOTH
+}
+
+enum LaunchInterestSource {
+  HOME
+  INSTAGRAM
+  WHATSAPP
+  CAMPAIGN
+  REFERRAL
+  OTHER
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -233,4 +248,34 @@ model CategoryRequest {
   @@index([resolvedCategoryId], map: "category_requests_resolved_category_idx")
   @@index([reviewedByUserId], map: "category_requests_reviewer_idx")
   @@map("category_requests")
+}
+
+model LaunchInterest {
+  id                           String               @id @default(uuid()) @db.Uuid
+  name                         String               @db.VarChar(120)
+  email                        String               @db.VarChar(254)
+  emailNormalized              String               @unique(map: "launch_interests_email_normalized_key") @map("email_normalized") @db.VarChar(254)
+  phone                        String?              @db.VarChar(32)
+  phoneNormalized              String?              @map("phone_normalized") @db.VarChar(32)
+  audienceType                 LaunchInterestType
+  city                         String               @db.VarChar(120)
+  state                        String?              @db.VarChar(2)
+  serviceInterest              String?              @map("service_interest") @db.VarChar(500)
+  professionalCategoryInterest String?              @map("professional_category_interest") @db.VarChar(500)
+  source                       LaunchInterestSource @default(HOME)
+
+  privacyNoticeAcceptedAt DateTime  @map("privacy_notice_accepted_at") @db.Timestamptz(3)
+  marketingConsentAt      DateTime? @map("marketing_consent_at") @db.Timestamptz(3)
+  emailConfirmedAt        DateTime? @map("email_confirmed_at") @db.Timestamptz(3)
+  unsubscribedAt          DateTime? @map("unsubscribed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([audienceType, createdAt], map: "launch_interests_audience_type_created_at_idx")
+  @@index([city, state], map: "launch_interests_city_state_idx")
+  @@index([source, createdAt], map: "launch_interests_source_created_at_idx")
+  @@index([emailConfirmedAt], map: "launch_interests_email_confirmed_at_idx")
+  @@index([unsubscribedAt], map: "launch_interests_unsubscribed_at_idx")
+  @@map("launch_interests")
 }

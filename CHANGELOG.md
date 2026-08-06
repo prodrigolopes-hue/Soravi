@@ -94,3 +94,16 @@
 - Ordenação por ordem de exibição e nome.
 - Retorno de dados públicos por DTO.
 - Testes automatizados do service e controller.
+
+## Carga inicial de categorias
+
+- Criação de seed idempotente para categorias oficiais.
+- Inclusão de oito categorias iniciais de serviços.
+- Atualização de registros existentes por `slug`.
+- Prevenção de categorias duplicadas em execuções repetidas.
+- Validação da carga pela rota pública `GET /api/v1/categories`.
+
+## 0.1.1 — Pré-lançamento (2026-08-05)
+- Modelagem Prisma `LaunchInterest` para pré-cadastro de interesse no lançamento (sem criação de conta).
+- Implementação da API pública `POST /api/v1/launch-interests` para registrar interesse no lançamento com normalização de e-mail, consentimento de privacidade e operação idempotente por e-mail normalizado.
+- Adição de formulário de interesse no lançamento na página inicial com validação, envio seguro e mensagem de sucesso amigável.

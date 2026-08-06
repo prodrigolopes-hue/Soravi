@@ -215,3 +215,23 @@ O primeiro modelo de categorias não possui categorias-pai ou subcategorias.
 - manter a experiência simples no início.
 
 A hierarquia poderá ser adicionada posteriormente se os dados reais demonstrarem necessidade.
+
+## Pré-cadastro de interesse no lançamento
+
+### Decisão (2026-08-05)
+
+O pré-cadastro realizado pelo formulário "Acompanhe o lançamento" será modelado como uma entidade separada (`LaunchInterest`) no banco de dados e não criará uma conta de `User`.
+
+### Motivação
+
+- separar registros de interesse de contas reais evita complexidade de segurança e validação neste fluxo;
+- reduzir atrito no formulário de pré-lançamento (menos campos obrigatórios);
+- permitir comunicações de marketing controladas com consentimento explícito.
+
+### Consequências
+
+- o registro não exige senha, CPF/CNPJ ou documentos;
+- o telefone será opcional;
+- o e-mail será normalizado e único entre registros de interesse;
+- confirmação de e-mail e envio de mensagens serão implementados em entregas futuras;
+- a modelagem será implementada no Prisma como `LaunchInterest` com índices para consultas por audiência, cidade/estado, fonte e status de confirmação/unsubscribe.

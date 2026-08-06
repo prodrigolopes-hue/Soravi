@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from "next";
 import Image from "next/image";
 import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { LaunchInterestForm } from "../components/launch/launch-interest-form";
 
 export const metadata: Metadata = {
   title: "Soravi — Em breve",
@@ -30,7 +31,7 @@ export default function HomePage() {
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <a
-              href="#pilares"
+              href="#acompanhe-lancamento"
               className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               Acompanhe o lançamento
@@ -57,6 +58,12 @@ export default function HomePage() {
               />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="acompanhe-lancamento" className="mt-10 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mx-auto max-w-4xl">
+          <LaunchInterestForm />
         </div>
       </section>
 

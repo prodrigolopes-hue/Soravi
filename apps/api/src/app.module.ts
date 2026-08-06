@@ -8,6 +8,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { CategoryRequestsModule } from "./modules/category-requests/category-requests.module";
 import { UsersModule } from "./modules/users/users.module";
+import { LaunchInterestsModule } from "./modules/launch-interests/launch-interests.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UsersModule } from "./modules/users/users.module";
     AuthModule,
     CategoriesModule,
     CategoryRequestsModule,
+    LaunchInterestsModule,
   ],
   controllers: [HealthController],
 })

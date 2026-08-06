@@ -215,3 +215,18 @@ Regras:
 - `suggestedNameNormalized` auxilia na busca de solicitações semelhantes;
 - solicitações iguais não possuem restrição única, pois a quantidade também representa demanda;
 - solicitações pendentes não aparecem na busca pública.
+
+## Pré-cadastro de interesse (LaunchInterest)
+
+Representa um registro de usuário interessado no lançamento da Soravi, coletado no formulário "Acompanhe o lançamento".
+
+Características e regras:
+
+- não cria conta de `User` nem sessão autenticada;
+- campos principais: `id`, `name`, `email`, `emailNormalized`, `phone`, `phoneNormalized`, `audienceType`, `city`, `state`, `serviceInterest`, `professionalCategoryInterest`, `source`, `privacyNoticeAcceptedAt`, `marketingConsentAt`, `emailConfirmedAt`, `unsubscribedAt`, `createdAt`, `updatedAt`;
+- `emailNormalized` é único entre registros de interesse para evitar duplicidade de envios;
+- `privacyNoticeAcceptedAt` é obrigatório e registra o aceite do aviso de privacidade;
+- `marketingConsentAt` é opcional e registra consentimento de marketing quando presente;
+- o telefone é opcional e deve ser armazenado normalizado quando fornecido;
+- confirmação por e-mail (`emailConfirmedAt`) é prevista para implementação futura;
+- o registro permite que o usuário seja marcado como cancelado via `unsubscribedAt`.

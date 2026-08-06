@@ -101,6 +101,28 @@ Fase 4 - Microsserviços (se necessário)
 
 ------------------------------------------------------------------------
 
+## Pré-lançamento
+
+A modelagem da lista de interesse no lançamento foi adicionada ao banco.
+
+Inclui:
+
+- identificação como cliente, profissional ou ambos;
+- origem do interesse;
+- normalização e prevenção de duplicidade de e-mail;
+- telefone opcional;
+- registro do aceite do aviso de privacidade;
+- consentimento opcional de marketing;
+- preparação para confirmação de e-mail e cancelamento de comunicações.
+
+A rota pública agora foi implementada no backend através de `POST /api/v1/launch-interests`.
+
+O endpoint registra interesse sem criar conta de usuário e sem solicitar senha, CPF, CNPJ ou documentos.
+
+A implementação utiliza validação de entrada, normalização de e-mail e telefone, e operação segura de upsert por `emailNormalized`.
+
+------------------------------------------------------------------------
+
 # Diretriz Final
 
 Toda evolução técnica deve preservar simplicidade, segurança, desempenho
