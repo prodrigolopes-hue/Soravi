@@ -62,8 +62,11 @@
 - Criação do fluxo de solicitações de novas categorias por profissionais.
 - Inclusão dos estados `PENDING`, `APPROVED`, `REJECTED` e `MERGED`.
 - Estrutura para análise administrativa e vinculação a categorias existentes.
-- Regra de que a ausência de categoria não impede o cadastro profissional.
-## Autenticação e autorização
+- Regra de que a ausência de categoria não impede o cadastro profissional.- Suporte à porta dinâmica de hospedagem com prioridade em `PORT`.
+- Escuta explícita em `0.0.0.0` no servidor da API.
+- Novo script `prisma:migrate:deploy` para implantações.
+- Validação obrigatória de `DATABASE_URL` no ambiente.
+- Consolidação do `apps/api/package.json` em um único `devDependencies`.## Autenticação e autorização
 
 - Cadastro seguro de clientes e profissionais.
 - Login com hash de senha Argon2id.

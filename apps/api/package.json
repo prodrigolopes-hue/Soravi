@@ -12,6 +12,7 @@
     "prisma:seed": "prisma db seed --config prisma.config.ts",
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:status": "prisma migrate status --config prisma.config.ts",
+    "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
     "prebuild": "npm run prisma:generate",
     "prisma:studio": "prisma studio --config prisma.config.ts",
     "test": "jest --config jest.config.cjs",
@@ -23,10 +24,13 @@
     "@nestjs/testing": "^11.1.28",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "dotenv": "^17.4.1",
+    "jest": "^30.4.2",
     "prisma": "^7.8.0",
     "ts-jest": "^29.4.12",
-    "typescript": "^5.7.0",
-    "tsx": "^5.12.0"
+    "tsx": "^4.23.5",
+    "typescript": "^5.7.0"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -42,19 +46,5 @@
     "helmet": "^8.3.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
-  },
-  "devDependencies": {
-    "@nestjs/cli": "^11.0.0",
-    "@nestjs/testing": "^11.1.28",
-    "@types/express": "^5.0.6",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22.0.0",
-    "dotenv": "^17.4.1",
-    "install": "^0.13.0",
-    "jest": "^30.4.2",
-    "prisma": "^7.8.0",
-    "ts-jest": "^29.4.12",
-    "tsx": "^4.23.5",
-    "typescript": "^5.7.0"
   }
 }

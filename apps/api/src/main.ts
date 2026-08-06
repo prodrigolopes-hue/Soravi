@@ -5,11 +5,31 @@ import helmet from "helmet";
 
 import { AppModule } from "./app.module";
 
+function parsePort(...values: Array<string | number | undefined>): number {
+  for (const value of values) {
+    if (value === undefined) {
+      continue;
+    }
+
+    const port = typeof value === "number" ? value : Number(value);
+
+    if (Number.isInteger(port) && port >= 1 && port <= 65535) {
+      return port;
+    }
+  }
+
+  return 3001;
+}
+
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  const apiPort = configService.get<number>("API_PORT", 3001);
+  const apiPort = parsePort(
+    configService.get<string | number>("PORT"),
+    configService.get<string | number>("API_PORT"),
+  );
+
   const corsOrigin = configService.get<string>(
     "CORS_ORIGIN",
     "http://localhost:3000",
@@ -39,9 +59,9 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  await app.listen(apiPort);
+  await app.listen(apiPort, "0.0.0.0");
 
-  console.log(`Soravi API disponível em http://localhost:${apiPort}/api/v1`);
+  console.log(`Soravi API iniciada na porta ${apiPort}.`);
 }
 
 void bootstrap();
