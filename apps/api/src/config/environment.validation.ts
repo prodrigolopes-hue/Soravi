@@ -28,6 +28,13 @@ class EnvironmentVariables {
   @Min(1)
   @Max(65535)
   @IsOptional()
+  PORT?: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  @IsOptional()
   API_PORT = 3001;
 
   @IsString()
@@ -51,6 +58,10 @@ class EnvironmentVariables {
   @Max(365)
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN_DAYS = 30;
+
+  @IsString()
+  @MinLength(1)
+  DATABASE_URL!: string;
 }
 
 export function validateEnvironment(
