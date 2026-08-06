@@ -51,6 +51,58 @@ PUT /api/v1/requests/{id} - Atualizar
 
 DELETE /api/v1/requests/{id} - Excluir
 
+POST /api/v1/launch-interests - Registrar interesse no lançamento
+
+------------------------------------------------------------------------
+
+## Lista de interesse no lançamento
+
+Endpoint público para registrar o interesse no lançamento da Soravi.
+
+### Requisição
+
+POST `/api/v1/launch-interests`
+
+```json
+{
+  "name": "Nome da pessoa",
+  "email": "email@exemplo.com",
+  "phone": "+55 11 99999-9999",
+  "audienceType": "CUSTOMER",
+  "city": "São Paulo",
+  "state": "SP",
+  "serviceInterest": "Preciso de serviços residenciais",
+  "professionalCategoryInterest": null,
+  "source": "HOME",
+  "privacyNoticeAccepted": true,
+  "marketingConsent": false
+}
+```
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "data": {
+    "registered": true,
+    "message": "Seu interesse no lançamento da Soravi foi registrado."
+  }
+}
+```
+
+### Regras
+
+- Não cria conta de usuário.
+- Não solicita senha, CPF, CNPJ ou documentos.
+- `privacyNoticeAccepted` deve ser `true`.
+- `email` deve ser normalizado antes de comparar duplicidade.
+- `phone` é opcional.
+- `state`, `serviceInterest`, `professionalCategoryInterest` e `source` são opcionais.
+- A mesma base de e-mail atualiza o registro existente sem expor se o e-mail já existe.
+- O retorno é uniforme para criação e atualização.
+
 ------------------------------------------------------------------------
 
 # Propostas

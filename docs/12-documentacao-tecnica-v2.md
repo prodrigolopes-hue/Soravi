@@ -115,7 +115,11 @@ Inclui:
 - consentimento opcional de marketing;
 - preparação para confirmação de e-mail e cancelamento de comunicações.
 
-A rota pública e o formulário ainda não foram implementados.
+A rota pública agora foi implementada no backend através de `POST /api/v1/launch-interests`.
+
+O endpoint registra interesse sem criar conta de usuário e sem solicitar senha, CPF, CNPJ ou documentos.
+
+A implementação utiliza validação de entrada, normalização de e-mail e telefone, e operação segura de upsert por `emailNormalized`.
 
 ------------------------------------------------------------------------
 

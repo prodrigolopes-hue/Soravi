@@ -88,7 +88,8 @@ Sprint 1
 -   Login
 -   Estrutura do banco
 -   Autenticação
- -   Pré-cadastro: modelagem `LaunchInterest` (Prisma)
+-   Pré-cadastro: modelagem `LaunchInterest` (Prisma)
+-   [x] API pública de registro de interesse no lançamento
 
 ------------------------------------------------------------------------
 

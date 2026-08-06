@@ -105,3 +105,4 @@
 
 ## 0.1.1 — Pré-lançamento (2026-08-05)
 - Modelagem Prisma `LaunchInterest` para pré-cadastro de interesse no lançamento (sem criação de conta).
+- Implementação da API pública `POST /api/v1/launch-interests` para registrar interesse no lançamento com normalização de e-mail, consentimento de privacidade e operação idempotente por e-mail normalizado.
