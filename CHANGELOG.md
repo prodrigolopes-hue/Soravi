@@ -117,3 +117,39 @@
 - Modelagem Prisma `LaunchInterest` para pré-cadastro de interesse no lançamento (sem criação de conta).
 - Implementação da API pública `POST /api/v1/launch-interests` para registrar interesse no lançamento com normalização de e-mail, consentimento de privacidade e operação idempotente por e-mail normalizado.
 - Adição de formulário de interesse no lançamento na página inicial com validação, envio seguro e mensagem de sucesso amigável.
+
+## 2026-08-07
+
+### Produção e infraestrutura
+
+- Publicado o backend NestJS da Soravi no Render.
+- Criado PostgreSQL gerenciado de produção no Render.
+- Configurada a API e o banco na região Virginia (US East).
+- Configuradas variáveis de ambiente de produção para:
+  - `NODE_ENV`;
+  - `DATABASE_URL`;
+  - `CORS_ORIGIN`;
+  - `JWT_ACCESS_SECRET`;
+  - `JWT_ACCESS_EXPIRES_IN_SECONDS`;
+  - `JWT_REFRESH_EXPIRES_IN_DAYS`.
+- Configurado health check da API em `/api/v1/health`.
+- Configurado pre-deploy com `prisma migrate deploy`.
+- Corrigido o script de inicialização da API para usar `dist/src/main.js`.
+- Validado o build da API em ambiente de produção.
+- Aplicadas com sucesso as migrations do PostgreSQL de produção.
+- Conectado o frontend publicado na Vercel à API pública no Render.
+- Validado o envio do formulário “Acompanhe o lançamento” em produção.
+- Confirmada a persistência dos dados na tabela `launch_interests`.
+- Validado o fluxo completo:
+  - Vercel;
+  - API NestJS no Render;
+  - PostgreSQL no Render.
+
+### Analytics e privacidade
+
+- Publicado o banner de consentimento de cookies.
+- Implementado Google Analytics 4 condicionado ao consentimento do usuário.
+- Analytics permanece bloqueado antes da aceitação.
+- Implementada revogação do consentimento com remoção dos cookies `_ga`.
+- Configurada a variável `NEXT_PUBLIC_GOOGLE_ANALYTICS_ID` na Vercel.
+- Validado o carregamento da tag GA4 em produção somente após o aceite.
