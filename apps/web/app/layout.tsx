@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { CookieConsentProvider } from "../components/cookies/cookie-consent";
 import { SiteFooter } from "../components/layout/site-footer";
 import { PageHeader } from "../components/layout/page-header";
 import "./globals.css";
@@ -19,13 +20,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-white text-slate-950 antialiased">
-        <div className="flex min-h-screen flex-col">
-          <PageHeader />
+        <CookieConsentProvider>
+          <div className="flex min-h-screen flex-col">
+            <PageHeader />
 
-          <div className="flex-1">{children}</div>
+            <div className="flex-1">{children}</div>
 
-          <SiteFooter />
-        </div>
+            <SiteFooter />
+          </div>
+        </CookieConsentProvider>
       </body>
     </html>
   );

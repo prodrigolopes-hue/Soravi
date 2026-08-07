@@ -3,6 +3,9 @@
 ## 0.1.2 — Documentação (2026-08-06)
 - Incorporada à documentação oficial a estratégia de crescimento orgânico, SEO programático responsável e Hub de Problemas como evolução futura da Soravi.
 
+## 0.1.3 — Consentimento de cookies (2026-08-06)
+- Implementado o primeiro estágio do banner de consentimento de cookies com persistência segura em localStorage, opções de aceitar ou recusar analytics e reabertura pelo rodapé.
+
 ## 0.1.0 — Commit 001: Fundação
 - Monorepo
 - Web Next.js
