@@ -74,7 +74,27 @@ export default function PrivacyPolicyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="5. Finalidades">
+      <LegalSection title="5. Cookies e consentimento">
+        <p>
+          A Soravi utiliza recursos essenciais para o funcionamento do site, como
+          manter a navegação segura e oferecer a experiência básica da plataforma.
+        </p>
+
+        <p>
+          O uso de analytics e dados de navegação somente ocorrerá quando a
+          preferência do usuário for aceita. Nenhum script de analytics será
+          carregado sem consentimento explícito.
+        </p>
+
+        <p>
+          A preferência de cookies é armazenada localmente no navegador, com
+          versão e data de atualização, para que a Soravi saiba se o usuário
+          aceitou ou recusou analytics. A escolha pode ser alterada a qualquer
+          momento por meio do link “Preferências de cookies” presente no rodapé.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="6. Finalidades">
         <p>Os dados poderão ser utilizados para:</p>
 
         <ul className="list-disc space-y-2 pl-6">

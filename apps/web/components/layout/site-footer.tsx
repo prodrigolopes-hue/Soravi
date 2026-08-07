@@ -1,6 +1,8 @@
 ﻿import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
 
+import { CookieConsentFooterLink } from "../cookies/cookie-consent";
+
 export function SiteFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white">
@@ -20,7 +22,13 @@ export function SiteFooter() {
 
         <div className="flex flex-col gap-4 rounded-3xl bg-slate-50 p-5 text-sm text-slate-600 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 Soravi</p>
-          <p>Privacidade em preparação</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <CookieConsentFooterLink className="font-medium text-sky-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2" />
+            <span className="text-slate-400">•</span>
+            <a href="/politica-de-privacidade" className="font-medium text-sky-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2">
+              Política de privacidade
+            </a>
+          </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-2 font-medium text-green-700">
             <ShieldCheck aria-hidden="true" className="size-4" />
             Segurança em cada conexão
