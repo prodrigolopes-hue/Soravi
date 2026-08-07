@@ -5,6 +5,7 @@
 
 ## 0.1.3 — Consentimento de cookies (2026-08-06)
 - Implementado o primeiro estágio do banner de consentimento de cookies com persistência segura em localStorage, opções de aceitar ou recusar analytics e reabertura pelo rodapé.
+- Integrado o Google Analytics 4 de forma condicionada ao consentimento do usuário, sem carregar scripts antes da aceitação.
 
 ## 0.1.0 — Commit 001: Fundação
 - Monorepo

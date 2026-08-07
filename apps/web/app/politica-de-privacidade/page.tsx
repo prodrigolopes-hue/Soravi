@@ -87,10 +87,11 @@ export default function PrivacyPolicyPage() {
         </p>
 
         <p>
-          A preferência de cookies é armazenada localmente no navegador, com
-          versão e data de atualização, para que a Soravi saiba se o usuário
-          aceitou ou recusou analytics. A escolha pode ser alterada a qualquer
-          momento por meio do link “Preferências de cookies” presente no rodapé.
+          Quando o consentimento for aceito, a Soravi pode utilizar métricas de
+          navegação para entender o uso da plataforma e melhorar a experiência.
+          A preferência é armazenada localmente no navegador, com versão e data
+          de atualização, e pode ser alterada a qualquer momento por meio do link
+          “Preferências de cookies” presente no rodapé.
         </p>
       </LegalSection>
 
