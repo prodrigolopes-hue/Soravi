@@ -37,6 +37,32 @@ Fluxo principal:
 
 ------------------------------------------------------------------------
 
+# Estratégia de Crescimento Orgânico e Descoberta por Problemas
+
+A Soravi não será apenas um diretório de profissionais. A jornada principal será orientada pela pergunta:
+
+“Como podemos ajudar você hoje?”
+
+O usuário poderá iniciar pela categoria, pelo profissional ou pelo problema que precisa resolver. Em uma segunda etapa, a plataforma deverá evoluir para um Hub de Problemas, com páginas de orientação, conteúdo educativo e conexão entre necessidade real, categoria adequada e oportunidade para profissionais.
+
+Essa estratégia será incorporada de forma gradual e não substitui o escopo principal do MVP. O foco inicial continua sendo validar a conexão entre clientes e profissionais com uma experiência simples e confiável.
+
+As fases futuras da estratégia serão:
+
+1. Fundação institucional e técnica: landing page, homepage institucional, metadata base, Open Graph, sitemap, robots, canonical, Search Console, Analytics condicionado ao consentimento e acompanhamento de Core Web Vitals.
+2. Páginas de categorias: exemplos como /eletricista, /encanador, /pintor, /diarista e /jardineiro.
+3. Hub de Problemas: páginas como /problemas/chuveiro-nao-esquenta, /problemas/pia-vazando e /problemas/portao-nao-abre, com explicação simples, sinais comuns, causas, cuidados imediatos, alertas de segurança, o que não fazer, quando chamar um profissional, categoria recomendada, FAQ e CTA para solicitar ajuda.
+4. Categorias por cidade: exemplos como /eletricista/niteroi e /encanador/campinas.
+5. Categorias por bairro: exemplos como /eletricista/niteroi/icarai e /encanador/niteroi/icarai.
+6. Conteúdo educativo: páginas como /blog/quanto-custa-instalar-um-chuveiro e /blog/como-escolher-um-eletricista.
+7. Perfis públicos de profissionais: páginas como /profissionais/carlos-silva-eletricista, com nome, categoria, cidade, descrição, avaliações, fotos, serviços realizados, especialidades, status de aprovação, status de verificação e slug público.
+
+As URLs públicas deverão usar slugs amigáveis, sem expor IDs internos, com unicidade, histórico de slugs, redirecionamento 301, prevenção de colisões, tratamento de palavras reservadas, canonical e normalização sem acentos.
+
+A Soravi não deverá gerar automaticamente todas as combinações de categoria, cidade, bairro e problema. Uma página só poderá ser publicada quando atender critérios mínimos de entidade válida, categoria ativa, conteúdo exclusivo, metadata completa, canonical definido, CTA funcional, ausência de duplicidade relevante, revisão editorial e algum sinal real de oferta, cobertura ou informação local.
+
+------------------------------------------------------------------------
+
 # Proposta de Valor
 
 Para clientes:

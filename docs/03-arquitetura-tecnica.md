@@ -136,3 +136,46 @@ Commits pequenos e objetivos.
 
 Manter um código limpo, modular e preparado para crescimento sem
 antecipar complexidade desnecessária.
+
+------------------------------------------------------------------------
+
+# Crescimento Orgânico e Descoberta por Problemas
+
+A arquitetura futura da Soravi deverá suportar uma jornada de descoberta
+orientada por problema, categoria, localização e conteúdo educativo.
+
+Em fases posteriores, a plataforma deverá prever:
+
+-   SSR, SSG e revalidação conforme o tipo de página;
+-   metadata dinâmica, Open Graph e Twitter Cards;
+-   sitemap automático e, futuramente, dividido por domínio de conteúdo;
+-   robots.txt, canonical, breadcrumbs e dados estruturados;
+-   redirecionamentos 301 e controle de slugs;
+-   páginas de categoria, problema, localidade e profissional com
+    publicação controlada por regras;
+-   suporte a entidades futuras de geografia, conteúdo e SEO;
+-   respostas HTTP corretas para páginas inexistentes ou sem publicação.
+
+A geração futura de páginas não deverá depender de rotas criadas
+manualmente para cada combinação de categoria, cidade, bairro ou problema.
+A publicação deverá ser baseada em entidades e regras de publicação,
+com validação editorial e controle de qualidade.
+
+## SEO técnico e conteúdo futuro
+
+A arquitetura deverá prever:
+
+-   SSR, SSG e revalidação conforme o tipo de página;
+-   metadata dinâmica, Open Graph e Twitter Cards;
+-   sitemap automático e, no futuro, dividido por tipo de conteúdo;
+-   robots.txt, canonical, breadcrumbs e dados estruturados;
+-   redirecionamentos 301 e gestão de slugs;
+-   imagens otimizadas, lazy loading fora da área inicial e atenção a
+    Core Web Vitals;
+-   links internos rastreáveis e respostas HTTP corretas para páginas
+    inexistentes.
+
+Os dados estruturados deverão ser usados apenas quando corresponderem ao
+conteúdo real, como Organization, WebSite, BreadcrumbList, Article,
+Review, Person, ProfilePage, LocalBusiness, ProfessionalService e
+FAQPage quando houver FAQ visível e aplicável.
