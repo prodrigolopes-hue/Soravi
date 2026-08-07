@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.2 — Documentação (2026-08-06)
+- Incorporada à documentação oficial a estratégia de crescimento orgânico, SEO programático responsável e Hub de Problemas como evolução futura da Soravi.
+
 ## 0.1.0 — Commit 001: Fundação
 - Monorepo
 - Web Next.js

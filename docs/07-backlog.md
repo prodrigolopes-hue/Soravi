@@ -93,6 +93,56 @@ Sprint 1
 
 ------------------------------------------------------------------------
 
+# Segmentação de backlog por maturidade
+
+## MVP
+
+Itens de fundação inicial:
+
+-   metadata base;
+-   sitemap;
+-   robots;
+-   home indexável;
+-   slugs preparados;
+-   estrutura inicial de categorias;
+-   possibilidade futura de perfil público;
+-   localização compatível com expansão;
+-   CTA orientado por problema.
+
+## Pós-MVP
+
+-   páginas de categoria;
+-   páginas de problema iniciais;
+-   melhorias de SEO técnico;
+-   dados estruturados básicos.
+
+## Crescimento
+
+-   Hub de Problemas completo;
+-   páginas locais por cidade e bairro;
+-   conteúdo educativo e blog técnico;
+-   perfis públicos indexáveis;
+-   expansão geográfica e editorial.
+
+## Infraestrutura editorial
+
+-   painel editorial;
+-   revisão editorial;
+-   governança de slugs e redirecionamentos;
+-   Search Console e métricas de conteúdo;
+-   automação editorial controlada.
+
+Não incluir no MVP:
+
+-   geração de milhares de páginas;
+-   bairros em escala nacional;
+-   blog completo;
+-   automação editorial;
+-   SEO programático em massa;
+-   painel editorial completo.
+
+------------------------------------------------------------------------
+
 # Critério de Conclusão
 
 Cada tarefa somente será considerada concluída quando:

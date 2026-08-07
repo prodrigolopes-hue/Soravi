@@ -105,6 +105,29 @@ Toda decisão futura deverá respeitar:
 
 ------------------------------------------------------------------------
 
+## Estratégia de crescimento orgânico e Hub de Problemas
+
+### Decisão (2026-08-06)
+
+A Soravi incorporará uma estratégia de crescimento orgânico e descoberta por problemas como parte da evolução do produto, sem substituir o escopo principal do MVP.
+
+### Motivação
+
+-   a jornada principal deve começar pela pergunta “Como podemos ajudar você hoje?”;
+-   o usuário poderá chegar pela categoria, pelo profissional ou pelo problema;
+-   o Hub de Problemas será uma capacidade central futura, integrada à jornada de descoberta e contratação;
+-   o crescimento deverá ocorrer com qualidade editorial, SEO técnico e regras de publicação claras.
+
+### Consequências
+
+-   a plataforma deverá evoluir para páginas de categoria, problema, localização e profissional;
+-   URLs públicas usarão slugs amigáveis e nunca exporão IDs internos;
+-   a publicação futura deverá seguir critérios mínimos de qualidade e não depender de geração manual massiva de páginas;
+-   páginas só serão publicadas quando houver entidade válida, categoria ativa, conteúdo exclusivo, metadata completa, canonical definido, CTA funcional, ausência de duplicidade relevante, revisão editorial e algum sinal real de oferta, cobertura ou informação local;
+-   a estratégia será tratada como uma expansão do produto, e não como uma substituição do MVP.
+
+------------------------------------------------------------------------
+
 # Registro de Mudanças
 
 Toda alteração importante deverá ser adicionada neste documento com:

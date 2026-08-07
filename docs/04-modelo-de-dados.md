@@ -230,3 +230,42 @@ Características e regras:
 - o telefone é opcional e deve ser armazenado normalizado quando fornecido;
 - confirmação por e-mail (`emailConfirmedAt`) é prevista para implementação futura;
 - o registro permite que o usuário seja marcado como cancelado via `unsubscribedAt`.
+
+## Expansão futura para crescimento orgânico e Hub de Problemas
+
+No futuro, o modelo conceitual poderá incorporar entidades adicionais para suportar descoberta por problema, geografia e conteúdo editorial.
+
+### Entidades futuras
+
+- `State`: representa um estado ou unidade federativa;
+- `City`: representa uma cidade vinculada a um estado;
+- `Neighborhood`: representa um bairro ou região local;
+- `Problem`: representa um problema comum que o usuário deseja resolver;
+- `ProblemCategory`: representa a recomendação de categoria para um problema, sem duplicar `Category`;
+- `ContentArticle`: representa conteúdo educativo ou informativo;
+- `ProfessionalPublicProfile`: representa a versão pública e indexável do perfil do profissional;
+- `SlugHistory`: registra histórico de slugs públicos para controle de mudanças;
+- `SeoMetadata`: representa metadados públicos, canonicals e dados estruturados;
+- `Redirect`: representa redirecionamentos 301 para URLs antigas ou alteradas.
+
+### Arquitetura geográfica futura
+
+A estrutura conceitual deverá considerar o relacionamento entre:
+
+- país;
+- estado;
+- cidade;
+- bairro;
+- categoria;
+- profissional;
+- problema;
+- conteúdo.
+
+### Regras conceituais
+
+- URLs públicas nunca devem expor IDs internos;
+- slugs amigáveis devem ser únicos e normalizados sem acentos;
+- o sistema deve prever controle de colisões, palavras reservadas e histórico de slugs;
+- páginas públicas só devem ser publicadas quando houver conteúdo real, categoria ativa, metadata completa, canonical definido, CTA funcional, ausência de duplicidade relevante e revisão editorial;
+- se os critérios mínimos não forem atendidos, a página pode ser mantida sem indexação, retornar 404 quando aplicável ou permanecer sem publicação;
+- o Hub de Problemas será uma capacidade central futura da Soravi, não uma simples coleção de páginas isoladas.

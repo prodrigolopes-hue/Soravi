@@ -17,6 +17,32 @@ Meta: validar o modelo de negócio.
 
 ------------------------------------------------------------------------
 
+# Épico --- Crescimento orgânico e descoberta por problemas
+
+Objetivo: ampliar a descoberta da Soravi por meio de conteúdo, páginas
+relevantes e jornadas orientadas por problema.
+
+Subitens:
+
+-   SEO técnico base;
+-   arquitetura de slugs;
+-   taxonomia geográfica;
+-   páginas de categoria;
+-   Hub de Problemas;
+-   páginas locais;
+-   blog técnico;
+-   perfis públicos indexáveis;
+-   sitemap escalável;
+-   dados estruturados;
+-   redirecionamentos;
+-   painel editorial;
+-   Search Console e métricas.
+
+Essa iniciativa complementa o MVP e deverá ser executada com critérios
+editoriais e de qualidade.
+
+------------------------------------------------------------------------
+
 # Fase 2 --- Crescimento
 
 Adicionar: - Busca avançada - Favoritos - Notificações em tempo real -
