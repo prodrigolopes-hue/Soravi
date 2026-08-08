@@ -6,6 +6,8 @@ import {
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateLaunchInterestDto } from "./dto/create-launch-interest.dto";
+import { LaunchInterestAdminListResponseDto, LaunchInterestAdminRecord } from "./dto/launch-interest-admin-response.dto";
+import { LaunchInterestAdminQueryDto } from "./dto/launch-interest-admin-query.dto";
 import { LaunchInterestRegistrationResponseDto } from "./dto/launch-interest-response.dto";
 
 @Injectable()
@@ -91,6 +93,49 @@ export class LaunchInterestsService {
         });
 
         return new LaunchInterestRegistrationResponseDto();
+    }
+
+    async findAllAdmin(
+        query: LaunchInterestAdminQueryDto,
+    ): Promise<LaunchInterestAdminListResponseDto> {
+        const page = query.page ?? 1;
+        const pageSize = query.pageSize ?? 20;
+
+        const [total, items] = await this.prisma.$transaction([
+            this.prisma.launchInterest.count(),
+            this.prisma.launchInterest.findMany({
+                orderBy: {
+                    createdAt: "desc",
+                },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    audienceType: true,
+                    city: true,
+                    state: true,
+                    serviceInterest: true,
+                    professionalCategoryInterest: true,
+                    source: true,
+                    privacyNoticeAcceptedAt: true,
+                    marketingConsentAt: true,
+                    emailConfirmedAt: true,
+                    unsubscribedAt: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            }),
+        ]);
+
+        return new LaunchInterestAdminListResponseDto(
+            items as LaunchInterestAdminRecord[],
+            page,
+            pageSize,
+            total,
+        );
     }
 
     private normalizeEmail(

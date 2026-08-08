@@ -125,6 +125,12 @@
 - Alinhamento das regras de senha com o backend: mínimo de 12 caracteres, máximo de 128, ao menos uma letra e um número.
 - Introdução do versionamento inicial de Termos de Uso e Política de Privacidade com versão `1.0` para o formulário.
 
+### Administração
+- Criação da primeira etapa administrativa do painel de pré-cadastros com `GET /api/v1/launch-interests`.
+- Proteção por `AccessTokenGuard` e `RolesGuard`, com `@Roles(Role.ADMIN)`.
+- Consulta paginada com `page`, `pageSize`, total e `createdAt` em ordem decrescente.
+- Exclusão de colunas sensíveis (`emailNormalized` e `phoneNormalized`) da resposta de consulta.
+
 ## 2026-08-07
 
 ### Produção e infraestrutura
