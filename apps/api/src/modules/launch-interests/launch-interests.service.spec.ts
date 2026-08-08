@@ -1,17 +1,25 @@
+import "reflect-metadata";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
+
 import {
     LaunchInterestSource,
     LaunchInterestType,
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateLaunchInterestDto } from "./dto/create-launch-interest.dto";
+import { LaunchInterestAdminQueryDto } from "./dto/launch-interest-admin-query.dto";
 import { LaunchInterestsService } from "./launch-interests.service";
 
 describe("LaunchInterestsService", () => {
     let service: LaunchInterestsService;
 
     let prismaMock: {
+        $transaction: jest.Mock;
         launchInterest: {
             upsert: jest.Mock;
+            count: jest.Mock;
+            findMany: jest.Mock;
         };
     };
 
@@ -32,14 +40,23 @@ describe("LaunchInterestsService", () => {
 
     beforeEach(() => {
         prismaMock = {
+            $transaction: jest.fn(),
             launchInterest: {
                 upsert: jest.fn(),
+                count: jest.fn(),
+                findMany: jest.fn(),
             },
         };
 
         prismaMock.launchInterest.upsert.mockResolvedValue(
             {},
         );
+        prismaMock.launchInterest.count.mockResolvedValue(0);
+        prismaMock.launchInterest.findMany.mockResolvedValue([]);
+        prismaMock.$transaction.mockResolvedValue([
+            0,
+            [],
+        ]);
 
         service = new LaunchInterestsService(
             prismaMock as unknown as PrismaService,
@@ -303,6 +320,185 @@ describe("LaunchInterestsService", () => {
         expect(call.update).not.toHaveProperty(
             "emailConfirmedAt",
         );
+    });
+
+    it("rejeita pageSize maior que 100", async () => {
+        const instance = plainToInstance(
+            LaunchInterestAdminQueryDto,
+            {
+                page: 1,
+                pageSize: 101,
+            },
+        );
+
+        const errors = await validate(instance);
+
+        expect(errors.length).toBeGreaterThan(0);
+        expect(errors[0].constraints).toEqual(
+            expect.objectContaining({
+                max: "O parâmetro pageSize deve ser no máximo 100.",
+            }),
+        );
+    });
+
+    it("lista registros administrativos com paginação padrão e ordenação descendente", async () => {
+        const total = 60;
+        const items = [
+            {
+                id: "11111111-1111-1111-1111-111111111111",
+                name: "Interesse A",
+                email: "a@exemplo.com",
+                phone: null,
+                audienceType: LaunchInterestType.CUSTOMER,
+                city: "São Paulo",
+                state: "SP",
+                serviceInterest: "Serviço",
+                professionalCategoryInterest: null,
+                source: LaunchInterestSource.HOME,
+                privacyNoticeAcceptedAt: new Date("2026-01-01T00:00:00.000Z"),
+                marketingConsentAt: null,
+                emailConfirmedAt: null,
+                unsubscribedAt: null,
+                createdAt: new Date("2026-01-01T00:00:00.000Z"),
+                updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+            },
+        ];
+
+        prismaMock.$transaction.mockResolvedValue([
+            total,
+            items,
+        ]);
+
+        const response = await service.findAllAdmin(
+            new LaunchInterestAdminQueryDto(),
+        );
+
+        expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+        expect(prismaMock.launchInterest.count).toHaveBeenCalledTimes(1);
+        expect(prismaMock.launchInterest.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                orderBy: {
+                    createdAt: "desc",
+                },
+                skip: 0,
+                take: 20,
+                select: expect.objectContaining({
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    audienceType: true,
+                    city: true,
+                    state: true,
+                    serviceInterest: true,
+                    professionalCategoryInterest: true,
+                    source: true,
+                    privacyNoticeAcceptedAt: true,
+                    marketingConsentAt: true,
+                    emailConfirmedAt: true,
+                    unsubscribedAt: true,
+                    createdAt: true,
+                    updatedAt: true,
+                }),
+            }),
+        );
+
+        expect(response.pagination).toEqual({
+            page: 1,
+            pageSize: 20,
+            total: 60,
+            totalPages: 3,
+        });
+        expect(response.items).toHaveLength(1);
+    });
+
+    it("lista registros administrativos com paginação customizada", async () => {
+        const total = 2;
+        const items = [
+            {
+                id: "11111111-1111-1111-1111-111111111111",
+                name: "Interesse A",
+                email: "a@exemplo.com",
+                phone: null,
+                audienceType: LaunchInterestType.CUSTOMER,
+                city: "São Paulo",
+                state: "SP",
+                serviceInterest: "Serviço",
+                professionalCategoryInterest: null,
+                source: LaunchInterestSource.HOME,
+                privacyNoticeAcceptedAt: new Date("2026-01-01T00:00:00.000Z"),
+                marketingConsentAt: null,
+                emailConfirmedAt: null,
+                unsubscribedAt: null,
+                createdAt: new Date("2026-01-01T00:00:00.000Z"),
+                updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+            },
+        ];
+
+        prismaMock.$transaction.mockResolvedValue([
+            total,
+            items,
+        ]);
+
+        const response = await service.findAllAdmin({
+            page: 2,
+            pageSize: 5,
+        } as LaunchInterestAdminQueryDto);
+
+        expect(prismaMock.launchInterest.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({
+                skip: 5,
+                take: 5,
+            }),
+        );
+
+        expect(response.pagination).toEqual({
+            page: 2,
+            pageSize: 5,
+            total: 2,
+            totalPages: 1,
+        });
+    });
+
+    it("não retorna dados ocultos do modelo em listagem administrativa", async () => {
+        const items = [
+            {
+                id: "11111111-1111-1111-1111-111111111111",
+                name: "Interesse A",
+                email: "a@exemplo.com",
+                phone: null,
+                audienceType: LaunchInterestType.CUSTOMER,
+                city: "São Paulo",
+                state: "SP",
+                serviceInterest: "Serviço",
+                professionalCategoryInterest: null,
+                source: LaunchInterestSource.HOME,
+                privacyNoticeAcceptedAt: new Date("2026-01-01T00:00:00.000Z"),
+                marketingConsentAt: null,
+                emailConfirmedAt: null,
+                unsubscribedAt: null,
+                createdAt: new Date("2026-01-01T00:00:00.000Z"),
+                updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+            },
+        ];
+
+        prismaMock.$transaction.mockResolvedValue([
+            1,
+            items,
+        ]);
+
+        const response = await service.findAllAdmin(
+            new LaunchInterestAdminQueryDto(),
+        );
+
+        expect(response.items[0]).not.toHaveProperty("emailNormalized");
+        expect(response.items[0]).not.toHaveProperty("phoneNormalized");
+        expect(response.items[0]).toEqual(expect.objectContaining({
+            id: "11111111-1111-1111-1111-111111111111",
+            name: "Interesse A",
+            email: "a@exemplo.com",
+            phone: null,
+        }));
     });
 
     it("não retorna dados pessoais", async () => {
