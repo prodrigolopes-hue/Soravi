@@ -437,8 +437,8 @@ describe("AuthService", () => {
       expect(response.data.accessToken).toBe(
         "access-token-test",
       );
-      expect(response.data.refreshToken).toBe(
-        "refresh-token-test",
+      expect(response.data).not.toHaveProperty(
+        "refreshToken",
       );
       expect(response.data.accessTokenExpiresIn).toBe(900);
     },
@@ -634,7 +634,6 @@ describe("AuthService", () => {
 
     expect(response.data).toEqual({
       accessToken: "access-token-test",
-      refreshToken: "refresh-token-test",
       accessTokenExpiresIn: 900,
     });
   });

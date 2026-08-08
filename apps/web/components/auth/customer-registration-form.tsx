@@ -14,6 +14,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { apiBaseUrl } from "../../lib/api";
+import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
+
 const phonePattern = /^\d{10,11}$/;
 
 const customerRegistrationSchema = z
@@ -40,9 +43,9 @@ const customerRegistrationSchema = z
     password: z
       .string()
       .min(1, "Crie uma senha.")
-      .min(8, "A senha deve ter pelo menos 8 caracteres.")
-      .regex(/[a-z]/, "A senha deve possuir uma letra minúscula.")
-      .regex(/[A-Z]/, "A senha deve possuir uma letra maiúscula.")
+      .min(12, "A senha deve ter pelo menos 12 caracteres.")
+      .max(128, "A senha deve ter no máximo 128 caracteres.")
+      .regex(/[A-Za-zÀ-ÿ]/, "A senha deve possuir pelo menos uma letra.")
       .regex(/\d/, "A senha deve possuir pelo menos um número."),
     passwordConfirmation: z
       .string()
@@ -82,16 +85,22 @@ function formatPhone(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+type SubmissionState = "idle" | "submitting" | "success" | "error";
+
 export function CustomerRegistrationForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
+  const [submissionState, setSubmissionState] =
+    useState<SubmissionState>("idle");
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<CustomerRegistrationFormData>({
     resolver: zodResolver(customerRegistrationSchema),
@@ -106,14 +115,87 @@ export function CustomerRegistrationForm() {
     mode: "onSubmit",
   });
 
-  function handleValidSubmit(): void {
-    setFormMessage(
-      "Cadastro validado. A criação da conta será conectada à API em uma próxima etapa.",
-    );
+  async function handleValidSubmit(data: CustomerRegistrationFormData): Promise<void> {
+    setSubmissionState("submitting");
+    setFormMessage(null);
+    setFormError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+          initialRole: "CUSTOMER",
+          acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+          acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorMessage = extractErrorMessage(payload);
+
+        if (response.status === 409 || errorMessage?.toLowerCase().includes("e-mail") || errorMessage?.toLowerCase().includes("email")) {
+          setFormError("Já existe uma conta cadastrada com este e-mail.");
+        } else if (errorMessage) {
+          setFormError(errorMessage);
+        } else {
+          setFormError("Não foi possível criar sua conta. Tente novamente.");
+        }
+
+        setSubmissionState("error");
+        return;
+      }
+
+      setSubmissionState("success");
+      setFormMessage("Conta criada com sucesso. Você já pode entrar na Soravi.");
+      reset({
+        name: "",
+        email: "",
+        phone: "",
+        password: "",
+        passwordConfirmation: "",
+        acceptedTerms: false,
+      });
+    } catch {
+      setSubmissionState("error");
+      setFormError("Não foi possível conectar à Soravi. Tente novamente em instantes.");
+    }
   }
 
   function handleInvalidSubmit(): void {
     setFormMessage(null);
+    setFormError(null);
+    setSubmissionState("idle");
+  }
+
+  function extractErrorMessage(payload: unknown): string | null {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const candidate = payload as { message?: unknown };
+
+    if (typeof candidate.message === "string") {
+      return candidate.message;
+    }
+
+    if (Array.isArray(candidate.message)) {
+      for (const item of candidate.message) {
+        if (typeof item === "string" && item.trim().length > 0) {
+          return item;
+        }
+      }
+    }
+
+    return null;
   }
 
   const phoneField = register("phone");
@@ -292,7 +374,7 @@ export function CustomerRegistrationForm() {
         </div>
 
         <p id="password-help" className="mt-2 text-xs leading-5 text-slate-500">
-          Use pelo menos 8 caracteres, com letra maiúscula, minúscula e número.
+          Use pelo menos 12 caracteres, com pelo menos uma letra e um número.
         </p>
 
         {errors.password ? (
@@ -409,6 +491,16 @@ export function CustomerRegistrationForm() {
         ) : null}
       </div>
 
+      {formError ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
+        >
+          {formError}
+        </div>
+      ) : null}
+
       {formMessage ? (
         <div
           role="status"
@@ -421,20 +513,33 @@ export function CustomerRegistrationForm() {
 
       <button
         type="submit"
-        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
+        disabled={submissionState === "submitting"}
+        aria-busy={submissionState === "submitting"}
       >
-        Criar conta de cliente
+        {submissionState === "submitting" ? "Criando conta..." : "Criar conta de cliente"}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
-        Já possui uma conta?{" "}
-        <Link
-          href="/entrar"
-          className="font-semibold text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-        >
-          Entrar
-        </Link>
-      </p>
+      {submissionState === "success" ? (
+        <p className="text-center text-sm text-slate-600">
+          <Link
+            href="/entrar"
+            className="font-semibold text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          >
+            Ir para a página de entrar
+          </Link>
+        </p>
+      ) : (
+        <p className="text-center text-sm text-slate-600">
+          Já possui uma conta?{" "}
+          <Link
+            href="/entrar"
+            className="font-semibold text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          >
+            Entrar
+          </Link>
+        </p>
+      )}
     </form>
   );
 }

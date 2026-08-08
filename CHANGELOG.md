@@ -118,6 +118,13 @@
 - Implementação da API pública `POST /api/v1/launch-interests` para registrar interesse no lançamento com normalização de e-mail, consentimento de privacidade e operação idempotente por e-mail normalizado.
 - Adição de formulário de interesse no lançamento na página inicial com validação, envio seguro e mensagem de sucesso amigável.
 
+## 2026-08-08
+
+### Cadastro de cliente
+- Conexão do formulário de cadastro de cliente à API real `POST /api/v1/auth/register`.
+- Alinhamento das regras de senha com o backend: mínimo de 12 caracteres, máximo de 128, ao menos uma letra e um número.
+- Introdução do versionamento inicial de Termos de Uso e Política de Privacidade com versão `1.0` para o formulário.
+
 ## 2026-08-07
 
 ### Produção e infraestrutura

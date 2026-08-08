@@ -3,9 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+
+import { useAuth } from "./auth-provider";
 
 const loginSchema = z.object({
   email: z
@@ -22,8 +25,11 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
+  const router = useRouter();
+  const { signIn, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
@@ -38,14 +44,23 @@ export function LoginForm() {
     mode: "onSubmit",
   });
 
-  function handleValidSubmit(): void {
-    setFormMessage(
-      "Formulário validado. A autenticação com a API será conectada em uma próxima etapa.",
-    );
+  async function handleValidSubmit(data: LoginFormData): Promise<void> {
+    setFormError(null);
+    setFormMessage(null);
+
+    try {
+      await signIn(data.email, data.password);
+      setFormMessage("Login realizado com sucesso. Redirecionando...");
+      router.push("/");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível entrar na Soravi.";
+      setFormError(message);
+    }
   }
 
   function handleInvalidSubmit(): void {
     setFormMessage(null);
+    setFormError(null);
   }
 
   return (
@@ -160,11 +175,21 @@ export function LoginForm() {
         </div>
       ) : null}
 
+      {formError ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
+        >
+          {formError}
+        </div>
+      ) : null}
+
       <button
         type="submit"
-        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        disabled={isLoading}
+        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
       >
-        Entrar
+        {isLoading ? "Entrando..." : "Entrar"}
       </button>
 
       <p className="text-center text-sm text-slate-600">

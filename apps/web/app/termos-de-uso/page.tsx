@@ -17,6 +17,9 @@ export default function TermsOfUsePage() {
       title="Termos de Uso"
       description="Conheça as regras iniciais para utilização da plataforma Soravi."
     >
+      <p className="mb-6 text-sm text-slate-500">
+        Versão 1.0 · Atualizada em 08/08/2026
+      </p>
       <LegalSection title="1. Sobre a Soravi">
         <p>
           A Soravi é uma plataforma criada para conectar pessoas que precisam
