@@ -3,7 +3,6 @@ import { UserResponseDto } from "../../users/dto/user-response.dto";
 interface LoginResponseData {
   user: UserResponseDto;
   accessToken: string;
-  refreshToken: string;
   accessTokenExpiresIn: number;
 }
 

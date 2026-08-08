@@ -120,6 +120,11 @@
 
 ## 2026-08-08
 
+### Cadastro de cliente
+- Conexão do formulário de cadastro de cliente à API real `POST /api/v1/auth/register`.
+- Alinhamento das regras de senha com o backend: mínimo de 12 caracteres, máximo de 128, ao menos uma letra e um número.
+- Introdução do versionamento inicial de Termos de Uso e Política de Privacidade com versão `1.0` para o formulário.
+
 ### Administração
 - Criação da primeira etapa administrativa do painel de pré-cadastros com `GET /api/v1/launch-interests`.
 - Proteção por `AccessTokenGuard` e `RolesGuard`, com `@Roles(Role.ADMIN)`.

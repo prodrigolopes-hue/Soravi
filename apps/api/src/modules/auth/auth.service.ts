@@ -31,6 +31,18 @@ import { AuthTokensService } from "./auth-tokens.service";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
+interface LoginSessionResult {
+  response: LoginResponseDto;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+}
+
+interface RefreshSessionResult {
+  response: RefreshResponseDto;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+}
+
 const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.CUSTOMER,
   Role.PROFESSIONAL,
@@ -169,6 +181,12 @@ export class AuthService {
   async login(
     input: LoginUserDto,
   ): Promise<LoginResponseDto> {
+    return (await this.loginWithSession(input)).response;
+  }
+
+  async loginWithSession(
+    input: LoginUserDto,
+  ): Promise<LoginSessionResult> {
     const normalizedEmail = this.normalizeEmail(input.email);
 
     const user = await this.prisma.user.findFirst({
@@ -238,21 +256,37 @@ export class AuthService {
     const safeUser =
       await this.usersService.findSafeById(user.id);
 
-    return new LoginResponseDto({
-      user: safeUser,
-      accessToken: tokens.accessToken,
+    return {
+      response: new LoginResponseDto({
+        user: safeUser,
+        accessToken: tokens.accessToken,
+        accessTokenExpiresIn:
+          tokens.accessTokenExpiresIn,
+      }),
       refreshToken: tokens.refreshToken,
-      accessTokenExpiresIn:
-        tokens.accessTokenExpiresIn,
-    });
+      refreshTokenExpiresAt:
+        tokens.refreshTokenExpiresAt,
+    };
   }
 
   async refresh(
     input: RefreshTokenDto,
   ): Promise<RefreshResponseDto> {
+    return (await this.refreshWithSession(input)).response;
+  }
+
+  async refreshWithSession(
+    input: RefreshTokenDto,
+  ): Promise<RefreshSessionResult> {
+    const refreshToken = input.refreshToken;
+
+    if (!refreshToken) {
+      throw new InvalidRefreshTokenException();
+    }
+
     const refreshTokenHash =
       this.authTokensService.hashRefreshToken(
-        input.refreshToken,
+        refreshToken,
       );
 
     const session =
@@ -326,17 +360,25 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
-    return new RefreshResponseDto({
-      accessToken: tokens.accessToken,
+    return {
+      response: new RefreshResponseDto({
+        accessToken: tokens.accessToken,
+        accessTokenExpiresIn:
+          tokens.accessTokenExpiresIn,
+      }),
       refreshToken: tokens.refreshToken,
-      accessTokenExpiresIn:
-        tokens.accessTokenExpiresIn,
-    });
+      refreshTokenExpiresAt:
+        tokens.refreshTokenExpiresAt,
+    };
   }
 
   async logout(
     input: RefreshTokenDto,
   ): Promise<void> {
+    if (!input.refreshToken) {
+      return;
+    }
+
     const refreshTokenHash =
       this.authTokensService.hashRefreshToken(
         input.refreshToken,

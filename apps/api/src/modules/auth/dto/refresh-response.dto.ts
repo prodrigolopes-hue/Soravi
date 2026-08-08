@@ -1,6 +1,5 @@
 interface RefreshResponseData {
   accessToken: string;
-  refreshToken: string;
   accessTokenExpiresIn: number;
 }
 

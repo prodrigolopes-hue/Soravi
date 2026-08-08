@@ -17,6 +17,9 @@ export default function PrivacyPolicyPage() {
       title="Política de Privacidade"
       description="Entenda como a Soravi pretende utilizar e proteger os dados pessoais dos usuários."
     >
+      <p className="mb-6 text-sm text-slate-500">
+        Versão 1.0 · Atualizada em 08/08/2026
+      </p>
       <LegalSection title="1. Sobre esta política">
         <p>
           Esta Política de Privacidade apresenta, de forma preliminar, como a
