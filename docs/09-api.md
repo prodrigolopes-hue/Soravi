@@ -138,6 +138,8 @@ GET /api/v1/admin/users
 
 PUT /api/v1/admin/users/{id}/block
 
+GET /api/v1/launch-interests - Listar pré-cadastros com paginação administrativa (requer `ADMIN` autenticado)
+
 ------------------------------------------------------------------------
 
 ## Lista de interesse no lançamento
