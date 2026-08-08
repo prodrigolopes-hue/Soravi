@@ -118,6 +118,14 @@
 - Implementação da API pública `POST /api/v1/launch-interests` para registrar interesse no lançamento com normalização de e-mail, consentimento de privacidade e operação idempotente por e-mail normalizado.
 - Adição de formulário de interesse no lançamento na página inicial com validação, envio seguro e mensagem de sucesso amigável.
 
+## 2026-08-08
+
+### Administração
+- Criação da primeira etapa administrativa do painel de pré-cadastros com `GET /api/v1/launch-interests`.
+- Proteção por `AccessTokenGuard` e `RolesGuard`, com `@Roles(Role.ADMIN)`.
+- Consulta paginada com `page`, `pageSize`, total e `createdAt` em ordem decrescente.
+- Exclusão de colunas sensíveis (`emailNormalized` e `phoneNormalized`) da resposta de consulta.
+
 ## 2026-08-07
 
 ### Produção e infraestrutura
