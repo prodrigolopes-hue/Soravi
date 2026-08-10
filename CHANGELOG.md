@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-08-10
+
+### Produto / Operação — Curadoria Inicial de Profissionais
+
+- definida estratégia de curadoria inicial assíncrona para profissionais;
+- removida entrevista obrigatória para todos os profissionais;
+- contato humano passa a ser utilizado por exceção e risco;
+- definida curadoria em quatro camadas:
+  - cadastro estruturado;
+  - verificação básica;
+  - evidências + questionário;
+  - classificação operacional de risco;
+- aprovação/análise passa a ser resultado ou encaminhamento após as quatro camadas;
+- presença digital definida como evidência complementar, não obrigatória;
+- questionário por categoria não representa certificação técnica;
+- CPF/CNPJ passa a ser solicitado somente quando necessário à verificação;
+- classificação baixo/moderado/alto registrada como instrumento operacional não automatizado;
+- padronização de nomenclatura para análise manual/adicional no piloto;
+- não aprovação passa a admitir reavaliação quando aplicável;
+- suspensões preventivas deverão possuir motivo registrado e revisão administrativa;
+- reforçados princípios de minimização de dados e LGPD;
+- nenhuma API, migration, tabela, tela ou automação foi implementada nesta alteração.
+
 ## 0.1.2 — Documentação (2026-08-06)
 - Incorporada à documentação oficial a estratégia de crescimento orgânico, SEO programático responsável e Hub de Problemas como evolução futura da Soravi.
 

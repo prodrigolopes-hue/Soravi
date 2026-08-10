@@ -208,3 +208,64 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Vincular solicitação a uma categoria existente.
 - [ ] Notificar profissional sobre o resultado.
 - [ ] Associar categorias ao perfil profissional.
+
+## Verificação e curadoria de profissionais
+
+### Épico
+
+ÉPICO - Verificação e Curadoria de Profissionais.
+
+### Objetivo
+
+Fornecer mecanismos progressivos de confiança e segurança para profissionais, preservando escalabilidade operacional e minimização de dados.
+
+### Itens futuros
+
+- [ ] confirmação de telefone;
+- [ ] verificação básica de identidade;
+- [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
+- [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
+- [ ] evidências profissionais;
+- [ ] portfólio/fotos;
+- [ ] questionário curto por categoria;
+- [ ] checklist de curadoria;
+- [ ] classificação operacional de risco;
+- [ ] pendências;
+- [ ] análise manual adicional;
+- [ ] aprovação;
+- [ ] não aprovação com possibilidade de reavaliação;
+- [ ] suspensão preventiva;
+- [ ] revisão administrativa de suspensão;
+- [ ] histórico de análises;
+- [ ] motivo das decisões;
+- [ ] registro de ocorrências;
+- [ ] reavaliação após primeiros serviços;
+- [ ] painel administrativo de curadoria.
+
+### Capacidade esperada
+
+CAPACIDADE - Identidade verificada.
+
+Critérios conceituais:
+
+- refletir somente o que efetivamente foi verificado;
+- não sugerir certificação técnica;
+- registrar método/data da verificação;
+- respeitar minimização de dados.
+
+### Governança de risco
+
+"A classificação de risco não deverá ser automatizada enquanto critérios, governança, revisão humana e impactos não forem definidos em decisão futura específica."
+
+### Fora do escopo deste épico imediato
+
+- antecedentes criminais automáticos;
+- scoring automatizado;
+- IA para aprovação;
+- certificação técnica automática;
+- verificações de alto custo;
+- coleta documental massiva.
+
+### Priorização
+
+Este épico não altera a prioridade geral do MVP sem aprovação do fundador e permanece fora do MVP imediato.

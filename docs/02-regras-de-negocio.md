@@ -200,3 +200,192 @@ Regras específicas para o formulário "Acompanhe o lançamento":
 - solicitações repetidas podem ser mantidas como sinal de demanda;
 - uma solicitação marcada como `MERGED` deverá apontar para a categoria oficial correspondente;
 - o profissional deverá ser notificado futuramente sobre o resultado da análise.
+
+## Curadoria Inicial de Profissionais
+
+### Objetivo
+
+A curadoria inicial busca reduzir cadastros falsos, verificar a existência real do profissional, reunir evidências mínimas de atuação, identificar inconsistências e sinais relevantes de risco.
+
+A Soravi não pretende certificar tecnicamente o profissional antes do primeiro serviço.
+
+Pergunta central da curadoria:
+
+"Existem evidências suficientes de que esta pessoa é real, exerce ou possui relação plausível com o serviço informado e não apresenta sinais relevantes de risco?"
+
+### Identificação pública
+
+Quando houver indicação pública da validação inicial, preferir "Identidade verificada".
+
+Evitar "Profissional verificado".
+
+Deixar explícito que identidade verificada não significa certificação de:
+
+- competência técnica;
+- qualidade do serviço;
+- antecedentes;
+- habilitações profissionais;
+- garantia do trabalho.
+
+### Estrutura da curadoria
+
+A curadoria inicial possui quatro camadas:
+
+1. Cadastro estruturado.
+2. Verificação básica.
+3. Evidências de atuação + questionário por categoria.
+4. Classificação de risco.
+
+Após as quatro camadas, o resultado ou encaminhamento poderá ser:
+
+- aprovação;
+- pendência;
+- análise manual adicional;
+- não aprovação.
+
+Regra de modelagem: aprovação, pendência, análise manual adicional e não aprovação são resultados ou encaminhamentos, não uma quinta camada.
+
+### Camada 1 - cadastro estruturado
+
+Informações iniciais poderão incluir:
+
+- nome completo;
+- telefone;
+- cidade;
+- bairros/regiões atendidas;
+- categoria profissional;
+- serviços realizados;
+- tempo de experiência declarado;
+- forma geral de atendimento;
+- disponibilidade aproximada.
+
+CPF ou CNPJ não deve ser tratado como obrigatório no cadastro inicial para todos.
+
+Regra: "CPF ou CNPJ poderá ser solicitado quando necessário para a etapa de verificação de identidade, conforme finalidade, proporcionalidade, categoria, risco e regras de privacidade aplicáveis."
+
+Deve ser mantido o princípio de minimização de dados pessoais.
+
+### Camada 2 - identidade e presença real
+
+Devem ser considerados:
+
+- nome;
+- telefone confirmado;
+- cidade/região;
+- foto de perfil, quando aplicável;
+- coerência das informações;
+- CPF/CNPJ, quando necessário à verificação.
+
+Evitar armazenamento de cópias completas de documentos sem necessidade.
+
+Preferir o registro de:
+
+- resultado;
+- data;
+- método utilizado;
+- responsável ou sistema responsável.
+
+### Camada 3 - evidências de atuação e questionário
+
+Poderão ser usadas evidências como:
+
+- fotos de trabalhos;
+- antes/depois;
+- portfólio;
+- referências;
+- depoimentos;
+- perfis profissionais públicos;
+- presença em outras plataformas.
+
+Presença digital nunca será requisito obrigatório.
+
+Instagram, site ou marketplace são evidências complementares, não condição obrigatória.
+
+Questionário por categoria:
+
+- deve ser curto e assíncrono, com aproximadamente 3 a 5 perguntas por categoria;
+- busca verificar coerência;
+- busca conhecer serviços realizados;
+- busca identificar cadastro em categoria incompatível;
+- busca conhecer limites de atuação;
+- busca detectar respostas claramente inconsistentes.
+
+O questionário não deve ser apresentado como prova, certificação ou avaliação técnica profissional.
+
+### Camada 4 - classificação de risco
+
+Classificações mantidas:
+
+- baixo;
+- moderado;
+- alto.
+
+Regra explícita: "A classificação de risco nesta fase é um instrumento operacional de apoio à curadoria. Não representa score automatizado, algoritmo de decisão ou sistema automático de aprovação/reprovação. Os critérios deverão ser amadurecidos e aprovados antes de qualquer automação futura."
+
+Baixo risco:
+
+- poderá seguir para aprovação sem contato humano obrigatório.
+
+Moderado:
+
+- revisão manual;
+- solicitação de complemento;
+- contato direto quando necessário.
+
+Alto:
+
+- análise humana obrigatória;
+- poderá resultar em não aprovação, suspensão preventiva quando aplicável ou análise manual adicional.
+
+Padronização terminológica: utilizar "análise adicional" ou "análise manual adicional".
+
+### Contato humano
+
+Todo profissional passará por curadoria inicial.
+
+O contato direto será utilizado quando existirem inconsistências, ausência de evidências suficientes, sinais relevantes de risco ou necessidade justificada pela análise.
+
+### Resultados
+
+Aprovado: há elementos suficientes para liberação naquele momento.
+
+Pendente: há informações ou evidências a complementar.
+
+Não aprovado: há inconsistências ou riscos suficientes para impedir a liberação naquele momento.
+
+O resultado não aprovado não representa necessariamente impedimento definitivo. Quando aplicável, o profissional poderá ser reavaliado após correção de pendências, apresentação de novas evidências ou revisão administrativa.
+
+### Pós-aprovação
+
+Deve ser mantido o princípio de curadoria progressiva.
+
+A confiança deve crescer com:
+
+- serviços concluídos;
+- avaliações;
+- comportamento;
+- cancelamentos;
+- reclamações;
+- histórico consistente.
+
+Após os primeiros serviços, poderá haver reavaliação.
+
+### Reclamações e suspensão
+
+Ocorrências graves poderão justificar suspensão preventiva.
+
+Toda suspensão preventiva deverá possuir motivo registrado, data, responsável pela decisão e mecanismo de revisão administrativa. Suspensão preventiva não deve ser tratada automaticamente como decisão definitiva.
+
+### LGPD e proporcionalidade
+
+Na curadoria inicial, reforçar:
+
+- minimização;
+- finalidade;
+- restrição de acesso;
+- segurança;
+- retenção proporcional;
+- descarte futuro;
+- transparência ao titular.
+
+Verificações avançadas como antecedentes criminais, certificações extensas e verificações de alto custo não fazem parte automaticamente do piloto e dependerão de análise jurídica, proporcionalidade e decisão específica futura.

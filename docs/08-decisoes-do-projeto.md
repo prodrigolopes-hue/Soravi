@@ -258,3 +258,97 @@ O pré-cadastro realizado pelo formulário "Acompanhe o lançamento" será model
 - o e-mail será normalizado e único entre registros de interesse;
 - confirmação de e-mail e envio de mensagens serão implementados em entregas futuras;
 - a modelagem será implementada no Prisma como `LaunchInterest` com índices para consultas por audiência, cidade/estado, fonte e status de confirmação/unsubscribe.
+
+## Curadoria Inicial de Profissionais no piloto
+
+### Decisão (2026-08-10)
+
+Adotar, durante o piloto da Soravi, uma Curadoria Inicial de Profissionais assíncrona, progressiva e orientada por risco.
+
+### Contexto
+
+A entrevista manual obrigatória para todos os profissionais cria gargalo operacional e dificulta a escala.
+
+A Soravi precisa manter confiança e segurança sem assumir que consegue certificar antecipadamente a qualidade técnica de cada prestador.
+
+### Decisão operacional
+
+A curadoria utilizará quatro camadas:
+
+1. cadastro estruturado;
+2. verificação básica;
+3. evidências + questionário curto por categoria;
+4. classificação operacional de risco.
+
+Após essas camadas, o profissional poderá ser:
+
+- aprovado;
+- colocado como pendente;
+- encaminhado para análise manual adicional;
+- não aprovado naquele momento.
+
+### Contato humano
+
+Não será obrigatório para todos.
+
+Será utilizado quando houver:
+
+- inconsistências;
+- ausência de evidências suficientes;
+- sinais de risco;
+- necessidade justificada pela análise.
+
+### Classificação de risco
+
+As classificações baixo/moderado/alto são conceitos operacionais do piloto.
+
+Não constituem algoritmo, score automático ou decisão automatizada.
+
+Qualquer automação futura deverá ser objeto de nova decisão técnica e de negócio.
+
+### Identidade
+
+Preferir o conceito público "Identidade verificada".
+
+Não utilizar a expressão de forma que implique certificação de competência, qualidade ou garantia do serviço.
+
+### CPF/CNPJ
+
+Não coletar obrigatoriamente de todo profissional no primeiro cadastro.
+
+Poderá ser solicitado quando necessário para verificação, respeitando finalidade, proporcionalidade e minimização de dados.
+
+### Não aprovação
+
+Significa ausência de liberação naquele momento e poderá admitir reavaliação quando aplicável.
+
+### Suspensão
+
+Suspensões preventivas devem registrar motivo, data, responsável e permitir revisão administrativa.
+
+### Motivação
+
+- reduzir fraude;
+- aumentar confiança;
+- evitar entrevistas obrigatórias em escala;
+- concentrar trabalho humano em exceções;
+- permitir reputação progressiva baseada em serviços reais.
+
+### Limitações
+
+A curadoria:
+
+- não certifica competência técnica;
+- não garante a qualidade do serviço;
+- não substitui responsabilidade do profissional;
+- não inclui verificação de antecedentes;
+- não elimina riscos;
+- não cria garantia Soravi.
+
+### Impacto
+
+Profissionais com informações coerentes e baixo risco poderão ser aprovados sem contato humano direto.
+
+Casos moderados ou altos terão revisão proporcional ao risco.
+
+Nenhuma funcionalidade deve ser criada nesta decisão.
