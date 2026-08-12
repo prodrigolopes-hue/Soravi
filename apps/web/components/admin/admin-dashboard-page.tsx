@@ -26,9 +26,10 @@ const adminModules: AdminModule[] = [
   {
     title: "Clientes",
     description: "Gestão das contas de clientes.",
-    status: "Em breve",
+    status: "Disponível",
+    href: "/admin/clientes",
     icon: Users,
-    tone: "soon",
+    tone: "available",
   },
   {
     title: "Profissionais",
