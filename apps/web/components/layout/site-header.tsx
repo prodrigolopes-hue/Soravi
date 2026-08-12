@@ -56,7 +56,7 @@ export function HeaderAuthAction({
       <div className="flex flex-col gap-2">
         {isAdmin ? (
           <Link
-            href="/admin/interessados"
+            href="/admin"
             className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             onClick={onAction}
           >
@@ -79,7 +79,7 @@ export function HeaderAuthAction({
       <div className="flex items-center gap-5">
         {isAdmin ? (
           <Link
-            href="/admin/interessados"
+            href="/admin"
             className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
             Painel admin
