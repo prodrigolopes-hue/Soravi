@@ -2,19 +2,117 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+
+import { useAuth } from "../auth/auth-provider";
 
 const navigationItems = [
   {
     label: "Como funciona",
     href: "/#como-funciona",
   },
-  {
-    label: "Entrar",
-    href: "/entrar",
-  },
 ] as const;
+
+type HeaderAuthActionProps = {
+  mobile?: boolean;
+  onAction?: () => void;
+};
+
+export function HeaderAuthAction({
+  mobile = false,
+  onAction,
+}: HeaderAuthActionProps) {
+  const router = useRouter();
+  const { isAuthenticated, isLoading, signOut, user } = useAuth();
+  const isAdmin = Boolean(user?.roles.includes("ADMIN"));
+
+  async function handleSignOut(): Promise<void> {
+    await signOut();
+    router.replace("/");
+  }
+
+  if (isLoading) {
+    return mobile ? (
+      <span
+        aria-hidden="true"
+        className="rounded-xl px-4 py-3 font-medium text-slate-700 invisible"
+      >
+        Sair
+      </span>
+    ) : (
+      <span
+        aria-hidden="true"
+        className="font-medium text-slate-700 invisible"
+      >
+        Sair
+      </span>
+    );
+  }
+
+  if (isAuthenticated) {
+    return mobile ? (
+      <div className="flex flex-col gap-2">
+        {isAdmin ? (
+          <Link
+            href="/admin/interessados"
+            className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            onClick={onAction}
+          >
+            Painel admin
+          </Link>
+        ) : null}
+
+        <button
+          type="button"
+          className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 cursor-pointer"
+          onClick={() => {
+            onAction?.();
+            void handleSignOut();
+          }}
+        >
+          Sair
+        </button>
+      </div>
+    ) : (
+      <div className="flex items-center gap-5">
+        {isAdmin ? (
+          <Link
+            href="/admin/interessados"
+            className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          >
+            Painel admin
+          </Link>
+        ) : null}
+
+        <button
+          type="button"
+          className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 cursor-pointer"
+          onClick={() => void handleSignOut()}
+        >
+          Sair
+        </button>
+      </div>
+    );
+  }
+
+  return mobile ? (
+    <Link
+      href="/entrar"
+      className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+    >
+      Entrar
+    </Link>
+  ) : (
+    <Link
+      href="/entrar"
+      className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+    >
+      Entrar
+    </Link>
+  );
+}
 
 export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -55,6 +153,8 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+
+          <HeaderAuthAction />
 
           <Link
             href="/cadastro/profissional"
@@ -99,6 +199,8 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+
+            <HeaderAuthAction mobile onAction={closeMenu} />
 
             <Link
               href="/cadastro/profissional"

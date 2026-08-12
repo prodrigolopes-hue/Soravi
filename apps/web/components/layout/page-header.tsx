@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { SiteHeader } from "./site-header";
+import { HeaderAuthAction, SiteHeader } from "./site-header";
 
 export function PageHeader() {
   const pathname = usePathname();
@@ -12,7 +12,7 @@ export function PageHeader() {
   if (pathname === "/") {
     return (
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link
             href="/"
             className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
@@ -26,6 +26,8 @@ export function PageHeader() {
               className="h-auto w-32 sm:w-36"
             />
           </Link>
+
+          <HeaderAuthAction />
         </div>
       </header>
     );
