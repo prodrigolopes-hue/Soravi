@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -70,6 +71,35 @@ interface CurrentUserResponsePayload {
   data?: AuthUser;
 }
 
+function isAuthUser(value: unknown): value is AuthUser {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<AuthUser>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.email === "string" &&
+    (typeof candidate.phone === "string" || candidate.phone === null) &&
+    typeof candidate.status === "string" &&
+    Array.isArray(candidate.roles) &&
+    typeof candidate.emailVerified === "boolean" &&
+    typeof candidate.phoneVerified === "boolean" &&
+    typeof candidate.createdAt === "string"
+  );
+}
+
+interface RefreshSessionResult {
+  accessToken: string;
+  user: AuthUser;
+}
+
+let refreshSessionInFlight:
+  | Promise<RefreshSessionResult | null>
+  | null = null;
+
 function buildApiUrl(path: string): string {
   const normalizedBase = apiBaseUrl.replace(/\/+$/u, "");
 
@@ -111,6 +141,7 @@ async function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
       Authorization: `Bearer ${accessToken}`,
     },
     credentials: "include",
+    cache: "no-store",
   });
 
   const payload = await parseJsonResponse(response);
@@ -128,17 +159,83 @@ async function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
 
   const data = payload as CurrentUserResponsePayload;
 
-  if (!data.data || typeof data.data !== "object") {
-    throw new Error("Resposta inválida do servidor.");
+  if (isAuthUser(data.data)) {
+    return data.data;
   }
 
-  return data.data;
+  if (isAuthUser(payload)) {
+    return payload;
+  }
+
+  throw new Error("Resposta inválida do servidor.");
+}
+
+async function requestRefreshSession(): Promise<RefreshSessionResult | null> {
+  if (refreshSessionInFlight) {
+    return refreshSessionInFlight;
+  }
+
+  refreshSessionInFlight = (async () => {
+    const response = await fetch(buildApiUrl("/api/v1/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
+
+    const payload = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Resposta inválida do servidor.");
+    }
+
+    const data = payload as RefreshResponsePayload;
+    const nextAccessToken = data.data?.accessToken;
+
+    if (
+      typeof nextAccessToken !== "string" ||
+      nextAccessToken.length === 0
+    ) {
+      throw new Error("Não foi possível renovar sua sessão.");
+    }
+
+    const nextUser = await fetchCurrentUser(nextAccessToken);
+
+    return {
+      accessToken: nextAccessToken,
+      user: nextUser,
+    };
+  })();
+
+  try {
+    return await refreshSessionInFlight;
+  } finally {
+    refreshSessionInFlight = null;
+  }
+}
+
+async function waitForRefreshSessionInFlight(): Promise<void> {
+  const inFlightRefreshSession = refreshSessionInFlight;
+
+  if (!inFlightRefreshSession) {
+    return;
+  }
+
+  try {
+    await inFlightRefreshSession;
+  } catch {
+    // O objetivo aqui é apenas serializar operações explícitas
+    // após um refresh já iniciado.
+  }
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const authOperationVersionRef = useRef(0);
 
   const clearSession = useCallback((): void => {
     setUser(null);
@@ -146,51 +243,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const refreshSession = useCallback(async (): Promise<void> => {
+    const operationVersion = authOperationVersionRef.current;
+
     setIsLoading(true);
 
     try {
-      const response = await fetch(buildApiUrl("/api/v1/auth/refresh"), {
-        method: "POST",
-        credentials: "include",
-      });
+      const refreshResult = await requestRefreshSession();
 
-      const payload = await parseJsonResponse(response);
+      if (operationVersion !== authOperationVersionRef.current) {
+        return;
+      }
 
-      if (!response.ok) {
+      if (!refreshResult) {
         clearSession();
         return;
       }
 
-      if (!payload || typeof payload !== "object") {
-        throw new Error("Resposta inválida do servidor.");
-      }
-
-      const data = payload as RefreshResponsePayload;
-      const nextAccessToken = data.data?.accessToken;
-
-      if (
-        typeof nextAccessToken !== "string" ||
-        nextAccessToken.length === 0
-      ) {
-        throw new Error("Não foi possível renovar sua sessão.");
-      }
-
-      const nextUser = await fetchCurrentUser(nextAccessToken);
-
-      setAccessToken(nextAccessToken);
-      setUser(nextUser);
+      setAccessToken(refreshResult.accessToken);
+      setUser(refreshResult.user);
     } catch {
-      clearSession();
+      if (operationVersion === authOperationVersionRef.current) {
+        clearSession();
+      }
     } finally {
-      setIsLoading(false);
+      if (operationVersion === authOperationVersionRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [clearSession]);
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<void> => {
+      const operationVersion = ++authOperationVersionRef.current;
+
       setIsLoading(true);
 
       try {
+        await waitForRefreshSessionInFlight();
+
         const response = await fetch(buildApiUrl("/api/v1/auth/login"), {
           method: "POST",
           headers: {
@@ -229,22 +319,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const nextUser =
           data.data?.user ?? (await fetchCurrentUser(nextAccessToken));
 
+        if (operationVersion !== authOperationVersionRef.current) {
+          return;
+        }
+
         setAccessToken(nextAccessToken);
         setUser(nextUser);
       } catch (error) {
-        clearSession();
+        if (operationVersion === authOperationVersionRef.current) {
+          clearSession();
+        }
+
         throw error;
       } finally {
-        setIsLoading(false);
+        if (operationVersion === authOperationVersionRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [clearSession],
   );
 
   const signOut = useCallback(async (): Promise<void> => {
+    const operationVersion = ++authOperationVersionRef.current;
+
     setIsLoading(true);
 
     try {
+      await waitForRefreshSessionInFlight();
+
       await fetch(buildApiUrl("/api/v1/auth/logout"), {
         method: "POST",
         credentials: "include",
@@ -253,8 +356,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Mesmo que o backend esteja indisponível, limpamos
       // o estado autenticado mantido em memória no frontend.
     } finally {
-      clearSession();
-      setIsLoading(false);
+      if (operationVersion === authOperationVersionRef.current) {
+        clearSession();
+        setIsLoading(false);
+      }
     }
   }, [clearSession]);
 
