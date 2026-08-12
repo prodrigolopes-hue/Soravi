@@ -138,7 +138,80 @@ GET /api/v1/admin/users
 
 PUT /api/v1/admin/users/{id}/block
 
-GET /api/v1/launch-interests - Listar pré-cadastros com paginação administrativa (requer `ADMIN` autenticado)
+GET /api/v1/launch-interests
+
+Lista interessados do lançamento para uso administrativo.
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Query:
+
+- `page`: inteiro maior ou igual a 1, padrão `1`;
+- `pageSize`: inteiro entre `1` e `100`, padrão `20`.
+
+Resposta:
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "name": "...",
+      "email": "...",
+      "phone": null,
+      "audienceType": "CUSTOMER",
+      "city": "...",
+      "state": "SP",
+      "serviceInterest": null,
+      "professionalCategoryInterest": null,
+      "source": "HOME",
+      "privacyNoticeAcceptedAt": "...",
+      "marketingConsentAt": null,
+      "emailConfirmedAt": null,
+      "unsubscribedAt": null,
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Campos principais:
+
+- `id`;
+- `name`;
+- `email`;
+- `phone`;
+- `audienceType`;
+- `city`;
+- `state`;
+- `serviceInterest`;
+- `professionalCategoryInterest`;
+- `source`;
+- `privacyNoticeAcceptedAt`;
+- `marketingConsentAt`;
+- `emailConfirmedAt`;
+- `unsubscribedAt`;
+- `createdAt`;
+- `updatedAt`.
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`.
 
 ------------------------------------------------------------------------
 

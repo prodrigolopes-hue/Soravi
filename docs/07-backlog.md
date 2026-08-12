@@ -77,6 +77,25 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 -   Gerenciar categorias
 -   Moderar conteúdo
 
+### Concluído até agora
+
+- [x] Primeira tela administrativa.
+- [x] Listagem de interessados do lançamento.
+- [x] Proteção visual por `ADMIN`.
+- [x] Paginação básica.
+- [x] Responsividade mobile e desktop.
+
+### Pendente
+
+- [ ] Dashboard administrativo completo.
+- [ ] Gerenciamento de usuários.
+- [ ] Gerenciamento de categorias.
+- [ ] Moderação.
+- [ ] Filtros.
+- [ ] Busca.
+- [ ] Exportação.
+- [ ] Edição/exclusão.
+
 ------------------------------------------------------------------------
 
 # Prioridade Atual
@@ -167,6 +186,7 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Rotação segura do refresh token.
 - [x] Bloqueio de reutilização do refresh token antigo.
 - [x] Logout com revogação de sessão.
+- [x] Manutenção de sessão persistente com refresh seguro em cookie HttpOnly e access token em memória.
 - [x] Rota protegida `GET /api/v1/users/me`.
 - [x] Validação do access token.
 - [x] Validação da sessão no PostgreSQL.
@@ -174,6 +194,7 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Decorator `@Roles`.
 - [x] `RolesGuard`.
 - [x] Testes automatizados de autenticação e autorização.
+- [x] Integração da autenticação com o frontend.
 
 ### Pendente
 
@@ -181,7 +202,6 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Confirmação de e-mail.
 - [ ] Encerramento de todas as sessões.
 - [ ] Listagem de sessões ativas.
-- [ ] Integração da autenticação com o frontend.
 
 ## Categorias de serviços
 

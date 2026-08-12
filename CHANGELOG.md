@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-08-11
+
+### Autenticação
+
+- corrigida a restauração da sessão autenticada após reload e navegação completa;
+- refresh token mantido em cookie HttpOnly;
+- access token mantido apenas em memória;
+- evitadas corridas entre refresh automático, signIn e signOut;
+- `GET /api/v1/users/me` ajustado para aceitar a resposta real da API e evitar cache indevido.
+
+### Administração
+
+- criada a rota `/admin/interessados`;
+- implementada listagem administrativa paginada de interessados do lançamento;
+- proteção visual restrita a usuário autenticado com role `ADMIN`;
+- proteção real mantida no backend com `AccessTokenGuard` + `RolesGuard` + `Role.ADMIN`;
+- interface com cards no mobile e tabela no desktop;
+- estados de loading, vazio, erro, `401` e `403`;
+- exibição correta de consentimento e descadastro de marketing;
+- rota administrativa marcada como `noindex`.
+
 ## 2026-08-10
 
 ### Produto / Operação — Curadoria Inicial de Profissionais
