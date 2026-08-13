@@ -1,8 +1,14 @@
+import "reflect-metadata";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
+
 import { PrismaService } from "../../database/prisma.service";
 import {
   CategoryRequestStatus,
 } from "../../generated/prisma/client";
 import { CategoryRequestsService } from "./category-requests.service";
+import { CategoryRequestsAdminListResponseDto } from "./dto/category-requests-admin-list-response.dto";
+import { CategoryRequestsAdminQueryDto } from "./dto/category-requests-admin-query.dto";
 import { CreateCategoryRequestDto } from "./dto/create-category-request.dto";
 import { CategoryRequestAlreadyPendingException } from "./errors/category-request-already-pending.exception";
 import { ProfessionalProfileNotFoundException } from "./errors/professional-profile-not-found.exception";
@@ -28,9 +34,12 @@ describe("CategoryRequestsService", () => {
       findFirst: jest.Mock;
     };
     categoryRequest: {
+      count: jest.Mock;
       findFirst: jest.Mock;
       create: jest.Mock;
+      findMany: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -39,10 +48,18 @@ describe("CategoryRequestsService", () => {
         findFirst: jest.fn(),
       },
       categoryRequest: {
+        count: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
+        findMany: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
+
+    prismaMock.$transaction.mockImplementation(async () => [
+      await prismaMock.categoryRequest.count(),
+      await prismaMock.categoryRequest.findMany(),
+    ]);
 
     service = new CategoryRequestsService(
       prismaMock as unknown as PrismaService,
@@ -488,5 +505,202 @@ describe("CategoryRequestsService", () => {
     expect(
       prismaMock.categoryRequest.create,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it("aplica paginação, ordenação por createdAt desc e não filtra status na listagem administrativa", async () => {
+    const query = new CategoryRequestsAdminQueryDto();
+    query.page = 2;
+    query.pageSize = 10;
+
+    prismaMock.categoryRequest.count.mockResolvedValue(11);
+    prismaMock.categoryRequest.findMany.mockResolvedValue([
+      {
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        status: CategoryRequestStatus.PENDING,
+        reviewNotes: null,
+        createdAt,
+        reviewedAt: null,
+        professionalProfile: {
+          id: professionalProfileId,
+          displayName: "João Silva",
+          user: {
+            id: userId,
+            name: "João Silva",
+            email: "joao@soravi.com.br",
+          },
+        },
+        resolvedCategory: null,
+      },
+    ]);
+
+    const result = await service.findAllAdminCategoryRequests(query);
+
+    expect(prismaMock.categoryRequest.count).toHaveBeenCalledWith({
+      where: {},
+    });
+
+    expect(prismaMock.categoryRequest.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: 10,
+      take: 10,
+      select: {
+        id: true,
+        suggestedName: true,
+        status: true,
+        reviewNotes: true,
+        createdAt: true,
+        reviewedAt: true,
+        professionalProfile: {
+          select: {
+            id: true,
+            displayName: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        resolvedCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    expect(result).toEqual(
+      new CategoryRequestsAdminListResponseDto(
+        [
+          {
+            id: categoryRequestId,
+            suggestedName: "Eletricista",
+            status: CategoryRequestStatus.PENDING,
+            reviewNotes: null,
+            createdAt,
+            reviewedAt: null,
+            professionalProfile: {
+              id: professionalProfileId,
+              displayName: "João Silva",
+              user: {
+                id: userId,
+                name: "João Silva",
+                email: "joao@soravi.com.br",
+              },
+            },
+            resolvedCategory: null,
+          },
+        ],
+        2,
+        10,
+        11,
+      ),
+    );
+  });
+
+  it("retorna apenas os campos definidos na resposta administrativa", async () => {
+    const query = new CategoryRequestsAdminQueryDto();
+
+    prismaMock.categoryRequest.count.mockResolvedValue(1);
+    prismaMock.categoryRequest.findMany.mockResolvedValue([
+      {
+        id: categoryRequestId,
+        suggestedName: "Eletricista",
+        status: CategoryRequestStatus.APPROVED,
+        reviewNotes: "Aprovado",
+        createdAt,
+        reviewedAt: new Date("2026-08-05T12:00:00.000Z"),
+        professionalProfile: {
+          id: professionalProfileId,
+          displayName: "João Silva",
+          user: {
+            id: userId,
+            name: "João Silva",
+            email: "joao@soravi.com.br",
+          },
+        },
+        resolvedCategory: {
+          id: "category-id",
+          name: "Eletricista",
+          slug: "eletricista",
+        },
+      },
+    ]);
+
+    const result = await service.findAllAdminCategoryRequests(query);
+    const [firstItem] = result.items;
+
+    expect(firstItem).toEqual({
+      id: categoryRequestId,
+      suggestedName: "Eletricista",
+      status: CategoryRequestStatus.APPROVED,
+      reviewNotes: "Aprovado",
+      createdAt,
+      reviewedAt: new Date("2026-08-05T12:00:00.000Z"),
+      professionalProfile: {
+        id: professionalProfileId,
+        displayName: "João Silva",
+        user: {
+          id: userId,
+          name: "João Silva",
+          email: "joao@soravi.com.br",
+        },
+      },
+      resolvedCategory: {
+        id: "category-id",
+        name: "Eletricista",
+        slug: "eletricista",
+      },
+    });
+
+    expect(firstItem).not.toHaveProperty("description");
+    expect(firstItem.professionalProfile.user).not.toHaveProperty("emailNormalized");
+    expect(firstItem.professionalProfile.user).not.toHaveProperty("phone");
+  });
+
+  it("valida page mínimo em 1 para listagem administrativa", async () => {
+    const instance = plainToInstance(
+      CategoryRequestsAdminQueryDto,
+      {
+        page: 0,
+        pageSize: 20,
+      },
+    );
+
+    const errors = await validate(instance);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].constraints).toEqual(
+      expect.objectContaining({
+        min: "O parâmetro page deve ser no mínimo 1.",
+      }),
+    );
+  });
+
+  it("valida pageSize máximo em 100 para listagem administrativa", async () => {
+    const instance = plainToInstance(
+      CategoryRequestsAdminQueryDto,
+      {
+        page: 1,
+        pageSize: 101,
+      },
+    );
+
+    const errors = await validate(instance);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].constraints).toEqual(
+      expect.objectContaining({
+        max: "O parâmetro pageSize deve ser no máximo 100.",
+      }),
+    );
   });
 });
