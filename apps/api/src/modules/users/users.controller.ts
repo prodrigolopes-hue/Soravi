@@ -13,6 +13,8 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { UsersAdminCustomersListResponseDto } from "./dto/users-admin-customers-list-response.dto";
 import { UsersAdminCustomersQueryDto } from "./dto/users-admin-customers-query.dto";
+import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-professionals-list-response.dto";
+import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UsersService } from "./users.service";
 
@@ -62,5 +64,17 @@ export class UsersController {
     @Query() query: UsersAdminCustomersQueryDto,
   ): Promise<UsersAdminCustomersListResponseDto> {
     return this.usersService.findAllAdminCustomers(query);
+  }
+
+  @Get("admin/professionals")
+  @Roles(Role.ADMIN)
+  @UseGuards(
+    AccessTokenGuard,
+    RolesGuard,
+  )
+  findAdminProfessionals(
+    @Query() query: UsersAdminProfessionalsQueryDto,
+  ): Promise<UsersAdminProfessionalsListResponseDto> {
+    return this.usersService.findAllAdminProfessionals(query);
   }
 }
