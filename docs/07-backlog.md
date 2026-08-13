@@ -82,6 +82,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Primeira tela administrativa.
 - [x] Listagem de interessados do lançamento.
 - [x] Listagem administrativa de clientes (`/admin/clientes`) com paginação e leitura.
+- [x] Listagem administrativa de profissionais (`/admin/profissionais`) com paginação e leitura.
 - [x] Proteção visual por `ADMIN`.
 - [x] Paginação básica.
 - [x] Responsividade mobile e desktop.
@@ -90,6 +91,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 - [ ] Dashboard administrativo completo.
 - [ ] Gerenciamento de usuários (edição, exclusão, suspensão, filtros, busca e exportação).
+- [ ] Gerenciamento completo de profissionais.
 - [ ] Gerenciamento de categorias.
 - [ ] Moderação.
 - [ ] Filtros.
@@ -196,6 +198,19 @@ Cada tarefa somente será considerada concluída quando:
 - [x] `RolesGuard`.
 - [x] Testes automatizados de autenticação e autorização.
 - [x] Integração da autenticação com o frontend.
+
+### Administração de profissionais
+
+### Concluído
+
+- [x] Listagem administrativa read-only de profissionais.
+
+### Pendente
+
+- [ ] Edição de profissional.
+- [ ] Suspensão/bloqueio de profissional.
+- [ ] Moderação de profissional.
+- [ ] Curadoria de profissional.
 
 ### Pendente
 
