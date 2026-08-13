@@ -83,6 +83,8 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Listagem de interessados do lançamento.
 - [x] Listagem administrativa de clientes (`/admin/clientes`) com paginação e leitura.
 - [x] Listagem administrativa de profissionais (`/admin/profissionais`) com paginação e leitura.
+- [x] Listagem administrativa de categorias oficiais (`/admin/categorias`) com paginação e leitura.
+- [x] Listagem administrativa de solicitações de categoria (`/admin/categorias`) com paginação e leitura.
 - [x] Proteção visual por `ADMIN`.
 - [x] Paginação básica.
 - [x] Responsividade mobile e desktop.
@@ -92,7 +94,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [ ] Dashboard administrativo completo.
 - [ ] Gerenciamento de usuários (edição, exclusão, suspensão, filtros, busca e exportação).
 - [ ] Gerenciamento completo de profissionais.
-- [ ] Gerenciamento de categorias.
+- [ ] Gerenciamento de categorias (criação, edição, ativação/desativação e exclusão).
 - [ ] Moderação.
 - [ ] Filtros.
 - [ ] Busca.
@@ -236,12 +238,17 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Criar módulo de categorias.
 - [x] Criar listagem pública de categorias ativas.
 - [x] Criar carga inicial de categorias.
-- [ ] Criar solicitação de categoria pelo profissional.
+- [x] Criar solicitação de categoria pelo profissional.
+- [x] Criar listagem administrativa de categorias.
+- [x] Criar listagem administrativa de solicitações de categoria.
 - [ ] Detectar categorias e solicitações semelhantes.
 - [ ] Criar painel administrativo de análise.
 - [ ] Aprovar solicitação.
 - [ ] Rejeitar solicitação.
 - [ ] Vincular solicitação a uma categoria existente.
+- [ ] Criar categoria oficial.
+- [ ] Editar categoria oficial.
+- [ ] Ativar/desativar categoria oficial.
 - [ ] Notificar profissional sobre o resultado.
 - [ ] Associar categorias ao perfil profissional.
 

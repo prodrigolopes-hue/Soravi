@@ -4,6 +4,34 @@
 
 ### Administração
 
+- criada a rota administrativa `/admin/categorias`;
+- implementada tela administrativa read-only com duas áreas:
+  - categorias oficiais;
+  - solicitações de categoria;
+- consumo do endpoint `GET /api/v1/categories/admin` com `page` e `pageSize`;
+- consumo do endpoint `GET /api/v1/category-requests/admin` com `page` e `pageSize`;
+- proteção visual por sessão autenticada e role `ADMIN`;
+- estados de loading, vazio, erro, `401` e `403` por seção;
+- paginações independentes entre categorias e solicitações;
+- renderização com tabela no desktop e cards no mobile;
+- card `Categorias` marcado como disponível no painel `/admin`.
+
+### Backend
+
+- criada a listagem administrativa `GET /api/v1/categories/admin`;
+- autenticação via Bearer access token e autorização restrita a `ADMIN`;
+- retorno de categorias ativas e inativas com paginação;
+- ordenação por `displayOrder` asc e `name` asc;
+- campos retornados: `id`, `name`, `slug`, `isActive`, `displayOrder`, `createdAt`, `updatedAt`.
+
+- criada a listagem administrativa `GET /api/v1/category-requests/admin`;
+- autenticação via Bearer access token e autorização restrita a `ADMIN`;
+- retorno de solicitações de todos os status com paginação;
+- ordenação por `createdAt` desc;
+- campos principais retornados: `suggestedName`, `status`, `reviewNotes`, `professionalProfile`, `resolvedCategory`, `createdAt`, `reviewedAt`.
+
+### Administração
+
 - criada a rota administrativa `/admin/profissionais`;
 - implementada listagem administrativa read-only de profissionais;
 - consumo do endpoint `GET /api/v1/users/admin/professionals` com `page` e `pageSize`;

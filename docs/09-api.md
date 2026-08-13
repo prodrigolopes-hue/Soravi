@@ -144,6 +144,10 @@ GET /api/v1/users/admin/customers
 
 GET /api/v1/users/admin/professionals
 
+GET /api/v1/categories/admin
+
+GET /api/v1/category-requests/admin
+
 Lista interessados do lançamento para uso administrativo.
 
 Autenticação:
@@ -293,6 +297,162 @@ Campos retornados por item:
 - `professionalProfile.displayName`;
 - `professionalProfile.verificationStatus`;
 - `professionalProfile.isAvailable`.
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Listagem administrativa de categorias oficiais
+
+Endpoint administrativo para consulta de categorias oficiais cadastradas.
+
+### Requisição
+
+GET `/api/v1/categories/admin`
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Query:
+
+- `page`: inteiro maior ou igual a `1` (padrão `1`);
+- `pageSize`: inteiro entre `1` e `100` (padrão `20`).
+
+### Regras de listagem
+
+- inclui categorias ativas e inativas;
+- não filtra por `isActive`;
+- ordenação por `displayOrder` crescente e `name` crescente;
+- resposta com campos administrativos necessários, sem relações desnecessárias.
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "name": "Eletricista",
+      "slug": "eletricista",
+      "isActive": true,
+      "displayOrder": 1,
+      "createdAt": "2026-08-12T00:00:00.000Z",
+      "updatedAt": "2026-08-12T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Campos retornados por item:
+
+- `id`;
+- `name`;
+- `slug`;
+- `isActive`;
+- `displayOrder`;
+- `createdAt`;
+- `updatedAt`.
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Listagem administrativa de solicitações de categoria
+
+Endpoint administrativo para consulta de solicitações de categoria enviadas por profissionais.
+
+### Requisição
+
+GET `/api/v1/category-requests/admin`
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Query:
+
+- `page`: inteiro maior ou igual a `1` (padrão `1`);
+- `pageSize`: inteiro entre `1` e `100` (padrão `20`).
+
+### Regras de listagem
+
+- inclui solicitações de todos os status;
+- não aplica filtro por status neste incremento;
+- ordenação por `createdAt` em ordem decrescente;
+- resposta sem dados sensíveis de autenticação e sessão.
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "suggestedName": "Eletricista residencial",
+      "status": "PENDING",
+      "reviewNotes": null,
+      "createdAt": "2026-08-12T00:00:00.000Z",
+      "reviewedAt": null,
+      "professionalProfile": {
+        "id": "...",
+        "displayName": "João Silva",
+        "user": {
+          "id": "...",
+          "name": "João Silva",
+          "email": "joao@soravi.com.br"
+        }
+      },
+      "resolvedCategory": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Campos retornados por item:
+
+- `id`;
+- `suggestedName`;
+- `status`;
+- `reviewNotes`;
+- `createdAt`;
+- `reviewedAt`;
+- `professionalProfile.id`;
+- `professionalProfile.displayName`;
+- `professionalProfile.user.id`;
+- `professionalProfile.user.name`;
+- `professionalProfile.user.email`;
+- `resolvedCategory.id`;
+- `resolvedCategory.name`;
+- `resolvedCategory.slug`.
 
 Respostas relevantes:
 
