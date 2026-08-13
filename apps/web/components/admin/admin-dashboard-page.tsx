@@ -42,9 +42,10 @@ const adminModules: AdminModule[] = [
   {
     title: "Categorias",
     description: "Gestão das categorias de serviços.",
-    status: "Em breve",
+    status: "Disponível",
+    href: "/admin/categorias",
     icon: Wrench,
-    tone: "soon",
+    tone: "available",
   },
   {
     title: "Moderação",
