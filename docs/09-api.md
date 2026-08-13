@@ -140,6 +140,8 @@ PUT /api/v1/admin/users/{id}/block
 
 GET /api/v1/launch-interests
 
+GET /api/v1/users/admin/customers
+
 Lista interessados do lançamento para uso administrativo.
 
 Autenticação:
@@ -206,6 +208,79 @@ Campos principais:
 - `unsubscribedAt`;
 - `createdAt`;
 - `updatedAt`.
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Listagem administrativa de clientes
+
+Endpoint administrativo para consulta de clientes cadastrados.
+
+### Requisição
+
+GET `/api/v1/users/admin/customers`
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Query:
+
+- `page`: inteiro maior ou igual a `1` (padrão `1`);
+- `pageSize`: inteiro entre `1` e `100` (padrão `20`).
+
+### Regras de listagem
+
+- somente usuários com `Role.CUSTOMER`;
+- somente usuários com `CustomerProfile`;
+- apenas registros com `deletedAt = null`;
+- ordenação por `createdAt` em ordem decrescente;
+- resposta sem campos sensíveis (não retorna senha, hash de token, e-mail normalizado ou telefone normalizado).
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "name": "...",
+      "email": "...",
+      "phone": null,
+      "status": "ACTIVE",
+      "emailVerified": true,
+      "phoneVerified": false,
+      "createdAt": "2026-08-12T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Campos retornados por item:
+
+- `id`;
+- `name`;
+- `email`;
+- `phone`;
+- `status`;
+- `emailVerified`;
+- `phoneVerified`;
+- `createdAt`.
 
 Respostas relevantes:
 

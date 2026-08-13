@@ -81,6 +81,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 - [x] Primeira tela administrativa.
 - [x] Listagem de interessados do lançamento.
+- [x] Listagem administrativa de clientes (`/admin/clientes`) com paginação e leitura.
 - [x] Proteção visual por `ADMIN`.
 - [x] Paginação básica.
 - [x] Responsividade mobile e desktop.
@@ -88,7 +89,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 ### Pendente
 
 - [ ] Dashboard administrativo completo.
-- [ ] Gerenciamento de usuários.
+- [ ] Gerenciamento de usuários (edição, exclusão, suspensão, filtros, busca e exportação).
 - [ ] Gerenciamento de categorias.
 - [ ] Moderação.
 - [ ] Filtros.

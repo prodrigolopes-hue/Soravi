@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-08-12
+
+### Administração
+
+- criada a rota administrativa `/admin/clientes`;
+- implementada listagem administrativa read-only de clientes;
+- consumo do endpoint `GET /api/v1/users/admin/customers` com `page` e `pageSize`;
+- proteção visual por sessão autenticada e role `ADMIN`;
+- estados de loading, vazio, erro, `401` e `403`;
+- paginação com cards no mobile e tabela no desktop;
+- card `Clientes` marcado como disponível no painel `/admin`.
+
 ## 2026-08-11
 
 ### Autenticação
