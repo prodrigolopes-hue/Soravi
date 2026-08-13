@@ -174,6 +174,25 @@ Regras:
 - `displayOrder` controla a ordem de apresentação;
 - a categoria poderá receber solicitações que foram aprovadas ou vinculadas.
 
+### Lista oficial inicial do MVP (2026-08-12)
+
+Para o primeiro MVP, a lista oficial inicial de `Category` é:
+
+1. Eletricista (`eletricista`)
+2. Encanador (`encanador`)
+3. Pintor (`pintor`)
+4. Diarista (`diarista`)
+5. Jardineiro (`jardineiro`)
+6. Montador de móveis (`montador-de-moveis`)
+7. Climatização e ar-condicionado (`climatizacao-e-ar-condicionado`)
+8. Reparos e manutenção residencial (`reparos-e-manutencao-residencial`)
+
+Observações:
+
+- "Montador" não é nome oficial de categoria;
+- "Reformas" não é categoria separada neste primeiro MVP;
+- a ordem oficial inicial deve ser preservada de 1 a 8.
+
 ### CategoryRequest
 
 Representa uma solicitação de inclusão de uma categoria feita por um profissional.

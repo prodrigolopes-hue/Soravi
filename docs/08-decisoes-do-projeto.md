@@ -239,6 +239,44 @@ O primeiro modelo de categorias não possui categorias-pai ou subcategorias.
 
 A hierarquia poderá ser adicionada posteriormente se os dados reais demonstrarem necessidade.
 
+## Lista oficial inicial de categorias do MVP
+
+### Decisão (2026-08-12)
+
+A lista oficial inicial de categorias do MVP da Soravi será:
+
+1. Eletricista (`eletricista`)
+2. Encanador (`encanador`)
+3. Pintor (`pintor`)
+4. Diarista (`diarista`)
+5. Jardineiro (`jardineiro`)
+6. Montador de móveis (`montador-de-moveis`)
+7. Climatização e ar-condicionado (`climatizacao-e-ar-condicionado`)
+8. Reparos e manutenção residencial (`reparos-e-manutencao-residencial`)
+
+### Regras
+
+- "Montador de móveis" é o nome oficial; "Montador" não é categoria oficial;
+- "Reformas" não será criada como categoria separada neste primeiro MVP;
+- PostgreSQL é a fonte oficial das categorias;
+- listas hardcoded do frontend deverão ser substituídas gradualmente por `GET /api/v1/categories`;
+- novas categorias poderão ser adicionadas futuramente por processo administrativo/moderação;
+- a ordem inicial oficial é exatamente de 1 a 8 conforme a lista acima.
+
+### Motivação
+
+- reduzir divergência entre frontend, backend e banco;
+- começar com conjunto pequeno e compreensível;
+- evitar fragmentação de solicitações;
+- permitir evolução posterior baseada em dados reais.
+
+### Impacto
+
+- a seed deverá refletir exatamente a lista aprovada;
+- Home e cadastro profissional deverão migrar para a API oficial;
+- o painel administrativo continuará como visão operacional das categorias;
+- futuras `CategoryRequest` poderão alimentar a evolução da taxonomia.
+
 ## Pré-cadastro de interesse no lançamento
 
 ### Decisão (2026-08-05)
