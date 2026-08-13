@@ -34,9 +34,10 @@ const adminModules: AdminModule[] = [
   {
     title: "Profissionais",
     description: "Gestão, verificação e acompanhamento de profissionais.",
-    status: "Em breve",
+    status: "Disponível",
+    href: "/admin/profissionais",
     icon: Shield,
-    tone: "soon",
+    tone: "available",
   },
   {
     title: "Categorias",

@@ -4,3 +4,5 @@ export const apiBaseUrl =
 export const launchInterestsUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/launch-interests`;
 
 export const adminCustomersUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/users/admin/customers`;
+
+export const adminProfessionalsUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/users/admin/professionals`;
