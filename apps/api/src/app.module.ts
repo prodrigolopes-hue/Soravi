@@ -9,6 +9,7 @@ import { CategoriesModule } from "./modules/categories/categories.module";
 import { CategoryRequestsModule } from "./modules/category-requests/category-requests.module";
 import { UsersModule } from "./modules/users/users.module";
 import { LaunchInterestsModule } from "./modules/launch-interests/launch-interests.module";
+import { CategorySuggestionsModule } from "./modules/category-suggestions/category-suggestions.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LaunchInterestsModule } from "./modules/launch-interests/launch-interes
     CategoriesModule,
     CategoryRequestsModule,
     LaunchInterestsModule,
+    CategorySuggestionsModule,
   ],
   controllers: [HealthController],
 })

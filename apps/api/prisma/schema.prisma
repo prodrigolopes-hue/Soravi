@@ -58,6 +58,10 @@ enum LaunchInterestSource {
   OTHER
 }
 
+enum PublicCategorySuggestionStatus {
+  PENDING
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -295,4 +299,21 @@ model LaunchInterest {
   @@index([emailConfirmedAt], map: "launch_interests_email_confirmed_at_idx")
   @@index([unsubscribedAt], map: "launch_interests_unsubscribed_at_idx")
   @@map("launch_interests")
+}
+
+model PublicCategorySuggestion {
+  id                      String                         @id @default(uuid()) @db.Uuid
+  name                    String                         @db.VarChar(120)
+  email                   String                         @db.VarChar(254)
+  phone                   String?                        @db.VarChar(32)
+  suggestedName           String                         @map("suggested_name") @db.VarChar(120)
+  description             String?                        @db.VarChar(1000)
+  status                  PublicCategorySuggestionStatus @default(PENDING)
+  privacyNoticeAcceptedAt DateTime                       @map("privacy_notice_accepted_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt], map: "public_category_suggestions_status_created_at_idx")
+  @@map("public_category_suggestions")
 }
