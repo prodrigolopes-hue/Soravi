@@ -131,6 +131,7 @@ model ProfessionalProfile {
 
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryRequests CategoryRequest[]
+  professionalCategories ProfessionalCategory[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -217,10 +218,26 @@ model Category {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   requests CategoryRequest[] @relation("CategoryRequestResolution")
+  professionalCategories ProfessionalCategory[]
 
   @@index([isActive, displayOrder], map: "categories_active_display_order_idx")
   @@index([name], map: "categories_name_idx")
   @@map("categories")
+}
+
+model ProfessionalCategory {
+  id                     String             @id @default(uuid()) @db.Uuid
+  professionalProfileId   String             @map("professional_profile_id") @db.Uuid
+  categoryId              String             @map("category_id") @db.Uuid
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  category            Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([professionalProfileId, categoryId], map: "professional_categories_professional_profile_id_category_id_key")
+  @@index([professionalProfileId], map: "professional_categories_professional_profile_id_idx")
+  @@index([categoryId], map: "professional_categories_category_id_idx")
+  @@map("professional_categories")
 }
 
 model CategoryRequest {
