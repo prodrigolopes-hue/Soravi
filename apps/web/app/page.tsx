@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { LaunchInterestForm } from "../components/launch/launch-interest-form";
+import { ServiceCategories } from "../components/home/service-categories";
 
 export const metadata: Metadata = {
   title: "Soravi — Em breve",
@@ -66,6 +67,8 @@ export default function HomePage() {
           <LaunchInterestForm />
         </div>
       </section>
+
+      <ServiceCategories />
 
       <section className="mt-10 rounded-[2rem] border border-slate-200 bg-slate-50 p-6 shadow-sm sm:p-8">
         <div>

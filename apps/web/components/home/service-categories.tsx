@@ -1,68 +1,91 @@
 import Link from "next/link";
 import {
-  Brush,
   Hammer,
   Leaf,
   Paintbrush,
+  Snowflake,
   PlugZap,
   SprayCan,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { categoriesUrl } from "../../lib/api";
 
 interface ServiceCategory {
+  id: string;
   name: string;
   slug: string;
-  description: string;
-  icon: LucideIcon;
+  description: string | null;
+  icon: string | null;
+  displayOrder: number;
 }
 
-const categories: ServiceCategory[] = [
-  {
-    name: "Eletricista",
-    slug: "eletricista",
-    description: "Instalações, reparos e manutenção elétrica.",
-    icon: PlugZap,
-  },
-  {
-    name: "Encanador",
-    slug: "encanador",
-    description: "Vazamentos, instalações e manutenção hidráulica.",
-    icon: Wrench,
-  },
-  {
-    name: "Pintor",
-    slug: "pintor",
-    description: "Pintura residencial, comercial e acabamentos.",
-    icon: Paintbrush,
-  },
-  {
-    name: "Diarista",
-    slug: "diarista",
-    description: "Limpeza e organização para casas e empresas.",
-    icon: SprayCan,
-  },
-  {
-    name: "Jardineiro",
-    slug: "jardineiro",
-    description: "Cuidados, manutenção e revitalização de jardins.",
-    icon: Leaf,
-  },
-  {
-    name: "Montador",
-    slug: "montador",
-    description: "Montagem e desmontagem de móveis.",
-    icon: Hammer,
-  },
-  {
-    name: "Reformas",
-    slug: "reformas",
-    description: "Pequenas reformas e melhorias no imóvel.",
-    icon: Brush,
-  },
-];
+const categoryIconMap: Record<string, LucideIcon> = {
+  zap: PlugZap,
+  wrench: Wrench,
+  "paint-roller": Paintbrush,
+  "spray-can": SprayCan,
+  leaf: Leaf,
+  hammer: Hammer,
+  snowflake: Snowflake,
+  "house-wrench": Wrench,
+};
 
-export function ServiceCategories() {
+function isServiceCategory(value: unknown): value is ServiceCategory {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<ServiceCategory>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.slug === "string" &&
+    (typeof candidate.description === "string" || candidate.description === null) &&
+    (typeof candidate.icon === "string" || candidate.icon === null) &&
+    typeof candidate.displayOrder === "number" &&
+    Number.isInteger(candidate.displayOrder)
+  );
+}
+
+function resolveCategoryIcon(icon: string | null): LucideIcon {
+  if (!icon) {
+    return Wrench;
+  }
+
+  return categoryIconMap[icon] ?? Wrench;
+}
+
+async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
+  try {
+    const response = await fetch(categoriesUrl, {
+      next: {
+        revalidate: 300,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload: unknown = await response.json();
+
+    if (!Array.isArray(payload)) {
+      return null;
+    }
+
+    return payload.filter(isServiceCategory);
+  } catch {
+    return null;
+  }
+}
+
+export async function ServiceCategories() {
+  const categories = await fetchServiceCategories();
+  const hasCategories = Array.isArray(categories) && categories.length > 0;
+  const isEmptyList = Array.isArray(categories) && categories.length === 0;
+
   return (
     <section
       aria-labelledby="service-categories-title"
@@ -84,25 +107,37 @@ export function ServiceCategories() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {categories.map(({ name, slug, description, icon: Icon }) => (
-            <Link
-              key={slug}
-              href={`/profissionais?categoria=${slug}`}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-            >
-              <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                <Icon aria-hidden="true" className="size-5" />
-              </div>
+        {hasCategories ? (
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {categories.map(({ id, name, slug, description, icon }) => {
+              const Icon = resolveCategoryIcon(icon);
 
-              <h3 className="mt-5 font-semibold text-slate-950">{name}</h3>
+              return (
+                <Link
+                  key={id}
+                  href={`/profissionais?categoria=${slug}`}
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                >
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                    <Icon aria-hidden="true" className="size-5" />
+                  </div>
 
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {description}
-              </p>
-            </Link>
-          ))}
-        </div>
+                  <h3 className="mt-5 font-semibold text-slate-950">{name}</h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {description ?? "Profissionais disponíveis nesta categoria."}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-10 text-sm leading-6 text-slate-600">
+            {isEmptyList
+              ? "Nenhuma categoria disponível no momento."
+              : "As categorias estarão disponíveis em instantes."}
+          </p>
+        )}
       </div>
     </section>
   );
