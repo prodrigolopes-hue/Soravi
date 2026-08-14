@@ -12,40 +12,44 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-const serviceCategories = [
-  {
-    value: "eletricista",
-    label: "Eletricista",
-  },
-  {
-    value: "encanador",
-    label: "Encanador",
-  },
-  {
-    value: "pintor",
-    label: "Pintor",
-  },
-  {
-    value: "diarista",
-    label: "Diarista",
-  },
-  {
-    value: "jardineiro",
-    label: "Jardineiro",
-  },
-  {
-    value: "montador",
-    label: "Montador de móveis",
-  },
-  {
-    value: "reformas",
-    label: "Reformas",
-  },
-] as const;
+import { categoriesUrl } from "../../lib/api";
+
+interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  displayOrder: number;
+}
+
+type CategoriesLoadState =
+  | "loading"
+  | "success"
+  | "empty"
+  | "error";
+
+function isServiceCategory(value: unknown): value is ServiceCategory {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<ServiceCategory>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.slug === "string" &&
+    (typeof candidate.description === "string" || candidate.description === null) &&
+    (typeof candidate.icon === "string" || candidate.icon === null) &&
+    typeof candidate.displayOrder === "number" &&
+    Number.isInteger(candidate.displayOrder)
+  );
+}
 
 const professionalRegistrationSchema = z
   .object({
@@ -137,10 +141,15 @@ export function ProfessionalRegistrationForm() {
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [categoriesLoadState, setCategoriesLoadState] =
+    useState<CategoriesLoadState>("loading");
 
   const {
     register,
     handleSubmit,
+    setError,
+    clearErrors,
     watch,
     formState: { errors },
   } = useForm<ProfessionalRegistrationFormData>({
@@ -161,9 +170,93 @@ export function ProfessionalRegistrationForm() {
   });
 
   const descriptionLength = watch("description").length;
+  const selectedCategories = watch("categories");
   const phoneField = register("phone");
+  const categorySlugs = useMemo(
+    () => new Set(categories.map((category) => category.slug)),
+    [categories],
+  );
+  const selectedCategoryCount = selectedCategories.length;
+  const canSubmitWithCategories =
+    categoriesLoadState === "success" && categories.length > 0;
 
-  function handleValidSubmit(): void {
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function loadCategories(): Promise<void> {
+      setCategoriesLoadState("loading");
+
+      try {
+        const response = await fetch(categoriesUrl, {
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          setCategories([]);
+          setCategoriesLoadState("error");
+          return;
+        }
+
+        const payload: unknown = await response.json();
+
+        if (!Array.isArray(payload)) {
+          setCategories([]);
+          setCategoriesLoadState("error");
+          return;
+        }
+
+        const parsedCategories = payload.filter(isServiceCategory);
+
+        if (parsedCategories.length === 0) {
+          setCategories([]);
+          setCategoriesLoadState("empty");
+          return;
+        }
+
+        setCategories(parsedCategories);
+        setCategoriesLoadState("success");
+      } catch {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setCategories([]);
+        setCategoriesLoadState("error");
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  function handleValidSubmit(data: ProfessionalRegistrationFormData): void {
+    if (!canSubmitWithCategories) {
+      setError("categories", {
+        type: "manual",
+        message:
+          "Não foi possível validar as categorias agora. Tente novamente em instantes.",
+      });
+      setFormMessage(null);
+      return;
+    }
+
+    const hasInvalidCategory = data.categories.some(
+      (categorySlug) => !categorySlugs.has(categorySlug),
+    );
+
+    if (hasInvalidCategory) {
+      setError("categories", {
+        type: "manual",
+        message: "Selecione apenas categorias disponíveis.",
+      });
+      setFormMessage(null);
+      return;
+    }
+
+    clearErrors("categories");
     setFormMessage(
       "Cadastro profissional validado. A criação da conta será conectada à API em uma próxima etapa.",
     );
@@ -429,25 +522,59 @@ export function ProfessionalRegistrationForm() {
           Selecione de uma a três categorias.
         </p>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {serviceCategories.map((category) => (
-            <label
-              key={category.value}
-              className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50"
-            >
-              <input
-                type="checkbox"
-                value={category.value}
-                className="size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                {...register("categories")}
-              />
+        {categoriesLoadState === "loading" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Carregando categorias oficiais...
+          </p>
+        ) : null}
 
-              <span className="text-sm font-medium text-slate-700">
-                {category.label}
-              </span>
-            </label>
-          ))}
-        </div>
+        {categoriesLoadState === "error" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Não foi possível carregar as categorias no momento.
+          </p>
+        ) : null}
+
+        {categoriesLoadState === "empty" ? (
+          <p className="mt-3 text-sm text-slate-500">
+            Nenhuma categoria disponível no momento.
+          </p>
+        ) : null}
+
+        {categoriesLoadState === "success" ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {categories.map((category) => (
+              (() => {
+                const isSelected = selectedCategories.includes(category.slug);
+                const isDisabled =
+                  !canSubmitWithCategories ||
+                  (!isSelected && selectedCategoryCount >= 3);
+
+                return (
+                  <label
+                    key={category.id}
+                    className={`flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition-colors ${
+                      isDisabled
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer hover:border-blue-300 hover:bg-blue-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      value={category.slug}
+                      className="size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600 disabled:cursor-not-allowed"
+                      disabled={isDisabled}
+                      {...register("categories")}
+                    />
+
+                    <span className="text-sm font-medium text-slate-700">
+                      {category.name}
+                    </span>
+                  </label>
+                );
+              })()
+            ))}
+          </div>
+        ) : null}
 
         {errors.categories ? (
           <p role="alert" className="mt-2 text-sm font-medium text-red-600">
@@ -630,7 +757,8 @@ export function ProfessionalRegistrationForm() {
 
       <button
         type="submit"
-        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        disabled={!canSubmitWithCategories}
+        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
       >
         Criar conta profissional
       </button>
