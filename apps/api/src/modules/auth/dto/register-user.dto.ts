@@ -1,5 +1,7 @@
 import { Transform } from "class-transformer";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -93,4 +95,23 @@ export class RegisterUserDto {
   @MinLength(1)
   @MaxLength(32)
   acceptedPrivacyPolicyVersion!: string;
+
+  @Transform(({ value }: { value: unknown }) =>
+    Array.isArray(value)
+      ? value.map((item) =>
+          typeof item === "string" ? item.trim() : item,
+        )
+      : value,
+  )
+  @IsOptional()
+  @IsArray({ message: "As categorias devem ser uma lista." })
+  @IsString({ each: true, message: "A categoria deve ser um texto." })
+  @MinLength(1, {
+    each: true,
+    message: "A categoria deve possuir pelo menos 1 caractere.",
+  })
+  @ArrayMaxSize(3, {
+    message: "Selecione no máximo três categorias.",
+  })
+  categorySlugs?: string[];
 }

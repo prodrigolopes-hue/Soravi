@@ -39,6 +39,12 @@ interface TransactionClientMock {
   professionalProfile: {
     create: jest.Mock;
   };
+  category: {
+    findMany: jest.Mock;
+  };
+  professionalCategory: {
+    createMany: jest.Mock;
+  };
 }
 
 describe("AuthService", () => {
@@ -161,6 +167,12 @@ describe("AuthService", () => {
       professionalProfile: {
         create: jest.fn(),
       },
+      category: {
+        findMany: jest.fn(),
+      },
+      professionalCategory: {
+        createMany: jest.fn(),
+      },
     };
 
     authService = new AuthService(
@@ -253,9 +265,18 @@ describe("AuthService", () => {
   });
 
   it("deve cadastrar um profissional com perfil profissional", async () => {
-    const input = createRegistrationInput(Role.PROFESSIONAL);
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+    ]);
 
     prismaMock.user.findFirst.mockResolvedValue(null);
+
+    transactionClientMock.category.findMany.mockResolvedValue([
+      {
+        id: "category-eletricista-id",
+        slug: "eletricista",
+      },
+    ]);
 
     transactionClientMock.user.create.mockResolvedValue({
       id: userId,
@@ -281,12 +302,40 @@ describe("AuthService", () => {
     const response = await authService.register(input);
 
     expect(
+      transactionClientMock.category.findMany,
+    ).toHaveBeenCalledWith({
+      where: {
+        slug: {
+          in: ["eletricista"],
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        slug: true,
+      },
+    });
+
+    expect(
       transactionClientMock.professionalProfile.create,
     ).toHaveBeenCalledWith({
       data: {
         userId,
         displayName: "Maria da Silva",
       },
+    });
+
+    expect(
+      transactionClientMock.professionalCategory.createMany,
+    ).toHaveBeenCalledWith({
+      data: [
+        {
+          professionalProfileId:
+            professionalProfileId,
+          categoryId:
+            "category-eletricista-id",
+        },
+      ],
     });
 
     expect(
@@ -304,6 +353,226 @@ describe("AuthService", () => {
         ProfessionalVerificationStatus.NOT_STARTED,
       isAvailable: true,
     });
+  });
+
+  it("deve cadastrar um profissional com três categorias válidas", async () => {
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+      "encanador",
+      "pintor",
+    ]);
+
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    transactionClientMock.category.findMany.mockResolvedValue([
+      {
+        id: "category-eletricista-id",
+        slug: "eletricista",
+      },
+      {
+        id: "category-encanador-id",
+        slug: "encanador",
+      },
+      {
+        id: "category-pintor-id",
+        slug: "pintor",
+      },
+    ]);
+
+    transactionClientMock.user.create.mockResolvedValue({
+      id: userId,
+    });
+
+    transactionClientMock.professionalProfile.create.mockResolvedValue({
+      id: professionalProfileId,
+      userId,
+    });
+
+    prismaMock.$transaction.mockImplementation(
+      async (
+        callback: (
+          transaction: TransactionClientMock,
+        ) => Promise<string>,
+      ) => callback(transactionClientMock),
+    );
+
+    const safeUser = createProfessionalResponse();
+
+    usersServiceMock.findSafeById.mockResolvedValue(safeUser);
+
+    await authService.register(input);
+
+    expect(
+      transactionClientMock.professionalCategory.createMany,
+    ).toHaveBeenCalledWith({
+      data: [
+        {
+          professionalProfileId:
+            professionalProfileId,
+          categoryId:
+            "category-eletricista-id",
+        },
+        {
+          professionalProfileId:
+            professionalProfileId,
+          categoryId:
+            "category-encanador-id",
+        },
+        {
+          professionalProfileId:
+            professionalProfileId,
+          categoryId:
+            "category-pintor-id",
+        },
+      ],
+    });
+  });
+
+  it.each([
+    ["sem categorySlugs", undefined],
+    ["com array vazio", []],
+    ["com 4 categorias", ["eletricista", "encanador", "pintor", "diarista"]],
+    ["com slug duplicado", ["eletricista", "eletricista"]],
+  ])(
+    "deve rejeitar cadastro profissional %s",
+    async (_label, categorySlugs) => {
+      const input = createRegistrationInput(
+        Role.PROFESSIONAL,
+        categorySlugs as string[] | undefined,
+      );
+
+      await expect(
+        authService.register(input),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
+    },
+  );
+
+  it("deve rejeitar cadastro profissional com slug inexistente", async () => {
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+    ]);
+
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    transactionClientMock.category.findMany.mockResolvedValue([]);
+
+    prismaMock.$transaction.mockImplementation(
+      async (
+        callback: (
+          transaction: TransactionClientMock,
+        ) => Promise<string>,
+      ) => callback(transactionClientMock),
+    );
+
+    await expect(
+      authService.register(input),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(
+      transactionClientMock.user.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClientMock.professionalProfile.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClientMock.professionalCategory.createMany,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve rejeitar cadastro profissional com categoria inativa", async () => {
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+    ]);
+
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    transactionClientMock.category.findMany.mockResolvedValue([]);
+
+    prismaMock.$transaction.mockImplementation(
+      async (
+        callback: (
+          transaction: TransactionClientMock,
+        ) => Promise<string>,
+      ) => callback(transactionClientMock),
+    );
+
+    await expect(
+      authService.register(input),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(
+      transactionClientMock.user.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClientMock.professionalProfile.create,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("deve fazer rollback quando a persistência das categorias falhar", async () => {
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+    ]);
+
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    transactionClientMock.category.findMany.mockResolvedValue([
+      {
+        id: "category-eletricista-id",
+        slug: "eletricista",
+      },
+    ]);
+
+    transactionClientMock.user.create.mockResolvedValue({
+      id: userId,
+    });
+
+    transactionClientMock.professionalProfile.create.mockResolvedValue({
+      id: professionalProfileId,
+      userId,
+    });
+
+    transactionClientMock.professionalCategory.createMany.mockRejectedValue(
+      new Error("Simulated category persistence failure"),
+    );
+
+    prismaMock.$transaction.mockImplementation(
+      async (
+        callback: (
+          transaction: TransactionClientMock,
+        ) => Promise<string>,
+      ) => callback(transactionClientMock),
+    );
+
+    await expect(
+      authService.register(input),
+    ).rejects.toThrow("Simulated category persistence failure");
+
+    expect(
+      transactionClientMock.user.create,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      transactionClientMock.professionalProfile.create,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      transactionClientMock.professionalCategory.createMany,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("deve rejeitar slug duplicado sem criar usuário parcialmente", async () => {
+    const input = createRegistrationInput(Role.PROFESSIONAL, [
+      "eletricista",
+      "eletricista",
+    ]);
+
+    await expect(
+      authService.register(input),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
   });
 
   it("deve rejeitar cadastro público com papel ADMIN", async () => {
@@ -786,6 +1055,7 @@ describe("AuthService", () => {
   
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],
+    categorySlugs?: string[],
   ): RegisterUserDto {
     return {
       name: "Maria da Silva",
@@ -795,6 +1065,7 @@ describe("AuthService", () => {
       initialRole,
       acceptedTermsVersion: "1.0",
       acceptedPrivacyPolicyVersion: "1.0",
+      categorySlugs,
     };
   }
 

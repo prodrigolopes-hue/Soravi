@@ -66,6 +66,13 @@ export class AuthService {
   ): Promise<RegisterResponseDto> {
     this.ensurePublicRegistrationRole(input.initialRole);
 
+    const professionalCategorySlugs =
+      input.initialRole === Role.PROFESSIONAL
+        ? this.validateProfessionalCategorySlugs(
+            input.categorySlugs,
+          )
+        : [];
+
     const normalizedEmail = this.normalizeEmail(input.email);
     const normalizedPhone = this.normalizePhone(input.phone);
 
@@ -111,6 +118,14 @@ export class AuthService {
     try {
       createdUserId = await this.prisma.$transaction(
         async (transaction) => {
+          const professionalCategories =
+            input.initialRole === Role.PROFESSIONAL
+              ? await this.findActiveCategoriesBySlug(
+                  transaction,
+                  professionalCategorySlugs,
+                )
+              : [];
+
           const user = await transaction.user.create({
             data: {
               name: input.name.trim(),
@@ -156,11 +171,22 @@ export class AuthService {
           }
 
           if (input.initialRole === Role.PROFESSIONAL) {
-            await transaction.professionalProfile.create({
+            const professionalProfile =
+              await transaction.professionalProfile.create({
               data: {
                 userId: user.id,
                 displayName: input.name.trim(),
               },
+            });
+
+            await transaction.professionalCategory.createMany({
+              data: professionalCategories.map(
+                (category) => ({
+                  professionalProfileId:
+                    professionalProfile.id,
+                  categoryId: category.id,
+                }),
+              ),
             });
           }
 
@@ -412,6 +438,76 @@ export class AuthService {
     if (!LOGIN_ALLOWED_STATUSES.includes(status)) {
       throw new AccountUnavailableException();
     }
+  }
+
+  private validateProfessionalCategorySlugs(
+    categorySlugs: string[] | undefined,
+  ): string[] {
+    if (!categorySlugs || categorySlugs.length === 0) {
+      throw new BadRequestException({
+        code: "INVALID_CATEGORY_SLUGS",
+        message:
+          "Selecione de 1 a 3 categorias válidas.",
+      });
+    }
+
+    const normalizedCategorySlugs = categorySlugs.map(
+      (categorySlug) => categorySlug.trim(),
+    );
+
+    if (
+      normalizedCategorySlugs.some(
+        (categorySlug) => categorySlug.length === 0,
+      )
+    ) {
+      throw new BadRequestException({
+        code: "INVALID_CATEGORY_SLUGS",
+        message:
+          "Selecione de 1 a 3 categorias válidas.",
+      });
+    }
+
+    if (
+      normalizedCategorySlugs.length > 3 ||
+      new Set(normalizedCategorySlugs).size !==
+        normalizedCategorySlugs.length
+    ) {
+      throw new BadRequestException({
+        code: "INVALID_CATEGORY_SLUGS",
+        message:
+          "Selecione de 1 a 3 categorias válidas.",
+      });
+    }
+
+    return normalizedCategorySlugs;
+  }
+
+  private async findActiveCategoriesBySlug(
+    transaction: Prisma.TransactionClient,
+    categorySlugs: string[],
+  ): Promise<Array<{ id: string; slug: string }>> {
+    const categories = await transaction.category.findMany({
+      where: {
+        slug: {
+          in: categorySlugs,
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        slug: true,
+      },
+    });
+
+    if (categories.length !== categorySlugs.length) {
+      throw new BadRequestException({
+        code: "INVALID_CATEGORY_SLUGS",
+        message:
+          "Selecione de 1 a 3 categorias válidas.",
+      });
+    }
+
+    return categories;
   }
 
   private normalizeEmail(email: string): string {
