@@ -24,6 +24,12 @@ function parsePort(...values: Array<string | number | undefined>): number {
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  const httpAdapter = app.getHttpAdapter();
+
+  if (httpAdapter.getType() === "express") {
+    const expressApp = httpAdapter.getInstance();
+    expressApp.set("trust proxy", 1);
+  }
 
   const apiPort = parsePort(
     configService.get<string | number>("PORT"),

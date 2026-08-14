@@ -4,7 +4,9 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  UseGuards,
 } from "@nestjs/common";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 
 import { CategorySuggestionsService } from "./category-suggestions.service";
 import { CreatePublicCategorySuggestionDto } from "./dto/create-public-category-suggestion.dto";
@@ -18,6 +20,13 @@ export class CategorySuggestionsController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 600_000,
+    },
+  })
   create(
     @Body() input: CreatePublicCategorySuggestionDto,
   ): Promise<PublicCategorySuggestionResponseDto> {
