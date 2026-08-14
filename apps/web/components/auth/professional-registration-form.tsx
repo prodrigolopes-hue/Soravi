@@ -16,7 +16,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { categoriesUrl } from "../../lib/api";
+import { apiBaseUrl, categoriesUrl } from "../../lib/api";
+import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 
 interface ServiceCategory {
   id: string;
@@ -232,7 +233,9 @@ export function ProfessionalRegistrationForm() {
     };
   }, []);
 
-  function handleValidSubmit(data: ProfessionalRegistrationFormData): void {
+  async function handleValidSubmit(
+    data: ProfessionalRegistrationFormData,
+  ): Promise<void> {
     if (!canSubmitWithCategories) {
       setError("categories", {
         type: "manual",
@@ -257,9 +260,44 @@ export function ProfessionalRegistrationForm() {
     }
 
     clearErrors("categories");
-    setFormMessage(
-      "Cadastro profissional validado. A criação da conta será conectada à API em uma próxima etapa.",
-    );
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            password: data.password,
+            initialRole: "PROFESSIONAL",
+            acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
+            acceptedPrivacyPolicyVersion:
+              LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+            categorySlugs: data.categories,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        setFormMessage(
+          "Não foi possível concluir seu cadastro profissional no momento.",
+        );
+        return;
+      }
+
+      setFormMessage(
+        "Cadastro profissional enviado com sucesso. Você já pode entrar na Soravi.",
+      );
+    } catch {
+      setFormMessage(
+        "Não foi possível conectar à Soravi. Tente novamente em instantes.",
+      );
+    }
   }
 
   function handleInvalidSubmit(): void {
