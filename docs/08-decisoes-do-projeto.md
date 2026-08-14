@@ -359,6 +359,31 @@ Após essas camadas, o profissional poderá ser:
 - encaminhado para análise manual adicional;
 - não aprovado naquele momento.
 
+## Sugestão pública de categoria no pré-cadastro profissional
+
+### Decisão (2026-08-14)
+
+A Soravi deve captar sugestão de categoria já no cadastro profissional, antes de autenticação, por meio de uma entidade pública separada (`PublicCategorySuggestion`).
+
+### Motivação
+
+- reduzir abandono no cadastro profissional quando a categoria desejada não está disponível;
+- coletar sinal real de demanda sem exigir conta criada;
+- preservar separação semântica entre interesse comercial e demanda de taxonomia;
+- evitar upsert por e-mail em `LaunchInterest` para não sobrescrever dados de finalidade diferente.
+
+### Alternativas descartadas
+
+- reutilizar `LaunchInterest`: descartado por incompatibilidade semântica e risco de sobrescrita por upsert;
+- abrir `CategoryRequest` para usuários anônimos: descartado para preservar segurança e integridade do domínio autenticado.
+
+### Consequências
+
+- fluxo público de sugestão separado de `LaunchInterest` e de `CategoryRequest`;
+- sugestão pública não cria conta profissional;
+- sugestão pública não cria `Category` automaticamente;
+- moderação administrativa restrita a `ADMIN`, com histórico de revisão preservado.
+
 ### Contato humano
 
 Não será obrigatório para todos.

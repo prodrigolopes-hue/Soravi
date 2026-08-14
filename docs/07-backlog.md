@@ -258,7 +258,16 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Ativar/desativar categoria oficial.
 - [ ] Notificar profissional sobre o resultado.
 - [x] Associar categorias ao perfil profissional.
-- [ ] Criar formulário de sugestão de categoria no cadastro profissional.
+- [x] Criar formulário público de sugestão de categoria no cadastro profissional (pré-cadastro).
+- [x] Persistir sugestão pública de categoria em entidade dedicada (`PublicCategorySuggestion`).
+- [x] Criar listagem administrativa de sugestões públicas de categoria.
+- [x] Moderar sugestão pública com `APPROVED` ou `REJECTED`.
+- [x] Aplicar proteção básica contra abuso no endpoint público de sugestão.
+- [ ] Transformar sugestão pública aprovada em `Category` oficial.
+- [ ] Mesclar sugestão pública aprovada com categoria oficial existente.
+- [ ] Criar `slug` automaticamente a partir de sugestão pública aprovada.
+- [ ] Implementar ações equivalentes de moderação para `CategoryRequest` (aprovação, rejeição e mesclagem), quando aplicável.
+- [ ] Notificações de resultado de moderação para fluxos de categoria.
 
 ## Verificação e curadoria de profissionais
 

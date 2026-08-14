@@ -280,6 +280,49 @@ Características e regras:
 - confirmação por e-mail (`emailConfirmedAt`) é prevista para implementação futura;
 - o registro permite que o usuário seja marcado como cancelado via `unsubscribedAt`.
 
+## Sugestão pública de categoria (PublicCategorySuggestion)
+
+Representa uma sugestão enviada no pré-cadastro profissional por pessoas ainda não autenticadas que não encontraram categoria adequada.
+
+Objetivo e separação de domínio:
+
+- captar demanda de categorias já no cadastro profissional para reduzir abandono;
+- não cria conta de `User` nem `ProfessionalProfile`;
+- não substitui o fluxo de `LaunchInterest`;
+- não substitui o fluxo autenticado de `CategoryRequest`;
+- não cria `Category` automaticamente quando aprovada.
+
+Campos reais atuais:
+
+- `id`;
+- `name`;
+- `email`;
+- `phone`;
+- `suggestedName`;
+- `description`;
+- `status`;
+- `privacyNoticeAcceptedAt`;
+- `reviewNotes`;
+- `reviewedByUserId`;
+- `reviewedAt`;
+- `createdAt`;
+- `updatedAt`.
+
+Status atuais (`PublicCategorySuggestionStatus`):
+
+- `PENDING`;
+- `APPROVED`;
+- `REJECTED`.
+
+Regras de moderação:
+
+- apenas `ADMIN` pode moderar;
+- somente sugestões em `PENDING` podem ser alteradas;
+- transições válidas: `PENDING -> APPROVED` e `PENDING -> REJECTED`;
+- sugestão já revisada não pode ser moderada novamente;
+- rejeição não apaga registro;
+- histórico de revisão é preservado por `reviewNotes`, `reviewedByUserId` e `reviewedAt`.
+
 ## Expansão futura para crescimento orgânico e Hub de Problemas
 
 No futuro, o modelo conceitual poderá incorporar entidades adicionais para suportar descoberta por problema, geografia e conteúdo editorial.

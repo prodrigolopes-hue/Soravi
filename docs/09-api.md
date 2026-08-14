@@ -182,6 +182,10 @@ GET /api/v1/categories/admin
 
 GET /api/v1/category-requests/admin
 
+GET /api/v1/category-suggestions/admin
+
+PATCH /api/v1/category-suggestions/admin/{id}
+
 Página administrativa relacionada:
 
 - `/admin/categorias`.
@@ -510,6 +514,211 @@ Respostas relevantes:
 - `200 OK` - sucesso;
 - `401 Unauthorized` - não autenticado ou token inválido;
 - `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Sugestão pública de categoria
+
+Fluxo público para receber sugestão de categoria durante o cadastro profissional quando o usuário ainda não está autenticado.
+
+Escopo e separação:
+
+- separado de `LaunchInterest`;
+- separado do fluxo autenticado de `CategoryRequest`;
+- não cria conta profissional;
+- não cria categoria oficial automaticamente.
+
+### Requisição
+
+POST `/api/v1/category-suggestions`
+
+Autenticação:
+
+- não exige autenticação.
+
+Payload:
+
+```json
+{
+  "name": "Nome da pessoa",
+  "email": "email@exemplo.com",
+  "phone": "+55 11 99999-9999",
+  "suggestedName": "Nome da categoria sugerida",
+  "description": "Contexto opcional",
+  "privacyNoticeAccepted": true
+}
+```
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "data": {
+    "registered": true,
+    "message": "Sua sugestão de categoria foi registrada para análise da Soravi."
+  }
+}
+```
+
+### Regras
+
+- `privacyNoticeAccepted` deve ser `true`;
+- status inicial é sempre `PENDING`;
+- endpoint possui proteção básica contra abuso por rate limit (throttling);
+- não cria `Category` automaticamente.
+
+## Listagem administrativa de sugestões públicas de categoria
+
+Endpoint administrativo para consulta de sugestões públicas de categoria.
+
+### Requisição
+
+GET `/api/v1/category-suggestions/admin`
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Query:
+
+- `page`: inteiro maior ou igual a `1` (padrão `1`);
+- `pageSize`: inteiro entre `1` e `100` (padrão `20`).
+
+### Regras de listagem
+
+- inclui sugestões pendentes e já revisadas;
+- ordenação por `createdAt` em ordem decrescente (mais recentes primeiro);
+- retorna apenas campos operacionais necessários ao painel administrativo.
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "suggestedName": "Encanador residencial",
+      "description": "Atendimento em imóveis antigos.",
+      "status": "PENDING",
+      "createdAt": "2026-08-14T00:00:00.000Z",
+      "name": "Nome da pessoa",
+      "email": "email@exemplo.com",
+      "phone": null,
+      "reviewNotes": null,
+      "reviewedAt": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+```
+
+Campos retornados por item:
+
+- `id`;
+- `suggestedName`;
+- `description`;
+- `status` (`PENDING`, `APPROVED`, `REJECTED`);
+- `createdAt`;
+- `name`;
+- `email`;
+- `phone`;
+- `reviewNotes`;
+- `reviewedAt`.
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Moderação administrativa de sugestão pública de categoria
+
+Endpoint administrativo para moderar uma sugestão pública de categoria.
+
+### Requisição
+
+PATCH `/api/v1/category-suggestions/admin/{id}`
+
+Autenticação:
+
+- Bearer access token obrigatório.
+
+Autorização:
+
+- `ADMIN` obrigatório.
+
+Payload:
+
+```json
+{
+  "status": "APPROVED",
+  "reviewNotes": "Nota opcional"
+}
+```
+
+`status` permitido no payload:
+
+- `APPROVED`;
+- `REJECTED`.
+
+### Regras de transição
+
+- somente sugestão com status `PENDING` pode ser moderada;
+- transições válidas: `PENDING -> APPROVED` e `PENDING -> REJECTED`;
+- sugestão já revisada não pode ser moderada novamente;
+- aprovação não cria `Category` automaticamente;
+- rejeição não apaga o registro;
+- histórico de revisão é preservado (`reviewNotes`, `reviewedAt` e revisor administrativo).
+
+### Resposta
+
+HTTP `200 OK`
+
+```json
+{
+  "id": "...",
+  "suggestedName": "Encanador residencial",
+  "description": "Atendimento em imóveis antigos.",
+  "status": "APPROVED",
+  "createdAt": "2026-08-14T00:00:00.000Z",
+  "name": "Nome da pessoa",
+  "email": "email@exemplo.com",
+  "phone": null,
+  "reviewNotes": "Nota opcional",
+  "reviewedAt": "2026-08-14T01:00:00.000Z"
+}
+```
+
+Respostas relevantes:
+
+- `200 OK` - sucesso;
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário autenticado sem role `ADMIN`;
+- `404 Not Found` - sugestão não encontrada;
+- `409 Conflict` - sugestão não está mais pendente.
+
+## Frontend administrativo e segurança do fluxo
+
+- o cadastro profissional possui bloco "Não encontrou sua categoria?" para envio da sugestão;
+- envio da sugestão é independente da criação da conta;
+- sugestão enviada não entra automaticamente na lista de categorias selecionáveis;
+- mensagem orienta que o usuário pode continuar o cadastro normalmente;
+- `/admin/categorias` possui terceira seção: "Sugestões públicas de categoria";
+- `ADMIN` pode aprovar ou rejeitar sugestões pendentes;
+- itens moderados permanecem no histórico sem novas ações;
+- dados operacionais da sugestão pública só são exibidos no painel administrativo;
+- o fluxo autenticado de `CategoryRequest` permanece separado do fluxo público.
 
 ## Listagem administrativa de clientes
 

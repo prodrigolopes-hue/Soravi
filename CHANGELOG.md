@@ -2,6 +2,43 @@
 
 ## 2026-08-14
 
+### Sugestões públicas de categoria
+
+- criado o fluxo público de sugestão de categoria pré-cadastro por meio de `PublicCategorySuggestion`;
+- objetivo do fluxo: captar profissionais ainda não autenticados que não encontraram sua categoria durante o cadastro;
+- separação explícita de domínio: fluxo público distinto de `LaunchInterest` e de `CategoryRequest`;
+- envio da sugestão pública não cria conta profissional;
+- envio da sugestão pública não cria `Category` automaticamente.
+
+### API e segurança
+
+- criado endpoint público `POST /api/v1/category-suggestions`;
+- proteção básica contra abuso com throttling/rate limit na rota pública;
+- aceite de privacidade obrigatório para registrar sugestão;
+- criado endpoint administrativo `GET /api/v1/category-suggestions/admin` com paginação;
+- criado endpoint administrativo de moderação `PATCH /api/v1/category-suggestions/admin/:id`;
+- moderação restrita a `ADMIN`, com transição apenas de `PENDING` para `APPROVED` ou `REJECTED`.
+
+### Administração e frontend
+
+- cadastro profissional passou a exibir o bloco "Não encontrou sua categoria?" com envio independente da criação de conta;
+- mensagem de sucesso orienta que o usuário pode continuar o cadastro normalmente;
+- `/admin/categorias` passou a exibir terceira seção: "Sugestões públicas de categoria";
+- administração pode aprovar ou rejeitar sugestões pendentes;
+- itens moderados permanecem no histórico sem novas ações.
+
+### Moderação e auditoria
+
+- `PublicCategorySuggestionStatus` ampliado para `PENDING`, `APPROVED` e `REJECTED`;
+- adicionados campos de revisão em `PublicCategorySuggestion`: `reviewNotes`, `reviewedByUserId`, `reviewedAt`;
+- sugestão já revisada não pode ser moderada novamente;
+- rejeição não remove registro;
+- histórico de revisão preservado.
+
+### Operação
+
+- fluxo de sugestões públicas validado em produção.
+
 ### Categorias do MVP
 
 - consolidada a lista oficial de 8 categorias do MVP como fonte única no PostgreSQL e na API;
