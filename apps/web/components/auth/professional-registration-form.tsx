@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   Eye,
   EyeOff,
+  Lightbulb,
   LockKeyhole,
   Mail,
   MapPin,
@@ -16,7 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { apiBaseUrl, categoriesUrl } from "../../lib/api";
+import { apiBaseUrl, categoriesUrl, categorySuggestionsUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 
 interface ServiceCategory {
@@ -142,6 +143,13 @@ export function ProfessionalRegistrationForm() {
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [isSuggestionFormOpen, setIsSuggestionFormOpen] = useState(false);
+  const [suggestedCategoryName, setSuggestedCategoryName] = useState("");
+  const [suggestedCategoryDescription, setSuggestedCategoryDescription] = useState("");
+  const [suggestionPrivacyAccepted, setSuggestionPrivacyAccepted] = useState(false);
+  const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
+  const [suggestionMessage, setSuggestionMessage] = useState<string | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesLoadState, setCategoriesLoadState] =
     useState<CategoriesLoadState>("loading");
@@ -172,6 +180,9 @@ export function ProfessionalRegistrationForm() {
 
   const descriptionLength = watch("description").length;
   const selectedCategories = watch("categories");
+  const watchedName = watch("name");
+  const watchedEmail = watch("email");
+  const watchedPhone = watch("phone");
   const phoneField = register("phone");
   const categorySlugs = useMemo(
     () => new Set(categories.map((category) => category.slug)),
@@ -297,6 +308,72 @@ export function ProfessionalRegistrationForm() {
       setFormMessage(
         "Não foi possível conectar à Soravi. Tente novamente em instantes.",
       );
+    }
+  }
+
+  async function handleCategorySuggestionSubmit(): Promise<void> {
+    const normalizedSuggestedName = suggestedCategoryName.trim();
+    const normalizedName = watchedName.trim();
+    const normalizedEmail = watchedEmail.trim();
+    const normalizedPhone = watchedPhone.trim();
+    const normalizedDescription = suggestedCategoryDescription.trim();
+
+    if (normalizedName.length === 0 || normalizedEmail.length === 0) {
+      setSuggestionMessage(null);
+      setSuggestionError("Preencha nome e e-mail no cadastro para enviar a sugestão.");
+      return;
+    }
+
+    if (normalizedSuggestedName.length < 2) {
+      setSuggestionMessage(null);
+      setSuggestionError("Informe uma categoria sugerida com pelo menos 2 caracteres.");
+      return;
+    }
+
+    if (!suggestionPrivacyAccepted) {
+      setSuggestionMessage(null);
+      setSuggestionError("Você precisa aceitar o aviso de privacidade para enviar a sugestão.");
+      return;
+    }
+
+    setIsSubmittingSuggestion(true);
+    setSuggestionMessage(null);
+    setSuggestionError(null);
+
+    try {
+      const response = await fetch(categorySuggestionsUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: normalizedName,
+          email: normalizedEmail,
+          phone: normalizedPhone.length > 0 ? normalizedPhone : undefined,
+          suggestedName: normalizedSuggestedName,
+          description:
+            normalizedDescription.length > 0
+              ? normalizedDescription
+              : undefined,
+          privacyNoticeAccepted: true,
+        }),
+      });
+
+      if (!response.ok) {
+        setSuggestionError("Não foi possível enviar sua sugestão agora. Tente novamente.");
+        return;
+      }
+
+      setSuggestionMessage(
+        "Sugestão recebida. Você pode continuar seu cadastro normalmente com uma das categorias disponíveis ou aguardar a análise da Soravi.",
+      );
+      setSuggestedCategoryName("");
+      setSuggestedCategoryDescription("");
+      setSuggestionPrivacyAccepted(false);
+    } catch {
+      setSuggestionError("Não foi possível enviar sua sugestão agora. Tente novamente.");
+    } finally {
+      setIsSubmittingSuggestion(false);
     }
   }
 
@@ -619,6 +696,114 @@ export function ProfessionalRegistrationForm() {
             {errors.categories.message}
           </p>
         ) : null}
+
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">
+            Não encontrou sua categoria?
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Sugira uma nova categoria para análise da Soravi.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsSuggestionFormOpen((current) => !current);
+              setSuggestionMessage(null);
+              setSuggestionError(null);
+            }}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            aria-expanded={isSuggestionFormOpen}
+            aria-controls="category-suggestion-form"
+          >
+            <Lightbulb aria-hidden="true" className="size-4" />
+            {isSuggestionFormOpen ? "Fechar sugestão" : "Sugerir categoria"}
+          </button>
+
+          {isSuggestionFormOpen ? (
+            <div id="category-suggestion-form" className="mt-4 space-y-3">
+              <div>
+                <label
+                  htmlFor="suggestedCategoryName"
+                  className="block text-sm font-semibold text-slate-800"
+                >
+                  Categoria sugerida
+                </label>
+                <input
+                  id="suggestedCategoryName"
+                  type="text"
+                  value={suggestedCategoryName}
+                  onChange={(event) => setSuggestedCategoryName(event.target.value)}
+                  maxLength={120}
+                  placeholder="Exemplo: Técnico em aquecedor"
+                  className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                  aria-invalid={Boolean(suggestionError)}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="suggestedCategoryDescription"
+                  className="block text-sm font-semibold text-slate-800"
+                >
+                  Descrição (opcional)
+                </label>
+                <textarea
+                  id="suggestedCategoryDescription"
+                  rows={3}
+                  value={suggestedCategoryDescription}
+                  onChange={(event) => setSuggestedCategoryDescription(event.target.value)}
+                  maxLength={1000}
+                  placeholder="Descreva rapidamente o tipo de serviço sugerido."
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                  checked={suggestionPrivacyAccepted}
+                  onChange={(event) => setSuggestionPrivacyAccepted(event.target.checked)}
+                />
+
+                <span className="text-sm leading-6 text-slate-600">
+                  Autorizo o envio desta sugestão para análise da Soravi e confirmo que li a{" "}
+                  <Link
+                    href="/politica-de-privacidade"
+                    className="font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Política de Privacidade
+                  </Link>
+                  .
+                </span>
+              </label>
+
+              {suggestionError ? (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {suggestionError}
+                </p>
+              ) : null}
+
+              {suggestionMessage ? (
+                <p role="status" className="text-sm font-medium text-blue-700">
+                  {suggestionMessage}
+                </p>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  void handleCategorySuggestionSubmit();
+                }}
+                disabled={isSubmittingSuggestion}
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {isSubmittingSuggestion ? "Enviando sugestão..." : "Enviar sugestão"}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </fieldset>
 
       <div>

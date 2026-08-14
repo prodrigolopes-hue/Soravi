@@ -11,6 +11,8 @@ export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin
 
 export const categoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories`;
 
+export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions`;
+
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;
 
 export const adminCategoryRequestsUrl = `${normalizedApiBaseUrl}/api/v1/category-requests/admin`;
