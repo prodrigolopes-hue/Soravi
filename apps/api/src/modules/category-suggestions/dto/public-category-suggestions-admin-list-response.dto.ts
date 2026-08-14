@@ -9,6 +9,8 @@ export type PublicCategorySuggestionsAdminItemRecord = {
   name: string;
   email: string;
   phone: string | null;
+  reviewNotes: string | null;
+  reviewedAt: Date | null;
 };
 
 export class PublicCategorySuggestionsAdminItemResponseDto {
@@ -20,6 +22,8 @@ export class PublicCategorySuggestionsAdminItemResponseDto {
   name!: string;
   email!: string;
   phone!: string | null;
+  reviewNotes!: string | null;
+  reviewedAt!: Date | null;
 
   constructor(properties: PublicCategorySuggestionsAdminItemRecord) {
     this.id = properties.id;
@@ -30,6 +34,8 @@ export class PublicCategorySuggestionsAdminItemResponseDto {
     this.name = properties.name;
     this.email = properties.email;
     this.phone = properties.phone;
+    this.reviewNotes = properties.reviewNotes;
+    this.reviewedAt = properties.reviewedAt;
   }
 }
 

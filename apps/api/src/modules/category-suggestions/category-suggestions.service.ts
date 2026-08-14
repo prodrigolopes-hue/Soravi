@@ -6,9 +6,13 @@ import {
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import { CreatePublicCategorySuggestionDto } from "./dto/create-public-category-suggestion.dto";
+import { ModeratePublicCategorySuggestionDto } from "./dto/moderate-public-category-suggestion.dto";
+import { PublicCategorySuggestionAdminResponseDto } from "./dto/public-category-suggestion-admin-response.dto";
 import { PublicCategorySuggestionsAdminListResponseDto } from "./dto/public-category-suggestions-admin-list-response.dto";
 import { PublicCategorySuggestionsAdminQueryDto } from "./dto/public-category-suggestions-admin-query.dto";
 import { PublicCategorySuggestionResponseDto } from "./dto/public-category-suggestion-response.dto";
+import { PublicCategorySuggestionNotFoundException } from "./errors/public-category-suggestion-not-found.exception";
+import { PublicCategorySuggestionNotPendingException } from "./errors/public-category-suggestion-not-pending.exception";
 
 const PUBLIC_CATEGORY_SUGGESTIONS_ADMIN_SELECT = {
   id: true,
@@ -19,6 +23,21 @@ const PUBLIC_CATEGORY_SUGGESTIONS_ADMIN_SELECT = {
   name: true,
   email: true,
   phone: true,
+  reviewNotes: true,
+  reviewedAt: true,
+} satisfies Prisma.PublicCategorySuggestionSelect;
+
+const PUBLIC_CATEGORY_SUGGESTION_ADMIN_ITEM_SELECT = {
+  id: true,
+  suggestedName: true,
+  description: true,
+  status: true,
+  createdAt: true,
+  name: true,
+  email: true,
+  phone: true,
+  reviewNotes: true,
+  reviewedAt: true,
 } satisfies Prisma.PublicCategorySuggestionSelect;
 
 @Injectable()
@@ -76,6 +95,43 @@ export class CategorySuggestionsService {
       pageSize,
       total,
     );
+  }
+
+  async moderateSuggestion(
+    id: string,
+    reviewerUserId: string,
+    input: ModeratePublicCategorySuggestionDto,
+  ): Promise<PublicCategorySuggestionAdminResponseDto> {
+    const existingSuggestion =
+      await this.prisma.publicCategorySuggestion.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+
+    if (!existingSuggestion) {
+      throw new PublicCategorySuggestionNotFoundException();
+    }
+
+    if (existingSuggestion.status !== PublicCategorySuggestionStatus.PENDING) {
+      throw new PublicCategorySuggestionNotPendingException();
+    }
+
+    const moderated =
+      await this.prisma.publicCategorySuggestion.update({
+        where: { id },
+        data: {
+          status: input.status,
+          reviewNotes: this.normalizeOptionalString(input.reviewNotes),
+          reviewedAt: new Date(),
+          reviewedByUserId: reviewerUserId,
+        },
+        select: PUBLIC_CATEGORY_SUGGESTION_ADMIN_ITEM_SELECT,
+      });
+
+    return new PublicCategorySuggestionAdminResponseDto(moderated);
   }
 
   private normalizeOptionalString(

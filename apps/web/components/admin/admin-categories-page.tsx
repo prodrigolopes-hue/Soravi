@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   adminCategoriesUrl,
+  adminCategorySuggestionByIdUrl,
   adminCategoryRequestsUrl,
   adminCategorySuggestionsUrl,
 } from "../../lib/api";
@@ -89,6 +90,8 @@ interface AdminPublicCategorySuggestionItem {
   name: string;
   email: string;
   phone: string | null;
+  reviewNotes: string | null;
+  reviewedAt: string | null;
 }
 
 interface AdminPublicCategorySuggestionsApiResponse {
@@ -324,7 +327,9 @@ function parseAdminCategorySuggestionsRoot(payload: unknown): AdminPublicCategor
       typeof candidate.createdAt !== "string" ||
       typeof candidate.name !== "string" ||
       typeof candidate.email !== "string" ||
-      !isNullableString(candidate.phone)
+      !isNullableString(candidate.phone) ||
+      !isNullableString(candidate.reviewNotes) ||
+      !isNullableString(candidate.reviewedAt)
     ) {
       return null;
     }
@@ -338,6 +343,8 @@ function parseAdminCategorySuggestionsRoot(payload: unknown): AdminPublicCategor
       name: candidate.name,
       email: candidate.email,
       phone: candidate.phone,
+      reviewNotes: candidate.reviewNotes,
+      reviewedAt: candidate.reviewedAt,
     });
   }
 
@@ -879,6 +886,8 @@ function AdminPublicCategorySuggestionsSection() {
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<AdminPublicCategorySuggestionsApiResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [moderatingSuggestionId, setModeratingSuggestionId] = useState<string | null>(null);
+  const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(null);
 
   const isLoadingState = requestState === "loading";
   const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
@@ -936,11 +945,115 @@ function AdminPublicCategorySuggestionsSection() {
 
       setResponse(parsed);
       setRequestState(parsed.items.length === 0 ? "empty" : "success");
+      setActionErrorMessage(null);
     } catch {
       setResponse(null);
       setRequestState("error");
     }
   }, [accessToken]);
+
+  const handleModerateSuggestion = useCallback(async (
+    item: AdminPublicCategorySuggestionItem,
+    nextStatus: "APPROVED" | "REJECTED",
+  ): Promise<void> => {
+    if (!accessToken || moderatingSuggestionId !== null || item.status !== "PENDING") {
+      return;
+    }
+
+    const actionLabel = nextStatus === "APPROVED" ? "aprovar" : "rejeitar";
+    const confirmed = window.confirm(`Deseja ${actionLabel} esta sugestão pública de categoria?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    const reviewNotesInput = window.prompt("Nota de revisão (opcional):") ?? "";
+    const reviewNotes = reviewNotesInput.trim();
+
+    setModeratingSuggestionId(item.id);
+    setActionErrorMessage(null);
+
+    try {
+      const httpResponse = await fetch(adminCategorySuggestionByIdUrl(item.id), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({
+          status: nextStatus,
+          ...(reviewNotes.length > 0 ? { reviewNotes } : {}),
+        }),
+      });
+
+      const payload = (await httpResponse.json().catch(() => null)) as unknown;
+
+      if (!httpResponse.ok) {
+        setActionErrorMessage("Não foi possível atualizar a sugestão agora. Tente novamente.");
+
+        if (httpResponse.status === 401 || httpResponse.status === 403 || httpResponse.status === 409 || httpResponse.status === 404) {
+          void fetchAdminCategorySuggestions(page);
+        }
+
+        return;
+      }
+
+      const data = isRecord(payload) && isRecord(payload.data)
+        ? payload.data
+        : payload;
+
+      if (!isRecord(data)) {
+        setActionErrorMessage("Não foi possível atualizar a sugestão agora. Tente novamente.");
+        return;
+      }
+
+      const candidate = data as Partial<AdminPublicCategorySuggestionItem>;
+
+      if (
+        typeof candidate.id !== "string" ||
+        typeof candidate.suggestedName !== "string" ||
+        !isNullableString(candidate.description) ||
+        typeof candidate.status !== "string" ||
+        typeof candidate.createdAt !== "string" ||
+        typeof candidate.name !== "string" ||
+        typeof candidate.email !== "string" ||
+        !isNullableString(candidate.phone) ||
+        !isNullableString(candidate.reviewNotes) ||
+        !isNullableString(candidate.reviewedAt)
+      ) {
+        setActionErrorMessage("Não foi possível atualizar a sugestão agora. Tente novamente.");
+        return;
+      }
+
+      setResponse((currentResponse) => {
+        if (!currentResponse) {
+          return currentResponse;
+        }
+
+        const moderatedItemId = candidate.id;
+
+        return {
+          ...currentResponse,
+          items: currentResponse.items.map((currentItem) =>
+            currentItem.id === moderatedItemId
+              ? {
+                ...currentItem,
+                status: nextStatus,
+                reviewNotes: candidate.reviewNotes ?? currentItem.reviewNotes ?? null,
+                reviewedAt: candidate.reviewedAt ?? currentItem.reviewedAt ?? null,
+              }
+              : currentItem,
+          ),
+        };
+      });
+    } catch {
+      setActionErrorMessage("Não foi possível atualizar a sugestão agora. Tente novamente.");
+    } finally {
+      setModeratingSuggestionId(null);
+    }
+  }, [accessToken, fetchAdminCategorySuggestions, moderatingSuggestionId, page]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -976,6 +1089,12 @@ function AdminPublicCategorySuggestionsSection() {
 
       {requestState === "empty" ? <SectionEmpty label="Sugestões públicas de categoria" /> : null}
 
+      {actionErrorMessage ? (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3" role="alert">
+          <p className="text-sm font-medium text-red-700">{actionErrorMessage}</p>
+        </div>
+      ) : null}
+
       {requestState === "success" && response ? (
         <>
           <div className="mt-6 space-y-4 md:hidden">
@@ -994,7 +1113,29 @@ function AdminPublicCategorySuggestionsSection() {
                   <p><span className="font-medium text-slate-900">E-mail:</span> {item.email}</p>
                   <p><span className="font-medium text-slate-900">Telefone:</span> {item.phone ?? "Não informado"}</p>
                   <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
+                  {item.reviewNotes ? <p><span className="font-medium text-slate-900">Nota:</span> {item.reviewNotes}</p> : null}
+                  <p><span className="font-medium text-slate-900">Revisada em:</span> {item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</p>
                 </div>
+                {item.status === "PENDING" ? (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleModerateSuggestion(item, "APPROVED")}
+                      disabled={moderatingSuggestionId !== null}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {moderatingSuggestionId === item.id ? "Salvando..." : "Aprovar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleModerateSuggestion(item, "REJECTED")}
+                      disabled={moderatingSuggestionId !== null}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {moderatingSuggestionId === item.id ? "Salvando..." : "Rejeitar"}
+                    </button>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -1011,18 +1152,48 @@ function AdminPublicCategorySuggestionsSection() {
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">E-mail</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Telefone</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Criada em</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Revisada em</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {response.items.map((item) => (
                   <tr key={item.id} className="align-top">
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-900"><p className="font-semibold">{item.suggestedName}</p></td>
-                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.description ?? "Sem descrição"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
+                      <p>{item.description ?? "Sem descrição"}</p>
+                      {item.reviewNotes ? <p className="mt-1 text-xs text-slate-500">Nota: {item.reviewNotes}</p> : null}
+                    </td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-[0.08em] ${getRequestStatusTone(item.status)}`}>{translateCategoryRequestStatus(item.status)}</span></td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.name}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.email}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.phone ?? "Não informado"}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
+                      {item.status === "PENDING" ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleModerateSuggestion(item, "APPROVED")}
+                            disabled={moderatingSuggestionId !== null}
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {moderatingSuggestionId === item.id ? "Salvando..." : "Aprovar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModerateSuggestion(item, "REJECTED")}
+                            disabled={moderatingSuggestionId !== null}
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {moderatingSuggestionId === item.id ? "Salvando..." : "Rejeitar"}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-500">Sem ações</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -60,6 +60,8 @@ enum LaunchInterestSource {
 
 enum PublicCategorySuggestionStatus {
   PENDING
+  APPROVED
+  REJECTED
 }
 
 model User {
@@ -88,6 +90,7 @@ model User {
   emailVerificationTokens  EmailVerificationToken[]
   legalAcceptances         LegalAcceptance[]
   reviewedCategoryRequests CategoryRequest[]        @relation("CategoryRequestReviewer")
+  reviewedPublicCategorySuggestions PublicCategorySuggestion[] @relation("PublicCategorySuggestionReviewer")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -309,11 +312,17 @@ model PublicCategorySuggestion {
   suggestedName           String                         @map("suggested_name") @db.VarChar(120)
   description             String?                        @db.VarChar(1000)
   status                  PublicCategorySuggestionStatus @default(PENDING)
+  reviewNotes             String?                        @map("review_notes") @db.VarChar(1000)
+  reviewedByUserId        String?                        @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt              DateTime?                      @map("reviewed_at") @db.Timestamptz(3)
   privacyNoticeAcceptedAt DateTime                       @map("privacy_notice_accepted_at") @db.Timestamptz(3)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  reviewedByUser User? @relation("PublicCategorySuggestionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
   @@index([status, createdAt], map: "public_category_suggestions_status_created_at_idx")
+  @@index([reviewedByUserId], map: "public_category_suggestions_reviewer_idx")
   @@map("public_category_suggestions")
 }

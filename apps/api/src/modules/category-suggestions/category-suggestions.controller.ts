@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -11,10 +13,14 @@ import {
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 
 import { Role } from "../../generated/prisma/client";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { CategorySuggestionsService } from "./category-suggestions.service";
+import { ModeratePublicCategorySuggestionDto } from "./dto/moderate-public-category-suggestion.dto";
+import { PublicCategorySuggestionAdminResponseDto } from "./dto/public-category-suggestion-admin-response.dto";
 import { PublicCategorySuggestionsAdminListResponseDto } from "./dto/public-category-suggestions-admin-list-response.dto";
 import { PublicCategorySuggestionsAdminQueryDto } from "./dto/public-category-suggestions-admin-query.dto";
 import { CreatePublicCategorySuggestionDto } from "./dto/create-public-category-suggestion.dto";
@@ -48,5 +54,20 @@ export class CategorySuggestionsController {
     @Query() query: PublicCategorySuggestionsAdminQueryDto,
   ): Promise<PublicCategorySuggestionsAdminListResponseDto> {
     return this.categorySuggestionsService.findAllAdminSuggestions(query);
+  }
+
+  @Patch("admin/:id")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  moderateSuggestion(
+    @Param("id") id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: ModeratePublicCategorySuggestionDto,
+  ): Promise<PublicCategorySuggestionAdminResponseDto> {
+    return this.categorySuggestionsService.moderateSuggestion(
+      id,
+      currentUser.id,
+      input,
+    );
   }
 }
