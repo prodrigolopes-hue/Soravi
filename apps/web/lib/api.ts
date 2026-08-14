@@ -16,3 +16,5 @@ export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-s
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;
 
 export const adminCategoryRequestsUrl = `${normalizedApiBaseUrl}/api/v1/category-requests/admin`;
+
+export const adminCategorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions/admin`;

@@ -4,7 +4,11 @@ import { Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { adminCategoriesUrl, adminCategoryRequestsUrl } from "../../lib/api";
+import {
+  adminCategoriesUrl,
+  adminCategoryRequestsUrl,
+  adminCategorySuggestionsUrl,
+} from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 
 const PAGE_SIZE = 20;
@@ -73,6 +77,22 @@ interface AdminCategoryRequestItem {
 
 interface AdminCategoryRequestsApiResponse {
   items: AdminCategoryRequestItem[];
+  pagination: AdminCategoriesPagination;
+}
+
+interface AdminPublicCategorySuggestionItem {
+  id: string;
+  suggestedName: string;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
+interface AdminPublicCategorySuggestionsApiResponse {
+  items: AdminPublicCategorySuggestionItem[];
   pagination: AdminCategoriesPagination;
 }
 
@@ -261,6 +281,63 @@ function parseCategoryRequestsRoot(payload: unknown): AdminCategoryRequestsApiRe
         },
       },
       resolvedCategory: parsedResolvedCategory,
+    });
+  }
+
+  const pagination = parsePagination(root.pagination);
+
+  if (!pagination) {
+    return null;
+  }
+
+  return {
+    items,
+    pagination,
+  };
+}
+
+function parseAdminCategorySuggestionsRoot(payload: unknown): AdminPublicCategorySuggestionsApiResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const root = isRecord(payload.data) ? payload.data : payload;
+
+  if (!Array.isArray(root.items)) {
+    return null;
+  }
+
+  const items: AdminPublicCategorySuggestionItem[] = [];
+
+  for (const item of root.items) {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const candidate = item as Partial<AdminPublicCategorySuggestionItem>;
+
+    if (
+      typeof candidate.id !== "string" ||
+      typeof candidate.suggestedName !== "string" ||
+      !isNullableString(candidate.description) ||
+      typeof candidate.status !== "string" ||
+      typeof candidate.createdAt !== "string" ||
+      typeof candidate.name !== "string" ||
+      typeof candidate.email !== "string" ||
+      !isNullableString(candidate.phone)
+    ) {
+      return null;
+    }
+
+    items.push({
+      id: candidate.id,
+      suggestedName: candidate.suggestedName,
+      description: candidate.description,
+      status: candidate.status,
+      createdAt: candidate.createdAt,
+      name: candidate.name,
+      email: candidate.email,
+      phone: candidate.phone,
     });
   }
 
@@ -797,6 +874,188 @@ function AdminCategoryRequestsSection() {
   );
 }
 
+function AdminPublicCategorySuggestionsSection() {
+  const { accessToken } = useAuth();
+  const [page, setPage] = useState(1);
+  const [response, setResponse] = useState<AdminPublicCategorySuggestionsApiResponse | null>(null);
+  const [requestState, setRequestState] = useState<RequestState>("idle");
+
+  const isLoadingState = requestState === "loading";
+  const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
+  const isFirstPage = page <= 1;
+  const isLastPage = page >= totalPages;
+
+  const fetchAdminCategorySuggestions = useCallback(async (targetPage: number): Promise<void> => {
+    if (!accessToken) {
+      return;
+    }
+
+    setRequestState("loading");
+
+    try {
+      const url = new URL(adminCategorySuggestionsUrl);
+      url.searchParams.set("page", String(targetPage));
+      url.searchParams.set("pageSize", String(PAGE_SIZE));
+
+      const httpResponse = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (httpResponse.status === 401) {
+        setResponse(null);
+        setRequestState("unauthorized");
+        return;
+      }
+
+      if (httpResponse.status === 403) {
+        setResponse(null);
+        setRequestState("forbidden");
+        return;
+      }
+
+      const payload = (await httpResponse.json().catch(() => null)) as unknown;
+
+      if (!httpResponse.ok) {
+        setResponse(null);
+        setRequestState("error");
+        return;
+      }
+
+      const parsed = parseAdminCategorySuggestionsRoot(payload);
+
+      if (!parsed) {
+        setResponse(null);
+        setRequestState("error");
+        return;
+      }
+
+      setResponse(parsed);
+      setRequestState(parsed.items.length === 0 ? "empty" : "success");
+    } catch {
+      setResponse(null);
+      setRequestState("error");
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setResponse(null);
+      setRequestState("idle");
+      return;
+    }
+
+    void fetchAdminCategorySuggestions(page);
+  }, [accessToken, fetchAdminCategorySuggestions, page]);
+
+  return (
+    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-live="polite">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-950">Sugestões públicas de categoria</h2>
+          <p className="mt-1 text-sm text-slate-600">Total de sugestões públicas: {response?.pagination.total ?? 0}</p>
+        </div>
+
+        <div className="text-sm text-slate-600">{getPaginationText(response?.pagination.page ?? page, totalPages)}</div>
+      </div>
+
+      {isLoadingState ? <SectionLoading label="sugestões públicas de categoria" /> : null}
+
+      {requestState === "error" || requestState === "unauthorized" || requestState === "forbidden" ? (
+        <SectionError
+          label="Sugestões públicas de categoria"
+          state={requestState}
+          onRetry={() => void fetchAdminCategorySuggestions(page)}
+          retryHref="/entrar"
+        />
+      ) : null}
+
+      {requestState === "empty" ? <SectionEmpty label="Sugestões públicas de categoria" /> : null}
+
+      {requestState === "success" && response ? (
+        <>
+          <div className="mt-6 space-y-4 md:hidden">
+            {response.items.map((item) => (
+              <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-base font-semibold text-slate-950">{item.suggestedName}</h3>
+                {item.description ? <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p> : null}
+                <div className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                  <p>
+                    <span className="font-medium text-slate-900">Status:</span>{" "}
+                    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-[0.08em] ${getRequestStatusTone(item.status)}`}>
+                      {translateCategoryRequestStatus(item.status)}
+                    </span>
+                  </p>
+                  <p><span className="font-medium text-slate-900">Nome:</span> {item.name}</p>
+                  <p><span className="font-medium text-slate-900">E-mail:</span> {item.email}</p>
+                  <p><span className="font-medium text-slate-900">Telefone:</span> {item.phone ?? "Não informado"}</p>
+                  <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-6 hidden md:block">
+            <table className="min-w-full border-separate border-spacing-0">
+              <caption className="sr-only">Lista administrativa de sugestões públicas de categoria</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Sugestão</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Descrição</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Status</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Nome</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">E-mail</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Telefone</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Criada em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {response.items.map((item) => (
+                  <tr key={item.id} className="align-top">
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-900"><p className="font-semibold">{item.suggestedName}</p></td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.description ?? "Sem descrição"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-[0.08em] ${getRequestStatusTone(item.status)}`}>{translateCategoryRequestStatus(item.status)}</span></td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.name}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.email}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.phone ?? "Não informado"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+              disabled={isLoadingState || isFirstPage}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+
+            <p className="text-sm text-slate-600">{getPaginationText(response?.pagination.page ?? page, totalPages)}</p>
+
+            <button
+              type="button"
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+              disabled={isLoadingState || isLastPage}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Próxima
+            </button>
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 export function AdminCategoriesPage() {
   const { isLoading, isAuthenticated, user } = useAuth();
 
@@ -869,13 +1128,14 @@ export function AdminCategoriesPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">Painel administrativo</p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Categorias</h1>
           <p className="mt-3 max-w-3xl leading-7 text-slate-600">
-            Gerencie a visão administrativa das categorias oficiais e acompanhe as solicitações enviadas por profissionais.
+            Gerencie a visão administrativa das categorias oficiais e acompanhe solicitações internas e sugestões públicas.
           </p>
         </header>
 
         <div className="mt-8">
           <AdminCategoriesSection />
           <AdminCategoryRequestsSection />
+          <AdminPublicCategorySuggestionsSection />
         </div>
       </div>
     </main>
