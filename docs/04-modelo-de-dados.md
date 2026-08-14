@@ -173,6 +173,36 @@ Regras:
 - categorias podem ser desativadas sem exclusão definitiva;
 - `displayOrder` controla a ordem de apresentação;
 - a categoria poderá receber solicitações que foram aprovadas ou vinculadas.
+- PostgreSQL e API são a fonte de verdade das categorias oficiais;
+- frontend não deve manter listas hardcoded como fonte paralela.
+
+### ProfessionalCategory
+
+Representa a tabela explícita de junção entre `ProfessionalProfile` e `Category`.
+
+Campos principais:
+
+- `id`;
+- `professionalProfileId`;
+- `categoryId`;
+- `createdAt`.
+
+Restrições e índices:
+
+- combinação única de `professionalProfileId + categoryId`;
+- índice por `professionalProfileId`;
+- índice por `categoryId`.
+
+Política de integridade referencial:
+
+- vínculo com `ProfessionalProfile` em `onDelete: Cascade`;
+- vínculo com `Category` em `onDelete: Restrict`.
+
+Regras de negócio no cadastro profissional:
+
+- profissional deve possuir de 1 a 3 categorias;
+- categorias selecionadas devem estar ativas (`isActive = true`);
+- slugs duplicados não são aceitos.
 
 ### Lista oficial inicial do MVP (2026-08-12)
 

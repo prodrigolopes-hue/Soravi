@@ -27,6 +27,40 @@ POST /api/v1/auth/forgot-password - Solicitar recuperação de senha
 
 POST /api/v1/auth/reset-password - Redefinir senha
 
+## Registro de conta
+
+### Requisição
+
+POST `/api/v1/auth/register`
+
+Campos principais:
+
+- `name`;
+- `email`;
+- `phone` (opcional);
+- `password`;
+- `initialRole` (`CUSTOMER` ou `PROFESSIONAL`);
+- `acceptedTermsVersion`;
+- `acceptedPrivacyPolicyVersion`;
+- `categorySlugs?: string[]`.
+
+Regras de categorias no registro:
+
+- para `initialRole = PROFESSIONAL`, `categorySlugs` é obrigatório na prática;
+- deve conter de 1 a 3 slugs;
+- slugs devem ser únicos;
+- slugs devem existir e estar ativos em `Category` (`isActive = true`);
+- validação final é sempre do backend.
+
+Compatibilidade:
+
+- para `initialRole = CUSTOMER`, o cadastro continua sem obrigação de `categorySlugs`.
+
+Transação de criação no registro profissional:
+
+- criação de `User`, `ProfessionalProfile` e vínculos `ProfessionalCategory` ocorre na mesma transação;
+- em caso de falha, não deve restar cadastro parcial.
+
 ------------------------------------------------------------------------
 
 # Usuários
@@ -147,6 +181,23 @@ GET /api/v1/users/admin/professionals
 GET /api/v1/categories/admin
 
 GET /api/v1/category-requests/admin
+
+Página administrativa relacionada:
+
+- `/admin/categorias`.
+
+## Categorias públicas
+
+Endpoint público de categorias oficiais:
+
+GET `/api/v1/categories`
+
+Regras:
+
+- retorna apenas categorias ativas;
+- ordenação por `displayOrder` crescente e `name` crescente;
+- fonte oficial para Home e cadastro profissional;
+- PostgreSQL/API são a fonte de verdade das categorias.
 
 Lista interessados do lançamento para uso administrativo.
 

@@ -277,6 +277,40 @@ A lista oficial inicial de categorias do MVP da Soravi será:
 - o painel administrativo continuará como visão operacional das categorias;
 - futuras `CategoryRequest` poderão alimentar a evolução da taxonomia.
 
+## Relação explícita entre ProfessionalProfile e Category
+
+### Decisão (2026-08-14)
+
+Adotar relação many-to-many explícita entre `ProfessionalProfile` e `Category` por meio do model de junção `ProfessionalCategory`.
+
+### Estrutura aprovada
+
+- `ProfessionalCategory.id`;
+- `ProfessionalCategory.professionalProfileId`;
+- `ProfessionalCategory.categoryId`;
+- `ProfessionalCategory.createdAt`;
+- `UNIQUE (professionalProfileId, categoryId)`.
+
+### Integridade referencial
+
+- vínculo com `ProfessionalProfile` em `onDelete: Cascade`;
+- vínculo com `Category` em `onDelete: Restrict`.
+
+### Regras de negócio associadas
+
+- no cadastro com `initialRole = PROFESSIONAL`, o backend deve aceitar `categorySlugs?: string[]`;
+- para profissionais, `categorySlugs` é obrigatório na prática;
+- mínimo de 1 e máximo de 3 categorias;
+- sem slugs duplicados;
+- somente categorias existentes e ativas (`isActive = true`);
+- criação de `User`, `ProfessionalProfile` e vínculos `ProfessionalCategory` na mesma transação.
+
+### Consequências
+
+- PostgreSQL/API consolidam-se como fonte de verdade das categorias;
+- frontend deve consumir `GET /api/v1/categories` para Home e cadastro profissional;
+- listas hardcoded de categorias devem ser removidas de fluxos operacionais.
+
 ## Pré-cadastro de interesse no lançamento
 
 ### Decisão (2026-08-05)

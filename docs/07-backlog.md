@@ -227,11 +227,18 @@ Cada tarefa somente será considerada concluída quando:
 
 - [x] Modelo `Category`.
 - [x] Modelo `CategoryRequest`.
+- [x] Modelo `ProfessionalCategory`.
 - [x] Enum `CategoryRequestStatus`.
 - [x] Migration de categorias e solicitações.
+- [x] Migration da relação `ProfessionalProfile` ↔ `Category`.
 - [x] Relação da solicitação com o perfil profissional.
 - [x] Relação da análise com administrador ou moderador.
 - [x] Possibilidade de vincular solicitação a categoria existente.
+- [x] Definição da lista oficial de 8 categorias do MVP.
+- [x] Home consumindo categorias pela API oficial.
+- [x] Cadastro profissional consumindo categorias pela API oficial.
+- [x] Envio de `categorySlugs` no cadastro profissional.
+- [x] Persistência de categorias no cadastro profissional (1 a 3, ativas, sem duplicatas).
 
 ### Próximos itens
 
@@ -250,7 +257,8 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Editar categoria oficial.
 - [ ] Ativar/desativar categoria oficial.
 - [ ] Notificar profissional sobre o resultado.
-- [ ] Associar categorias ao perfil profissional.
+- [x] Associar categorias ao perfil profissional.
+- [ ] Criar formulário de sugestão de categoria no cadastro profissional.
 
 ## Verificação e curadoria de profissionais
 

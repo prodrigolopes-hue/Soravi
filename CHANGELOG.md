@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-08-14
+
+### Categorias do MVP
+
+- consolidada a lista oficial de 8 categorias do MVP como fonte única no PostgreSQL e na API;
+- reforço de que frontend não deve manter listas hardcoded de categorias em fluxos operacionais.
+
+### Modelo de dados
+
+- criada relação many-to-many explícita entre `ProfessionalProfile` e `Category` por meio de `ProfessionalCategory`;
+- `ProfessionalCategory` com campos `id`, `professionalProfileId`, `categoryId`, `createdAt`;
+- chave única composta em `professionalProfileId + categoryId`;
+- vínculo com `ProfessionalProfile` usando `onDelete: Cascade`;
+- vínculo com `Category` usando `onDelete: Restrict`.
+
+### Registro profissional
+
+- cadastro com `initialRole = PROFESSIONAL` passou a aceitar `categorySlugs?: string[]` no backend;
+- validações de backend aplicadas para profissionais: obrigatório na prática, mínimo 1, máximo 3, sem duplicatas e somente categorias existentes/ativas;
+- criação de `User`, `ProfessionalProfile` e `ProfessionalCategory` realizada na mesma transação, sem cadastro parcial em caso de falha;
+- cadastro `CUSTOMER` mantido sem obrigação de categorias.
+
+### Frontend
+
+- Home consumindo `GET /api/v1/categories`;
+- cadastro profissional consumindo `GET /api/v1/categories`;
+- seleção de categorias no cadastro profissional limitada visualmente e por validação entre 1 e 3;
+- envio de `categorySlugs` ao backend no cadastro profissional.
+
+### Administração
+
+- documentação consolidada dos endpoints `GET /api/v1/categories/admin` e `GET /api/v1/category-requests/admin`;
+- operação mantida na página administrativa `/admin/categorias`.
+
 ## 2026-08-12
 
 ### Administração
