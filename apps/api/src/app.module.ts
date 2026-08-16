@@ -10,6 +10,7 @@ import { CategoryRequestsModule } from "./modules/category-requests/category-req
 import { UsersModule } from "./modules/users/users.module";
 import { LaunchInterestsModule } from "./modules/launch-interests/launch-interests.module";
 import { CategorySuggestionsModule } from "./modules/category-suggestions/category-suggestions.module";
+import { ServiceRequestsModule } from "./modules/service-requests/service-requests.module";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CategorySuggestionsModule } from "./modules/category-suggestions/catego
     CategoryRequestsModule,
     LaunchInterestsModule,
     CategorySuggestionsModule,
+    ServiceRequestsModule,
   ],
   controllers: [HealthController],
 })

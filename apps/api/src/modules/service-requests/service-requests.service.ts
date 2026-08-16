@@ -1,0 +1,103 @@
+import { Injectable } from "@nestjs/common";
+
+import { PrismaService } from "../../database/prisma.service";
+import {
+  Prisma,
+  ServiceRequestStatus,
+} from "../../generated/prisma/client";
+import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
+import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
+import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
+import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
+
+const SERVICE_REQUEST_RESPONSE_SELECT = {
+  id: true,
+  categoryId: true,
+  title: true,
+  description: true,
+  status: true,
+  country: true,
+  state: true,
+  city: true,
+  neighborhood: true,
+  postalCode: true,
+  addressLine: true,
+  addressNumber: true,
+  addressComplement: true,
+  createdAt: true,
+} satisfies Prisma.ServiceRequestSelect;
+
+@Injectable()
+export class ServiceRequestsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async createServiceRequest(
+    userId: string,
+    input: CreateServiceRequestDto,
+  ): Promise<ServiceRequestResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const category = await this.prisma.category.findFirst({
+      where: {
+        id: input.categoryId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!category) {
+      throw new InvalidServiceRequestCategoryException();
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.create({
+      data: {
+        customerProfileId: customerProfile.id,
+        categoryId: category.id,
+        title: input.title.trim(),
+        description: input.description?.trim() || null,
+        status: ServiceRequestStatus.DRAFT,
+        country: input.location.country,
+        state: input.location.state,
+        city: input.location.city,
+        neighborhood: input.location.neighborhood,
+        postalCode: input.location.postalCode,
+        addressLine: input.location.addressLine,
+        addressNumber: input.location.addressNumber,
+        addressComplement: input.location.addressComplement?.trim() || null,
+      },
+      select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
+
+    return new ServiceRequestResponseDto({
+      id: serviceRequest.id,
+      categoryId: serviceRequest.categoryId,
+      title: serviceRequest.title,
+      description: serviceRequest.description,
+      status: serviceRequest.status,
+      location: {
+        country: serviceRequest.country,
+        state: serviceRequest.state,
+        city: serviceRequest.city,
+        neighborhood: serviceRequest.neighborhood,
+        postalCode: serviceRequest.postalCode,
+        addressLine: serviceRequest.addressLine,
+        addressNumber: serviceRequest.addressNumber,
+        addressComplement: serviceRequest.addressComplement,
+      },
+      createdAt: serviceRequest.createdAt,
+    });
+  }
+}
