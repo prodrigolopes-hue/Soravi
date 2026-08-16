@@ -64,6 +64,17 @@ enum PublicCategorySuggestionStatus {
   REJECTED
 }
 
+enum ServiceRequestStatus {
+  DRAFT
+  OPEN
+  RECEIVING_PROPOSALS
+  IN_NEGOTIATION
+  HIRED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -82,14 +93,14 @@ model User {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  roles                    UserRole[]
-  customerProfile          CustomerProfile?
-  professionalProfile      ProfessionalProfile?
-  sessions                 AuthSession[]
-  passwordResetTokens      PasswordResetToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-  legalAcceptances         LegalAcceptance[]
-  reviewedCategoryRequests CategoryRequest[]        @relation("CategoryRequestReviewer")
+  roles                             UserRole[]
+  customerProfile                   CustomerProfile?
+  professionalProfile               ProfessionalProfile?
+  sessions                          AuthSession[]
+  passwordResetTokens               PasswordResetToken[]
+  emailVerificationTokens           EmailVerificationToken[]
+  legalAcceptances                  LegalAcceptance[]
+  reviewedCategoryRequests          CategoryRequest[]          @relation("CategoryRequestReviewer")
   reviewedPublicCategorySuggestions PublicCategorySuggestion[] @relation("PublicCategorySuggestionReviewer")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
@@ -116,7 +127,8 @@ model CustomerProfile {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRequests ServiceRequest[]
 
   @@map("customer_profiles")
 }
@@ -136,8 +148,8 @@ model ProfessionalProfile {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryRequests CategoryRequest[]
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
@@ -224,19 +236,55 @@ model Category {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  requests CategoryRequest[] @relation("CategoryRequestResolution")
+  requests               CategoryRequest[]      @relation("CategoryRequestResolution")
   professionalCategories ProfessionalCategory[]
+  serviceRequests        ServiceRequest[]
 
   @@index([isActive, displayOrder], map: "categories_active_display_order_idx")
   @@index([name], map: "categories_name_idx")
   @@map("categories")
 }
 
+model ServiceRequest {
+  id                 String               @id @default(uuid()) @db.Uuid
+  customerProfileId  String               @map("customer_profile_id") @db.Uuid
+  categoryId         String               @map("category_id") @db.Uuid
+  title              String               @db.VarChar(160)
+  description        String?              @db.VarChar(2000)
+  status             ServiceRequestStatus @default(DRAFT)
+  country            String               @db.VarChar(2)
+  state              String               @db.VarChar(2)
+  city               String               @db.VarChar(120)
+  neighborhood       String               @db.VarChar(120)
+  postalCode         String               @map("postal_code") @db.VarChar(16)
+  addressLine        String               @map("address_line") @db.VarChar(255)
+  addressNumber      String               @map("address_number") @db.VarChar(32)
+  addressComplement  String?              @map("address_complement") @db.VarChar(255)
+  publishedAt        DateTime?            @map("published_at") @db.Timestamptz(3)
+  hiredAt            DateTime?            @map("hired_at") @db.Timestamptz(3)
+  startedAt          DateTime?            @map("started_at") @db.Timestamptz(3)
+  completedAt        DateTime?            @map("completed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?            @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?              @map("cancellation_reason") @db.VarChar(1000)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  category        Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
+  @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
+  @@index([status, createdAt], map: "service_requests_status_created_at_idx")
+  @@map("service_requests")
+}
+
 model ProfessionalCategory {
-  id                     String             @id @default(uuid()) @db.Uuid
-  professionalProfileId   String             @map("professional_profile_id") @db.Uuid
-  categoryId              String             @map("category_id") @db.Uuid
-  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                    String   @id @default(uuid()) @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  categoryId            String   @map("category_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
   category            Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
