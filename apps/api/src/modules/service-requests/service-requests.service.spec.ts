@@ -1,6 +1,9 @@
+import "reflect-metadata";
+
 import { PrismaService } from "../../database/prisma.service";
 import { ServiceRequestStatus } from "../../generated/prisma/client";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
+import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { ServiceRequestsService } from "./service-requests.service";
@@ -15,14 +18,24 @@ describe("ServiceRequestsService", () => {
   let prismaMock: {
     customerProfile: { findUnique: jest.Mock };
     category: { findFirst: jest.Mock };
-    serviceRequest: { create: jest.Mock };
+    serviceRequest: {
+      count: jest.Mock;
+      create: jest.Mock;
+      findMany: jest.Mock;
+    };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prismaMock = {
       customerProfile: { findUnique: jest.fn() },
       category: { findFirst: jest.fn() },
-      serviceRequest: { create: jest.fn() },
+      serviceRequest: {
+        count: jest.fn(),
+        create: jest.fn(),
+        findMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
     };
     service = new ServiceRequestsService(
       prismaMock as unknown as PrismaService,
@@ -33,6 +46,10 @@ describe("ServiceRequestsService", () => {
     prismaMock.category.findFirst.mockResolvedValue({
       id: createInput().categoryId,
     });
+    prismaMock.$transaction.mockImplementation(async () => [
+      await prismaMock.serviceRequest.count(),
+      await prismaMock.serviceRequest.findMany(),
+    ]);
   });
 
   afterEach(() => {
@@ -98,6 +115,64 @@ describe("ServiceRequestsService", () => {
     ).rejects.toBeInstanceOf(InvalidServiceRequestCategoryException);
 
     expect(prismaMock.serviceRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("lista somente solicitações do CustomerProfile autenticado", async () => {
+    const input = createInput();
+    const query: ServiceRequestsMineQueryDto = {
+      status: ServiceRequestStatus.DRAFT,
+      categoryId: input.categoryId,
+      page: 2,
+      limit: 10,
+      sort: "asc",
+    };
+    prismaMock.serviceRequest.count.mockResolvedValue(11);
+    prismaMock.serviceRequest.findMany.mockResolvedValue([
+      {
+        id: serviceRequestId,
+        categoryId: input.categoryId,
+        title: input.title,
+        description: input.description,
+        status: ServiceRequestStatus.DRAFT,
+        ...input.location,
+        createdAt,
+      },
+    ]);
+
+    const result = await service.findMine(userId, query);
+
+    const where = {
+      customerProfileId,
+      deletedAt: null,
+      status: ServiceRequestStatus.DRAFT,
+      categoryId: input.categoryId,
+    };
+    expect(prismaMock.serviceRequest.count).toHaveBeenCalledWith({ where });
+    expect(prismaMock.serviceRequest.findMany).toHaveBeenCalledWith({
+      where,
+      orderBy: { createdAt: "asc" },
+      skip: 10,
+      take: 10,
+      select: expect.any(Object),
+    });
+    expect(result.pagination).toEqual({
+      page: 2,
+      limit: 10,
+      total: 11,
+      totalPages: 2,
+    });
+    expect(result.items).toHaveLength(1);
+  });
+
+  it("rejeita listagem quando o CustomerProfile não existe", async () => {
+    prismaMock.customerProfile.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.findMine(userId, new ServiceRequestsMineQueryDto()),
+    ).rejects.toBeInstanceOf(CustomerProfileNotFoundException);
+
+    expect(prismaMock.serviceRequest.count).not.toHaveBeenCalled();
+    expect(prismaMock.serviceRequest.findMany).not.toHaveBeenCalled();
   });
 });
 

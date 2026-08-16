@@ -1,14 +1,19 @@
+import "reflect-metadata";
+
 import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
+import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
+import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { ServiceRequestsController } from "./service-requests.controller";
 import { ServiceRequestsService } from "./service-requests.service";
 
 describe("ServiceRequestsController", () => {
   const serviceMock = {
     createServiceRequest: jest.fn(),
+    findMine: jest.fn(),
   };
 
   const controller = new ServiceRequestsController(
@@ -48,6 +53,36 @@ describe("ServiceRequestsController", () => {
       input,
     );
     expect(result).toBe(response);
+  });
+
+  it("encaminha o usuário autenticado e a query na listagem própria", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+    const query = new ServiceRequestsMineQueryDto();
+    const response = new ServiceRequestsMineListResponseDto([], 1, 20, 0);
+    serviceMock.findMine.mockResolvedValue(response);
+
+    const result = await controller.findMine(currentUser, query);
+
+    expect(serviceMock.findMine).toHaveBeenCalledWith(currentUser.id, query);
+    expect(result).toBe(response);
+  });
+
+  it("protege a listagem própria com autenticação e role CUSTOMER", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ServiceRequestsController.prototype.findMine,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      ServiceRequestsController.prototype.findMine,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.CUSTOMER]);
   });
 
   it("exige autenticação e role CUSTOMER", () => {
