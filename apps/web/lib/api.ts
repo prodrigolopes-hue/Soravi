@@ -13,6 +13,8 @@ export const categoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories`;
 
 export const serviceRequestsUrl = `${normalizedApiBaseUrl}/api/v1/service-requests`;
 
+export const myServiceRequestsUrl = `${serviceRequestsUrl}/mine`;
+
 export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions`;
 
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;
