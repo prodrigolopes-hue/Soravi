@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -28,6 +37,19 @@ export class ServiceRequestsController {
     return this.serviceRequestsService.findMine(
       currentUser.id,
       query,
+    );
+  }
+
+  @Get(":serviceRequestId")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findOneMine(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("serviceRequestId", new ParseUUIDPipe()) serviceRequestId: string,
+  ): Promise<ServiceRequestResponseDto> {
+    return this.serviceRequestsService.findOneMine(
+      currentUser.id,
+      serviceRequestId,
     );
   }
 

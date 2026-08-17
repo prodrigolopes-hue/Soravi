@@ -6,6 +6,7 @@ import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
+import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestsService } from "./service-requests.service";
 
 describe("ServiceRequestsService", () => {
@@ -21,6 +22,7 @@ describe("ServiceRequestsService", () => {
     serviceRequest: {
       count: jest.Mock;
       create: jest.Mock;
+      findFirst: jest.Mock;
       findMany: jest.Mock;
     };
     $transaction: jest.Mock;
@@ -33,6 +35,7 @@ describe("ServiceRequestsService", () => {
       serviceRequest: {
         count: jest.fn(),
         create: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
       },
       $transaction: jest.fn(),
@@ -173,6 +176,50 @@ describe("ServiceRequestsService", () => {
 
     expect(prismaMock.serviceRequest.count).not.toHaveBeenCalled();
     expect(prismaMock.serviceRequest.findMany).not.toHaveBeenCalled();
+  });
+
+  it("obtém somente solicitação ativa do CustomerProfile autenticado", async () => {
+    const input = createInput();
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
+      categoryId: input.categoryId,
+      title: input.title,
+      description: input.description,
+      status: ServiceRequestStatus.DRAFT,
+      ...input.location,
+      createdAt,
+    });
+
+    const result = await service.findOneMine(userId, serviceRequestId);
+
+    expect(prismaMock.serviceRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: serviceRequestId,
+        customerProfileId,
+        deletedAt: null,
+      },
+      select: expect.any(Object),
+    });
+    expect(result.id).toBe(serviceRequestId);
+    expect(result.location).toEqual(input.location);
+  });
+
+  it("retorna o mesmo not found quando a solicitação não é acessível", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.findOneMine(userId, serviceRequestId),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+  });
+
+  it("rejeita consulta quando o CustomerProfile não existe", async () => {
+    prismaMock.customerProfile.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.findOneMine(userId, serviceRequestId),
+    ).rejects.toBeInstanceOf(CustomerProfileNotFoundException);
+
+    expect(prismaMock.serviceRequest.findFirst).not.toHaveBeenCalled();
   });
 });
 

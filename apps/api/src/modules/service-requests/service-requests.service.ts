@@ -11,6 +11,7 @@ import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
+import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 
 const SERVICE_REQUEST_RESPONSE_SELECT = {
   id: true,
@@ -130,6 +131,41 @@ export class ServiceRequestsService {
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
     });
+
+    return new ServiceRequestResponseDto(
+      toServiceRequestResponseProperties(serviceRequest),
+    );
+  }
+
+  async findOneMine(
+    userId: string,
+    serviceRequestId: string,
+  ): Promise<ServiceRequestResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: {
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        id: serviceRequestId,
+        customerProfileId: customerProfile.id,
+        deletedAt: null,
+      },
+      select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
+
+    if (!serviceRequest) {
+      throw new ServiceRequestNotFoundException();
+    }
 
     return new ServiceRequestResponseDto(
       toServiceRequestResponseProperties(serviceRequest),

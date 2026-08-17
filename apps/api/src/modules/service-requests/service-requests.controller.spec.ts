@@ -14,6 +14,7 @@ describe("ServiceRequestsController", () => {
   const serviceMock = {
     createServiceRequest: jest.fn(),
     findMine: jest.fn(),
+    findOneMine: jest.fn(),
   };
 
   const controller = new ServiceRequestsController(
@@ -79,6 +80,55 @@ describe("ServiceRequestsController", () => {
     const roles = Reflect.getMetadata(
       "roles",
       ServiceRequestsController.prototype.findMine,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.CUSTOMER]);
+  });
+
+  it("encaminha o usuário autenticado e o ID na consulta própria", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+    const response = new ServiceRequestResponseDto({
+      id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
+      title: "Instalar uma tomada",
+      description: null,
+      status: ServiceRequestStatus.DRAFT,
+      location: {
+        country: "BR",
+        state: "SP",
+        city: "Campinas",
+        neighborhood: "Centro",
+        postalCode: "13000-000",
+        addressLine: "Rua Exemplo",
+        addressNumber: "100",
+        addressComplement: null,
+      },
+      createdAt: new Date("2026-08-16T12:00:00.000Z"),
+    });
+    serviceMock.findOneMine.mockResolvedValue(response);
+
+    const result = await controller.findOneMine(currentUser, response.id);
+
+    expect(serviceMock.findOneMine).toHaveBeenCalledWith(
+      currentUser.id,
+      response.id,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("protege a consulta própria com autenticação e role CUSTOMER", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ServiceRequestsController.prototype.findOneMine,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      ServiceRequestsController.prototype.findOneMine,
     );
 
     expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
