@@ -15,21 +15,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import { myServiceRequestsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import {
+  formatServiceRequestDate,
+  isServiceRequestStatus,
+  serviceRequestStatusPresentation,
+  type ServiceRequestStatus,
+} from "./service-request-presentation";
 
 const PAGE_SIZE = 20;
 
-const serviceRequestStatuses = [
-  "DRAFT",
-  "OPEN",
-  "RECEIVING_PROPOSALS",
-  "IN_NEGOTIATION",
-  "HIRED",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "CANCELLED",
-] as const;
-
-type ServiceRequestStatus = (typeof serviceRequestStatuses)[number];
 type RequestState =
   | "idle"
   | "loading"
@@ -62,50 +56,8 @@ interface ServiceRequestsResponse {
   pagination: ServiceRequestsPagination;
 }
 
-const statusPresentation: Record<
-  ServiceRequestStatus,
-  { label: string; className: string }
-> = {
-  DRAFT: {
-    label: "Rascunho",
-    className: "border-slate-200 bg-slate-100 text-slate-700",
-  },
-  OPEN: {
-    label: "Aberta",
-    className: "border-blue-200 bg-blue-50 text-blue-700",
-  },
-  RECEIVING_PROPOSALS: {
-    label: "Recebendo propostas",
-    className: "border-cyan-200 bg-cyan-50 text-cyan-800",
-  },
-  IN_NEGOTIATION: {
-    label: "Em negociação",
-    className: "border-amber-200 bg-amber-50 text-amber-800",
-  },
-  HIRED: {
-    label: "Contratada",
-    className: "border-indigo-200 bg-indigo-50 text-indigo-700",
-  },
-  IN_PROGRESS: {
-    label: "Em andamento",
-    className: "border-violet-200 bg-violet-50 text-violet-700",
-  },
-  COMPLETED: {
-    label: "Concluída",
-    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-  CANCELLED: {
-    label: "Cancelada",
-    className: "border-red-200 bg-red-50 text-red-700",
-  },
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isServiceRequestStatus(value: unknown): value is ServiceRequestStatus {
-  return serviceRequestStatuses.some((status) => status === value);
 }
 
 function parseServiceRequest(value: unknown): ServiceRequestItem | null {
@@ -183,20 +135,6 @@ function parseResponse(payload: unknown): ServiceRequestsResponse | null {
       totalPages: Number(totalPages),
     },
   };
-}
-
-function formatCreatedAt(value: string): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Data indisponível";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
 }
 
 export function MyServiceRequestsPage() {
@@ -370,7 +308,7 @@ export function MyServiceRequestsPage() {
             <>
               <div className="grid gap-4 md:grid-cols-2">
                 {response.items.map((request) => {
-                  const status = statusPresentation[request.status];
+                  const status = serviceRequestStatusPresentation[request.status];
 
                   return (
                     <article key={request.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -387,7 +325,7 @@ export function MyServiceRequestsPage() {
                         <div className="flex items-center gap-2">
                           <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-slate-400" />
                           <dt className="sr-only">Data de criação</dt>
-                          <dd>Criada em {formatCreatedAt(request.createdAt)}</dd>
+                          <dd>Criada em {formatServiceRequestDate(request.createdAt)}</dd>
                         </div>
                       </dl>
                       <Link href={`/solicitacoes/${request.id}`} className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">

@@ -15,6 +15,10 @@ export const serviceRequestsUrl = `${normalizedApiBaseUrl}/api/v1/service-reques
 
 export const myServiceRequestsUrl = `${serviceRequestsUrl}/mine`;
 
+export function serviceRequestByIdUrl(serviceRequestId: string): string {
+  return `${serviceRequestsUrl}/${encodeURIComponent(serviceRequestId)}`;
+}
+
 export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions`;
 
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;
