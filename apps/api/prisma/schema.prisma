@@ -271,13 +271,30 @@ model ServiceRequest {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  customerProfile CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
-  category        Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  customerProfile CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  category        Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  files           ServiceRequestFile[]
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
   @@index([status, createdAt], map: "service_requests_status_created_at_idx")
   @@map("service_requests")
+}
+
+model ServiceRequestFile {
+  id               String   @id @default(uuid()) @db.Uuid
+  serviceRequestId String   @map("service_request_id") @db.Uuid
+  objectKey        String   @unique(map: "service_request_files_object_key_key") @map("object_key") @db.VarChar(1024)
+  originalName     String   @map("original_name") @db.VarChar(255)
+  mimeType         String   @map("mime_type") @db.VarChar(127)
+  sizeBytes        Int      @map("size_bytes")
+  position         Int
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceRequestId, position], map: "service_request_files_service_request_id_position_key")
+  @@map("service_request_files")
 }
 
 model ProfessionalCategory {
