@@ -19,6 +19,10 @@ export function serviceRequestByIdUrl(serviceRequestId: string): string {
   return `${serviceRequestsUrl}/${encodeURIComponent(serviceRequestId)}`;
 }
 
+export function serviceRequestPhotosUrl(serviceRequestId: string): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
+}
+
 export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions`;
 
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;

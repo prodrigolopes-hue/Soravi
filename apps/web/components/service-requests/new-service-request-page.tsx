@@ -2,19 +2,34 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  CircleAlert,
   CheckCircle2,
   ChevronLeft,
+  ImagePlus,
   Loader2,
   MapPin,
   Send,
+  X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { categoriesUrl, serviceRequestsUrl } from "../../lib/api";
+import {
+  categoriesUrl,
+  serviceRequestPhotosUrl,
+  serviceRequestsUrl,
+} from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import {
+  appendServiceRequestPhotos,
+  MAX_SERVICE_REQUEST_PHOTOS,
+  removeServiceRequestPhoto,
+  SERVICE_REQUEST_PHOTO_ACCEPT,
+  uploadServiceRequestPhotos,
+} from "./service-request-photo-selection";
 
 interface ServiceCategory {
   id: string;
@@ -22,8 +37,13 @@ interface ServiceCategory {
 }
 
 type CategoriesState = "loading" | "success" | "empty" | "error";
-type SubmissionState = "idle" | "success" | "error";
+type SubmissionState = "idle" | "success" | "partial" | "error";
 type PostalCodeLookupState = "idle" | "loading" | "success" | "not-found" | "error";
+
+interface SelectedPhoto {
+  file: File;
+  previewUrl: string;
+}
 
 interface ViaCepResponse {
   logradouro: string;
@@ -151,6 +171,16 @@ function extractErrorMessage(payload: unknown): string | null {
   return null;
 }
 
+function extractServiceRequestId(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) {
+    return null;
+  }
+
+  const id = (payload as { id?: unknown }).id;
+
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 interface FieldErrorProps {
   id: string;
   message?: string;
@@ -177,8 +207,15 @@ export function NewServiceRequestPage() {
   const [submissionState, setSubmissionState] =
     useState<SubmissionState>("idle");
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [submissionProgress, setSubmissionProgress] = useState<string | null>(
+    null,
+  );
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [postalCodeLookupState, setPostalCodeLookupState] =
     useState<PostalCodeLookupState>("idle");
+  const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const lastLookedUpPostalCodeRef = useRef<string | null>(null);
   const postalCodeAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -261,6 +298,18 @@ export function NewServiceRequestPage() {
 
   useEffect(() => {
     return () => postalCodeAbortControllerRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    selectedPhotosRef.current = selectedPhotos;
+  }, [selectedPhotos]);
+
+  useEffect(() => {
+    return () => {
+      selectedPhotosRef.current.forEach((photo) => {
+        URL.revokeObjectURL(photo.previewUrl);
+      });
+    };
   }, []);
 
   async function lookupPostalCode(postalCode: string): Promise<void> {
@@ -352,6 +401,68 @@ export function NewServiceRequestPage() {
     void lookupPostalCode(digits);
   }
 
+  function handlePhotoSelection(event: ChangeEvent<HTMLInputElement>): void {
+    const selectedFiles = Array.from(event.target.files ?? []);
+
+    setSelectedPhotos((currentPhotos) => {
+      const currentFiles = currentPhotos.map((photo) => photo.file);
+      const result = appendServiceRequestPhotos(currentFiles, selectedFiles);
+      const currentPhotoByFile = new Map(
+        currentPhotos.map((photo) => [photo.file, photo]),
+      );
+
+      setPhotoError(result.errorMessage);
+
+      return result.photos.map(
+        (file) =>
+          currentPhotoByFile.get(file) ?? {
+            file,
+            previewUrl: URL.createObjectURL(file),
+          },
+      );
+    });
+
+    event.target.value = "";
+  }
+
+  function handlePhotoRemoval(photoIndex: number): void {
+    setSelectedPhotos((currentPhotos) => {
+      const removedPhoto = currentPhotos[photoIndex];
+
+      if (removedPhoto) {
+        URL.revokeObjectURL(removedPhoto.previewUrl);
+      }
+
+      const remainingFiles = removeServiceRequestPhoto(
+        currentPhotos.map((photo) => photo.file),
+        photoIndex,
+      );
+      const currentPhotoByFile = new Map(
+        currentPhotos.map((photo) => [photo.file, photo]),
+      );
+
+      return remainingFiles.flatMap((file) => {
+        const photo = currentPhotoByFile.get(file);
+        return photo ? [photo] : [];
+      });
+    });
+    setPhotoError(null);
+  }
+
+  function clearSelectedPhotos(): void {
+    setSelectedPhotos((currentPhotos) => {
+      currentPhotos.forEach((photo) => {
+        URL.revokeObjectURL(photo.previewUrl);
+      });
+      return [];
+    });
+    setPhotoError(null);
+
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }
+
   async function submitServiceRequest(data: ServiceRequestFormData): Promise<void> {
     if (!accessToken || isSubmitting) {
       return;
@@ -371,9 +482,11 @@ export function NewServiceRequestPage() {
 
     setSubmissionState("idle");
     setFormMessage(null);
+    setSubmissionProgress("Salvando solicitação...");
 
     const description = data.description.trim();
     const addressComplement = data.location.addressComplement.trim();
+    const photosToUpload = selectedPhotos.map((photo) => photo.file);
 
     try {
       const response = await fetch(serviceRequestsUrl, {
@@ -413,18 +526,64 @@ export function NewServiceRequestPage() {
 
         setSubmissionState("error");
         setFormMessage(backendMessage ?? fallbackMessage);
+        setSubmissionProgress(null);
         return;
       }
 
-      setSubmissionState("success");
-      setFormMessage(
-        "Solicitação criada e salva como rascunho. Ela ainda não foi publicada.",
-      );
+      const serviceRequestId = extractServiceRequestId(payload);
+      let failedUploads = 0;
+
+      if (photosToUpload.length > 0 && !serviceRequestId) {
+        failedUploads = photosToUpload.length;
+      } else if (serviceRequestId) {
+        failedUploads = await uploadServiceRequestPhotos(
+          photosToUpload,
+          async (photo) => {
+            const formData = new FormData();
+            formData.append("file", photo);
+
+            const photoResponse = await fetch(
+              serviceRequestPhotosUrl(serviceRequestId),
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                credentials: "include",
+                body: formData,
+              },
+            );
+
+            if (!photoResponse.ok) {
+              throw new Error("Photo upload failed");
+            }
+          },
+          (current, total) => {
+            setSubmissionProgress(`Enviando foto ${current} de ${total}...`);
+          },
+        );
+      }
+
+      if (failedUploads > 0) {
+        setSubmissionState("partial");
+        setFormMessage(
+          "A solicitação foi salva como rascunho, mas algumas fotos não puderam ser enviadas.",
+        );
+      } else {
+        setSubmissionState("success");
+        setFormMessage(
+          "Solicitação criada e salva como rascunho. Ela ainda não foi publicada.",
+        );
+      }
+
+      setSubmissionProgress(null);
       reset();
+      clearSelectedPhotos();
       setPostalCodeLookupState("idle");
       lastLookedUpPostalCodeRef.current = null;
     } catch {
       setSubmissionState("error");
+      setSubmissionProgress(null);
       setFormMessage(
         "Não foi possível conectar à Soravi. Tente novamente em instantes.",
       );
@@ -541,6 +700,76 @@ export function NewServiceRequestPage() {
               <textarea id="description" rows={5} maxLength={2000} placeholder="Conte os detalhes que ajudam a entender o serviço" disabled={isSubmitting} aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "description-error" : undefined} className={fieldClassName} {...register("description")} />
               <FieldError id="description-error" message={errors.description?.message} />
             </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-6">
+              <div className="flex items-start gap-3">
+                <ImagePlus aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-600" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <label htmlFor="service-request-photos" className="font-semibold text-slate-900">
+                      Fotos do problema <span className="font-normal text-slate-500">(opcional)</span>
+                    </label>
+                    <span className="text-sm font-medium text-slate-500">
+                      {selectedPhotos.length} de {MAX_SERVICE_REQUEST_PHOTOS} fotos
+                    </span>
+                  </div>
+                  <p id="service-request-photos-help" className="mt-1 text-sm leading-6 text-slate-600">
+                    Adicione fotos que ajudem o profissional a entender melhor o serviço.
+                  </p>
+                </div>
+              </div>
+
+              <input
+                ref={photoInputRef}
+                id="service-request-photos"
+                type="file"
+                multiple
+                accept={SERVICE_REQUEST_PHOTO_ACCEPT}
+                disabled={isSubmitting || selectedPhotos.length >= MAX_SERVICE_REQUEST_PHOTOS}
+                aria-describedby={`service-request-photos-help${photoError ? " service-request-photos-error" : ""}`}
+                onChange={handlePhotoSelection}
+                className="mt-4 block w-full cursor-pointer rounded-xl border border-slate-300 bg-white text-sm text-slate-600 file:mr-4 file:min-h-12 file:cursor-pointer file:border-0 file:border-r file:border-slate-200 file:bg-slate-50 file:px-4 file:py-3 file:font-semibold file:text-blue-700 hover:file:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-100"
+              />
+
+              {photoError ? (
+                <p id="service-request-photos-error" role="alert" className="mt-2 text-sm font-medium text-red-600">
+                  {photoError}
+                </p>
+              ) : null}
+
+              {selectedPhotos.length > 0 ? (
+                <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Fotos selecionadas">
+                  {selectedPhotos.map((photo, photoIndex) => (
+                    <li key={photo.previewUrl} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+                        <Image
+                          src={photo.previewUrl}
+                          alt={`Prévia de ${photo.file.name}`}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                        <button
+                          type="button"
+                          title="Remover foto"
+                          aria-label={`Remover ${photo.file.name}`}
+                          disabled={isSubmitting}
+                          onClick={() => handlePhotoRemoval(photoIndex)}
+                          className="absolute right-2 top-2 inline-flex size-9 items-center justify-center rounded-full bg-slate-950/80 text-white transition hover:bg-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <X aria-hidden="true" className="size-4" />
+                        </button>
+                      </div>
+                      <div className="p-2.5">
+                        <p className="truncate text-xs font-medium text-slate-700" title={photo.file.name}>
+                          {photo.file.name}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           </section>
 
           <fieldset disabled={isSubmitting} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
@@ -613,15 +842,23 @@ export function NewServiceRequestPage() {
           </fieldset>
 
           {formMessage ? (
-            <div role={submissionState === "error" ? "alert" : "status"} className={`flex items-start gap-3 rounded-xl border p-4 ${submissionState === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+            <div role={submissionState === "success" ? "status" : "alert"} className={`flex items-start gap-3 rounded-xl border p-4 ${submissionState === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : submissionState === "partial" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-800"}`}>
               {submissionState === "success" ? <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" /> : null}
+              {submissionState === "partial" ? <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" /> : null}
               <p className="font-medium leading-6">{formMessage}</p>
             </div>
           ) : null}
 
+          {submissionProgress ? (
+            <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              {submissionProgress}
+            </p>
+          ) : null}
+
           <button type="submit" disabled={isSubmitting || categoriesState !== "success"} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
             {isSubmitting ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}
-            {isSubmitting ? "Salvando..." : "Salvar como rascunho"}
+            {isSubmitting ? "Processando..." : "Salvar como rascunho"}
           </button>
         </form>
       </div>
