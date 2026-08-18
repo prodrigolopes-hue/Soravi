@@ -943,6 +943,20 @@ Uploads deverão validar:
 - nome interno;
 - status do processamento.
 
+### Estado implementado no MVP — 2026-08-17
+
+- o domínio usa a abstração `StorageService` e não depende diretamente do SDK S3;
+- a implementação atual é compatível com S3;
+- Cloudflare R2 foi escolhido para o ambiente de produção;
+- o bucket é privado;
+- o PostgreSQL armazena somente metadados e `objectKey` em `ServiceRequestFile`;
+- a abstração oferece leitura por URL temporária;
+- endpoint, região, bucket e credenciais são fornecidos por variáveis de ambiente, sem credenciais na documentação ou no código;
+- a API permanece em CommonJS;
+- não foi adicionada a dependência `file-type`;
+- JPEG, PNG e WebP são validados internamente por assinaturas binárias no MVP;
+- a validação manual dos três formatos evita mudar a arquitetura de módulos da API somente para detecção de tipo.
+
 ---
 
 ## DEC-020 — Notificações persistentes antes do tempo real

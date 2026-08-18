@@ -521,7 +521,7 @@ professionalProfileId + country + state + city UNIQUE
 
 ## 7.1 ServiceRequest
 
-Representa uma necessidade publicada por um cliente.
+Representa uma solicitação de serviço criada por um cliente. A solicitação pode existir como rascunho antes da publicação.
 
 ### Campos
 
@@ -566,7 +566,12 @@ CANCELLED
 
 ### Regras
 
-- A solicitação pertence a um único cliente.
+- `CustomerProfile` possui relação 1:N com `ServiceRequest`.
+- `Category` possui relação 1:N com `ServiceRequest`.
+- A solicitação pertence a um único `CustomerProfile`.
+- A categoria é obrigatória.
+- A localização é armazenada de forma estruturada na própria solicitação.
+- O status inicial é `DRAFT`.
 - Somente o proprietário poderá editar, publicar ou cancelar.
 - A categoria deverá estar ativa no momento da publicação.
 - O endereço completo não deverá ser exposto publicamente.
@@ -655,79 +660,45 @@ IN_PROGRESS → CANCELLED
 
 ---
 
-## 7.3 FileAsset
+## 7.3 Armazenamento das fotos
 
-Representa os metadados de um arquivo armazenado na nuvem.
+O arquivo binário não é armazenado no PostgreSQL. As fotos ficam em armazenamento de objetos privado compatível com S3, e o banco mantém somente os metadados e a `objectKey` em `ServiceRequestFile`.
 
-### Campos
+No estado atual do MVP, não existe o model Prisma `FileAsset`. Os metadados necessários para fotos de solicitações são persistidos diretamente em `ServiceRequestFile`.
 
-```text
-id
-ownerUserId
-storageProvider
-storageBucket
-storageKey
-originalName
-mimeType
-sizeInBytes
-checksum
-status
-createdAt
-updatedAt
-deletedAt
-```
-
-### Status
-
-```text
-PENDING
-PROCESSING
-READY
-BLOCKED
-FAILED
-DELETED
-```
-
-### Regras
-
-- O arquivo físico ficará no armazenamento em nuvem.
-- O PostgreSQL armazenará somente os metadados.
-- O nome interno será gerado pelo sistema.
-- Tipo, conteúdo e tamanho deverão ser validados.
-- Arquivos executáveis não serão permitidos.
-- Arquivos bloqueados não poderão ser exibidos.
-- O proprietário deverá ser identificado.
-- O arquivo não poderá ser vinculado a recursos de outro usuário sem autorização.
-- A exclusão do registro deverá coordenar a remoção do arquivo físico.
-- Metadados sensíveis de imagens poderão ser removidos.
+O acesso ao storage ocorre pela abstração `StorageService`; o domínio de solicitações não depende diretamente do SDK S3.
 
 ---
 
 ## 7.4 ServiceRequestFile
 
-Relaciona arquivos às solicitações.
+Armazena os metadados das fotos vinculadas às solicitações. `ServiceRequest` possui relação 1:N com `ServiceRequestFile`.
 
 ### Campos
 
 ```text
 id
 serviceRequestId
-fileAssetId
+objectKey
+originalName
+mimeType
+sizeBytes
 position
 createdAt
 ```
 
 ### Regras
 
-- O arquivo deverá pertencer ao cliente proprietário da solicitação.
-- Somente arquivos com status `READY` poderão ser exibidos.
-- A quantidade máxima de imagens será definida nas regras de negócio.
+- Cada registro pertence a um único `ServiceRequest`.
+- O binário correspondente fica no armazenamento de objetos, não no PostgreSQL.
+- `objectKey` identifica internamente o objeto no storage.
+- O upload atual aceita no máximo 5 fotos por solicitação e 5 MB por foto.
 - A posição será utilizada para ordenar as imagens.
 
 ### Restrições
 
 ```text
-serviceRequestId + fileAssetId UNIQUE
+objectKey UNIQUE
 serviceRequestId + position UNIQUE
 ```
 
@@ -1459,8 +1430,7 @@ ProfessionalServiceArea.professionalProfileId
 + ProfessionalServiceArea.state
 + ProfessionalServiceArea.city UNIQUE
 
-ServiceRequestFile.serviceRequestId
-+ ServiceRequestFile.fileAssetId UNIQUE
+ServiceRequestFile.objectKey UNIQUE
 
 ServiceRequestFile.serviceRequestId
 + ServiceRequestFile.position UNIQUE

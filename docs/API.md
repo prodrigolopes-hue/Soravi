@@ -1263,8 +1263,7 @@ Papel `CUSTOMER`.
     "addressLine": "Rua Exemplo",
     "addressNumber": "100",
     "addressComplement": "Apartamento 10"
-  },
-  "fileIds": ["uuid"]
+  }
 }
 ```
 
@@ -1282,12 +1281,15 @@ DRAFT
 
 ### Regras
 
-- cliente autenticado;
-- categoria válida;
-- arquivos pertencentes ao cliente;
+- autenticação obrigatória com papel `CUSTOMER`;
+- resolve o `CustomerProfile` pelo usuário autenticado;
+- não aceita `customerProfileId` na entrada;
+- categoria obrigatória, existente e ativa;
 - limites de título e descrição;
+- localização estruturada e obrigatória;
 - endereço completo será privado;
-- criação não significa publicação automática.
+- cria a solicitação própria em `DRAFT`;
+- criação não publica automaticamente.
 
 ---
 
@@ -1297,33 +1299,111 @@ DRAFT
 GET /api/v1/service-requests/mine
 ```
 
+### Autenticação
+
+Papel `CUSTOMER`.
+
 ### Filtros
 
 ```text
-status
-categoryId
-page
-limit
-sort
+status      opcional, um valor de ServiceRequestStatus
+categoryId  opcional, UUID v4
+page        opcional, padrão 1, mínimo 1
+limit       opcional, padrão 20, entre 1 e 100
+sort        opcional, asc ou desc, padrão desc
 ```
+
+### Regras
+
+- resolve o `CustomerProfile` pelo usuário autenticado;
+- não aceita `customerProfileId`;
+- retorna somente solicitações do cliente autenticado;
+- exclui registros com `deletedAt` preenchido;
+- aplica paginação e ordenação por `createdAt`.
 
 ---
 
 ## 18.3 Obter solicitação própria
 
 ```text
-GET /api/v1/service-requests/{serviceRequestId}
+GET /api/v1/service-requests/:serviceRequestId
 ```
 
-### Regras de exposição
+### Autenticação
 
-O proprietário receberá os dados completos permitidos.
+Papel `CUSTOMER`.
 
-Profissionais elegíveis receberão uma versão limitada da localização.
+### Regras
+
+- retorna somente solicitação pertencente ao `CustomerProfile` autenticado;
+- exclui registros com `deletedAt` preenchido;
+- retorna o mesmo `404 SERVICE_REQUEST_NOT_FOUND` para solicitação inexistente, excluída ou pertencente a outro cliente.
 
 ---
 
-## 18.4 Atualizar solicitação
+## 18.4 Adicionar foto à solicitação
+
+```text
+POST /api/v1/service-requests/:serviceRequestId/photos
+```
+
+### Autenticação
+
+Papel `CUSTOMER`.
+
+### Entrada
+
+Requisição `multipart/form-data`, com uma foto no campo `file`.
+
+### Regras
+
+- somente solicitação própria e não excluída;
+- mesmo `404 SERVICE_REQUEST_NOT_FOUND` para solicitação inexistente ou de outro cliente;
+- somente solicitações em `DRAFT`;
+- uma foto por chamada neste estágio;
+- máximo de 5 fotos por solicitação;
+- máximo de 5 MB por foto;
+- tipos permitidos: `image/jpeg`, `image/png` e `image/webp`;
+- JPEG, PNG e WebP são detectados internamente pelos magic bytes;
+- o MIME declarado deve corresponder ao tipo detectado pela assinatura binária;
+- o upload é feito por `StorageService` antes da persistência de `ServiceRequestFile`;
+- se a persistência falhar após o upload, o objeto é removido do storage como compensação.
+
+### Resposta
+
+Retorna `id`, `originalName`, `mimeType`, `sizeBytes`, `position` e `createdAt`.
+
+O `objectKey` interno não é exposto na resposta.
+
+---
+
+## 18.5 Estado atual do frontend
+
+Rotas implementadas:
+
+```text
+/solicitacoes/nova
+/solicitacoes
+/solicitacoes/[serviceRequestId]
+```
+
+Fluxos implementados:
+
+- criação da solicitação como rascunho;
+- categorias carregadas pela API;
+- localização estruturada;
+- autopreenchimento de endereço por CEP na nova solicitação;
+- listagem das solicitações próprias;
+- abertura dos detalhes;
+- apresentação amigável dos status.
+
+O upload visual de fotos ainda não está implementado no frontend.
+
+---
+
+As funcionalidades a seguir permanecem planejadas e não representam endpoints já implementados.
+
+## 18.6 Atualizar solicitação
 
 ```text
 PATCH /api/v1/service-requests/{serviceRequestId}
@@ -1339,7 +1419,7 @@ PATCH /api/v1/service-requests/{serviceRequestId}
 
 ---
 
-## 18.5 Publicar solicitação
+## 18.7 Publicar solicitação
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/publish
@@ -1368,7 +1448,7 @@ DRAFT → OPEN
 
 ---
 
-## 18.6 Cancelar solicitação
+## 18.8 Cancelar solicitação
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/cancel
@@ -1393,7 +1473,7 @@ POST /api/v1/service-requests/{serviceRequestId}/cancel
 
 ---
 
-## 18.7 Excluir rascunho
+## 18.9 Excluir rascunho
 
 ```text
 DELETE /api/v1/service-requests/{serviceRequestId}
@@ -1408,7 +1488,7 @@ DELETE /api/v1/service-requests/{serviceRequestId}
 
 ---
 
-## 18.8 Listar oportunidades profissionais
+## 18.10 Listar oportunidades profissionais
 
 ```text
 GET /api/v1/opportunities
@@ -2206,6 +2286,10 @@ A remoção seguirá a política de retenção.
 ---
 
 # 26. Uploads
+
+Os endpoints genéricos deste capítulo permanecem planejados e não estão implementados no estágio atual.
+
+Para fotos de solicitações, o contrato implementado no MVP é `POST /api/v1/service-requests/:serviceRequestId/photos`, descrito na seção 18.4. Não há fluxo genérico de presign/complete em uso para essa funcionalidade.
 
 ## 26.1 Solicitar autorização de upload
 

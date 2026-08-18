@@ -36,11 +36,24 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 # ÉPICO 3 - Solicitações
 
--   Criar solicitação
--   Editar
--   Excluir
--   Alterar status
--   Upload de imagens
+- [x] Model e migration de `ServiceRequest`.
+- [x] `POST /api/v1/service-requests` para criar solicitação própria em `DRAFT`.
+- [x] `GET /api/v1/service-requests/mine` para listar solicitações próprias.
+- [x] `GET /api/v1/service-requests/:serviceRequestId` para consultar detalhes próprios.
+- [x] Frontend `/solicitacoes/nova`.
+- [x] Frontend `/solicitacoes`.
+- [x] Frontend `/solicitacoes/[serviceRequestId]`.
+- [x] Persistência de `ServiceRequestFile` e backend de upload de fotos.
+- [ ] Frontend para seleção e upload visual de fotos.
+- [ ] Editar solicitação.
+- [ ] Publicar solicitação.
+- [ ] Cancelar solicitação.
+- [ ] Excluir solicitação.
+- [ ] Listar oportunidades profissionais.
+- [ ] Propostas.
+- [ ] Contratação.
+- [ ] Chat.
+- [ ] Avaliações.
 
 ------------------------------------------------------------------------
 

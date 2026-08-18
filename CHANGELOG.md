@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-08-17
+
+### Solicitações de serviço
+
+- criada a persistência de `ServiceRequest`, com vínculo obrigatório a `CustomerProfile` e `Category`, localização estruturada e estado inicial `DRAFT`;
+- implementados os endpoints autenticados para criar solicitação, listar solicitações próprias e consultar detalhes da solicitação própria;
+- criadas as páginas `/solicitacoes/nova`, `/solicitacoes` e `/solicitacoes/[serviceRequestId]`;
+- categorias da nova solicitação carregadas pela API e endereço preenchido automaticamente por CEP, com possibilidade de preenchimento manual;
+- criada a persistência de `ServiceRequestFile`, com metadados da foto, `objectKey` e posição dentro da solicitação;
+- criada a abstração `StorageService` com implementação compatível com S3 para bucket privado;
+- Cloudflare R2 definido como armazenamento de objetos em produção, com credenciais fornecidas somente por variáveis de ambiente;
+- implementado `POST /api/v1/service-requests/:serviceRequestId/photos` para upload de uma foto por chamada, restrito à solicitação própria em `DRAFT`;
+- upload limitado a 5 fotos por solicitação e 5 MB por foto, aceitando JPEG, PNG e WebP com validação de MIME e magic bytes;
+- persistência dos metadados ocorre após o upload, com remoção compensatória do objeto quando a gravação no banco falha;
+- interface de upload de fotos no frontend permanece pendente.
+
 ## 2026-08-14
 
 ### Sugestões públicas de categoria
