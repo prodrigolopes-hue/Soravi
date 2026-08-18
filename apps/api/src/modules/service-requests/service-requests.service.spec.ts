@@ -2,11 +2,17 @@ import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
 import { ServiceRequestStatus } from "../../generated/prisma/client";
+import { StorageService } from "../../storage/storage.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
+import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
+import { ServiceRequestNotDraftException } from "./errors/service-request-not-draft.exception";
+import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
+import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
+import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
 
 describe("ServiceRequestsService", () => {
@@ -25,7 +31,13 @@ describe("ServiceRequestsService", () => {
       findFirst: jest.Mock;
       findMany: jest.Mock;
     };
+    serviceRequestFile: { create: jest.Mock };
     $transaction: jest.Mock;
+  };
+  let storageMock: {
+    upload: jest.Mock;
+    delete: jest.Mock;
+    createTemporaryReadUrl: jest.Mock;
   };
 
   beforeEach(() => {
@@ -38,10 +50,17 @@ describe("ServiceRequestsService", () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
       },
+      serviceRequestFile: { create: jest.fn() },
       $transaction: jest.fn(),
+    };
+    storageMock = {
+      upload: jest.fn().mockResolvedValue({ objectKey: "objects/photo-id" }),
+      delete: jest.fn().mockResolvedValue(undefined),
+      createTemporaryReadUrl: jest.fn(),
     };
     service = new ServiceRequestsService(
       prismaMock as unknown as PrismaService,
+      storageMock as unknown as StorageService,
     );
     prismaMock.customerProfile.findUnique.mockResolvedValue({
       id: customerProfileId,
@@ -221,7 +240,208 @@ describe("ServiceRequestsService", () => {
 
     expect(prismaMock.serviceRequest.findFirst).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["JPEG", "image/jpeg", [0xff, 0xd8, 0xff, 0x00]],
+    [
+      "PNG",
+      "image/png",
+      [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00],
+    ],
+    [
+      "WebP",
+      "image/webp",
+      [
+        0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45,
+        0x42, 0x50,
+      ],
+    ],
+  ])("envia e persiste uma foto %s válida", async (_name, mimeType, bytes) => {
+    const file = createPhoto(mimeType, bytes);
+    mockUploadableServiceRequest(2, 3);
+    prismaMock.serviceRequestFile.create.mockResolvedValue({
+      id: "photo-id",
+      originalName: file.originalname,
+      mimeType,
+      sizeBytes: file.size,
+      position: 4,
+      createdAt,
+    });
+
+    const result = await service.uploadPhoto(userId, serviceRequestId, file);
+
+    expect(storageMock.upload).toHaveBeenCalledWith({
+      body: file.buffer,
+      contentType: mimeType,
+      sizeBytes: file.size,
+    });
+    expect(prismaMock.serviceRequestFile.create).toHaveBeenCalledWith({
+      data: {
+        serviceRequestId,
+        objectKey: "objects/photo-id",
+        originalName: file.originalname,
+        mimeType,
+        sizeBytes: file.size,
+        position: 4,
+      },
+      select: expect.any(Object),
+    });
+    expect(result).toEqual({
+      id: "photo-id",
+      originalName: file.originalname,
+      mimeType,
+      sizeBytes: file.size,
+      position: 4,
+      createdAt,
+    });
+  });
+
+  it("rejeita arquivo com assinatura inválida", async () => {
+    mockUploadableServiceRequest();
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0x47, 0x49, 0x46]),
+      ),
+    ).rejects.toBeInstanceOf(InvalidServiceRequestPhotoException);
+
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejeita MIME incompatível com os magic bytes", async () => {
+    mockUploadableServiceRequest();
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/png", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toBeInstanceOf(InvalidServiceRequestPhotoException);
+
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejeita foto maior que 5 MB", async () => {
+    mockUploadableServiceRequest();
+    const file = createPhoto("image/jpeg", [0xff, 0xd8, 0xff]);
+    file.size = SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES + 1;
+
+    await expect(
+      service.uploadPhoto(userId, serviceRequestId, file),
+    ).rejects.toBeInstanceOf(ServiceRequestPhotoTooLargeException);
+
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejeita a sexta foto", async () => {
+    mockUploadableServiceRequest(5, 4);
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toBeInstanceOf(ServiceRequestPhotoLimitException);
+
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejeita upload quando a solicitação não está em DRAFT", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      status: ServiceRequestStatus.OPEN,
+      _count: { files: 0 },
+      files: [],
+    });
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toBeInstanceOf(ServiceRequestNotDraftException);
+
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("retorna not found neutro para solicitação de outro cliente", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+
+    expect(prismaMock.serviceRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: serviceRequestId,
+        customerProfileId,
+        deletedAt: null,
+      },
+      select: expect.any(Object),
+    });
+    expect(storageMock.upload).not.toHaveBeenCalled();
+  });
+
+  it("não persiste metadata quando o storage falha", async () => {
+    mockUploadableServiceRequest();
+    storageMock.upload.mockRejectedValue(new Error("storage unavailable"));
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toThrow("storage unavailable");
+
+    expect(prismaMock.serviceRequestFile.create).not.toHaveBeenCalled();
+    expect(storageMock.delete).not.toHaveBeenCalled();
+  });
+
+  it("remove o objeto quando a persistência Prisma falha", async () => {
+    mockUploadableServiceRequest();
+    prismaMock.serviceRequestFile.create.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await expect(
+      service.uploadPhoto(
+        userId,
+        serviceRequestId,
+        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
+      ),
+    ).rejects.toThrow("database unavailable");
+
+    expect(storageMock.delete).toHaveBeenCalledWith("objects/photo-id");
+  });
+
+  function mockUploadableServiceRequest(count = 0, lastPosition?: number) {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      status: ServiceRequestStatus.DRAFT,
+      _count: { files: count },
+      files: lastPosition === undefined ? [] : [{ position: lastPosition }],
+    });
+  }
 });
+
+function createPhoto(mimetype: string, bytes: number[]) {
+  const buffer = Buffer.from(bytes);
+
+  return {
+    buffer,
+    originalname: "foto.jpg",
+    mimetype,
+    size: buffer.byteLength,
+  };
+}
 
 function createInput(): CreateServiceRequestDto {
   return {

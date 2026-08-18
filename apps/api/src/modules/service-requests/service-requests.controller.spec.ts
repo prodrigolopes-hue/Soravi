@@ -15,6 +15,7 @@ describe("ServiceRequestsController", () => {
     createServiceRequest: jest.fn(),
     findMine: jest.fn(),
     findOneMine: jest.fn(),
+    uploadPhoto: jest.fn(),
   };
 
   const controller = new ServiceRequestsController(
@@ -143,6 +144,56 @@ describe("ServiceRequestsController", () => {
     const roles = Reflect.getMetadata(
       "roles",
       ServiceRequestsController.prototype.create,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.CUSTOMER]);
+  });
+
+  it("encaminha uma foto ao service para a solicitação própria", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+    const file = {
+      buffer: Buffer.from([0xff, 0xd8, 0xff]),
+      originalname: "foto.jpg",
+      mimetype: "image/jpeg",
+      size: 3,
+    };
+    const response = {
+      id: "photo-id",
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      position: 0,
+      createdAt: new Date("2026-08-17T12:00:00.000Z"),
+    };
+    serviceMock.uploadPhoto.mockResolvedValue(response);
+
+    const result = await controller.uploadPhoto(
+      currentUser,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+      file,
+    );
+
+    expect(serviceMock.uploadPhoto).toHaveBeenCalledWith(
+      currentUser.id,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+      file,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("protege o upload com autenticação e role CUSTOMER", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ServiceRequestsController.prototype.uploadPhoto,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      ServiceRequestsController.prototype.uploadPhoto,
     );
 
     expect(guards).toEqual([AccessTokenGuard, RolesGuard]);

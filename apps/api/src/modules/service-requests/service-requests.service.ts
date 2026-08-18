@@ -1,17 +1,37 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
   Prisma,
   ServiceRequestStatus,
 } from "../../generated/prisma/client";
+import {
+  STORAGE_SERVICE,
+  StorageService,
+} from "../../storage/storage.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
+import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-response.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
+import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
+import { ServiceRequestNotDraftException } from "./errors/service-request-not-draft.exception";
+import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
+import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
+import {
+  detectServiceRequestPhotoMimeType,
+  SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
+} from "./service-request-photo-type";
+
+interface UploadedPhoto {
+  buffer: Uint8Array;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
 
 const SERVICE_REQUEST_RESPONSE_SELECT = {
   id: true,
@@ -32,7 +52,11 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
 
 @Injectable()
 export class ServiceRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_SERVICE)
+    private readonly storage: StorageService,
+  ) {}
 
   async findMine(
     userId: string,
@@ -171,6 +195,118 @@ export class ServiceRequestsService {
       toServiceRequestResponseProperties(serviceRequest),
     );
   }
+
+  async uploadPhoto(
+    userId: string,
+    serviceRequestId: string,
+    file: UploadedPhoto | undefined,
+  ): Promise<ServiceRequestPhotoResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        id: serviceRequestId,
+        customerProfileId: customerProfile.id,
+        deletedAt: null,
+      },
+      select: {
+        status: true,
+        _count: { select: { files: true } },
+        files: {
+          orderBy: { position: "desc" },
+          take: 1,
+          select: { position: true },
+        },
+      },
+    });
+
+    if (!serviceRequest) {
+      throw new ServiceRequestNotFoundException();
+    }
+
+    if (serviceRequest.status !== ServiceRequestStatus.DRAFT) {
+      throw new ServiceRequestNotDraftException();
+    }
+
+    if (serviceRequest._count.files >= 5) {
+      throw new ServiceRequestPhotoLimitException();
+    }
+
+    const validatedPhoto = validatePhoto(file);
+    const position = (serviceRequest.files[0]?.position ?? -1) + 1;
+    const storedObject = await this.storage.upload({
+      body: validatedPhoto.file.buffer,
+      contentType: validatedPhoto.mimeType,
+      sizeBytes: validatedPhoto.file.size,
+    });
+
+    try {
+      const photo = await this.prisma.serviceRequestFile.create({
+        data: {
+          serviceRequestId,
+          objectKey: storedObject.objectKey,
+          originalName: validatedPhoto.file.originalname,
+          mimeType: validatedPhoto.mimeType,
+          sizeBytes: validatedPhoto.file.size,
+          position,
+        },
+        select: {
+          id: true,
+          originalName: true,
+          mimeType: true,
+          sizeBytes: true,
+          position: true,
+          createdAt: true,
+        },
+      });
+
+      return new ServiceRequestPhotoResponseDto(photo);
+    } catch (error: unknown) {
+      await this.storage.delete(storedObject.objectKey).catch(() => undefined);
+      throw error;
+    }
+  }
+}
+
+function validatePhoto(
+  file: UploadedPhoto | undefined,
+): {
+  file: UploadedPhoto;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+} {
+  if (!file) {
+    throw new InvalidServiceRequestPhotoException("Envie uma foto no campo file.");
+  }
+
+  if (
+    file.size > SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES ||
+    file.buffer.byteLength > SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES
+  ) {
+    throw new ServiceRequestPhotoTooLargeException();
+  }
+
+  const detectedMimeType = detectServiceRequestPhotoMimeType(file.buffer);
+
+  if (!detectedMimeType) {
+    throw new InvalidServiceRequestPhotoException(
+      "A assinatura do arquivo não corresponde a uma imagem permitida.",
+    );
+  }
+
+  if (file.mimetype !== detectedMimeType) {
+    throw new InvalidServiceRequestPhotoException(
+      "O MIME declarado não corresponde ao tipo detectado.",
+    );
+  }
+
+  return { file, mimeType: detectedMimeType };
 }
 
 function toServiceRequestResponseProperties(
