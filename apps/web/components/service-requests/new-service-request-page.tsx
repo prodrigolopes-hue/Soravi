@@ -9,7 +9,7 @@ import {
   Send,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -23,6 +23,14 @@ interface ServiceCategory {
 
 type CategoriesState = "loading" | "success" | "empty" | "error";
 type SubmissionState = "idle" | "success" | "error";
+type PostalCodeLookupState = "idle" | "loading" | "success" | "not-found" | "error";
+
+interface ViaCepResponse {
+  logradouro: string;
+  bairro: string;
+  localidade: string;
+  uf: string;
+}
 
 const serviceRequestSchema = z.object({
   categoryId: z.uuidv4("Selecione uma categoria válida."),
@@ -88,6 +96,38 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
   return typeof candidate.id === "string" && typeof candidate.name === "string";
 }
 
+function isViaCepResponse(value: unknown): value is ViaCepResponse {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<ViaCepResponse>;
+
+  return (
+    typeof candidate.logradouro === "string" &&
+    typeof candidate.bairro === "string" &&
+    typeof candidate.localidade === "string" &&
+    typeof candidate.uf === "string"
+  );
+}
+
+function isViaCepNotFound(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "erro" in value &&
+    value.erro === true
+  );
+}
+
+function formatPostalCode(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  return digits.length > 5
+    ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+    : digits;
+}
+
 function extractErrorMessage(payload: unknown): string | null {
   if (typeof payload !== "object" || payload === null) {
     return null;
@@ -137,6 +177,10 @@ export function NewServiceRequestPage() {
   const [submissionState, setSubmissionState] =
     useState<SubmissionState>("idle");
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [postalCodeLookupState, setPostalCodeLookupState] =
+    useState<PostalCodeLookupState>("idle");
+  const lastLookedUpPostalCodeRef = useRef<string | null>(null);
+  const postalCodeAbortControllerRef = useRef<AbortController | null>(null);
 
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
 
@@ -145,6 +189,8 @@ export function NewServiceRequestPage() {
     handleSubmit,
     reset,
     setError,
+    setValue,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<ServiceRequestFormData>({
     resolver: zodResolver(serviceRequestSchema),
@@ -212,6 +258,99 @@ export function NewServiceRequestPage() {
 
     return () => abortController.abort();
   }, [categoriesReloadKey, isAuthenticated, isCustomer]);
+
+  useEffect(() => {
+    return () => postalCodeAbortControllerRef.current?.abort();
+  }, []);
+
+  async function lookupPostalCode(postalCode: string): Promise<void> {
+    if (lastLookedUpPostalCodeRef.current === postalCode) {
+      return;
+    }
+
+    lastLookedUpPostalCodeRef.current = postalCode;
+    postalCodeAbortControllerRef.current?.abort();
+
+    const abortController = new AbortController();
+    postalCodeAbortControllerRef.current = abortController;
+    setPostalCodeLookupState("loading");
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${postalCode}/json/`, {
+        signal: abortController.signal,
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        setPostalCodeLookupState("error");
+        return;
+      }
+
+      const payload: unknown = await response.json();
+
+      if (isViaCepNotFound(payload)) {
+        setPostalCodeLookupState("not-found");
+        return;
+      }
+
+      if (!isViaCepResponse(payload)) {
+        setPostalCodeLookupState("error");
+        return;
+      }
+
+      if (payload.logradouro) {
+        setValue("location.addressLine", payload.logradouro, {
+          shouldDirty: true,
+        });
+      }
+
+      if (payload.bairro) {
+        setValue("location.neighborhood", payload.bairro, {
+          shouldDirty: true,
+        });
+      }
+
+      if (payload.localidade) {
+        setValue("location.city", payload.localidade, {
+          shouldDirty: true,
+        });
+      }
+
+      if (payload.uf) {
+        setValue("location.state", payload.uf, {
+          shouldDirty: true,
+        });
+      }
+
+      clearErrors([
+        "location.addressLine",
+        "location.neighborhood",
+        "location.city",
+        "location.state",
+      ]);
+      setPostalCodeLookupState("success");
+    } catch {
+      if (!abortController.signal.aborted) {
+        setPostalCodeLookupState("error");
+      }
+    }
+  }
+
+  function handlePostalCodeChange(event: ChangeEvent<HTMLInputElement>): void {
+    const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
+
+    setValue("location.postalCode", formatPostalCode(digits), {
+      shouldDirty: true,
+    });
+
+    if (digits.length !== 8) {
+      postalCodeAbortControllerRef.current?.abort();
+      setPostalCodeLookupState("idle");
+      return;
+    }
+
+    void lookupPostalCode(digits);
+  }
 
   async function submitServiceRequest(data: ServiceRequestFormData): Promise<void> {
     if (!accessToken || isSubmitting) {
@@ -282,6 +421,8 @@ export function NewServiceRequestPage() {
         "Solicitação criada e salva como rascunho. Ela ainda não foi publicada.",
       );
       reset();
+      setPostalCodeLookupState("idle");
+      lastLookedUpPostalCodeRef.current = null;
     } catch {
       setSubmissionState("error");
       setFormMessage(
@@ -289,6 +430,17 @@ export function NewServiceRequestPage() {
       );
     }
   }
+
+  const hasPostalCodeLookupFeedback =
+    postalCodeLookupState === "loading" ||
+    postalCodeLookupState === "not-found" ||
+    postalCodeLookupState === "error";
+  const postalCodeDescribedBy = [
+    errors.location?.postalCode ? "postalCode-error" : null,
+    hasPostalCodeLookupFeedback ? "postalCode-lookup-feedback" : null,
+  ]
+    .filter(Boolean)
+    .join(" ") || undefined;
 
   if (isLoading) {
     return (
@@ -423,8 +575,24 @@ export function NewServiceRequestPage() {
               </div>
               <div>
                 <label htmlFor="postalCode" className="text-sm font-semibold text-slate-800">CEP</label>
-                <input id="postalCode" type="text" maxLength={16} inputMode="numeric" autoComplete="postal-code" aria-invalid={Boolean(errors.location?.postalCode)} aria-describedby={errors.location?.postalCode ? "postalCode-error" : undefined} className={fieldClassName} {...register("location.postalCode")} />
+                <input id="postalCode" type="text" maxLength={9} inputMode="numeric" autoComplete="postal-code" aria-invalid={Boolean(errors.location?.postalCode)} aria-describedby={postalCodeDescribedBy} className={fieldClassName} {...register("location.postalCode")} onChange={handlePostalCodeChange} />
                 <FieldError id="postalCode-error" message={errors.location?.postalCode?.message} />
+                {postalCodeLookupState === "loading" ? (
+                  <p id="postalCode-lookup-feedback" role="status" className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                    <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                    Buscando endereço...
+                  </p>
+                ) : null}
+                {postalCodeLookupState === "not-found" ? (
+                  <p id="postalCode-lookup-feedback" role="alert" className="mt-2 text-sm font-medium text-amber-700">
+                    CEP não encontrado. Confira o número ou preencha o endereço manualmente.
+                  </p>
+                ) : null}
+                {postalCodeLookupState === "error" ? (
+                  <p id="postalCode-lookup-feedback" role="status" className="mt-2 text-sm text-slate-600">
+                    Não foi possível buscar o CEP agora. Continue preenchendo o endereço manualmente.
+                  </p>
+                ) : null}
               </div>
               <div className="sm:col-span-2">
                 <label htmlFor="addressLine" className="text-sm font-semibold text-slate-800">Endereço</label>
