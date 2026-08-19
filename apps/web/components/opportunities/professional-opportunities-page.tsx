@@ -354,7 +354,7 @@ export function ProfessionalOpportunitiesPage() {
                   const isUnviewed = opportunity.viewedAt === null;
 
                   return (
-                    <article key={opportunity.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                    <Link key={opportunity.id} href={`/profissional/oportunidades/${opportunity.id}`} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-sm font-semibold text-blue-600">
@@ -391,7 +391,7 @@ export function ProfessionalOpportunitiesPage() {
                           <dd>Recebida em {formatServiceRequestDate(opportunity.createdAt)}</dd>
                         </div>
                       </dl>
-                    </article>
+                    </Link>
                   );
                 })}
               </div>
