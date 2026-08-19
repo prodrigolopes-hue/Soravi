@@ -338,12 +338,12 @@ export function MyServiceRequestsPage() {
 
               {response.pagination.totalPages > 1 ? (
                 <nav aria-label="Paginação das solicitações" className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <button type="button" disabled={page <= 1 || requestState === "loading"} onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                  <button type="button" disabled={page <= 1} onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                     <ChevronLeft aria-hidden="true" className="size-4" />
                     Anterior
                   </button>
                   <p className="text-sm font-medium text-slate-600">Página {response.pagination.page} de {response.pagination.totalPages}</p>
-                  <button type="button" disabled={page >= totalPages || requestState === "loading"} onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                  <button type="button" disabled={page >= totalPages} onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                     Próxima
                     <ChevronRight aria-hidden="true" className="size-4" />
                   </button>
