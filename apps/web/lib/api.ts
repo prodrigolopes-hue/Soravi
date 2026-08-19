@@ -21,6 +21,10 @@ export function opportunityByIdUrl(opportunityId: string): string {
   return `${opportunitiesUrl}/${encodeURIComponent(opportunityId)}`;
 }
 
+export function opportunityViewedUrl(opportunityId: string): string {
+  return `${opportunityByIdUrl(opportunityId)}/viewed`;
+}
+
 export function serviceRequestByIdUrl(serviceRequestId: string): string {
   return `${serviceRequestsUrl}/${encodeURIComponent(serviceRequestId)}`;
 }
