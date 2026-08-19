@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
@@ -13,6 +14,7 @@ import { ServiceRequestsService } from "./service-requests.service";
 
 describe("ServiceRequestsController", () => {
   const serviceMock = {
+    cancelMine: jest.fn(),
     createServiceRequest: jest.fn(),
     findMine: jest.fn(),
     findOneMine: jest.fn(),
@@ -188,6 +190,60 @@ describe("ServiceRequestsController", () => {
     const roles = Reflect.getMetadata(
       "roles",
       ServiceRequestsController.prototype.updateMine,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.CUSTOMER]);
+  });
+
+  it("encaminha o usuário, o ID e o DTO no cancelamento próprio", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+    const input: CancelServiceRequestDto = {
+      reason: "Não preciso mais do serviço.",
+    };
+    const response = new ServiceRequestResponseDto({
+      id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
+      title: "Instalar uma tomada",
+      description: null,
+      status: ServiceRequestStatus.CANCELLED,
+      location: {
+        country: "BR",
+        state: "SP",
+        city: "Campinas",
+        neighborhood: "Centro",
+        postalCode: "13000-000",
+        addressLine: "Rua Exemplo",
+        addressNumber: "100",
+        addressComplement: null,
+      },
+      editableUntil: new Date("2026-08-16T12:10:00.000Z"),
+      createdAt: new Date("2026-08-16T12:00:00.000Z"),
+    });
+    serviceMock.cancelMine.mockResolvedValue(response);
+
+    const result = await controller.cancelMine(currentUser, response.id, input);
+
+    expect(serviceMock.cancelMine).toHaveBeenCalledWith(
+      currentUser.id,
+      response.id,
+      input,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("protege o cancelamento próprio com autenticação e role CUSTOMER", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ServiceRequestsController.prototype.cancelMine,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      ServiceRequestsController.prototype.cancelMine,
     );
 
     expect(guards).toEqual([AccessTokenGuard, RolesGuard]);

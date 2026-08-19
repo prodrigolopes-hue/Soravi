@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
+import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-response.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
@@ -12,6 +13,7 @@ import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
+import { ServiceRequestCancellationUnavailableException } from "./errors/service-request-cancellation-unavailable.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
@@ -273,6 +275,58 @@ export class ServiceRequestsService {
                 input.location.addressComplement?.trim() || null,
             }
           : {}),
+      },
+      select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
+
+    return new ServiceRequestResponseDto(
+      toServiceRequestResponseProperties(serviceRequest),
+    );
+  }
+
+  async cancelMine(
+    userId: string,
+    serviceRequestId: string,
+    input: CancelServiceRequestDto,
+  ): Promise<ServiceRequestResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const existingServiceRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        id: serviceRequestId,
+        customerProfileId: customerProfile.id,
+        deletedAt: null,
+      },
+      select: {
+        status: true,
+        opportunitiesDispatchedAt: true,
+      },
+    });
+
+    if (!existingServiceRequest) {
+      throw new ServiceRequestNotFoundException();
+    }
+
+    if (
+      existingServiceRequest.status !== ServiceRequestStatus.OPEN ||
+      existingServiceRequest.opportunitiesDispatchedAt !== null
+    ) {
+      throw new ServiceRequestCancellationUnavailableException();
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancellationReason: input.reason?.trim() || null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
     });

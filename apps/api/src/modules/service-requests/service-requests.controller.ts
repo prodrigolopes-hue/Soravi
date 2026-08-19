@@ -19,6 +19,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
+import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-response.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
@@ -73,6 +74,21 @@ export class ServiceRequestsController {
     @Body() input: UpdateServiceRequestDto,
   ): Promise<ServiceRequestResponseDto> {
     return this.serviceRequestsService.updateMine(
+      currentUser.id,
+      serviceRequestId,
+      input,
+    );
+  }
+
+  @Post(":serviceRequestId/cancel")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  cancelMine(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("serviceRequestId", new ParseUUIDPipe()) serviceRequestId: string,
+    @Body() input: CancelServiceRequestDto,
+  ): Promise<ServiceRequestResponseDto> {
+    return this.serviceRequestsService.cancelMine(
       currentUser.id,
       serviceRequestId,
       input,

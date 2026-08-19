@@ -3,12 +3,14 @@ import "reflect-metadata";
 import { PrismaService } from "../../database/prisma.service";
 import { ServiceRequestStatus } from "../../generated/prisma/client";
 import { StorageService } from "../../storage/storage.service";
+import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
+import { ServiceRequestCancellationUnavailableException } from "./errors/service-request-cancellation-unavailable.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
@@ -411,6 +413,123 @@ describe("ServiceRequestsService", () => {
     });
   });
 
+  it("cancela solicitação OPEN não distribuída e preserva as fotos", async () => {
+    const reason = "Não preciso mais do serviço.";
+    const input = Object.assign(new CancelServiceRequestDto(), {
+      reason,
+      status: ServiceRequestStatus.COMPLETED,
+      cancelledAt: new Date("2030-01-01T00:00:00.000Z"),
+      customerProfileId: "outro-customer-profile",
+    });
+    mockCancellableServiceRequest();
+    prismaMock.serviceRequest.update.mockResolvedValue(
+      createServiceRequestRecord(ServiceRequestStatus.CANCELLED),
+    );
+    const beforeCancellation = Date.now();
+
+    const result = await service.cancelMine(userId, serviceRequestId, input);
+    const afterCancellation = Date.now();
+
+    expect(prismaMock.serviceRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: serviceRequestId,
+        customerProfileId,
+        deletedAt: null,
+      },
+      select: {
+        status: true,
+        opportunitiesDispatchedAt: true,
+      },
+    });
+    expect(prismaMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.CANCELLED,
+        cancelledAt: expect.any(Date),
+        cancellationReason: reason,
+      },
+      select: expect.any(Object),
+    });
+    const cancelledAt = prismaMock.serviceRequest.update.mock.calls[0]?.[0]
+      ?.data.cancelledAt as Date;
+    expect(cancelledAt.getTime()).toBeGreaterThanOrEqual(beforeCancellation);
+    expect(cancelledAt.getTime()).toBeLessThanOrEqual(afterCancellation);
+    expect(result.status).toBe(ServiceRequestStatus.CANCELLED);
+    expect(prismaMock.serviceRequestFile.create).not.toHaveBeenCalled();
+    expect(storageMock.delete).not.toHaveBeenCalled();
+  });
+
+  it("cancela sem motivo mesmo depois de editableUntil", async () => {
+    mockCancellableServiceRequest({
+      editableUntil: new Date(Date.now() - 60_000),
+    });
+    prismaMock.serviceRequest.update.mockResolvedValue(
+      createServiceRequestRecord(ServiceRequestStatus.CANCELLED),
+    );
+
+    await service.cancelMine(userId, serviceRequestId, {});
+
+    expect(prismaMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.CANCELLED,
+        cancelledAt: expect.any(Date),
+        cancellationReason: null,
+      },
+      select: expect.any(Object),
+    });
+  });
+
+  it("bloqueia cancelamento de solicitação já distribuída", async () => {
+    mockCancellableServiceRequest({
+      opportunitiesDispatchedAt: new Date(),
+    });
+
+    await expect(
+      service.cancelMine(userId, serviceRequestId, {}),
+    ).rejects.toBeInstanceOf(ServiceRequestCancellationUnavailableException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("retorna 404 neutro para cancelamento de outro CUSTOMER", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.cancelMine(userId, serviceRequestId, {}),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("retorna 404 neutro para cancelamento de solicitação inexistente", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.cancelMine(userId, serviceRequestId, {}),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ServiceRequestStatus.DRAFT,
+    ServiceRequestStatus.RECEIVING_PROPOSALS,
+    ServiceRequestStatus.IN_NEGOTIATION,
+    ServiceRequestStatus.HIRED,
+    ServiceRequestStatus.IN_PROGRESS,
+    ServiceRequestStatus.COMPLETED,
+    ServiceRequestStatus.CANCELLED,
+  ])("bloqueia cancelamento direto no status %s", async (status) => {
+    mockCancellableServiceRequest({ status });
+
+    await expect(
+      service.cancelMine(userId, serviceRequestId, {}),
+    ).rejects.toBeInstanceOf(ServiceRequestCancellationUnavailableException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["JPEG", "image/jpeg", [0xff, 0xd8, 0xff, 0x00]],
     [
@@ -652,6 +771,20 @@ describe("ServiceRequestsService", () => {
       opportunitiesDispatchedAt: overrides.opportunitiesDispatchedAt ?? null,
     });
   }
+
+  function mockCancellableServiceRequest(
+    overrides: {
+      status?: ServiceRequestStatus;
+      opportunitiesDispatchedAt?: Date | null;
+      editableUntil?: Date;
+    } = {},
+  ) {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      status: overrides.status ?? ServiceRequestStatus.OPEN,
+      opportunitiesDispatchedAt: overrides.opportunitiesDispatchedAt ?? null,
+      editableUntil: overrides.editableUntil ?? editableUntil,
+    });
+  }
 });
 
 function createPhoto(mimetype: string, bytes: number[]) {
@@ -698,5 +831,20 @@ function createUpdateInput(): UpdateServiceRequestDto {
       addressNumber: "200",
       addressComplement: "Apartamento 20",
     },
+  };
+}
+
+function createServiceRequestRecord(status: ServiceRequestStatus) {
+  const input = createInput();
+
+  return {
+    id: "725afb87-2b81-4de7-9606-8f382fff3341",
+    categoryId: input.categoryId,
+    title: input.title,
+    description: input.description,
+    status,
+    ...input.location,
+    editableUntil: new Date("2026-08-16T12:10:00.000Z"),
+    createdAt: new Date("2026-08-16T12:00:00.000Z"),
   };
 }
