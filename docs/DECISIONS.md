@@ -956,6 +956,7 @@ Uploads deverão validar:
 - não foi adicionada a dependência `file-type`;
 - JPEG, PNG e WebP são validados internamente por assinaturas binárias no MVP;
 - a validação manual dos três formatos evita mudar a arquitetura de módulos da API somente para detecção de tipo.
+- em 2026-08-18, o fluxo real `frontend -> API -> StorageService -> Cloudflare R2 -> PostgreSQL` foi validado com um JPEG de aproximadamente 3,68 MB, confirmando o objeto no bucket privado `soravi-service-requests` e os metadados em `ServiceRequestFile`, sem tornar o bucket público.
 
 ---
 

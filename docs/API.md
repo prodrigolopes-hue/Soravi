@@ -1390,6 +1390,8 @@ Rotas implementadas:
 Fluxos implementados:
 
 - criação da solicitação como rascunho;
+- seleção opcional de fotos na criação da solicitação;
+- upload das fotos após a criação da `ServiceRequest` em `DRAFT`, com uma foto por chamada;
 - categorias carregadas pela API;
 - localização estruturada;
 - autopreenchimento de endereço por CEP na nova solicitação;
@@ -1397,7 +1399,7 @@ Fluxos implementados:
 - abertura dos detalhes;
 - apresentação amigável dos status.
 
-O upload visual de fotos ainda não está implementado no frontend.
+O fluxo de fotos foi validado ponta a ponta entre frontend, API, `StorageService`, Cloudflare R2 privado e persistência de `ServiceRequestFile` no PostgreSQL.
 
 ---
 

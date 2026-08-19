@@ -44,11 +44,13 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend `/solicitacoes`.
 - [x] Frontend `/solicitacoes/[serviceRequestId]`.
 - [x] Persistência de `ServiceRequestFile` e backend de upload de fotos.
-- [ ] Frontend para seleção e upload visual de fotos.
+- [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
 - [ ] Editar solicitação.
 - [ ] Publicar solicitação.
 - [ ] Cancelar solicitação.
 - [ ] Excluir solicitação.
+- [ ] Remover fotos persistidas.
+- [ ] Reordenar fotos persistidas.
 - [ ] Listar oportunidades profissionais.
 - [ ] Propostas.
 - [ ] Contratação.

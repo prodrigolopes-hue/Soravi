@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-18
+
+### Solicitações de serviço
+
+- validado ponta a ponta o upload opcional de fotos em `/solicitacoes/nova`, com criação inicial da `ServiceRequest` em `DRAFT`, envio de uma foto por chamada, armazenamento em bucket privado no Cloudflare R2 e persistência dos metadados de `ServiceRequestFile` no PostgreSQL;
+- confirmado upload real de JPEG com aproximadamente 3,68 MB no bucket `soravi-service-requests`, sem exposição pública do bucket.
+
 ## 2026-08-17
 
 ### Solicitações de serviço
@@ -14,7 +21,7 @@
 - implementado `POST /api/v1/service-requests/:serviceRequestId/photos` para upload de uma foto por chamada, restrito à solicitação própria em `DRAFT`;
 - upload limitado a 5 fotos por solicitação e 5 MB por foto, aceitando JPEG, PNG e WebP com validação de MIME e magic bytes;
 - persistência dos metadados ocorre após o upload, com remoção compensatória do objeto quando a gravação no banco falha;
-- interface de upload de fotos no frontend permanece pendente.
+- implementada a interface de seleção e upload opcional de fotos no frontend.
 
 ## 2026-08-14
 
