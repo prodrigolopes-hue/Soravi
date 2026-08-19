@@ -151,6 +151,7 @@ model ProfessionalProfile {
   user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
+  serviceOpportunities   ServiceOpportunity[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -273,9 +274,10 @@ model ServiceRequest {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  customerProfile CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
-  category        Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  files           ServiceRequestFile[]
+  customerProfile      CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  category             Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  files                ServiceRequestFile[]
+  serviceOpportunities ServiceOpportunity[]
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
@@ -297,6 +299,21 @@ model ServiceRequestFile {
 
   @@unique([serviceRequestId, position], map: "service_request_files_service_request_id_position_key")
   @@map("service_request_files")
+}
+
+model ServiceOpportunity {
+  id                    String    @id @default(uuid()) @db.Uuid
+  serviceRequestId      String    @map("service_request_id") @db.Uuid
+  professionalProfileId String    @map("professional_profile_id") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  viewedAt              DateTime? @map("viewed_at") @db.Timestamptz(3)
+
+  serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceRequestId, professionalProfileId], map: "service_opportunities_service_request_professional_key")
+  @@index([professionalProfileId], map: "service_opportunities_professional_profile_id_idx")
+  @@map("service_opportunities")
 }
 
 model ProfessionalCategory {
