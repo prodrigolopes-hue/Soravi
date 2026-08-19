@@ -1,19 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import {
-  Prisma,
-  ServiceRequestStatus,
-} from "../../generated/prisma/client";
-import {
-  STORAGE_SERVICE,
-  StorageService,
-} from "../../storage/storage.service";
+import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
+import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-response.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
@@ -21,6 +16,7 @@ import { ServiceRequestNotFoundException } from "./errors/service-request-not-fo
 import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
 import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
+import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
 import {
   detectServiceRequestPhotoMimeType,
   SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
@@ -201,6 +197,91 @@ export class ServiceRequestsService {
     );
   }
 
+  async updateMine(
+    userId: string,
+    serviceRequestId: string,
+    input: UpdateServiceRequestDto,
+  ): Promise<ServiceRequestResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const existingServiceRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        id: serviceRequestId,
+        customerProfileId: customerProfile.id,
+        deletedAt: null,
+      },
+      select: {
+        status: true,
+        editableUntil: true,
+        opportunitiesDispatchedAt: true,
+      },
+    });
+
+    if (!existingServiceRequest) {
+      throw new ServiceRequestNotFoundException();
+    }
+
+    if (
+      existingServiceRequest.status !== ServiceRequestStatus.OPEN ||
+      Date.now() > existingServiceRequest.editableUntil.getTime() ||
+      existingServiceRequest.opportunitiesDispatchedAt !== null
+    ) {
+      throw new ServiceRequestUpdateUnavailableException();
+    }
+
+    if (input.categoryId !== undefined) {
+      const category = await this.prisma.category.findFirst({
+        where: {
+          id: input.categoryId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      if (!category) {
+        throw new InvalidServiceRequestCategoryException();
+      }
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        ...(input.categoryId !== undefined
+          ? { categoryId: input.categoryId }
+          : {}),
+        ...(input.title !== undefined ? { title: input.title.trim() } : {}),
+        ...(input.description !== undefined
+          ? { description: input.description.trim() || null }
+          : {}),
+        ...(input.location
+          ? {
+              country: input.location.country,
+              state: input.location.state,
+              city: input.location.city,
+              neighborhood: input.location.neighborhood,
+              postalCode: input.location.postalCode,
+              addressLine: input.location.addressLine,
+              addressNumber: input.location.addressNumber,
+              addressComplement:
+                input.location.addressComplement?.trim() || null,
+            }
+          : {}),
+      },
+      select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
+
+    return new ServiceRequestResponseDto(
+      toServiceRequestResponseProperties(serviceRequest),
+    );
+  }
+
   async uploadPhoto(
     userId: string,
     serviceRequestId: string,
@@ -286,14 +367,14 @@ export class ServiceRequestsService {
   }
 }
 
-function validatePhoto(
-  file: UploadedPhoto | undefined,
-): {
+function validatePhoto(file: UploadedPhoto | undefined): {
   file: UploadedPhoto;
   mimeType: "image/jpeg" | "image/png" | "image/webp";
 } {
   if (!file) {
-    throw new InvalidServiceRequestPhotoException("Envie uma foto no campo file.");
+    throw new InvalidServiceRequestPhotoException(
+      "Envie uma foto no campo file.",
+    );
   }
 
   if (

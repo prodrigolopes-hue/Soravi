@@ -5,6 +5,7 @@ import { ServiceRequestStatus } from "../../generated/prisma/client";
 import { StorageService } from "../../storage/storage.service";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
@@ -12,6 +13,7 @@ import { ServiceRequestNotFoundException } from "./errors/service-request-not-fo
 import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
 import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
+import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
 
@@ -31,6 +33,7 @@ describe("ServiceRequestsService", () => {
       create: jest.Mock;
       findFirst: jest.Mock;
       findMany: jest.Mock;
+      update: jest.Mock;
     };
     serviceRequestFile: { create: jest.Mock };
     $transaction: jest.Mock;
@@ -50,6 +53,7 @@ describe("ServiceRequestsService", () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn(),
+        update: jest.fn(),
       },
       serviceRequestFile: { create: jest.fn() },
       $transaction: jest.fn(),
@@ -262,6 +266,151 @@ describe("ServiceRequestsService", () => {
     expect(prismaMock.serviceRequest.findFirst).not.toHaveBeenCalled();
   });
 
+  it("edita solicitação própria OPEN dentro da janela inicial", async () => {
+    const input = createUpdateInput();
+    mockEditableServiceRequest();
+    prismaMock.serviceRequest.update.mockResolvedValue({
+      id: serviceRequestId,
+      categoryId: input.categoryId,
+      title: input.title,
+      description: input.description,
+      status: ServiceRequestStatus.OPEN,
+      ...input.location,
+      editableUntil,
+      createdAt,
+    });
+
+    const result = await service.updateMine(userId, serviceRequestId, input);
+
+    expect(prismaMock.serviceRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: serviceRequestId,
+        customerProfileId,
+        deletedAt: null,
+      },
+      select: {
+        status: true,
+        editableUntil: true,
+        opportunitiesDispatchedAt: true,
+      },
+    });
+    expect(prismaMock.category.findFirst).toHaveBeenCalledWith({
+      where: { id: input.categoryId, isActive: true },
+      select: { id: true },
+    });
+    expect(prismaMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: {
+        categoryId: input.categoryId,
+        title: input.title,
+        description: input.description,
+        ...input.location,
+      },
+      select: expect.any(Object),
+    });
+    expect(result.title).toBe(input.title);
+    expect(result.location).toEqual(input.location);
+  });
+
+  it("retorna 404 neutro para solicitação de outro CUSTOMER", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.updateMine(userId, serviceRequestId, { title: "Novo título" }),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("retorna 404 neutro para solicitação inexistente", async () => {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.updateMine(userId, serviceRequestId, { title: "Novo título" }),
+    ).rejects.toBeInstanceOf(ServiceRequestNotFoundException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia edição após editableUntil", async () => {
+    mockEditableServiceRequest({
+      editableUntil: new Date(Date.now() - 1),
+    });
+
+    await expect(
+      service.updateMine(userId, serviceRequestId, { title: "Novo título" }),
+    ).rejects.toBeInstanceOf(ServiceRequestUpdateUnavailableException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia edição após a distribuição de oportunidades", async () => {
+    mockEditableServiceRequest({
+      opportunitiesDispatchedAt: new Date(),
+    });
+
+    await expect(
+      service.updateMine(userId, serviceRequestId, { title: "Novo título" }),
+    ).rejects.toBeInstanceOf(ServiceRequestUpdateUnavailableException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia edição quando o status é diferente de OPEN", async () => {
+    mockEditableServiceRequest({ status: ServiceRequestStatus.CANCELLED });
+
+    await expect(
+      service.updateMine(userId, serviceRequestId, { title: "Novo título" }),
+    ).rejects.toBeInstanceOf(ServiceRequestUpdateUnavailableException);
+
+    expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["inexistente", "inativa"])(
+    "rejeita categoria %s na edição",
+    async () => {
+      mockEditableServiceRequest();
+      prismaMock.category.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateMine(userId, serviceRequestId, {
+          categoryId: createUpdateInput().categoryId,
+        }),
+      ).rejects.toBeInstanceOf(InvalidServiceRequestCategoryException);
+
+      expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it("ignora campos internos mesmo quando enviados ao service", async () => {
+    mockEditableServiceRequest();
+    prismaMock.serviceRequest.update.mockResolvedValue({
+      id: serviceRequestId,
+      categoryId: createInput().categoryId,
+      title: "Novo título",
+      description: null,
+      status: ServiceRequestStatus.OPEN,
+      ...createInput().location,
+      editableUntil,
+      createdAt,
+    });
+    const input = Object.assign(new UpdateServiceRequestDto(), {
+      title: "Novo título",
+      status: ServiceRequestStatus.CANCELLED,
+      customerProfileId: "outro-customer-profile",
+      editableUntil: new Date("2030-01-01T00:00:00.000Z"),
+      opportunitiesDispatchedAt: new Date("2030-01-01T00:00:00.000Z"),
+    });
+
+    await service.updateMine(userId, serviceRequestId, input);
+
+    expect(prismaMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: { title: "Novo título" },
+      select: expect.any(Object),
+    });
+  });
+
   it.each([
     ["JPEG", "image/jpeg", [0xff, 0xd8, 0xff, 0x00]],
     [
@@ -272,10 +421,7 @@ describe("ServiceRequestsService", () => {
     [
       "WebP",
       "image/webp",
-      [
-        0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45,
-        0x42, 0x50,
-      ],
+      [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50],
     ],
   ])("envia e persiste uma foto %s válida", async (_name, mimeType, bytes) => {
     const file = createPhoto(mimeType, bytes);
@@ -487,10 +633,23 @@ describe("ServiceRequestsService", () => {
     prismaMock.serviceRequest.findFirst.mockResolvedValue({
       status: ServiceRequestStatus.OPEN,
       editableUntil: overrides.editableUntil ?? new Date(Date.now() + 60_000),
-      opportunitiesDispatchedAt:
-        overrides.opportunitiesDispatchedAt ?? null,
+      opportunitiesDispatchedAt: overrides.opportunitiesDispatchedAt ?? null,
       _count: { files: count },
       files: lastPosition === undefined ? [] : [{ position: lastPosition }],
+    });
+  }
+
+  function mockEditableServiceRequest(
+    overrides: {
+      status?: ServiceRequestStatus;
+      editableUntil?: Date;
+      opportunitiesDispatchedAt?: Date | null;
+    } = {},
+  ) {
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      status: overrides.status ?? ServiceRequestStatus.OPEN,
+      editableUntil: overrides.editableUntil ?? new Date(Date.now() + 60_000),
+      opportunitiesDispatchedAt: overrides.opportunitiesDispatchedAt ?? null,
     });
   }
 });
@@ -520,6 +679,24 @@ function createInput(): CreateServiceRequestDto {
       addressLine: "Rua Exemplo",
       addressNumber: "100",
       addressComplement: "Apartamento 10",
+    },
+  };
+}
+
+function createUpdateInput(): UpdateServiceRequestDto {
+  return {
+    categoryId: "925afb87-2b81-4de7-9606-8f382fff3341",
+    title: "Instalar duas tomadas",
+    description: "Instalação na sala e no quarto.",
+    location: {
+      country: "BR",
+      state: "SP",
+      city: "Campinas",
+      neighborhood: "Cambuí",
+      postalCode: "13000-001",
+      addressLine: "Rua Atualizada",
+      addressNumber: "200",
+      addressComplement: "Apartamento 20",
     },
   };
 }

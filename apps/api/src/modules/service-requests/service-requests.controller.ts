@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -23,6 +24,7 @@ import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-resp
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
 
@@ -46,10 +48,7 @@ export class ServiceRequestsController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Query() query: ServiceRequestsMineQueryDto,
   ): Promise<ServiceRequestsMineListResponseDto> {
-    return this.serviceRequestsService.findMine(
-      currentUser.id,
-      query,
-    );
+    return this.serviceRequestsService.findMine(currentUser.id, query);
   }
 
   @Get(":serviceRequestId")
@@ -62,6 +61,21 @@ export class ServiceRequestsController {
     return this.serviceRequestsService.findOneMine(
       currentUser.id,
       serviceRequestId,
+    );
+  }
+
+  @Patch(":serviceRequestId")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  updateMine(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("serviceRequestId", new ParseUUIDPipe()) serviceRequestId: string,
+    @Body() input: UpdateServiceRequestDto,
+  ): Promise<ServiceRequestResponseDto> {
+    return this.serviceRequestsService.updateMine(
+      currentUser.id,
+      serviceRequestId,
+      input,
     );
   }
 

@@ -7,6 +7,7 @@ import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { ServiceRequestsController } from "./service-requests.controller";
 import { ServiceRequestsService } from "./service-requests.service";
 
@@ -15,6 +16,7 @@ describe("ServiceRequestsController", () => {
     createServiceRequest: jest.fn(),
     findMine: jest.fn(),
     findOneMine: jest.fn(),
+    updateMine: jest.fn(),
     uploadPhoto: jest.fn(),
   };
 
@@ -132,6 +134,60 @@ describe("ServiceRequestsController", () => {
     const roles = Reflect.getMetadata(
       "roles",
       ServiceRequestsController.prototype.findOneMine,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.CUSTOMER]);
+  });
+
+  it("encaminha o usuário, o ID e o DTO na edição própria", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+    const input: UpdateServiceRequestDto = {
+      title: "Instalar duas tomadas",
+    };
+    const response = new ServiceRequestResponseDto({
+      id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
+      title: input.title!,
+      description: null,
+      status: ServiceRequestStatus.OPEN,
+      location: {
+        country: "BR",
+        state: "SP",
+        city: "Campinas",
+        neighborhood: "Centro",
+        postalCode: "13000-000",
+        addressLine: "Rua Exemplo",
+        addressNumber: "100",
+        addressComplement: null,
+      },
+      editableUntil: new Date("2026-08-16T12:10:00.000Z"),
+      createdAt: new Date("2026-08-16T12:00:00.000Z"),
+    });
+    serviceMock.updateMine.mockResolvedValue(response);
+
+    const result = await controller.updateMine(currentUser, response.id, input);
+
+    expect(serviceMock.updateMine).toHaveBeenCalledWith(
+      currentUser.id,
+      response.id,
+      input,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("protege a edição própria com autenticação e role CUSTOMER", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ServiceRequestsController.prototype.updateMine,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      ServiceRequestsController.prototype.updateMine,
     );
 
     expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
