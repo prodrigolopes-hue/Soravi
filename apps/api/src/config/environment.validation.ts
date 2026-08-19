@@ -59,6 +59,20 @@ class EnvironmentVariables {
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN_DAYS = 30;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(86400000)
+  @IsOptional()
+  OPPORTUNITY_DISTRIBUTION_INTERVAL_MS = 60000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  @IsOptional()
+  OPPORTUNITY_DISTRIBUTION_BATCH_SIZE = 50;
+
   @IsString()
   @MinLength(1)
   DATABASE_URL!: string;

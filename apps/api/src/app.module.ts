@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 
 import { validateEnvironment } from "./config/environment.validation";
 import { PrismaModule } from "./database/prisma.module";
@@ -20,6 +21,7 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
       envFilePath: [".env", "../../.env"],
       validate: validateEnvironment,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,
     AuthModule,
@@ -31,4 +33,4 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
   ],
   controllers: [HealthController],
 })
-export class AppModule { }
+export class AppModule {}
