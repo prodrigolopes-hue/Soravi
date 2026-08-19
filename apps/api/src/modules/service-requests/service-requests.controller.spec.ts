@@ -43,6 +43,7 @@ describe("ServiceRequestsController", () => {
         ...input.location,
         addressComplement: input.location.addressComplement ?? null,
       },
+      editableUntil: new Date("2026-08-16T12:10:00.000Z"),
       createdAt: new Date("2026-08-16T12:00:00.000Z"),
     });
 
@@ -109,6 +110,7 @@ describe("ServiceRequestsController", () => {
         addressNumber: "100",
         addressComplement: null,
       },
+      editableUntil: new Date("2026-08-16T12:10:00.000Z"),
       createdAt: new Date("2026-08-16T12:00:00.000Z"),
     });
     serviceMock.findOneMine.mockResolvedValue(response);

@@ -18,9 +18,9 @@ import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
 import { InvalidServiceRequestPhotoException } from "./errors/invalid-service-request-photo.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
-import { ServiceRequestNotDraftException } from "./errors/service-request-not-draft.exception";
 import { ServiceRequestPhotoLimitException } from "./errors/service-request-photo-limit.exception";
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
+import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
 import {
   detectServiceRequestPhotoMimeType,
   SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
@@ -47,8 +47,11 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
   addressLine: true,
   addressNumber: true,
   addressComplement: true,
+  editableUntil: true,
   createdAt: true,
 } satisfies Prisma.ServiceRequestSelect;
+
+const SERVICE_REQUEST_EDIT_WINDOW_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class ServiceRequestsService {
@@ -143,7 +146,7 @@ export class ServiceRequestsService {
         categoryId: category.id,
         title: input.title.trim(),
         description: input.description?.trim() || null,
-        status: ServiceRequestStatus.DRAFT,
+        status: ServiceRequestStatus.OPEN,
         country: input.location.country,
         state: input.location.state,
         city: input.location.city,
@@ -152,6 +155,8 @@ export class ServiceRequestsService {
         addressLine: input.location.addressLine,
         addressNumber: input.location.addressNumber,
         addressComplement: input.location.addressComplement?.trim() || null,
+        editableUntil: new Date(Date.now() + SERVICE_REQUEST_EDIT_WINDOW_MS),
+        opportunitiesDispatchedAt: null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
     });
@@ -218,6 +223,8 @@ export class ServiceRequestsService {
       },
       select: {
         status: true,
+        editableUntil: true,
+        opportunitiesDispatchedAt: true,
         _count: { select: { files: true } },
         files: {
           orderBy: { position: "desc" },
@@ -231,8 +238,12 @@ export class ServiceRequestsService {
       throw new ServiceRequestNotFoundException();
     }
 
-    if (serviceRequest.status !== ServiceRequestStatus.DRAFT) {
-      throw new ServiceRequestNotDraftException();
+    if (
+      serviceRequest.status !== ServiceRequestStatus.OPEN ||
+      Date.now() > serviceRequest.editableUntil.getTime() ||
+      serviceRequest.opportunitiesDispatchedAt !== null
+    ) {
+      throw new ServiceRequestPhotoUploadUnavailableException();
     }
 
     if (serviceRequest._count.files >= 5) {
@@ -330,6 +341,7 @@ function toServiceRequestResponseProperties(
       addressNumber: serviceRequest.addressNumber,
       addressComplement: serviceRequest.addressComplement,
     },
+    editableUntil: serviceRequest.editableUntil,
     createdAt: serviceRequest.createdAt,
   };
 }

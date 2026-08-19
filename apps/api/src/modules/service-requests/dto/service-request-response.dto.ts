@@ -18,6 +18,7 @@ export interface ServiceRequestResponseDtoProperties {
   description: string | null;
   status: ServiceRequestStatus;
   location: ServiceRequestLocationResponseDto;
+  editableUntil: Date;
   createdAt: Date;
 }
 
@@ -28,6 +29,7 @@ export class ServiceRequestResponseDto {
   readonly description: string | null;
   readonly status: ServiceRequestStatus;
   readonly location: ServiceRequestLocationResponseDto;
+  readonly editableUntil: Date;
   readonly createdAt: Date;
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
@@ -37,6 +39,7 @@ export class ServiceRequestResponseDto {
     this.description = properties.description;
     this.status = properties.status;
     this.location = properties.location;
+    this.editableUntil = properties.editableUntil;
     this.createdAt = properties.createdAt;
   }
 }

@@ -246,26 +246,28 @@ model Category {
 }
 
 model ServiceRequest {
-  id                 String               @id @default(uuid()) @db.Uuid
-  customerProfileId  String               @map("customer_profile_id") @db.Uuid
-  categoryId         String               @map("category_id") @db.Uuid
-  title              String               @db.VarChar(160)
-  description        String?              @db.VarChar(2000)
-  status             ServiceRequestStatus @default(DRAFT)
-  country            String               @db.VarChar(2)
-  state              String               @db.VarChar(2)
-  city               String               @db.VarChar(120)
-  neighborhood       String               @db.VarChar(120)
-  postalCode         String               @map("postal_code") @db.VarChar(16)
-  addressLine        String               @map("address_line") @db.VarChar(255)
-  addressNumber      String               @map("address_number") @db.VarChar(32)
-  addressComplement  String?              @map("address_complement") @db.VarChar(255)
-  publishedAt        DateTime?            @map("published_at") @db.Timestamptz(3)
-  hiredAt            DateTime?            @map("hired_at") @db.Timestamptz(3)
-  startedAt          DateTime?            @map("started_at") @db.Timestamptz(3)
-  completedAt        DateTime?            @map("completed_at") @db.Timestamptz(3)
-  cancelledAt        DateTime?            @map("cancelled_at") @db.Timestamptz(3)
-  cancellationReason String?              @map("cancellation_reason") @db.VarChar(1000)
+  id                        String               @id @default(uuid()) @db.Uuid
+  customerProfileId         String               @map("customer_profile_id") @db.Uuid
+  categoryId                String               @map("category_id") @db.Uuid
+  title                     String               @db.VarChar(160)
+  description               String?              @db.VarChar(2000)
+  status                    ServiceRequestStatus @default(OPEN)
+  country                   String               @db.VarChar(2)
+  state                     String               @db.VarChar(2)
+  city                      String               @db.VarChar(120)
+  neighborhood              String               @db.VarChar(120)
+  postalCode                String               @map("postal_code") @db.VarChar(16)
+  addressLine               String               @map("address_line") @db.VarChar(255)
+  addressNumber             String               @map("address_number") @db.VarChar(32)
+  addressComplement         String?              @map("address_complement") @db.VarChar(255)
+  publishedAt               DateTime?            @map("published_at") @db.Timestamptz(3)
+  hiredAt                   DateTime?            @map("hired_at") @db.Timestamptz(3)
+  startedAt                 DateTime?            @map("started_at") @db.Timestamptz(3)
+  completedAt               DateTime?            @map("completed_at") @db.Timestamptz(3)
+  cancelledAt               DateTime?            @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason        String?              @map("cancellation_reason") @db.VarChar(1000)
+  editableUntil             DateTime             @map("editable_until") @db.Timestamptz(3)
+  opportunitiesDispatchedAt DateTime?            @map("opportunities_dispatched_at") @db.Timestamptz(3)
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
