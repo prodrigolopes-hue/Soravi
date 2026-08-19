@@ -15,7 +15,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 
 import {
   categoriesUrl,
@@ -23,6 +22,10 @@ import {
   serviceRequestsUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import {
+  serviceRequestSchema,
+  type ServiceRequestFormData,
+} from "./service-request-form-schema";
 import {
   appendServiceRequestPhotos,
   MAX_SERVICE_REQUEST_PHOTOS,
@@ -51,57 +54,6 @@ interface ViaCepResponse {
   localidade: string;
   uf: string;
 }
-
-const serviceRequestSchema = z.object({
-  categoryId: z.uuidv4("Selecione uma categoria válida."),
-  title: z
-    .string()
-    .trim()
-    .min(2, "O título deve possuir pelo menos 2 caracteres.")
-    .max(160, "O título deve possuir no máximo 160 caracteres."),
-  description: z
-    .string()
-    .trim()
-    .max(2000, "A descrição deve possuir no máximo 2000 caracteres."),
-  location: z.object({
-    country: z.string().length(2, "O país deve possuir exatamente 2 caracteres."),
-    state: z
-      .string()
-      .trim()
-      .length(2, "Informe a sigla do estado com 2 caracteres."),
-    city: z
-      .string()
-      .trim()
-      .min(2, "A cidade deve possuir pelo menos 2 caracteres.")
-      .max(120, "A cidade deve possuir no máximo 120 caracteres."),
-    neighborhood: z
-      .string()
-      .trim()
-      .min(1, "Informe o bairro.")
-      .max(120, "O bairro deve possuir no máximo 120 caracteres."),
-    postalCode: z
-      .string()
-      .trim()
-      .min(1, "Informe o CEP.")
-      .max(16, "O CEP deve possuir no máximo 16 caracteres."),
-    addressLine: z
-      .string()
-      .trim()
-      .min(1, "Informe o endereço.")
-      .max(255, "O endereço deve possuir no máximo 255 caracteres."),
-    addressNumber: z
-      .string()
-      .trim()
-      .min(1, "Informe o número.")
-      .max(32, "O número deve possuir no máximo 32 caracteres."),
-    addressComplement: z
-      .string()
-      .trim()
-      .max(255, "O complemento deve possuir no máximo 255 caracteres."),
-  }),
-});
-
-type ServiceRequestFormData = z.infer<typeof serviceRequestSchema>;
 
 const fieldClassName =
   "mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100";
