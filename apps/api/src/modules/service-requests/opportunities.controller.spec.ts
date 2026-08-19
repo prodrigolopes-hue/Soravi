@@ -11,6 +11,7 @@ describe("OpportunitiesController", () => {
   const opportunitiesServiceMock = {
     findMine: jest.fn(),
     findOneMine: jest.fn(),
+    markViewed: jest.fn(),
   };
   const controller = new OpportunitiesController(
     opportunitiesServiceMock as unknown as OpportunitiesService,
@@ -83,6 +84,39 @@ describe("OpportunitiesController", () => {
     const roles = Reflect.getMetadata(
       "roles",
       OpportunitiesController.prototype.findOneMine,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(roles).toEqual([Role.PROFESSIONAL]);
+  });
+
+  it("encaminha o profissional autenticado e o ID para marcar como visualizada", async () => {
+    const currentUser = {
+      id: "user-id",
+      sessionId: "session-id",
+      roles: [Role.PROFESSIONAL],
+    };
+    const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
+    const response = { opportunityId };
+    opportunitiesServiceMock.markViewed.mockResolvedValue(response);
+
+    const result = await controller.markViewed(currentUser, opportunityId);
+
+    expect(opportunitiesServiceMock.markViewed).toHaveBeenCalledWith(
+      currentUser.id,
+      opportunityId,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("protege a marcação com autenticação e role PROFESSIONAL", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      OpportunitiesController.prototype.markViewed,
+    );
+    const roles = Reflect.getMetadata(
+      "roles",
+      OpportunitiesController.prototype.markViewed,
     );
 
     expect(guards).toEqual([AccessTokenGuard, RolesGuard]);

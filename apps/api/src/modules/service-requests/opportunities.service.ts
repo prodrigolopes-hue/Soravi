@@ -80,10 +80,44 @@ export class OpportunitiesService {
     opportunityId: string,
   ): Promise<OpportunityDetailResponseDto> {
     const professionalProfile = await this.findProfessionalProfile(userId);
-    const opportunity = await this.prisma.serviceOpportunity.findFirst({
+    return this.findOneForProfessional(
+      opportunityId,
+      professionalProfile.id,
+    );
+  }
+
+  async markViewed(
+    userId: string,
+    opportunityId: string,
+  ): Promise<OpportunityDetailResponseDto> {
+    const professionalProfile = await this.findProfessionalProfile(userId);
+
+    await this.prisma.serviceOpportunity.updateMany({
       where: {
         id: opportunityId,
         professionalProfileId: professionalProfile.id,
+        viewedAt: null,
+        serviceRequest: {
+          deletedAt: null,
+        },
+      },
+      data: { viewedAt: new Date() },
+    });
+
+    return this.findOneForProfessional(
+      opportunityId,
+      professionalProfile.id,
+    );
+  }
+
+  private async findOneForProfessional(
+    opportunityId: string,
+    professionalProfileId: string,
+  ): Promise<OpportunityDetailResponseDto> {
+    const opportunity = await this.prisma.serviceOpportunity.findFirst({
+      where: {
+        id: opportunityId,
+        professionalProfileId,
         serviceRequest: {
           deletedAt: null,
         },

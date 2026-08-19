@@ -18,6 +18,7 @@ describe("OpportunitiesService", () => {
       count: jest.Mock;
       findFirst: jest.Mock;
       findMany: jest.Mock;
+      updateMany: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -31,6 +32,7 @@ describe("OpportunitiesService", () => {
         count: jest.fn().mockResolvedValue(1),
         findFirst: jest.fn().mockResolvedValue(createOpportunity()),
         findMany: jest.fn().mockResolvedValue([createOpportunity()]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       $transaction: jest.fn(),
     };
@@ -174,6 +176,68 @@ describe("OpportunitiesService", () => {
     expect(result.serviceRequest).not.toHaveProperty("customerProfile");
     expect(prismaMock.serviceOpportunity).not.toHaveProperty("update");
   });
+
+  it("marca oportunidade própria não visualizada e retorna o detalhe seguro", async () => {
+    const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
+    const beforeMarking = Date.now();
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValueOnce({
+      ...createOpportunity(),
+      viewedAt: new Date("2026-08-19T12:30:00.000Z"),
+    });
+
+    const result = await service.markViewed(userId, opportunityId);
+    const afterMarking = Date.now();
+
+    expect(prismaMock.serviceOpportunity.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: opportunityId,
+        professionalProfileId,
+        viewedAt: null,
+        serviceRequest: { deletedAt: null },
+      },
+      data: { viewedAt: expect.any(Date) },
+    });
+    const viewedAt = prismaMock.serviceOpportunity.updateMany.mock.calls[0]?.[0]
+      .data.viewedAt as Date;
+    expect(viewedAt.getTime()).toBeGreaterThanOrEqual(beforeMarking);
+    expect(viewedAt.getTime()).toBeLessThanOrEqual(afterMarking);
+    expect(result.viewedAt).toEqual(new Date("2026-08-19T12:30:00.000Z"));
+    expect(result.serviceRequest).not.toHaveProperty("postalCode");
+    expect(result.serviceRequest).not.toHaveProperty("addressLine");
+  });
+
+  it("preserva o viewedAt original na segunda chamada", async () => {
+    const originalViewedAt = new Date("2026-08-19T12:30:00.000Z");
+    prismaMock.serviceOpportunity.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValue({
+      ...createOpportunity(),
+      viewedAt: originalViewedAt,
+    });
+
+    const result = await service.markViewed(
+      userId,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+
+    expect(prismaMock.serviceOpportunity.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ viewedAt: null }),
+      }),
+    );
+    expect(result.viewedAt).toBe(originalViewedAt);
+  });
+
+  it.each(["inexistente", "de outro profissional", "com solicitação excluída"])(
+    "retorna 404 neutro ao marcar oportunidade %s",
+    async () => {
+      prismaMock.serviceOpportunity.updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.serviceOpportunity.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.markViewed(userId, "725afb87-2b81-4de7-9606-8f382fff3341"),
+      ).rejects.toBeInstanceOf(OpportunityNotFoundException);
+    },
+  );
 });
 
 function createOpportunity() {

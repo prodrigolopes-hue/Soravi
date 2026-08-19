@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -40,5 +41,15 @@ export class OpportunitiesController {
     @Param("opportunityId", new ParseUUIDPipe()) opportunityId: string,
   ): Promise<OpportunityDetailResponseDto> {
     return this.opportunitiesService.findOneMine(currentUser.id, opportunityId);
+  }
+
+  @Post(":opportunityId/viewed")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  markViewed(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("opportunityId", new ParseUUIDPipe()) opportunityId: string,
+  ): Promise<OpportunityDetailResponseDto> {
+    return this.opportunitiesService.markViewed(currentUser.id, opportunityId);
   }
 }
