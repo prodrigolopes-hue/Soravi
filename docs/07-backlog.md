@@ -37,7 +37,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 # ÉPICO 3 - Solicitações
 
 - [x] Model e migration de `ServiceRequest`.
-- [x] Estado atual: `POST /api/v1/service-requests` cria solicitação própria em `DRAFT` — regra de produto **SUPERADA**.
+- [x] `POST /api/v1/service-requests` cria solicitação própria em `OPEN`.
 - [x] `GET /api/v1/service-requests/mine` para listar solicitações próprias.
 - [x] `GET /api/v1/service-requests/:serviceRequestId` para consultar detalhes próprios.
 - [x] Frontend `/solicitacoes/nova`.
@@ -45,18 +45,21 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend `/solicitacoes/[serviceRequestId]`.
 - [x] Persistência de `ServiceRequestFile` e backend de upload de fotos.
 - [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
-- [ ] Migrar criação de `DRAFT` para `OPEN`.
-- [ ] Adicionar `editableUntil`.
-- [ ] Adicionar `opportunitiesDispatchedAt`.
-- [ ] Permitir edição durante a janela de 10 minutos.
-- [ ] Bloquear edição direta após a janela.
-- [ ] Implementar cancelamento com preservação de histórico.
-- [ ] Distribuir oportunidades somente após a janela e uma única vez.
+- [x] `editableUntil` com janela inicial de 10 minutos e bloqueio de edição direta após a janela.
+- [x] `opportunitiesDispatchedAt` para controlar distribuição única.
+- [x] Edição direta durante a janela inicial.
+- [x] Cancelamento direto com preservação de histórico enquanto `OPEN` e não distribuída.
+- [x] `ServiceOpportunity` e matching inicial por categoria para profissionais aprovados, disponíveis, não excluídos e vinculados à categoria.
+- [x] Distribuição transacional/idempotente após a janela e processor periódico interno com intervalo padrão de 60 segundos e lote padrão de 50.
 - [ ] Prever moderação futura de alterações pós-distribuição por `ServiceRequestEditRequest`.
 - [ ] Tratar exclusão lógica apenas como fluxo excepcional; não realizar exclusão física no MVP.
 - [ ] Remover fotos persistidas.
 - [ ] Reordenar fotos persistidas.
-- [ ] Listar oportunidades profissionais elegíveis após a janela.
+- [ ] Matching geográfico e área de atendimento estruturada.
+- [ ] Notificações de oportunidades.
+- [ ] Frontend profissional para listar oportunidades.
+- [ ] Proteção distribuída para processor em múltiplas instâncias.
+- [ ] Cancelamento pós-distribuição.
 - [ ] Propostas.
 - [ ] Contratação.
 - [ ] Chat.

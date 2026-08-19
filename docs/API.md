@@ -1237,22 +1237,23 @@ GET /api/v1/categories/{categoryId}
 
 # 18. Solicitações de serviço
 
-## Regra aprovada para o próximo incremento — ainda não implementada
+## Estado implementado
 
-O fluxo de criação em `DRAFT` com publicação manual está **SUPERADO** como decisão de produto. A implementação atual permanece descrita nas seções abaixo até que código e banco sejam adaptados.
+O fluxo de criação em `DRAFT` com publicação manual está **SUPERADO**. Uma solicitação válida nasce diretamente em `OPEN`.
 
-Na regra aprovada:
+No estado atual:
 
-- `POST /api/v1/service-requests` criará uma solicitação válida diretamente em `OPEN`;
-- o cliente poderá editar os dados permitidos e cancelar durante 10 minutos após a criação;
+- `POST /api/v1/service-requests` cria uma solicitação válida diretamente em `OPEN`;
+- o cliente pode editar os dados autorizados durante os 10 minutos iniciais;
 - durante a janela, a solicitação permanecerá em `OPEN`, sem aparecer para profissionais e sem distribuição de oportunidades;
 - após a janela, edição direta será bloqueada e alterações futuras dependerão de moderação ou aprovação;
-- a distribuição exigirá status `OPEN`, janela encerrada e ausência de distribuição anterior;
+- a distribuição interna exige status `OPEN`, janela encerrada e ausência de distribuição anterior;
 - não será criado status adicional para a janela;
-- cancelamento preservará o histórico, e exclusão de rascunho deixará de ser o fluxo principal;
+- o cliente pode cancelar diretamente enquanto a solicitação estiver em `OPEN` e ainda não distribuída; `editableUntil` não bloqueia esse cancelamento;
+- o cancelamento preserva o histórico, e exclusão de rascunho deixa de ser o fluxo principal;
 - fotos serão opcionais, e falha no upload de uma foto não impedirá a criação da solicitação.
 
-Os campos conceituais `editableUntil` e `opportunitiesDispatchedAt` e a futura moderação por `ServiceRequestEditRequest` ainda não estão implementados.
+Os campos `editableUntil` e `opportunitiesDispatchedAt` estão implementados. A moderação por `ServiceRequestEditRequest` permanece futura.
 
 ## 18.1 Criar solicitação
 
@@ -1290,10 +1291,10 @@ Papel `CUSTOMER`.
 201 Created
 ```
 
-### Estado atual implementado — SUPERADO pela regra aprovada
+### Estado inicial
 
 ```text
-DRAFT
+OPEN
 ```
 
 ### Regras
@@ -1305,10 +1306,8 @@ DRAFT
 - limites de título e descrição;
 - localização estruturada e obrigatória;
 - endereço completo será privado;
-- cria a solicitação própria em `DRAFT`;
-- criação não publica automaticamente.
-
-Essas duas últimas regras descrevem o código atual e deverão ser substituídas pela criação direta em `OPEN` no próximo incremento.
+- cria a solicitação própria em `OPEN`;
+- define `editableUntil` para 10 minutos após a criação e `opportunitiesDispatchedAt` como `null`.
 
 ---
 
@@ -1378,7 +1377,7 @@ Requisição `multipart/form-data`, com uma foto no campo `file`.
 
 - somente solicitação própria e não excluída;
 - mesmo `404 SERVICE_REQUEST_NOT_FOUND` para solicitação inexistente ou de outro cliente;
-- somente solicitações em `DRAFT`;
+- somente solicitações em `OPEN`, durante a janela inicial e antes da distribuição;
 - uma foto por chamada neste estágio;
 - máximo de 5 fotos por solicitação;
 - máximo de 5 MB por foto;
@@ -1388,7 +1387,7 @@ Requisição `multipart/form-data`, com uma foto no campo `file`.
 - o upload é feito por `StorageService` antes da persistência de `ServiceRequestFile`;
 - se a persistência falhar após o upload, o objeto é removido do storage como compensação.
 
-A restrição atual a `DRAFT` ainda está implementada e deverá ser adaptada à janela inicial em `OPEN`. As fotos continuarão opcionais, e falha em uma foto não deverá invalidar a solicitação já criada.
+As fotos continuam opcionais, e falha no upload não invalida a solicitação já criada.
 
 ### Resposta
 
@@ -1410,9 +1409,9 @@ Rotas implementadas:
 
 Fluxos implementados:
 
-- criação da solicitação como rascunho;
+- criação da solicitação em `OPEN`;
 - seleção opcional de fotos na criação da solicitação;
-- upload das fotos após a criação da `ServiceRequest` em `DRAFT`, com uma foto por chamada;
+- upload das fotos após a criação da `ServiceRequest` em `OPEN`, durante a janela inicial, com uma foto por chamada;
 - categorias carregadas pela API;
 - localização estruturada;
 - autopreenchimento de endereço por CEP na nova solicitação;
@@ -1426,7 +1425,7 @@ O fluxo de fotos foi validado ponta a ponta entre frontend, API, `StorageService
 
 As funcionalidades a seguir permanecem planejadas e não representam endpoints já implementados.
 
-## 18.6 Atualizar solicitação — regra aprovada, ainda não implementada
+## 18.6 Atualizar solicitação
 
 ```text
 PATCH /api/v1/service-requests/{serviceRequestId}
@@ -1446,7 +1445,7 @@ PATCH /api/v1/service-requests/{serviceRequestId}
 
 ## 18.7 Publicar solicitação — fluxo SUPERADO
 
-Este endpoint era planejado para o fluxo `DRAFT → OPEN`, não está implementado e não integra mais a regra aprovada. A criação passará diretamente para `OPEN`.
+Este endpoint era planejado para o fluxo `DRAFT → OPEN`, não está implementado e não integra mais a regra atual. A criação ocorre diretamente em `OPEN`.
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/publish
@@ -1475,7 +1474,7 @@ DRAFT → OPEN
 
 ---
 
-## 18.8 Cancelar solicitação — regra aprovada, ainda não implementada
+## 18.8 Cancelar solicitação
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/cancel
@@ -1491,14 +1490,13 @@ POST /api/v1/service-requests/{serviceRequestId}/cancel
 
 ### Regras
 
-- proprietário ou administrador autorizado;
-- validar estado atual;
-- registrar motivo;
-- permitir cancelamento pelo cliente durante a janela inicial de 10 minutos;
+- somente proprietário com papel `CUSTOMER`;
+- permite cancelamento direto somente com status `OPEN` e `opportunitiesDispatchedAt` não preenchido;
+- `editableUntil` não bloqueia o cancelamento direto;
+- `reason` é opcional e, quando informado, é registrado como motivo;
 - preservar o histórico;
-- impedir novas propostas;
-- cancelar contratação quando aplicável conforme política oficial;
-- gerar notificações.
+- bloqueia com conflito solicitações distribuídas ou em qualquer estado diferente de `OPEN`;
+- cancelamento pós-distribuição, contratação e notificações permanecem pendentes.
 
 ---
 
@@ -1541,15 +1539,18 @@ limit
 sort
 ```
 
+### Estado atual
+
+Não existe endpoint público de oportunidades nem frontend profissional neste incremento. A distribuição ocorre por processor interno periódico.
+
 ### Regras
 
-- mostrar apenas solicitações elegíveis;
-- distribuir somente solicitações em `OPEN`, com a janela de 10 minutos encerrada e `opportunitiesDispatchedAt` ainda não preenchido;
-- não mostrar a solicitação aos profissionais durante a janela inicial;
-- considerar categorias do profissional;
-- considerar área de atendimento;
-- ocultar endereço completo;
-- não expor dados privados do cliente.
+- o processor busca solicitações em `OPEN`, com janela encerrada, `opportunitiesDispatchedAt` não preenchido e não excluídas;
+- a distribuição é transacional e idempotente: cria `ServiceOpportunity` e preenche `opportunitiesDispatchedAt` na mesma transação;
+- matching inicial considera somente categoria: profissional `APPROVED`, disponível, não excluído e associado à categoria;
+- o processor executa a cada 60 segundos por padrão, com lote padrão de 50;
+- não há Redis ou fila neste estágio;
+- área de atendimento, matching geográfico, notificações, propostas e experiência profissional de oportunidades permanecem pendentes.
 
 ### UX planejada
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-08-19
+
+### Solicitações e oportunidades
+
+- implementada a criação de `ServiceRequest` diretamente em `OPEN`, com `editableUntil` de 10 minutos e `opportunitiesDispatchedAt` para controlar distribuição única;
+- implementada edição direta durante a janela inicial para os campos autorizados e bloqueio posterior pelo backend;
+- implementado cancelamento direto da solicitação própria enquanto estiver em `OPEN` e ainda não distribuída, preservando histórico e fotos;
+- adaptado o upload de fotos para solicitações em `OPEN` durante a janela inicial, com persistência em `ServiceRequestFile` e storage privado Cloudflare R2;
+- criado o modelo persistente `ServiceOpportunity`, único por `ServiceRequest` e `ProfessionalProfile`;
+- implementada distribuição transacional e idempotente por categoria para profissionais `APPROVED`, disponíveis, não excluídos e vinculados à categoria;
+- implementado processor periódico interno com `@nestjs/schedule`, intervalo padrão de 60 segundos e lote padrão de 50, sem Redis ou fila;
+- registrado que matching geográfico, área de atendimento estruturada, notificações, propostas e frontend profissional de oportunidades permanecem pendentes.
+
 ## 2026-08-18
 
 ### Solicitações de serviço

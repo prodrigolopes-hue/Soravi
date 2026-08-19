@@ -523,7 +523,7 @@ professionalProfileId + country + state + city UNIQUE
 
 Representa uma solicitação de serviço criada por um cliente.
 
-No schema atual, a solicitação nasce em `DRAFT`. Essa regra foi **SUPERADA** pela decisão aprovada em 2026-08-18, ainda pendente de implementação, segundo a qual novas solicitações válidas nascerão diretamente em `OPEN`.
+No schema atual, a solicitação nasce em `OPEN`. A criação em `DRAFT` seguida de publicação manual foi superada.
 
 ### Campos
 
@@ -551,16 +551,11 @@ cancellationReason
 createdAt
 updatedAt
 deletedAt
-```
-
-### Campos conceituais do próximo incremento
-
-```text
 editableUntil
 opportunitiesDispatchedAt
 ```
 
-Esses campos são necessários para controlar a janela inicial e impedir distribuição duplicada. Eles ainda não existem no `schema.prisma`.
+`editableUntil` controla a janela inicial de 10 minutos. `opportunitiesDispatchedAt` registra que houve distribuição e impede nova distribuição direta.
 
 ### Status
 
@@ -582,9 +577,10 @@ CANCELLED
 - A solicitação pertence a um único `CustomerProfile`.
 - A categoria é obrigatória.
 - A localização é armazenada de forma estruturada na própria solicitação.
-- O status inicial implementado é `DRAFT`, regra **SUPERADA** e ainda pendente de migração para `OPEN`.
+- O status inicial é `OPEN`.
 - A janela de edição não criará status adicional; a solicitação permanecerá em `OPEN`.
-- Até `editableUntil`, o cliente poderá editar os dados permitidos e cancelar, sem exposição ou distribuição aos profissionais.
+- Até `editableUntil`, o cliente poderá editar os dados permitidos, sem exposição ou distribuição aos profissionais.
+- O cliente pode cancelar diretamente enquanto a solicitação estiver em `OPEN` e não distribuída; a janela não limita esse cancelamento.
 - Após `editableUntil`, edição direta será bloqueada e alterações futuras dependerão de moderação ou aprovação.
 - A distribuição exigirá status `OPEN`, janela encerrada e `opportunitiesDispatchedAt` não preenchido.
 - Somente o proprietário poderá editar, publicar ou cancelar.
@@ -603,11 +599,11 @@ CANCELLED
 
 #### DRAFT
 
-Representa o fluxo atual implementado em que a solicitação foi criada, mas ainda não foi publicada. Seu uso como estado inicial está **SUPERADO** para novas solicitações.
+Representa um estado legado. Não é usado como estado inicial para novas solicitações.
 
 #### OPEN
 
-A solicitação está aberta e ainda não recebeu proposta ativa. Na regra aprovada, será o estado inicial e permanecerá assim durante a janela de 10 minutos, sem distribuição aos profissionais.
+A solicitação está aberta e ainda não recebeu proposta ativa. É o estado inicial e permanece assim durante a janela de 10 minutos, sem distribuição aos profissionais.
 
 #### RECEIVING_PROPOSALS
 
@@ -663,7 +659,7 @@ IN_PROGRESS → COMPLETED
 IN_PROGRESS → CANCELLED
 ```
 
-As transições iniciadas em `DRAFT` permanecem registradas como estado do modelo atual, mas o fluxo de criação em `DRAFT` seguido de publicação manual está **SUPERADO**. Não será criada transição para a janela de edição, pois a solicitação permanecerá em `OPEN`.
+As transições iniciadas em `DRAFT` permanecem registradas por compatibilidade histórica. Não será criada transição para a janela de edição, pois a solicitação permanece em `OPEN`.
 
 ### Regras
 
@@ -721,6 +717,38 @@ createdAt
 ```text
 objectKey UNIQUE
 serviceRequestId + position UNIQUE
+```
+
+---
+
+## 7.5 ServiceOpportunity
+
+Registra uma oportunidade entregue a um profissional para uma solicitação.
+
+### Campos
+
+```text
+id
+serviceRequestId
+professionalProfileId
+createdAt
+viewedAt
+```
+
+### Regras
+
+- cada oportunidade pertence a uma `ServiceRequest` e a um `ProfessionalProfile`;
+- cada par `serviceRequestId + professionalProfileId` é único;
+- a distribuição é transacional e idempotente: oportunidades criadas e `opportunitiesDispatchedAt` são persistidos na mesma transação;
+- o matching implementado é somente por categoria;
+- profissionais elegíveis são `APPROVED`, disponíveis, não excluídos e vinculados à categoria da solicitação;
+- área de atendimento estruturada e matching geográfico ainda não existem.
+
+### Restrições
+
+```text
+serviceRequestId + professionalProfileId UNIQUE
+professionalProfileId INDEX
 ```
 
 ---

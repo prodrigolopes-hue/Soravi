@@ -1673,7 +1673,7 @@ O fluxo inicialmente previsto criava a `ServiceRequest` em `DRAFT` e exigia publ
 
 ### Dados necessários no próximo incremento
 
-Serão necessários os campos conceituais `editableUntil` e `opportunitiesDispatchedAt`. Eles ainda não existem no schema Prisma e não serão adicionados nesta decisão documental.
+Os campos `editableUntil` e `opportunitiesDispatchedAt` foram implementados no schema Prisma. A distribuição é idempotente e transacional por meio de `ServiceOpportunity`, com matching inicial somente por categoria.
 
 ### Moderação futura
 
@@ -1681,12 +1681,12 @@ Alterações posteriores à distribuição poderão ser representadas por `Servi
 
 ### Impactos
 
-- backend e frontend atuais ainda deverão ser adaptados de `DRAFT` para `OPEN`;
-- o backend deverá bloquear edição direta após `editableUntil`;
-- a distribuição deverá ser idempotente com base em `opportunitiesDispatchedAt`;
-- durante a janela, fotos poderão futuramente ser ajustadas pelo fluxo de edição;
-- após criar, o frontend deverá informar a janela de 10 minutos e exibir o tempo restante nos detalhes;
-- encerrada a janela, o frontend deverá informar que a solicitação foi ou está pronta para ser enviada aos profissionais e que novas alterações exigirão análise.
+- backend e frontend foram adaptados para criação em `OPEN` e edição direta durante a janela;
+- o backend bloqueia edição direta após `editableUntil`;
+- a distribuição é idempotente com base em `opportunitiesDispatchedAt` e `ServiceOpportunity`;
+- o processor interno usa `@nestjs/schedule`, intervalo padrão de 60 segundos e lote padrão de 50, sem Redis ou fila;
+- o frontend informa a janela de 10 minutos e exibe o tempo restante nos detalhes;
+- matching geográfico, área de atendimento estruturada, notificações, propostas, frontend profissional de oportunidades e proteção distribuída para múltiplas instâncias permanecem pendentes.
 
 ---
 
