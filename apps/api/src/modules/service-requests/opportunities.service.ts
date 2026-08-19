@@ -6,8 +6,13 @@ import {
   OpportunitiesListResponseDto,
   OpportunityListItemProperties,
 } from "./dto/opportunities-list-response.dto";
+import {
+  OpportunityDetailResponseDto,
+  OpportunityDetailResponseProperties,
+} from "./dto/opportunity-detail-response.dto";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
+import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
 
 const OPPORTUNITY_SELECT = {
   id: true,
@@ -40,23 +45,7 @@ export class OpportunitiesService {
     userId: string,
     query: OpportunitiesQueryDto,
   ): Promise<OpportunitiesListResponseDto> {
-    const professionalProfile = await this.prisma.professionalProfile.findFirst({
-      where: {
-        userId,
-        deletedAt: null,
-        user: {
-          deletedAt: null,
-          roles: {
-            some: { role: Role.PROFESSIONAL },
-          },
-        },
-      },
-      select: { id: true },
-    });
-
-    if (!professionalProfile) {
-      throw new ProfessionalProfileNotFoundException();
-    }
+    const professionalProfile = await this.findProfessionalProfile(userId);
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -84,5 +73,52 @@ export class OpportunitiesService {
       limit,
       total,
     );
+  }
+
+  async findOneMine(
+    userId: string,
+    opportunityId: string,
+  ): Promise<OpportunityDetailResponseDto> {
+    const professionalProfile = await this.findProfessionalProfile(userId);
+    const opportunity = await this.prisma.serviceOpportunity.findFirst({
+      where: {
+        id: opportunityId,
+        professionalProfileId: professionalProfile.id,
+        serviceRequest: {
+          deletedAt: null,
+        },
+      },
+      select: OPPORTUNITY_SELECT,
+    });
+
+    if (!opportunity) {
+      throw new OpportunityNotFoundException();
+    }
+
+    return new OpportunityDetailResponseDto(
+      opportunity as OpportunityDetailResponseProperties,
+    );
+  }
+
+  private async findProfessionalProfile(userId: string): Promise<{ id: string }> {
+    const professionalProfile = await this.prisma.professionalProfile.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+        user: {
+          deletedAt: null,
+          roles: {
+            some: { role: Role.PROFESSIONAL },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!professionalProfile) {
+      throw new ProfessionalProfileNotFoundException();
+    }
+
+    return professionalProfile;
   }
 }

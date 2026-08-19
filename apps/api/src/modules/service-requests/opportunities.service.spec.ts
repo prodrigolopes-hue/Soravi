@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { PrismaService } from "../../database/prisma.service";
 import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
+import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { OpportunitiesService } from "./opportunities.service";
 
@@ -13,7 +14,11 @@ describe("OpportunitiesService", () => {
   let service: OpportunitiesService;
   let prismaMock: {
     professionalProfile: { findFirst: jest.Mock };
-    serviceOpportunity: { count: jest.Mock; findMany: jest.Mock };
+    serviceOpportunity: {
+      count: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -24,6 +29,7 @@ describe("OpportunitiesService", () => {
       },
       serviceOpportunity: {
         count: jest.fn().mockResolvedValue(1),
+        findFirst: jest.fn().mockResolvedValue(createOpportunity()),
         findMany: jest.fn().mockResolvedValue([createOpportunity()]),
       },
       $transaction: jest.fn(),
@@ -112,6 +118,61 @@ describe("OpportunitiesService", () => {
 
     expect(prismaMock.serviceOpportunity.count).not.toHaveBeenCalled();
     expect(prismaMock.serviceOpportunity.findMany).not.toHaveBeenCalled();
+  });
+
+  it("obtém somente oportunidade própria com ServiceRequest não excluída", async () => {
+    const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
+
+    const result = await service.findOneMine(userId, opportunityId);
+
+    expect(prismaMock.serviceOpportunity.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: opportunityId,
+        professionalProfileId,
+        serviceRequest: { deletedAt: null },
+      },
+      select: expect.any(Object),
+    });
+    expect(result).toEqual({
+      opportunityId: "opportunity-id",
+      createdAt: new Date("2026-08-19T12:00:00.000Z"),
+      viewedAt: null,
+      serviceRequest: {
+        id: "request-id",
+        title: "Instalar uma tomada",
+        description: "Instalação na sala.",
+        status: ServiceRequestStatus.OPEN,
+        category: { id: "category-id", name: "Elétrica" },
+        location: {
+          state: "SP",
+          city: "Campinas",
+          neighborhood: "Centro",
+        },
+      },
+    });
+  });
+
+  it.each(["inexistente", "de outro profissional", "com solicitação excluída"])(
+    "retorna 404 neutro para oportunidade %s",
+    async () => {
+      prismaMock.serviceOpportunity.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findOneMine(userId, "725afb87-2b81-4de7-9606-8f382fff3341"),
+      ).rejects.toBeInstanceOf(OpportunityNotFoundException);
+    },
+  );
+
+  it("não expõe dados privados nem marca a oportunidade como visualizada", async () => {
+    const result = await service.findOneMine(
+      userId,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+
+    expect(result.serviceRequest).not.toHaveProperty("postalCode");
+    expect(result.serviceRequest).not.toHaveProperty("addressLine");
+    expect(result.serviceRequest).not.toHaveProperty("customerProfile");
+    expect(prismaMock.serviceOpportunity).not.toHaveProperty("update");
   });
 });
 
