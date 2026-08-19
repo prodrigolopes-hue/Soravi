@@ -1237,6 +1237,23 @@ GET /api/v1/categories/{categoryId}
 
 # 18. Solicitações de serviço
 
+## Regra aprovada para o próximo incremento — ainda não implementada
+
+O fluxo de criação em `DRAFT` com publicação manual está **SUPERADO** como decisão de produto. A implementação atual permanece descrita nas seções abaixo até que código e banco sejam adaptados.
+
+Na regra aprovada:
+
+- `POST /api/v1/service-requests` criará uma solicitação válida diretamente em `OPEN`;
+- o cliente poderá editar os dados permitidos e cancelar durante 10 minutos após a criação;
+- durante a janela, a solicitação permanecerá em `OPEN`, sem aparecer para profissionais e sem distribuição de oportunidades;
+- após a janela, edição direta será bloqueada e alterações futuras dependerão de moderação ou aprovação;
+- a distribuição exigirá status `OPEN`, janela encerrada e ausência de distribuição anterior;
+- não será criado status adicional para a janela;
+- cancelamento preservará o histórico, e exclusão de rascunho deixará de ser o fluxo principal;
+- fotos serão opcionais, e falha no upload de uma foto não impedirá a criação da solicitação.
+
+Os campos conceituais `editableUntil` e `opportunitiesDispatchedAt` e a futura moderação por `ServiceRequestEditRequest` ainda não estão implementados.
+
 ## 18.1 Criar solicitação
 
 ```text
@@ -1273,7 +1290,7 @@ Papel `CUSTOMER`.
 201 Created
 ```
 
-### Estado inicial
+### Estado atual implementado — SUPERADO pela regra aprovada
 
 ```text
 DRAFT
@@ -1290,6 +1307,8 @@ DRAFT
 - endereço completo será privado;
 - cria a solicitação própria em `DRAFT`;
 - criação não publica automaticamente.
+
+Essas duas últimas regras descrevem o código atual e deverão ser substituídas pela criação direta em `OPEN` no próximo incremento.
 
 ---
 
@@ -1369,6 +1388,8 @@ Requisição `multipart/form-data`, com uma foto no campo `file`.
 - o upload é feito por `StorageService` antes da persistência de `ServiceRequestFile`;
 - se a persistência falhar após o upload, o objeto é removido do storage como compensação.
 
+A restrição atual a `DRAFT` ainda está implementada e deverá ser adaptada à janela inicial em `OPEN`. As fotos continuarão opcionais, e falha em uma foto não deverá invalidar a solicitação já criada.
+
 ### Resposta
 
 Retorna `id`, `originalName`, `mimeType`, `sizeBytes`, `position` e `createdAt`.
@@ -1405,7 +1426,7 @@ O fluxo de fotos foi validado ponta a ponta entre frontend, API, `StorageService
 
 As funcionalidades a seguir permanecem planejadas e não representam endpoints já implementados.
 
-## 18.6 Atualizar solicitação
+## 18.6 Atualizar solicitação — regra aprovada, ainda não implementada
 
 ```text
 PATCH /api/v1/service-requests/{serviceRequestId}
@@ -1414,14 +1435,18 @@ PATCH /api/v1/service-requests/{serviceRequestId}
 ### Regras
 
 - somente proprietário;
-- somente estados editáveis;
+- permitir edição dos dados autorizados até `editableUntil`, enquanto a solicitação permanece em `OPEN`;
+- bloquear edição direta após `editableUntil`;
 - status não poderá ser atualizado diretamente;
-- alterações críticas poderão exigir nova validação;
+- alterações posteriores deverão futuramente seguir moderação ou aprovação;
+- conteúdo já distribuído aos profissionais não poderá ser alterado silenciosamente;
 - solicitação contratada não poderá ser editada livremente.
 
 ---
 
-## 18.7 Publicar solicitação
+## 18.7 Publicar solicitação — fluxo SUPERADO
+
+Este endpoint era planejado para o fluxo `DRAFT → OPEN`, não está implementado e não integra mais a regra aprovada. A criação passará diretamente para `OPEN`.
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/publish
@@ -1450,7 +1475,7 @@ DRAFT → OPEN
 
 ---
 
-## 18.8 Cancelar solicitação
+## 18.8 Cancelar solicitação — regra aprovada, ainda não implementada
 
 ```text
 POST /api/v1/service-requests/{serviceRequestId}/cancel
@@ -1469,13 +1494,15 @@ POST /api/v1/service-requests/{serviceRequestId}/cancel
 - proprietário ou administrador autorizado;
 - validar estado atual;
 - registrar motivo;
+- permitir cancelamento pelo cliente durante a janela inicial de 10 minutos;
+- preservar o histórico;
 - impedir novas propostas;
 - cancelar contratação quando aplicável conforme política oficial;
 - gerar notificações.
 
 ---
 
-## 18.9 Excluir rascunho
+## 18.9 Excluir rascunho — fluxo principal SUPERADO
 
 ```text
 DELETE /api/v1/service-requests/{serviceRequestId}
@@ -1487,6 +1514,8 @@ DELETE /api/v1/service-requests/{serviceRequestId}
 - preferencialmente apenas em `DRAFT`;
 - exclusão lógica quando houver histórico;
 - não utilizar para cancelar solicitação publicada.
+
+Na regra aprovada, o cancelamento será o fluxo principal e preservará o histórico. Exclusão física não será a regra do MVP.
 
 ---
 
@@ -1515,10 +1544,18 @@ sort
 ### Regras
 
 - mostrar apenas solicitações elegíveis;
+- distribuir somente solicitações em `OPEN`, com a janela de 10 minutos encerrada e `opportunitiesDispatchedAt` ainda não preenchido;
+- não mostrar a solicitação aos profissionais durante a janela inicial;
 - considerar categorias do profissional;
 - considerar área de atendimento;
 - ocultar endereço completo;
 - não expor dados privados do cliente.
+
+### UX planejada
+
+- após a criação, informar que a solicitação foi criada e pode ser editada por 10 minutos;
+- nos detalhes, exibir futuramente o tempo restante da janela;
+- após a janela, informar que a solicitação foi ou está pronta para ser enviada aos profissionais e que alterações exigirão análise.
 
 ---
 

@@ -521,7 +521,9 @@ professionalProfileId + country + state + city UNIQUE
 
 ## 7.1 ServiceRequest
 
-Representa uma solicitação de serviço criada por um cliente. A solicitação pode existir como rascunho antes da publicação.
+Representa uma solicitação de serviço criada por um cliente.
+
+No schema atual, a solicitação nasce em `DRAFT`. Essa regra foi **SUPERADA** pela decisão aprovada em 2026-08-18, ainda pendente de implementação, segundo a qual novas solicitações válidas nascerão diretamente em `OPEN`.
 
 ### Campos
 
@@ -551,6 +553,15 @@ updatedAt
 deletedAt
 ```
 
+### Campos conceituais do próximo incremento
+
+```text
+editableUntil
+opportunitiesDispatchedAt
+```
+
+Esses campos são necessários para controlar a janela inicial e impedir distribuição duplicada. Eles ainda não existem no `schema.prisma`.
+
 ### Status
 
 ```text
@@ -571,7 +582,11 @@ CANCELLED
 - A solicitação pertence a um único `CustomerProfile`.
 - A categoria é obrigatória.
 - A localização é armazenada de forma estruturada na própria solicitação.
-- O status inicial é `DRAFT`.
+- O status inicial implementado é `DRAFT`, regra **SUPERADA** e ainda pendente de migração para `OPEN`.
+- A janela de edição não criará status adicional; a solicitação permanecerá em `OPEN`.
+- Até `editableUntil`, o cliente poderá editar os dados permitidos e cancelar, sem exposição ou distribuição aos profissionais.
+- Após `editableUntil`, edição direta será bloqueada e alterações futuras dependerão de moderação ou aprovação.
+- A distribuição exigirá status `OPEN`, janela encerrada e `opportunitiesDispatchedAt` não preenchido.
 - Somente o proprietário poderá editar, publicar ou cancelar.
 - A categoria deverá estar ativa no momento da publicação.
 - O endereço completo não deverá ser exposto publicamente.
@@ -588,11 +603,11 @@ CANCELLED
 
 #### DRAFT
 
-A solicitação foi criada, mas ainda não foi publicada.
+Representa o fluxo atual implementado em que a solicitação foi criada, mas ainda não foi publicada. Seu uso como estado inicial está **SUPERADO** para novas solicitações.
 
 #### OPEN
 
-A solicitação foi publicada e ainda não recebeu proposta ativa.
+A solicitação está aberta e ainda não recebeu proposta ativa. Na regra aprovada, será o estado inicial e permanecerá assim durante a janela de 10 minutos, sem distribuição aos profissionais.
 
 #### RECEIVING_PROPOSALS
 
@@ -648,6 +663,8 @@ IN_PROGRESS → COMPLETED
 IN_PROGRESS → CANCELLED
 ```
 
+As transições iniciadas em `DRAFT` permanecem registradas como estado do modelo atual, mas o fluxo de criação em `DRAFT` seguido de publicação manual está **SUPERADO**. Não será criada transição para a janela de edição, pois a solicitação permanecerá em `OPEN`.
+
 ### Regras
 
 - Uma solicitação concluída não poderá retornar para estados anteriores.
@@ -657,6 +674,10 @@ IN_PROGRESS → CANCELLED
 - A conclusão da contratação deverá alterar a solicitação para `COMPLETED`.
 - As transições serão executadas por ações específicas do backend.
 - Endpoints genéricos não poderão aceitar qualquer valor de status.
+
+### Moderação futura de alterações
+
+Após a distribuição, alterações poderão futuramente ser solicitadas por uma entidade conceitual `ServiceRequestEditRequest`, com estados `PENDING`, `APPROVED` e `REJECTED`. Essa entidade não existe no schema atual e não será implementada neste incremento documental.
 
 ---
 

@@ -37,7 +37,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 # ÉPICO 3 - Solicitações
 
 - [x] Model e migration de `ServiceRequest`.
-- [x] `POST /api/v1/service-requests` para criar solicitação própria em `DRAFT`.
+- [x] Estado atual: `POST /api/v1/service-requests` cria solicitação própria em `DRAFT` — regra de produto **SUPERADA**.
 - [x] `GET /api/v1/service-requests/mine` para listar solicitações próprias.
 - [x] `GET /api/v1/service-requests/:serviceRequestId` para consultar detalhes próprios.
 - [x] Frontend `/solicitacoes/nova`.
@@ -45,13 +45,18 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend `/solicitacoes/[serviceRequestId]`.
 - [x] Persistência de `ServiceRequestFile` e backend de upload de fotos.
 - [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
-- [ ] Editar solicitação.
-- [ ] Publicar solicitação.
-- [ ] Cancelar solicitação.
-- [ ] Excluir solicitação.
+- [ ] Migrar criação de `DRAFT` para `OPEN`.
+- [ ] Adicionar `editableUntil`.
+- [ ] Adicionar `opportunitiesDispatchedAt`.
+- [ ] Permitir edição durante a janela de 10 minutos.
+- [ ] Bloquear edição direta após a janela.
+- [ ] Implementar cancelamento com preservação de histórico.
+- [ ] Distribuir oportunidades somente após a janela e uma única vez.
+- [ ] Prever moderação futura de alterações pós-distribuição por `ServiceRequestEditRequest`.
+- [ ] Tratar exclusão lógica apenas como fluxo excepcional; não realizar exclusão física no MVP.
 - [ ] Remover fotos persistidas.
 - [ ] Reordenar fotos persistidas.
-- [ ] Listar oportunidades profissionais.
+- [ ] Listar oportunidades profissionais elegíveis após a janela.
 - [ ] Propostas.
 - [ ] Contratação.
 - [ ] Chat.

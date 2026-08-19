@@ -770,6 +770,10 @@ Garantir que cada transição valide permissões, estado anterior e regras do do
 
 O backend não aceitará livremente qualquer `status` em endpoints genéricos.
 
+### Atualização — 2026-08-18
+
+O princípio de transições explícitas permanece vigente. O exemplo de publicação manual da solicitação foi **SUPERADO** pela DEC-037: novas solicitações válidas deverão nascer em `OPEN`, sem ação posterior de publicação.
+
 ---
 
 ## DEC-016 — Aceite de proposta como transação
@@ -1636,6 +1640,53 @@ Esses fluxos concentram maior impacto de segurança e negócio.
 ### Impactos
 
 Testes visuais não deverão substituir testes de regras de negócio.
+
+---
+
+## DEC-037 — Criação em OPEN com janela inicial de edição
+
+### Data
+
+2026-08-18
+
+### Status
+
+```text
+ACCEPTED
+```
+
+### Contexto
+
+O fluxo inicialmente previsto criava a `ServiceRequest` em `DRAFT` e exigia publicação manual. Essa etapa adicional aumenta a fricção para o cliente, enquanto a distribuição imediata impediria correções logo após o envio.
+
+### Decisão
+
+- o fluxo anterior de criação em `DRAFT` seguida de publicação manual está **SUPERADO**;
+- uma solicitação válida será criada diretamente em `OPEN`;
+- não será criado status adicional para representar a janela inicial;
+- o cliente poderá editar os dados permitidos e cancelar a solicitação durante os 10 minutos posteriores à criação;
+- durante essa janela, a solicitação permanecerá em `OPEN`, mas não aparecerá para profissionais nem será distribuída;
+- a distribuição somente poderá ocorrer quando o status for `OPEN`, a janela tiver terminado e a solicitação ainda não tiver sido distribuída;
+- após a janela, alterações diretas ficarão bloqueadas e mudanças futuras deverão seguir moderação ou aprovação, sem alterar silenciosamente conteúdo já enviado aos profissionais;
+- cancelamento preservará o histórico; excluir rascunho não será o fluxo principal e exclusão física não será a regra do MVP;
+- fotos continuarão opcionais, e falha no envio de uma foto não impedirá a criação da solicitação.
+
+### Dados necessários no próximo incremento
+
+Serão necessários os campos conceituais `editableUntil` e `opportunitiesDispatchedAt`. Eles ainda não existem no schema Prisma e não serão adicionados nesta decisão documental.
+
+### Moderação futura
+
+Alterações posteriores à distribuição poderão ser representadas por `ServiceRequestEditRequest`, com estados conceituais `PENDING`, `APPROVED` e `REJECTED`. Essa entidade não será implementada agora.
+
+### Impactos
+
+- backend e frontend atuais ainda deverão ser adaptados de `DRAFT` para `OPEN`;
+- o backend deverá bloquear edição direta após `editableUntil`;
+- a distribuição deverá ser idempotente com base em `opportunitiesDispatchedAt`;
+- durante a janela, fotos poderão futuramente ser ajustadas pelo fluxo de edição;
+- após criar, o frontend deverá informar a janela de 10 minutos e exibir o tempo restante nos detalhes;
+- encerrada a janela, o frontend deverá informar que a solicitação foi ou está pronta para ser enviada aos profissionais e que novas alterações exigirão análise.
 
 ---
 

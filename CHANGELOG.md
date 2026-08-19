@@ -4,6 +4,9 @@
 
 ### Solicitações de serviço
 
+- aprovada a nova regra de ciclo inicial: solicitações válidas deverão nascer em `OPEN`, com janela de 10 minutos para edição e cancelamento antes da distribuição aos profissionais;
+- definidos conceitualmente `editableUntil` e `opportunitiesDispatchedAt`, além de futura moderação de alterações pós-distribuição, sem implementação de código, schema ou migration nesta etapa;
+- marcado como superado o fluxo de produto baseado em criação `DRAFT` seguida de publicação manual, preservando o estado atual implementado até o próximo incremento;
 - validado ponta a ponta o upload opcional de fotos em `/solicitacoes/nova`, com criação inicial da `ServiceRequest` em `DRAFT`, envio de uma foto por chamada, armazenamento em bucket privado no Cloudflare R2 e persistência dos metadados de `ServiceRequestFile` no PostgreSQL;
 - confirmado upload real de JPEG com aproximadamente 3,68 MB no bucket `soravi-service-requests`, sem exposição pública do bucket.
 
