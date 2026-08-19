@@ -23,6 +23,10 @@ export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }
 
+export function serviceRequestCancelUrl(serviceRequestId: string): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/cancel`;
+}
+
 export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions`;
 
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;

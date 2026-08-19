@@ -1,12 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, CheckCircle2, ChevronLeft, ClipboardCheck, Clock3, FileText, Loader2, MapPin, Pencil, Save, ShieldAlert, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, CircleX, ClipboardCheck, Clock3, FileText, Loader2, MapPin, Pencil, Save, ShieldAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, serviceRequestByIdUrl } from "../../lib/api";
+import { categoriesUrl, serviceRequestByIdUrl, serviceRequestCancelUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
 import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusPresentation, type ServiceRequestStatus } from "./service-request-presentation";
@@ -133,11 +133,16 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [categoriesReloadKey, setCategoriesReloadKey] = useState(0);
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editMessageTone, setEditMessageTone] = useState<EditMessageTone>("success");
+  const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelBlockedByServer, setCancelBlockedByServer] = useState(false);
 
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
   const editableUntilTimestamp = request ? Date.parse(request.editableUntil) : Number.NaN;
   const hasOpenEditWindow = Boolean(request?.status === "OPEN" && Number.isFinite(editableUntilTimestamp) && now <= editableUntilTimestamp);
   const canEdit = hasOpenEditWindow && !editBlockedByServer;
+  const canCancel = request?.status === "OPEN" && !cancelBlockedByServer;
   const remainingMinutes = Math.max(0, Math.ceil((editableUntilTimestamp - now) / 60_000));
 
   const {
@@ -302,6 +307,17 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
     setIsEditing(true);
   }
 
+  function openCancelConfirmation(): void {
+    if (!request || !canCancel) {
+      return;
+    }
+
+    setIsEditing(false);
+    setEditMessage(null);
+    setCancellationReason("");
+    setIsCancelConfirmationOpen(true);
+  }
+
   async function submitUpdate(data: ServiceRequestFormData): Promise<void> {
     if (!accessToken || !request || !canEdit || isSubmitting) {
       return;
@@ -375,6 +391,71 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
     }
   }
 
+  async function cancelServiceRequest(): Promise<void> {
+    if (!accessToken || !request || !canCancel || isCancelling) {
+      return;
+    }
+
+    const reason = cancellationReason.trim();
+    setIsCancelling(true);
+    setEditMessage(null);
+
+    try {
+      const response = await fetch(serviceRequestCancelUrl(request.id), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(reason ? { reason } : {}),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 409) {
+        setCancelBlockedByServer(true);
+        setIsCancelConfirmationOpen(false);
+        setEditMessageTone("error");
+        setEditMessage("Esta solicitação não pode mais ser cancelada diretamente.");
+        return;
+      }
+
+      if (response.status === 404) {
+        setCancelBlockedByServer(true);
+        setIsCancelConfirmationOpen(false);
+        setEditMessageTone("error");
+        setEditMessage("Solicitação não encontrada.");
+        return;
+      }
+
+      if (!response.ok) {
+        setEditMessageTone("error");
+        setEditMessage(extractErrorMessage(payload) ?? "Não foi possível cancelar a solicitação. Tente novamente.");
+        return;
+      }
+
+      const cancelledRequest = parseServiceRequestDetails(payload);
+
+      if (!cancelledRequest) {
+        setEditMessageTone("error");
+        setEditMessage("A solicitação foi cancelada, mas não foi possível atualizar os dados exibidos.");
+        return;
+      }
+
+      setRequest(cancelledRequest);
+      setIsCancelConfirmationOpen(false);
+      setCancellationReason("");
+      setIsEditing(false);
+      setEditMessageTone("success");
+      setEditMessage("Solicitação cancelada com sucesso.");
+    } catch {
+      setEditMessageTone("error");
+      setEditMessage("Não foi possível conectar à Soravi. Tente novamente em instantes.");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   if (isLoading) {
     return <StatePage state="loading" title="Carregando sua conta..." />;
   }
@@ -439,7 +520,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                 <Clock3 aria-hidden="true" className="size-4 text-blue-600" />
                 Você pode editar esta solicitação pelos próximos {remainingMinutes} {remainingMinutes === 1 ? "minuto" : "minutos"}.
               </p>
-              {!isEditing ? (
+              {!isEditing && !isCancelConfirmationOpen ? (
                 <button type="button" onClick={startEditing} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
                   <Pencil aria-hidden="true" className="size-4" />
                   Editar solicitação
@@ -449,6 +530,15 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
           ) : (
             <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">Esta solicitação não pode mais ser alterada diretamente. Alterações posteriores precisarão de análise da Soravi.</p>
           )}
+
+          {canCancel && !isEditing && !isCancelConfirmationOpen ? (
+            <div className="mt-5 border-t border-slate-200 pt-5">
+              <button type="button" onClick={openCancelConfirmation} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 font-semibold text-red-700 hover:border-red-400 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">
+                <CircleX aria-hidden="true" className="size-4" />
+                Cancelar solicitação
+              </button>
+            </div>
+          ) : null}
         </header>
 
         {editMessage ? (
@@ -456,6 +546,37 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
             {editMessageTone === "success" ? <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0" /> : <ShieldAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0" />}
             <p className="font-medium leading-6">{editMessage}</p>
           </div>
+        ) : null}
+
+        {isCancelConfirmationOpen ? (
+          <section aria-labelledby="cancel-request-title" className="mt-5 rounded-2xl border border-red-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="flex items-start gap-3">
+              <CircleX aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-red-600" />
+              <div>
+                <h2 id="cancel-request-title" className="text-xl font-bold text-slate-950">
+                  Tem certeza que deseja cancelar esta solicitação?
+                </h2>
+                <p className="mt-2 leading-7 text-slate-600">Ela não será enviada a novos profissionais.</p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <label htmlFor="cancellation-reason" className="text-sm font-semibold text-slate-800">
+                Motivo <span className="font-normal text-slate-500">(opcional)</span>
+              </label>
+              <textarea id="cancellation-reason" rows={4} maxLength={1000} value={cancellationReason} disabled={isCancelling} onChange={(event) => setCancellationReason(event.target.value)} placeholder="Conte brevemente por que deseja cancelar" className={fieldClassName} />
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" disabled={isCancelling} onClick={() => setIsCancelConfirmationOpen(false)} className="inline-flex min-h-12 items-center justify-center px-5 py-3 font-semibold text-slate-700 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
+                Voltar
+              </button>
+              <button type="button" disabled={isCancelling} onClick={() => void cancelServiceRequest()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-red-300">
+                {isCancelling ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <CircleX aria-hidden="true" className="size-5" />}
+                {isCancelling ? "Cancelando..." : "Cancelar solicitação"}
+              </button>
+            </div>
+          </section>
         ) : null}
 
         {isEditing ? (
