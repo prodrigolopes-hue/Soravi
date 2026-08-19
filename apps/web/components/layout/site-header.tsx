@@ -26,6 +26,7 @@ export function HeaderAuthAction({
 }: HeaderAuthActionProps) {
   const router = useRouter();
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
+  const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
   const isAdmin = Boolean(user?.roles.includes("ADMIN"));
 
   async function handleSignOut(): Promise<void> {
@@ -54,6 +55,16 @@ export function HeaderAuthAction({
   if (isAuthenticated) {
     return mobile ? (
       <div className="flex flex-col gap-2">
+        {isCustomer ? (
+          <Link
+            href="/solicitacoes"
+            className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            onClick={onAction}
+          >
+            Minhas solicitações
+          </Link>
+        ) : null}
+
         {isAdmin ? (
           <Link
             href="/admin"
@@ -77,6 +88,15 @@ export function HeaderAuthAction({
       </div>
     ) : (
       <div className="flex items-center gap-5">
+        {isCustomer ? (
+          <Link
+            href="/solicitacoes"
+            className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          >
+            Minhas solicitações
+          </Link>
+        ) : null}
+
         {isAdmin ? (
           <Link
             href="/admin"
