@@ -13,8 +13,15 @@ import {
   ProposalResponseDto,
   ProposalResponseProperties,
 } from "./dto/proposal-response.dto";
+import {
+  ProposalReceivedProperties,
+  ProposalsReceivedListResponseDto,
+} from "./dto/proposals-received-list-response.dto";
+import { ProposalsReceivedQueryDto } from "./dto/proposals-received-query.dto";
+import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { ProposalAlreadyExistsException } from "./errors/proposal-already-exists.exception";
 import { ProposalCreationUnavailableException } from "./errors/proposal-creation-unavailable.exception";
+import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestNotAcceptingProposalsException } from "./errors/service-request-not-accepting-proposals.exception";
 
 const PROPOSAL_RESPONSE_SELECT = {
@@ -30,9 +37,72 @@ const PROPOSAL_RESPONSE_SELECT = {
   updatedAt: true,
 } satisfies Prisma.ProposalSelect;
 
+const PROPOSAL_RECEIVED_SELECT = {
+  id: true,
+  amountInCents: true,
+  estimatedDurationValue: true,
+  estimatedDurationUnit: true,
+  message: true,
+  status: true,
+  submittedAt: true,
+} satisfies Prisma.ProposalSelect;
+
 @Injectable()
 export class ProposalsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findReceived(
+    userId: string,
+    serviceRequestId: string,
+    query: ProposalsReceivedQueryDto,
+  ): Promise<ProposalsReceivedListResponseDto> {
+    const customerProfile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!customerProfile) {
+      throw new CustomerProfileNotFoundException();
+    }
+
+    const serviceRequest = await this.prisma.serviceRequest.findFirst({
+      where: {
+        id: serviceRequestId,
+        customerProfileId: customerProfile.id,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!serviceRequest) {
+      throw new ServiceRequestNotFoundException();
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const sort = query.sort ?? "desc";
+    const where: Prisma.ProposalWhereInput = {
+      serviceRequestId: serviceRequest.id,
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [total, proposals] = await this.prisma.$transaction([
+      this.prisma.proposal.count({ where }),
+      this.prisma.proposal.findMany({
+        where,
+        orderBy: { submittedAt: sort },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: PROPOSAL_RECEIVED_SELECT,
+      }),
+    ]);
+
+    return new ProposalsReceivedListResponseDto(
+      proposals as ProposalReceivedProperties[],
+      page,
+      limit,
+      total,
+    );
+  }
 
   async create(
     userId: string,
