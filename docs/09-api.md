@@ -146,13 +146,15 @@ POST /api/v1/proposals GET /api/v1/proposals/{id} PUT
 
 ------------------------------------------------------------------------
 
-# Chat
+# Conversas
 
-GET /api/v1/chats
+GET /api/v1/conversations
 
-GET /api/v1/chats/{id}/messages
+GET /api/v1/conversations/{conversationId}
 
-POST /api/v1/chats/{id}/messages
+GET /api/v1/conversations/{conversationId}/messages
+
+POST /api/v1/conversations/{conversationId}/messages
 
 ------------------------------------------------------------------------
 

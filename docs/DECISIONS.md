@@ -728,6 +728,22 @@ No MVP, o chat será liberado somente após o cliente aceitar uma proposta.
 - dúvidas anteriores deverão ser tratadas por meio da proposta;
 - cada contratação terá no máximo uma conversa.
 
+A nomenclatura oficial será `Conversation`, com os endpoints:
+
+```text
+GET /api/v1/conversations/:conversationId
+GET /api/v1/conversations/:conversationId/messages
+POST /api/v1/conversations/:conversationId/messages
+```
+
+As mensagens utilizarão os status `SENT`, `BLOCKED` e `REMOVED`, terão conteúdo
+entre 1 e 4000 caracteres após `trim`, e serão listadas em ordem cronológica
+crescente com paginação por cursor.
+
+Nesta etapa, somente a modelagem de `Message` e `ConversationReadState` é
+implementada. Controllers, services, endpoints, envio, leitura, WebSocket,
+notificações e frontend permanecem pendentes.
+
 ### Evolução
 
 A regra poderá ser revisada após dados e feedback dos usuários.

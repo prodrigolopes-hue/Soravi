@@ -1956,6 +1956,11 @@ before
 limit
 ```
 
+O limite padrão é `30`. O parâmetro `before` deve apontar para uma mensagem da
+própria conversa. As mensagens são retornadas em ordem cronológica crescente,
+usando `sentAt + id` como desempate estável. A resposta deverá conter
+`nextCursor` e `hasMore`.
+
 ### Exemplo
 
 ```text
@@ -2009,7 +2014,7 @@ POST /api/v1/conversations/{conversationId}/messages
 - participante autenticado;
 - conversa ativa;
 - conteúdo não vazio;
-- limite de caracteres;
+- conteúdo aparado (`trim`) entre 1 e 4000 caracteres;
 - persistir antes de emitir evento;
 - remetente definido pelo backend.
 

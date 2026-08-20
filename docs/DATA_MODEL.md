@@ -969,6 +969,9 @@ BLOCKED
 - A conversa será criada após o aceite da proposta.
 - No MVP, não haverá chat antes da contratação.
 - Somente cliente, profissional e administradores autorizados poderão acessar.
+- `ACTIVE` permite leitura e envio de mensagens.
+- `CLOSED` permite leitura e bloqueia novas mensagens.
+- `BLOCKED` permite leitura e bloqueia novas mensagens.
 - O encerramento da contratação não apagará as mensagens.
 - Acesso administrativo deverá ser auditado.
 - Uma conversa bloqueada não poderá receber novas mensagens comuns.
@@ -1007,6 +1010,9 @@ BLOCKED
 REMOVED
 ```
 
+O conteúdo é obrigatório, deve ser aparado (`trim`) e possuir entre 1 e 4000
+caracteres.
+
 ### Regras
 
 - O remetente deverá participar da conversa.
@@ -1015,10 +1021,22 @@ REMOVED
 - A mensagem deverá ser persistida antes do evento em tempo real.
 - Exclusões deverão preservar o histórico necessário para segurança.
 - Conteúdo removido por moderação continuará auditável.
-- O tamanho máximo será definido nas regras de negócio.
+- O tamanho máximo é de 4000 caracteres.
 - Mensagens vazias não serão permitidas.
 - Conteúdo deverá passar por validação e sanitização apropriadas.
 - O WebSocket não será a fonte oficial das mensagens.
+
+As mensagens serão retornadas em ordem cronológica crescente, da mais antiga
+para a mais recente. A listagem utilizará paginação por cursor:
+
+```text
+before={messageId}
+limit=30
+```
+
+O cursor deverá apontar para uma mensagem da própria conversa. O lote seguinte
+buscará mensagens anteriores ao cursor, usando `sentAt + id` como ordenação e
+desempate estável. A resposta deverá informar `nextCursor` e `hasMore`.
 
 ---
 
