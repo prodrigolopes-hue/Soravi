@@ -60,7 +60,9 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [ ] Frontend profissional para listar oportunidades.
 - [ ] Proteção distribuída para processor em múltiplas instâncias.
 - [ ] Cancelamento pós-distribuição.
-- [ ] Propostas.
+- [x] Model e migration de `Proposal`, com vínculo direto a `ServiceRequest` e `ProfessionalProfile`.
+- [ ] Criar proposta a partir de oportunidade elegível e transicionar a primeira solicitação de `OPEN` para `RECEIVING_PROPOSALS`.
+- [ ] Listar, editar e retirar propostas.
 - [ ] Contratação.
 - [ ] Chat.
 - [ ] Avaliações.

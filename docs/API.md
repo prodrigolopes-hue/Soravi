@@ -1550,7 +1550,7 @@ Não existe endpoint público de oportunidades nem frontend profissional neste i
 - matching inicial considera somente categoria: profissional `APPROVED`, disponível, não excluído e associado à categoria;
 - o processor executa a cada 60 segundos por padrão, com lote padrão de 50;
 - não há Redis ou fila neste estágio;
-- área de atendimento, matching geográfico, notificações, propostas e experiência profissional de oportunidades permanecem pendentes.
+- área de atendimento, matching geográfico, notificações, fluxos de proposta e experiência profissional de oportunidades permanecem pendentes.
 
 ### UX planejada
 
@@ -1592,14 +1592,19 @@ Papel `PROFESSIONAL`.
 ### Regras
 
 - solicitação aceita propostas;
-- profissional elegível;
-- categoria atendida;
-- região atendida;
-- profissional não pode ser o cliente da solicitação;
+- profissional autenticado possui `ServiceOpportunity` para a solicitação;
+- profissional elegível e categoria atendida são garantidos pela distribuição de oportunidades;
+- matching geográfico não é exigido enquanto a área de atendimento não estiver modelada;
 - uma proposta por profissional e solicitação;
 - valor maior que zero;
 - prazo válido;
-- proposta criada como `ACTIVE`.
+- proposta criada como `ACTIVE`;
+- criação permitida somente com `ServiceRequest` em `OPEN` ou `RECEIVING_PROPOSALS`;
+- a primeira proposta altera `OPEN` para `RECEIVING_PROPOSALS` na mesma transação da criação.
+
+### Relação com oportunidade
+
+`Proposal` pertence diretamente à solicitação e ao profissional. Não possui `serviceOpportunityId`; a oportunidade correspondente será validada na criação por `serviceRequestId + professionalProfileId`.
 
 ---
 

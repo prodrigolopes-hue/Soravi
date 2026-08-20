@@ -759,6 +759,8 @@ professionalProfileId INDEX
 
 Representa uma proposta enviada por um profissional.
 
+No MVP, `Proposal` pertence diretamente a `ServiceRequest` e `ProfessionalProfile`. Não possui vínculo por `ServiceOpportunity`; a criação futura exigirá que exista uma oportunidade para o mesmo par de solicitação e profissional.
+
 ### Campos
 
 ```text
@@ -804,7 +806,10 @@ EXPIRED
 - A proposta poderá ser editada enquanto estiver ativa.
 - A solicitação deverá aceitar propostas no momento do envio.
 - O profissional deverá atender à categoria da solicitação.
-- O profissional não poderá enviar proposta para sua própria solicitação.
+- A criação futura exigirá uma `ServiceOpportunity` para o mesmo profissional e solicitação.
+- A criação será permitida somente com a solicitação em `OPEN` ou `RECEIVING_PROPOSALS`.
+- A primeira proposta deverá alterar `OPEN` para `RECEIVING_PROPOSALS` na mesma transação.
+- Matching geográfico não será exigido enquanto área de atendimento não estiver modelada.
 - Somente o profissional proprietário poderá editar ou retirar a proposta.
 - Somente o cliente proprietário da solicitação poderá aceitar a proposta.
 - O valor deverá ser maior que zero.

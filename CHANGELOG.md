@@ -11,7 +11,15 @@
 - criado o modelo persistente `ServiceOpportunity`, único por `ServiceRequest` e `ProfessionalProfile`;
 - implementada distribuição transacional e idempotente por categoria para profissionais `APPROVED`, disponíveis, não excluídos e vinculados à categoria;
 - implementado processor periódico interno com `@nestjs/schedule`, intervalo padrão de 60 segundos e lote padrão de 50, sem Redis ou fila;
-- registrado que matching geográfico, área de atendimento estruturada, notificações, propostas e frontend profissional de oportunidades permanecem pendentes.
+- registrado que matching geográfico, área de atendimento estruturada, notificações, fluxos de proposta e frontend profissional de oportunidades permanecem pendentes.
+
+### Propostas
+
+- criado o modelo `Proposal`, com vínculo direto a `ServiceRequest` e `ProfessionalProfile`, sem `serviceOpportunityId`;
+- definidos os enums `ProposalStatus` e `EstimatedDurationUnit`;
+- registrada a unicidade de uma proposta por profissional e solicitação;
+- definida a regra futura de exigir `ServiceOpportunity` correspondente, permitir criação em `OPEN` ou `RECEIVING_PROPOSALS` e transicionar a primeira proposta de `OPEN` para `RECEIVING_PROPOSALS` na mesma transação;
+- registrado que matching geográfico não será exigido até existir área de atendimento estruturada.
 
 ## 2026-08-18
 
