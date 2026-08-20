@@ -90,6 +90,19 @@ enum EstimatedDurationUnit {
   MONTH
 }
 
+enum ContractStatus {
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  BLOCKED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -144,6 +157,7 @@ model CustomerProfile {
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceRequests ServiceRequest[]
+  contracts       Contract[]
 
   @@map("customer_profiles")
 }
@@ -168,6 +182,7 @@ model ProfessionalProfile {
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
   proposals              Proposal[]
+  contracts              Contract[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -295,6 +310,7 @@ model ServiceRequest {
   files                ServiceRequestFile[]
   serviceOpportunities ServiceOpportunity[]
   proposals            Proposal[]
+  contract             Contract?
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
@@ -352,11 +368,55 @@ model Proposal {
 
   serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  contract            Contract?
 
   @@unique([serviceRequestId, professionalProfileId], map: "proposals_service_request_professional_key")
   @@index([serviceRequestId, status, createdAt], map: "proposals_service_request_status_created_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "proposals_professional_profile_status_created_at_idx")
   @@map("proposals")
+}
+
+model Contract {
+  id                    String                @id @default(uuid()) @db.Uuid
+  serviceRequestId      String                @unique(map: "contracts_service_request_id_key") @map("service_request_id") @db.Uuid
+  acceptedProposalId    String                @unique(map: "contracts_accepted_proposal_id_key") @map("accepted_proposal_id") @db.Uuid
+  customerProfileId     String                @map("customer_profile_id") @db.Uuid
+  professionalProfileId String                @map("professional_profile_id") @db.Uuid
+  agreedAmountInCents   Int                   @map("agreed_amount_in_cents")
+  agreedDurationValue   Int                   @map("agreed_duration_value")
+  agreedDurationUnit    EstimatedDurationUnit @map("agreed_duration_unit")
+  agreedMessage         String                @map("agreed_message") @db.VarChar(2000)
+  status                ContractStatus        @default(ACCEPTED)
+  acceptedAt            DateTime              @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  startedAt             DateTime?             @map("started_at") @db.Timestamptz(3)
+  completedAt           DateTime?             @map("completed_at") @db.Timestamptz(3)
+  cancelledAt           DateTime?             @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason    String?               @map("cancellation_reason") @db.VarChar(1000)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+  acceptedProposal    Proposal            @relation(fields: [acceptedProposalId], references: [id], onDelete: Restrict)
+  customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  conversation        Conversation?
+
+  @@index([customerProfileId, status, createdAt], map: "contracts_customer_profile_status_created_at_idx")
+  @@index([professionalProfileId, status, createdAt], map: "contracts_professional_profile_status_created_at_idx")
+  @@map("contracts")
+}
+
+model Conversation {
+  id         String             @id @default(uuid()) @db.Uuid
+  contractId String             @unique(map: "conversations_contract_id_key") @map("contract_id") @db.Uuid
+  status     ConversationStatus @default(ACTIVE)
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt   DateTime?          @map("closed_at") @db.Timestamptz(3)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+
+  @@map("conversations")
 }
 
 model ProfessionalCategory {
