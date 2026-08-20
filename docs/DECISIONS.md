@@ -652,6 +652,10 @@ A contratação será usada para:
 - permitir avaliação;
 - manter histórico.
 
+Nesta etapa será implementada somente a modelagem persistente de `Contract` e
+`Conversation`. O aceite, a transação de aceite, mensagens, notificações e estados
+de leitura permanecem pendentes.
+
 ---
 
 ## DEC-013 — Uma contratação por solicitação

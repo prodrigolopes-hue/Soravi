@@ -164,6 +164,13 @@ Não deverão ser utilizados números de ponto flutuante para valores financeiro
 
 Enums serão escritos em inglês no código e apresentados em português na interface.
 
+Os enums oficiais de contratação e conversa são:
+
+```text
+ContractStatus: ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+ConversationStatus: ACTIVE, CLOSED, BLOCKED
+```
+
 Exemplo:
 
 ```text
@@ -851,6 +858,9 @@ ACTIVE → EXPIRED
 
 Representa a contratação criada após o aceite de uma proposta.
 
+Nesta etapa, somente a modelagem de `Contract` é implementada. O endpoint e a
+transação de aceite permanecem fora do escopo.
+
 ### Campos
 
 ```text
@@ -930,6 +940,9 @@ IN_PROGRESS → CANCELLED
 ## 10.1 Conversation
 
 Representa a conversa liberada após uma contratação.
+
+Nesta etapa, somente a modelagem mínima de `Conversation` é implementada.
+Mensagens, notificações e estados de leitura permanecem fora do escopo.
 
 ### Campos
 
