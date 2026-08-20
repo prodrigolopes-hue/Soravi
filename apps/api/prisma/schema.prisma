@@ -75,6 +75,21 @@ enum ServiceRequestStatus {
   CANCELLED
 }
 
+enum ProposalStatus {
+  ACTIVE
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum EstimatedDurationUnit {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -152,6 +167,7 @@ model ProfessionalProfile {
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
+  proposals              Proposal[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -278,6 +294,7 @@ model ServiceRequest {
   category             Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   files                ServiceRequestFile[]
   serviceOpportunities ServiceOpportunity[]
+  proposals            Proposal[]
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
@@ -314,6 +331,32 @@ model ServiceOpportunity {
   @@unique([serviceRequestId, professionalProfileId], map: "service_opportunities_service_request_professional_key")
   @@index([professionalProfileId], map: "service_opportunities_professional_profile_id_idx")
   @@map("service_opportunities")
+}
+
+model Proposal {
+  id                     String                @id @default(uuid()) @db.Uuid
+  serviceRequestId       String                @map("service_request_id") @db.Uuid
+  professionalProfileId  String                @map("professional_profile_id") @db.Uuid
+  amountInCents          Int                   @map("amount_in_cents")
+  estimatedDurationValue Int                   @map("estimated_duration_value")
+  estimatedDurationUnit  EstimatedDurationUnit @map("estimated_duration_unit")
+  message                String                @db.VarChar(2000)
+  status                 ProposalStatus        @default(ACTIVE)
+  submittedAt            DateTime              @default(now()) @map("submitted_at") @db.Timestamptz(3)
+  acceptedAt             DateTime?             @map("accepted_at") @db.Timestamptz(3)
+  rejectedAt             DateTime?             @map("rejected_at") @db.Timestamptz(3)
+  withdrawnAt            DateTime?             @map("withdrawn_at") @db.Timestamptz(3)
+  expiredAt              DateTime?             @map("expired_at") @db.Timestamptz(3)
+  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceRequestId, professionalProfileId], map: "proposals_service_request_professional_key")
+  @@index([serviceRequestId, status, createdAt], map: "proposals_service_request_status_created_at_idx")
+  @@index([professionalProfileId, status, createdAt], map: "proposals_professional_profile_status_created_at_idx")
+  @@map("proposals")
 }
 
 model ProfessionalCategory {
