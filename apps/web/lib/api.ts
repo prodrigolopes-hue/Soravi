@@ -29,6 +29,10 @@ export function serviceRequestByIdUrl(serviceRequestId: string): string {
   return `${serviceRequestsUrl}/${encodeURIComponent(serviceRequestId)}`;
 }
 
+export function proposalCreateUrl(serviceRequestId: string): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/proposals`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }
