@@ -6,14 +6,35 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, serviceRequestByIdUrl, serviceRequestCancelUrl } from "../../lib/api";
+import { categoriesUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
 import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusPresentation, type ServiceRequestStatus } from "./service-request-presentation";
 
 type RequestState = "idle" | "loading" | "success" | "not-found" | "error" | "unauthorized" | "forbidden";
 type CategoriesState = "idle" | "loading" | "success" | "empty" | "error";
+type ProposalsState = "idle" | "loading" | "success" | "empty" | "error" | "unauthorized" | "forbidden";
 type EditMessageTone = "success" | "error";
+
+const proposalDurationUnits = ["HOUR", "DAY", "WEEK", "MONTH"] as const;
+type ProposalDurationUnit = (typeof proposalDurationUnits)[number];
+type ProposalStatus = "ACTIVE" | "ACCEPTED" | "REJECTED" | "WITHDRAWN" | "EXPIRED";
+
+const proposalStatusLabels: Record<ProposalStatus, string> = {
+  ACTIVE: "Ativa",
+  ACCEPTED: "Aceita",
+  REJECTED: "Rejeitada",
+  WITHDRAWN: "Retirada",
+  EXPIRED: "Expirada",
+};
+
+const proposalStatusTones: Record<ProposalStatus, string> = {
+  ACTIVE: "border-blue-200 bg-blue-50 text-blue-700",
+  ACCEPTED: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  REJECTED: "border-red-200 bg-red-50 text-red-700",
+  WITHDRAWN: "border-slate-200 bg-slate-100 text-slate-700",
+  EXPIRED: "border-amber-200 bg-amber-50 text-amber-700",
+};
 
 interface ServiceCategory {
   id: string;
@@ -40,6 +61,28 @@ interface ServiceRequestDetails {
   createdAt: string;
 }
 
+interface ProposalReceived {
+  id: string;
+  amountInCents: number;
+  estimatedDurationValue: number;
+  estimatedDurationUnit: ProposalDurationUnit;
+  message: string;
+  status: ProposalStatus;
+  submittedAt: string;
+}
+
+interface ProposalsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+interface ProposalsResponse {
+  items: ProposalReceived[];
+  pagination: ProposalsPagination;
+}
+
 interface ServiceRequestDetailsPageProps {
   serviceRequestId: string;
 }
@@ -54,6 +97,93 @@ function isNullableString(value: unknown): value is string | null {
 
 function isServiceCategory(value: unknown): value is ServiceCategory {
   return isRecord(value) && typeof value.id === "string" && typeof value.name === "string";
+}
+
+function isProposalDurationUnit(value: unknown): value is ProposalDurationUnit {
+  return proposalDurationUnits.some((unit) => unit === value);
+}
+
+function isProposalStatus(value: unknown): value is ProposalStatus {
+  return typeof value === "string" && value in proposalStatusLabels;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 1;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0;
+}
+
+function parseProposalsResponse(payload: unknown): ProposalsResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const root = isRecord(payload.data) ? payload.data : payload;
+
+  if (!Array.isArray(root.items) || !isRecord(root.pagination)) {
+    return null;
+  }
+
+  const pagination = root.pagination;
+
+  if (!isPositiveInteger(pagination.page) || !isPositiveInteger(pagination.limit) || !isNonNegativeInteger(pagination.total) || !isNonNegativeInteger(pagination.totalPages)) {
+    return null;
+  }
+
+  const items: ProposalReceived[] = [];
+
+  for (const item of root.items) {
+    if (!isRecord(item) || typeof item.id !== "string" || typeof item.amountInCents !== "number" || !Number.isInteger(item.amountInCents) || item.amountInCents < 0 || typeof item.estimatedDurationValue !== "number" || !Number.isInteger(item.estimatedDurationValue) || item.estimatedDurationValue < 1 || !isProposalDurationUnit(item.estimatedDurationUnit) || typeof item.message !== "string" || !isProposalStatus(item.status) || typeof item.submittedAt !== "string") {
+      return null;
+    }
+
+    items.push({
+      id: item.id,
+      amountInCents: item.amountInCents,
+      estimatedDurationValue: item.estimatedDurationValue,
+      estimatedDurationUnit: item.estimatedDurationUnit,
+      message: item.message,
+      status: item.status,
+      submittedAt: item.submittedAt,
+    });
+  }
+
+  return {
+    items,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      total: pagination.total,
+      totalPages: pagination.totalPages,
+    },
+  };
+}
+
+function formatProposalAmount(amountInCents: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amountInCents / 100);
+}
+
+function formatProposalDuration(value: number, unit: ProposalDurationUnit): string {
+  const labels: Record<ProposalDurationUnit, [string, string]> = {
+    HOUR: ["hora", "horas"],
+    DAY: ["dia", "dias"],
+    WEEK: ["semana", "semanas"],
+    MONTH: ["mês", "meses"],
+  };
+
+  return `${value} ${value === 1 ? labels[unit][0] : labels[unit][1]}`;
+}
+
+function formatProposalDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Data indisponível";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
 function extractErrorMessage(payload: unknown): string | null {
@@ -131,6 +261,9 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesState, setCategoriesState] = useState<CategoriesState>("idle");
   const [categoriesReloadKey, setCategoriesReloadKey] = useState(0);
+  const [proposals, setProposals] = useState<ProposalsResponse | null>(null);
+  const [proposalsState, setProposalsState] = useState<ProposalsState>("idle");
+  const [proposalsPage, setProposalsPage] = useState(1);
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editMessageTone, setEditMessageTone] = useState<EditMessageTone>("success");
   const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
@@ -144,6 +277,9 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const canEdit = hasOpenEditWindow && !editBlockedByServer;
   const canCancel = request?.status === "OPEN" && !cancelBlockedByServer;
   const remainingMinutes = Math.max(0, Math.ceil((editableUntilTimestamp - now) / 60_000));
+  const proposalsTotalPages = Math.max(1, proposals?.pagination.totalPages ?? 1);
+  const proposalsIsFirstPage = proposalsPage <= 1;
+  const proposalsIsLastPage = proposalsPage >= proposalsTotalPages;
 
   const {
     register,
@@ -287,6 +423,77 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
     return () => abortController.abort();
   }, [categoriesReloadKey, isAuthenticated, isCustomer, isEditing]);
+
+  const loadProposals = useCallback(async (targetPage: number): Promise<void> => {
+    if (!accessToken) {
+      return;
+    }
+
+    setProposalsState("loading");
+
+    try {
+      const url = new URL(serviceRequestProposalsUrl(serviceRequestId));
+      url.searchParams.set("page", String(targetPage));
+      url.searchParams.set("limit", "20");
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (response.status === 401) {
+        setProposals(null);
+        setProposalsState("unauthorized");
+        return;
+      }
+
+      if (response.status === 403) {
+        setProposals(null);
+        setProposalsState("forbidden");
+        return;
+      }
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setProposals(null);
+        setProposalsState("error");
+        return;
+      }
+
+      const parsedProposals = parseProposalsResponse(payload);
+
+      if (!parsedProposals) {
+        setProposals(null);
+        setProposalsState("error");
+        return;
+      }
+
+      setProposals(parsedProposals);
+      setProposalsState(parsedProposals.items.length > 0 ? "success" : "empty");
+    } catch {
+      setProposals(null);
+      setProposalsState("error");
+    }
+  }, [accessToken, serviceRequestId]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    if (!isAuthenticated || !isCustomer || !accessToken) {
+      setProposals(null);
+      setProposalsState("idle");
+      return;
+    }
+
+    void loadProposals(proposalsPage);
+  }, [accessToken, isAuthenticated, isCustomer, isLoading, loadProposals, proposalsPage]);
 
   function startEditing(): void {
     if (!request || !canEdit) {
@@ -742,6 +949,67 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
               </h2>
             </div>
             <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-700">{request.description}</p>
+          </section>
+        ) : null}
+
+        {!isEditing ? (
+          <section aria-labelledby="received-proposals-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-live="polite">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h2 id="received-proposals-title" className="text-xl font-bold text-slate-950">Propostas recebidas</h2>
+                <p className="mt-1 text-sm text-slate-600">Compare as condições enviadas para esta solicitação.</p>
+              </div>
+              {proposalsState !== "idle" && proposalsState !== "loading" ? <p className="text-sm text-slate-600">Página {proposals?.pagination.page ?? proposalsPage} de {proposalsTotalPages}</p> : null}
+            </div>
+
+            {proposalsState === "loading" ? (
+              <div className="flex items-center gap-3 py-10 text-slate-700">
+                <Loader2 aria-hidden="true" className="size-5 animate-spin" />
+                <p className="text-sm font-medium">Carregando propostas...</p>
+              </div>
+            ) : null}
+
+            {proposalsState === "error" || proposalsState === "unauthorized" || proposalsState === "forbidden" ? (
+              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
+                <p className="text-sm font-medium leading-6 text-red-700">
+                  {proposalsState === "unauthorized" ? "Sua sessão expirou. Entre novamente para consultar as propostas." : proposalsState === "forbidden" ? "Sua conta não possui permissão para consultar estas propostas." : "Não foi possível carregar as propostas. Tente novamente."}
+                </p>
+                <button type="button" onClick={() => void loadProposals(proposalsPage)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">
+                  Tentar novamente
+                </button>
+              </div>
+            ) : null}
+
+            {proposalsState === "empty" ? <p className="py-10 text-sm leading-6 text-slate-600">Ainda não há propostas para esta solicitação.</p> : null}
+
+            {proposalsState === "success" && proposals ? (
+              <>
+                <div className="mt-5 grid gap-4">
+                  {proposals.items.map((proposal) => (
+                    <article key={proposal.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <p className="text-2xl font-bold text-slate-950">{formatProposalAmount(proposal.amountInCents)}</p>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${proposalStatusTones[proposal.status]}`}>{proposalStatusLabels[proposal.status]}</span>
+                      </div>
+                      <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
+                        <div><dt className="font-medium text-slate-500">Prazo estimado</dt><dd className="mt-1">{formatProposalDuration(proposal.estimatedDurationValue, proposal.estimatedDurationUnit)}</dd></div>
+                        <div><dt className="font-medium text-slate-500">Enviada em</dt><dd className="mt-1">{formatProposalDate(proposal.submittedAt)}</dd></div>
+                      </dl>
+                      <div className="mt-4 border-t border-slate-200 pt-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Mensagem</p>
+                        <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700">{proposal.message}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                  <button type="button" onClick={() => setProposalsPage((currentPage) => Math.max(1, currentPage - 1))} disabled={proposalsIsFirstPage} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Anterior</button>
+                  <p className="text-sm text-slate-600">Página {proposals.pagination.page} de {proposalsTotalPages}</p>
+                  <button type="button" onClick={() => setProposalsPage((currentPage) => currentPage + 1)} disabled={proposalsIsLastPage} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Próxima</button>
+                </div>
+              </>
+            ) : null}
           </section>
         ) : null}
 

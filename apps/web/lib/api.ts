@@ -33,6 +33,10 @@ export function proposalCreateUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/proposals`;
 }
 
+export function serviceRequestProposalsUrl(serviceRequestId: string): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/proposals`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }
