@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
+import { categoriesUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
 import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusPresentation, type ServiceRequestStatus } from "./service-request-presentation";
@@ -14,6 +14,7 @@ import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusP
 type RequestState = "idle" | "loading" | "success" | "not-found" | "error" | "unauthorized" | "forbidden";
 type CategoriesState = "idle" | "loading" | "success" | "empty" | "error";
 type ProposalsState = "idle" | "loading" | "success" | "empty" | "error" | "unauthorized" | "forbidden";
+type ProposalAcceptanceState = "idle" | "confirming" | "submitting" | "success" | "error";
 type EditMessageTone = "success" | "error";
 
 const proposalDurationUnits = ["HOUR", "DAY", "WEEK", "MONTH"] as const;
@@ -81,6 +82,19 @@ interface ProposalsPagination {
 interface ProposalsResponse {
   items: ProposalReceived[];
   pagination: ProposalsPagination;
+}
+
+interface ProposalAcceptanceResult {
+  contract: {
+    id: string;
+    status: "ACCEPTED";
+    agreedAmountInCents: number;
+    acceptedAt: string;
+  };
+  conversation: {
+    id: string;
+    status: string;
+  };
 }
 
 interface ServiceRequestDetailsPageProps {
@@ -186,6 +200,40 @@ function formatProposalDate(value: string): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
+function parseProposalAcceptanceResponse(payload: unknown): ProposalAcceptanceResult | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const root = isRecord(payload.data) ? payload.data : payload;
+
+  if (!isRecord(root.contract) || !isRecord(root.conversation) || typeof root.contract.id !== "string" || root.contract.status !== "ACCEPTED" || typeof root.contract.agreedAmountInCents !== "number" || !Number.isInteger(root.contract.agreedAmountInCents) || root.contract.agreedAmountInCents < 0 || typeof root.contract.acceptedAt !== "string" || typeof root.conversation.id !== "string" || typeof root.conversation.status !== "string") {
+    return null;
+  }
+
+  return {
+    contract: {
+      id: root.contract.id,
+      status: "ACCEPTED",
+      agreedAmountInCents: root.contract.agreedAmountInCents,
+      acceptedAt: root.contract.acceptedAt,
+    },
+    conversation: {
+      id: root.conversation.id,
+      status: root.conversation.status,
+    },
+  };
+}
+
+function extractApiErrorCode(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const root = isRecord(payload.error) ? payload.error : payload;
+  return typeof root.code === "string" ? root.code : null;
+}
+
 function extractErrorMessage(payload: unknown): string | null {
   if (!isRecord(payload)) {
     return null;
@@ -264,6 +312,10 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [proposals, setProposals] = useState<ProposalsResponse | null>(null);
   const [proposalsState, setProposalsState] = useState<ProposalsState>("idle");
   const [proposalsPage, setProposalsPage] = useState(1);
+  const [proposalAcceptanceState, setProposalAcceptanceState] = useState<ProposalAcceptanceState>("idle");
+  const [proposalAcceptanceProposalId, setProposalAcceptanceProposalId] = useState<string | null>(null);
+  const [proposalAcceptanceResult, setProposalAcceptanceResult] = useState<ProposalAcceptanceResult | null>(null);
+  const [proposalAcceptanceError, setProposalAcceptanceError] = useState<string | null>(null);
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editMessageTone, setEditMessageTone] = useState<EditMessageTone>("success");
   const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
@@ -280,6 +332,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const proposalsTotalPages = Math.max(1, proposals?.pagination.totalPages ?? 1);
   const proposalsIsFirstPage = proposalsPage <= 1;
   const proposalsIsLastPage = proposalsPage >= proposalsTotalPages;
+  const isAcceptingProposal = proposalAcceptanceState === "submitting";
 
   const {
     register,
@@ -494,6 +547,88 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
     void loadProposals(proposalsPage);
   }, [accessToken, isAuthenticated, isCustomer, isLoading, loadProposals, proposalsPage]);
+
+  function openProposalAcceptance(proposalId: string): void {
+    if (isAcceptingProposal || proposalAcceptanceState === "confirming") {
+      return;
+    }
+
+    setProposalAcceptanceProposalId(proposalId);
+    setProposalAcceptanceResult(null);
+    setProposalAcceptanceError(null);
+    setProposalAcceptanceState("confirming");
+  }
+
+  function closeProposalAcceptance(): void {
+    if (isAcceptingProposal) {
+      return;
+    }
+
+    setProposalAcceptanceProposalId(null);
+    setProposalAcceptanceError(null);
+    setProposalAcceptanceState("idle");
+  }
+
+  async function acceptProposal(): Promise<void> {
+    if (!accessToken || !proposalAcceptanceProposalId || isAcceptingProposal) {
+      return;
+    }
+
+    setProposalAcceptanceState("submitting");
+    setProposalAcceptanceError(null);
+
+    try {
+      const response = await fetch(proposalAcceptUrl(proposalAcceptanceProposalId), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const code = extractApiErrorCode(payload);
+        const message = code === "PROPOSAL_NOT_FOUND"
+          ? "Esta proposta não está mais disponível."
+          : code === "PROPOSAL_NOT_ACTIVE"
+            ? "Esta proposta não está mais ativa."
+            : code === "SERVICE_REQUEST_NOT_ACCEPTING_PROPOSALS"
+              ? "Esta solicitação não aceita mais propostas."
+              : code === "CONTRACT_ALREADY_EXISTS"
+                ? "Esta solicitação já possui uma contratação."
+                : "Não foi possível aceitar esta proposta. Tente novamente.";
+
+        setProposalAcceptanceError(message);
+        setProposalAcceptanceState("error");
+        return;
+      }
+
+      const parsedResult = parseProposalAcceptanceResponse(payload);
+
+      if (!parsedResult) {
+        setProposalAcceptanceError("A contratação foi processada, mas não foi possível atualizar a confirmação.");
+        setProposalAcceptanceState("error");
+        return;
+      }
+
+      const acceptedProposalId = proposalAcceptanceProposalId;
+      setProposalAcceptanceResult(parsedResult);
+      setProposalAcceptanceProposalId(null);
+      setProposalAcceptanceState("success");
+      setRequest((currentRequest) => currentRequest ? { ...currentRequest, status: "HIRED" } : currentRequest);
+      setProposals((currentProposals) => currentProposals ? {
+        ...currentProposals,
+        items: currentProposals.items.map((proposal) => proposal.status === "ACTIVE"
+          ? { ...proposal, status: proposal.id === acceptedProposalId ? "ACCEPTED" : "REJECTED" }
+          : proposal),
+      } : currentProposals);
+    } catch {
+      setProposalAcceptanceError("Não foi possível conectar à Soravi. Tente novamente em instantes.");
+      setProposalAcceptanceState("error");
+    }
+  }
 
   function startEditing(): void {
     if (!request || !canEdit) {
@@ -982,6 +1117,34 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
             {proposalsState === "empty" ? <p className="py-10 text-sm leading-6 text-slate-600">Ainda não há propostas para esta solicitação.</p> : null}
 
+            {proposalAcceptanceState === "success" && proposalAcceptanceResult ? (
+              <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" role="status">
+                <p className="font-semibold text-emerald-900">Contratação confirmada.</p>
+                <p className="mt-2 text-sm leading-6 text-emerald-800">Valor acordado: {formatProposalAmount(proposalAcceptanceResult.contract.agreedAmountInCents)}.</p>
+              </div>
+            ) : null}
+
+            {proposalAcceptanceState === "confirming" || proposalAcceptanceState === "submitting" ? (
+              <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" role="dialog" aria-labelledby="proposal-acceptance-title" aria-modal="true">
+                <h3 id="proposal-acceptance-title" className="font-semibold text-blue-950">Confirmar contratação</h3>
+                <p className="mt-2 text-sm leading-6 text-blue-900">Ao aceitar esta proposta, as demais propostas ativas serão encerradas e o profissional será contratado.</p>
+                <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={closeProposalAcceptance} disabled={isAcceptingProposal} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">Voltar</button>
+                  <button type="button" onClick={() => void acceptProposal()} disabled={isAcceptingProposal} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300">
+                    {isAcceptingProposal ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
+                    {isAcceptingProposal ? "Confirmando..." : "Confirmar contratação"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {proposalAcceptanceState === "error" && proposalAcceptanceError ? (
+              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
+                <p className="text-sm font-medium leading-6 text-red-700">{proposalAcceptanceError}</p>
+                {proposalAcceptanceProposalId ? <button type="button" onClick={() => openProposalAcceptance(proposalAcceptanceProposalId)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">Tentar novamente</button> : null}
+              </div>
+            ) : null}
+
             {proposalsState === "success" && proposals ? (
               <>
                 <div className="mt-5 grid gap-4">
@@ -999,6 +1162,11 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Mensagem</p>
                         <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700">{proposal.message}</p>
                       </div>
+                      {proposal.status === "ACTIVE" && proposalAcceptanceState !== "success" ? (
+                        <button type="button" onClick={() => openProposalAcceptance(proposal.id)} disabled={isAcceptingProposal || proposalAcceptanceState === "confirming"} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
+                          Aceitar proposta
+                        </button>
+                      ) : null}
                     </article>
                   ))}
                 </div>

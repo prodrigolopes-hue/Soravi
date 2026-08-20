@@ -37,6 +37,10 @@ export function serviceRequestProposalsUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/proposals`;
 }
 
+export function proposalAcceptUrl(proposalId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/proposals/${encodeURIComponent(proposalId)}/accept`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }
