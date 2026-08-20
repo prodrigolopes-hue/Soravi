@@ -103,6 +103,12 @@ enum ConversationStatus {
   BLOCKED
 }
 
+enum MessageStatus {
+  SENT
+  BLOCKED
+  REMOVED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -130,6 +136,8 @@ model User {
   legalAcceptances                  LegalAcceptance[]
   reviewedCategoryRequests          CategoryRequest[]          @relation("CategoryRequestReviewer")
   reviewedPublicCategorySuggestions PublicCategorySuggestion[] @relation("PublicCategorySuggestionReviewer")
+  messages                          Message[]
+  conversationReadStates            ConversationReadState[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -414,9 +422,49 @@ model Conversation {
   updatedAt  DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
   closedAt   DateTime?          @map("closed_at") @db.Timestamptz(3)
 
-  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  contract   Contract                @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  messages   Message[]
+  readStates ConversationReadState[]
 
   @@map("conversations")
+}
+
+model Message {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  senderUserId   String        @map("sender_user_id") @db.Uuid
+  content        String        @db.VarChar(4000)
+  status         MessageStatus @default(SENT)
+  sentAt         DateTime      @default(now()) @map("sent_at") @db.Timestamptz(3)
+  editedAt       DateTime?     @map("edited_at") @db.Timestamptz(3)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation Conversation            @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  sender       User                    @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  readStates   ConversationReadState[]
+
+  @@index([conversationId, sentAt, id], map: "messages_conversation_sent_at_id_idx")
+  @@index([senderUserId, sentAt], map: "messages_sender_sent_at_idx")
+  @@map("messages")
+}
+
+model ConversationReadState {
+  id                String   @id @default(uuid()) @db.Uuid
+  conversationId    String   @map("conversation_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  lastReadMessageId String?  @map("last_read_message_id") @db.Uuid
+  lastReadAt        DateTime @default(now()) @map("last_read_at") @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  lastReadMessage Message?     @relation(fields: [lastReadMessageId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, userId], map: "conversation_read_states_conversation_user_key")
+  @@index([lastReadMessageId], map: "conversation_read_states_last_read_message_idx")
+  @@map("conversation_read_states")
 }
 
 model ProfessionalCategory {
