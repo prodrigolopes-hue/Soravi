@@ -15,6 +15,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
+import { AcceptProposalResponseDto } from "./dto/accept-proposal-response.dto";
 import { CreateProposalDto } from "./dto/create-proposal.dto";
 import { ProposalResponseDto } from "./dto/proposal-response.dto";
 import { ProposalsReceivedListResponseDto } from "./dto/proposals-received-list-response.dto";
@@ -49,5 +50,20 @@ export class ProposalsController {
     @Body() dto: CreateProposalDto,
   ): Promise<ProposalResponseDto> {
     return this.proposalsService.create(currentUser.id, serviceRequestId, dto);
+  }
+}
+
+@Controller("proposals")
+export class ProposalAcceptanceController {
+  constructor(private readonly proposalsService: ProposalsService) {}
+
+  @Post(":proposalId/accept")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  accept(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("proposalId", new ParseUUIDPipe()) proposalId: string,
+  ): Promise<AcceptProposalResponseDto> {
+    return this.proposalsService.accept(currentUser.id, proposalId);
   }
 }

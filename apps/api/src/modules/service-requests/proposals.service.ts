@@ -6,8 +6,14 @@ import {
   ProposalStatus,
   Role,
   ServiceRequestStatus,
+  ContractStatus,
+  ConversationStatus,
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
+import {
+  AcceptProposalResponseDto,
+  AcceptProposalResponseProperties,
+} from "./dto/accept-proposal-response.dto";
 import { CreateProposalDto } from "./dto/create-proposal.dto";
 import {
   ProposalResponseDto,
@@ -19,7 +25,10 @@ import {
 } from "./dto/proposals-received-list-response.dto";
 import { ProposalsReceivedQueryDto } from "./dto/proposals-received-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
+import { ContractAlreadyExistsException } from "./errors/contract-already-exists.exception";
 import { ProposalAlreadyExistsException } from "./errors/proposal-already-exists.exception";
+import { ProposalNotActiveException } from "./errors/proposal-not-active.exception";
+import { ProposalNotFoundException } from "./errors/proposal-not-found.exception";
 import { ProposalCreationUnavailableException } from "./errors/proposal-creation-unavailable.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestNotAcceptingProposalsException } from "./errors/service-request-not-accepting-proposals.exception";
@@ -209,6 +218,171 @@ export class ProposalsService {
         error.code === "P2002"
       ) {
         throw new ProposalAlreadyExistsException();
+      }
+
+      throw error;
+    }
+  }
+
+  async accept(
+    userId: string,
+    proposalId: string,
+  ): Promise<AcceptProposalResponseDto> {
+    try {
+      const result = await this.prisma.$transaction(async (transaction) => {
+        const customerProfile = await transaction.customerProfile.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+
+        if (!customerProfile) {
+          throw new ProposalNotFoundException();
+        }
+
+        const proposal = await transaction.proposal.findUnique({
+          where: { id: proposalId },
+          select: {
+            id: true,
+            serviceRequestId: true,
+            professionalProfileId: true,
+            amountInCents: true,
+            estimatedDurationValue: true,
+            estimatedDurationUnit: true,
+            message: true,
+          },
+        });
+
+        if (!proposal) {
+          throw new ProposalNotFoundException();
+        }
+
+        const lockedRows = await transaction.$queryRaw<Array<{ id: string }>>(
+          Prisma.sql`
+            SELECT "id"
+            FROM "service_requests"
+            WHERE "id" = ${proposal.serviceRequestId}::uuid
+            FOR UPDATE
+          `,
+        );
+
+        if (lockedRows.length === 0) {
+          throw new ProposalNotFoundException();
+        }
+
+        const serviceRequest = await transaction.serviceRequest.findFirst({
+          where: {
+            id: proposal.serviceRequestId,
+            customerProfileId: customerProfile.id,
+            deletedAt: null,
+          },
+          select: { id: true, status: true },
+        });
+
+        if (!serviceRequest) {
+          throw new ProposalNotFoundException();
+        }
+
+        if (
+          serviceRequest.status !== ServiceRequestStatus.RECEIVING_PROPOSALS &&
+          serviceRequest.status !== ServiceRequestStatus.IN_NEGOTIATION
+        ) {
+          throw new ServiceRequestNotAcceptingProposalsException();
+        }
+
+        const currentProposal = await transaction.proposal.findUnique({
+          where: { id: proposal.id },
+          select: { status: true },
+        });
+
+        if (!currentProposal) {
+          throw new ProposalNotFoundException();
+        }
+
+        if (currentProposal.status !== ProposalStatus.ACTIVE) {
+          throw new ProposalNotActiveException();
+        }
+
+        const existingContract = await transaction.contract.findUnique({
+          where: { serviceRequestId: serviceRequest.id },
+          select: { id: true },
+        });
+
+        if (existingContract) {
+          throw new ContractAlreadyExistsException();
+        }
+
+        const acceptedAt = new Date();
+
+        await transaction.proposal.update({
+          where: { id: proposal.id },
+          data: {
+            status: ProposalStatus.ACCEPTED,
+            acceptedAt,
+          },
+        });
+
+        await transaction.proposal.updateMany({
+          where: {
+            serviceRequestId: serviceRequest.id,
+            status: ProposalStatus.ACTIVE,
+            id: { not: proposal.id },
+          },
+          data: {
+            status: ProposalStatus.REJECTED,
+            rejectedAt: acceptedAt,
+          },
+        });
+
+        const contract = await transaction.contract.create({
+          data: {
+            serviceRequestId: serviceRequest.id,
+            acceptedProposalId: proposal.id,
+            customerProfileId: customerProfile.id,
+            professionalProfileId: proposal.professionalProfileId,
+            agreedAmountInCents: proposal.amountInCents,
+            agreedDurationValue: proposal.estimatedDurationValue,
+            agreedDurationUnit: proposal.estimatedDurationUnit,
+            agreedMessage: proposal.message,
+            status: ContractStatus.ACCEPTED,
+            acceptedAt,
+          },
+          select: {
+            id: true,
+            status: true,
+            agreedAmountInCents: true,
+            acceptedAt: true,
+          },
+        });
+
+        const conversation = await transaction.conversation.create({
+          data: {
+            contractId: contract.id,
+            status: ConversationStatus.ACTIVE,
+          },
+          select: { id: true, status: true },
+        });
+
+        await transaction.serviceRequest.update({
+          where: { id: serviceRequest.id },
+          data: {
+            status: ServiceRequestStatus.HIRED,
+            hiredAt: acceptedAt,
+          },
+        });
+
+        return {
+          contract,
+          conversation,
+        } satisfies AcceptProposalResponseProperties;
+      });
+
+      return new AcceptProposalResponseDto(result);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ContractAlreadyExistsException();
       }
 
       throw error;
