@@ -1,9 +1,16 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+} from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
+import { MessageListResponseDto } from "./dto/message-list-response.dto";
 import { ConversationNotFoundException } from "./errors/conversation-not-found.exception";
+
+const DEFAULT_MESSAGE_LIMIT = 30;
+const MAX_MESSAGE_LIMIT = 100;
 
 const CONVERSATION_SELECT = {
   id: true,
@@ -39,6 +46,16 @@ const CONVERSATION_SELECT = {
     },
   },
 } satisfies Prisma.ConversationSelect;
+
+const MESSAGE_ITEM_SELECT = {
+  id: true,
+  senderUserId: true,
+  content: true,
+  status: true,
+  sentAt: true,
+  editedAt: true,
+  deletedAt: true,
+} satisfies Prisma.MessageSelect;
 
 @Injectable()
 export class ConversationsService {
@@ -98,5 +115,115 @@ export class ConversationsService {
       },
       participantRole,
     });
+  }
+
+  async findMessages(
+    userId: string,
+    conversationId: string,
+    before?: string,
+    rawLimit?: string,
+  ): Promise<MessageListResponseDto> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        contract: {
+          OR: [
+            {
+              customerProfile: {
+                userId,
+              },
+            },
+            {
+              professionalProfile: {
+                userId,
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      throw new ConversationNotFoundException();
+    }
+
+    const limit = this.parseLimit(rawLimit);
+    const messageCursor = before
+      ? await this.prisma.message.findFirst({
+          where: {
+            id: before,
+            conversationId,
+          },
+          select: {
+            id: true,
+            sentAt: true,
+          },
+        })
+      : null;
+
+    if (before && !messageCursor) {
+      throw new BadRequestException({
+        code: "INVALID_MESSAGE_CURSOR",
+        message: "Cursor inválido para a conversa informada.",
+      });
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        ...(messageCursor
+          ? {
+              OR: [
+                {
+                  sentAt: {
+                    lt: messageCursor.sentAt,
+                  },
+                },
+                {
+                  sentAt: messageCursor.sentAt,
+                  id: {
+                    lt: messageCursor.id,
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [
+        {
+          sentAt: "desc",
+        },
+        {
+          id: "desc",
+        },
+      ],
+      take: limit + 1,
+      select: MESSAGE_ITEM_SELECT,
+    });
+
+    const hasMore = messages.length > limit;
+    const pageItems = hasMore ? messages.slice(0, limit) : messages;
+    const orderedItems = [...pageItems].reverse();
+
+    return new MessageListResponseDto(
+      orderedItems,
+      hasMore ? orderedItems[0]?.id ?? null : null,
+      hasMore,
+    );
+  }
+
+  private parseLimit(rawLimit?: string): number {
+    const candidate = rawLimit ?? String(DEFAULT_MESSAGE_LIMIT);
+    const value = Number.parseInt(candidate, 10);
+
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new BadRequestException({
+        code: "INVALID_MESSAGE_LIMIT",
+        message: "Parâmetro limit inválido.",
+      });
+    }
+
+    return Math.min(value, MAX_MESSAGE_LIMIT);
   }
 }
