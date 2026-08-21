@@ -17,8 +17,22 @@ export const myServiceRequestsUrl = `${serviceRequestsUrl}/mine`;
 
 export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 
+export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
+
 export function opportunityByIdUrl(opportunityId: string): string {
   return `${opportunitiesUrl}/${encodeURIComponent(opportunityId)}`;
+}
+
+export function conversationByIdUrl(conversationId: string): string {
+  return `${conversationsUrl}/${encodeURIComponent(conversationId)}`;
+}
+
+export function conversationMessagesUrl(conversationId: string): string {
+  return `${conversationByIdUrl(conversationId)}/messages`;
+}
+
+export function conversationReadUrl(conversationId: string): string {
+  return `${conversationByIdUrl(conversationId)}/read`;
 }
 
 export function opportunityViewedUrl(opportunityId: string): string {
