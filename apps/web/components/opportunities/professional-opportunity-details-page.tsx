@@ -7,6 +7,7 @@ import {
   EyeOff,
   FileText,
   Loader2,
+  MessageCircle,
   MapPin,
   ShieldAlert,
 } from "lucide-react";
@@ -46,6 +47,7 @@ interface OpportunityDetails {
   opportunityId: string;
   createdAt: string;
   viewedAt: string | null;
+  conversationId: string | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -93,6 +95,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     typeof root.opportunityId !== "string" ||
     typeof root.createdAt !== "string" ||
     !isNullableString(root.viewedAt) ||
+    !isNullableString(root.conversationId) ||
     typeof serviceRequest.id !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
@@ -131,6 +134,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     opportunityId: root.opportunityId,
     createdAt: root.createdAt,
     viewedAt: root.viewedAt,
+    conversationId: root.conversationId,
     serviceRequest: {
       id: serviceRequest.id,
       title: serviceRequest.title,
@@ -399,6 +403,12 @@ export function ProfessionalOpportunityDetailsPage({
             <CalendarDays aria-hidden="true" className="size-4 text-slate-400" />
             Recebida em {formatServiceRequestDate(opportunity.createdAt)}
           </div>
+          {typeof opportunity.conversationId === "string" ? (
+            <Link href={`/conversas/${opportunity.conversationId}`} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+              <MessageCircle aria-hidden="true" className="size-4" />
+              Ir para conversa
+            </Link>
+          ) : null}
         </header>
 
         {serviceRequest.description ? (
