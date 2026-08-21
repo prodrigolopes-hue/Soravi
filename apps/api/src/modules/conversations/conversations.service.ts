@@ -1,12 +1,19 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
 } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
+import {
+  ConversationStatus,
+  MessageStatus,
+  Prisma,
+} from "../../generated/prisma/client";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
+import { CreateMessageDto } from "./dto/create-message.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
+import { MessageResponseDto } from "./dto/message-response.dto";
 import { ConversationNotFoundException } from "./errors/conversation-not-found.exception";
 
 const DEFAULT_MESSAGE_LIMIT = 30;
@@ -211,6 +218,65 @@ export class ConversationsService {
       hasMore ? orderedItems[0]?.id ?? null : null,
       hasMore,
     );
+  }
+
+  async createMessage(
+    userId: string,
+    conversationId: string,
+    input: CreateMessageDto,
+  ): Promise<MessageResponseDto> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        contract: {
+          OR: [
+            {
+              customerProfile: {
+                userId,
+              },
+            },
+            {
+              professionalProfile: {
+                userId,
+              },
+            },
+          ],
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!conversation) {
+      throw new ConversationNotFoundException();
+    }
+
+    if (
+      conversation.status === ConversationStatus.CLOSED ||
+      conversation.status === ConversationStatus.BLOCKED
+    ) {
+      throw new ConflictException({
+        code: "CONVERSATION_MESSAGE_BLOCKED",
+        message: "Esta conversa não aceita novas mensagens no momento.",
+      });
+    }
+
+    const createdMessage = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderUserId: userId,
+        content: input.content.trim(),
+        status: MessageStatus.SENT,
+        sentAt: new Date(),
+        editedAt: null,
+        deletedAt: null,
+      },
+      select: MESSAGE_ITEM_SELECT,
+    });
+
+    return new MessageResponseDto(createdMessage);
   }
 
   private parseLimit(rawLimit?: string): number {
