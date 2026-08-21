@@ -153,6 +153,7 @@ describe("OpportunitiesService", () => {
       opportunityId: "opportunity-id",
       createdAt: new Date("2026-08-19T12:00:00.000Z"),
       viewedAt: null,
+      conversationId: null,
       serviceRequest: {
         id: "request-id",
         title: "Instalar uma tomada",
@@ -186,10 +187,76 @@ describe("OpportunitiesService", () => {
       "725afb87-2b81-4de7-9606-8f382fff3341",
     );
 
+    expect(result.conversationId).toBeNull();
     expect(result.serviceRequest).not.toHaveProperty("postalCode");
     expect(result.serviceRequest).not.toHaveProperty("addressLine");
     expect(result.serviceRequest).not.toHaveProperty("customerProfile");
+    expect(result.serviceRequest).not.toHaveProperty("contractId");
+    expect(result.serviceRequest).not.toHaveProperty("customerProfileId");
     expect(prismaMock.serviceOpportunity).not.toHaveProperty("update");
+  });
+
+  it("oportunidade contratada do profissional retorna conversationId", async () => {
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValue({
+      ...createOpportunity(),
+      serviceRequest: {
+        ...createOpportunity().serviceRequest,
+        status: ServiceRequestStatus.HIRED,
+        contract: {
+          professionalProfileId,
+          conversation: { id: "conversation-id" },
+        },
+      },
+    });
+
+    const result = await service.findOneMine(
+      userId,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+
+    expect(result.conversationId).toBe("conversation-id");
+    expect(result).not.toHaveProperty("contractId");
+    expect(result).not.toHaveProperty("customerProfileId");
+    expect(result.serviceRequest).not.toHaveProperty("contract");
+  });
+
+  it("oportunidade sem Contract retorna conversationId null", async () => {
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValue({
+      ...createOpportunity(),
+      serviceRequest: {
+        ...createOpportunity().serviceRequest,
+        status: ServiceRequestStatus.HIRED,
+        contract: null,
+      },
+    });
+
+    const result = await service.findOneMine(
+      userId,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+
+    expect(result.conversationId).toBeNull();
+  });
+
+  it("Contract sem Conversation retorna conversationId null", async () => {
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValue({
+      ...createOpportunity(),
+      serviceRequest: {
+        ...createOpportunity().serviceRequest,
+        status: ServiceRequestStatus.HIRED,
+        contract: {
+          professionalProfileId,
+          conversation: null,
+        },
+      },
+    });
+
+    const result = await service.findOneMine(
+      userId,
+      "725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+
+    expect(result.conversationId).toBeNull();
   });
 
   it("marca oportunidade própria não visualizada e retorna o detalhe seguro", async () => {
@@ -333,6 +400,7 @@ function createOpportunity() {
       city: "Campinas",
       neighborhood: "Centro",
       category: { id: "category-id", name: "Elétrica" },
+      contract: null,
       files: [],
     },
   };

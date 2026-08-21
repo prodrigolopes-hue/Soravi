@@ -137,6 +137,16 @@ export class OpportunitiesService {
         serviceRequest: {
           select: {
             ...OPPORTUNITY_SELECT.serviceRequest.select,
+            contract: {
+              select: {
+                professionalProfileId: true,
+                conversation: {
+                  select: {
+                    id: true,
+                  },
+                },
+              },
+            },
             files: {
               orderBy: {
                 position: "asc",
@@ -160,6 +170,10 @@ export class OpportunitiesService {
     }
 
     const serviceRequest = opportunity.serviceRequest;
+    const conversationId =
+      serviceRequest.contract?.professionalProfileId === professionalProfileId
+        ? serviceRequest.contract.conversation?.id ?? null
+        : null;
     const photos = await Promise.all(
       serviceRequest.files.map(async (file) => {
         const url = await this.storage.createTemporaryReadUrl(
@@ -179,9 +193,19 @@ export class OpportunitiesService {
     );
 
     return new OpportunityDetailResponseDto({
-      ...(opportunity as OpportunityDetailResponseProperties),
+      id: opportunity.id,
+      createdAt: opportunity.createdAt,
+      viewedAt: opportunity.viewedAt,
+      conversationId,
       serviceRequest: {
-        ...serviceRequest,
+        id: serviceRequest.id,
+        title: serviceRequest.title,
+        description: serviceRequest.description,
+        status: serviceRequest.status,
+        state: serviceRequest.state,
+        city: serviceRequest.city,
+        neighborhood: serviceRequest.neighborhood,
+        category: serviceRequest.category,
         photos,
       },
     });

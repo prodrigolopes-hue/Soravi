@@ -31,6 +31,7 @@ export interface OpportunityDetailResponseProperties {
   id: string;
   createdAt: Date;
   viewedAt: Date | null;
+  conversationId: string | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -51,6 +52,7 @@ export class OpportunityDetailResponseDto {
   opportunityId!: string;
   createdAt!: Date;
   viewedAt!: Date | null;
+  conversationId!: string | null;
   serviceRequest!: {
     id: string;
     title: string;
@@ -72,6 +74,7 @@ export class OpportunityDetailResponseDto {
     this.opportunityId = properties.id;
     this.createdAt = properties.createdAt;
     this.viewedAt = properties.viewedAt;
+    this.conversationId = properties.conversationId;
     this.serviceRequest = {
       id: properties.serviceRequest.id,
       title: properties.serviceRequest.title,
