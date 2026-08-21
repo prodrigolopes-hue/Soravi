@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
 import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
+import { StorageService } from "../../storage/storage.service";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
 import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
@@ -22,6 +23,11 @@ describe("OpportunitiesService", () => {
     };
     $transaction: jest.Mock;
   };
+  let storageMock: {
+    upload: jest.Mock;
+    delete: jest.Mock;
+    createTemporaryReadUrl: jest.Mock;
+  };
 
   beforeEach(() => {
     prismaMock = {
@@ -40,8 +46,16 @@ describe("OpportunitiesService", () => {
       await prismaMock.serviceOpportunity.count(),
       await prismaMock.serviceOpportunity.findMany(),
     ]);
+    storageMock = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+      createTemporaryReadUrl: jest.fn().mockResolvedValue(
+        "https://cdn.example.test/signed-photo.jpg",
+      ),
+    };
     service = new OpportunitiesService(
       prismaMock as unknown as PrismaService,
+      storageMock as unknown as StorageService,
     );
   });
 
@@ -150,6 +164,7 @@ describe("OpportunitiesService", () => {
           city: "Campinas",
           neighborhood: "Centro",
         },
+        photos: [],
       },
     });
   });
@@ -206,6 +221,70 @@ describe("OpportunitiesService", () => {
     expect(result.serviceRequest).not.toHaveProperty("addressLine");
   });
 
+  it("retorna fotos ordenadas e assinadas sem expor objectKey", async () => {
+    const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
+    const lowerPositionPhoto = {
+      id: "file-1",
+      objectKey: "images/first.jpg",
+      originalName: "first.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 150,
+      position: 1,
+    };
+    const higherPositionPhoto = {
+      id: "file-2",
+      objectKey: "images/second.png",
+      originalName: "second.png",
+      mimeType: "image/png",
+      sizeBytes: 200,
+      position: 2,
+    };
+
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValueOnce({
+      ...createOpportunity(),
+      serviceRequest: {
+        ...createOpportunity().serviceRequest,
+        files: [lowerPositionPhoto, higherPositionPhoto],
+      },
+    });
+    storageMock.createTemporaryReadUrl
+      .mockResolvedValueOnce("https://cdn.example.test/first.jpg")
+      .mockResolvedValueOnce("https://cdn.example.test/second.png");
+
+    const result = await service.findOneMine(userId, opportunityId);
+
+    expect(storageMock.createTemporaryReadUrl).toHaveBeenNthCalledWith(
+      1,
+      lowerPositionPhoto.objectKey,
+      300,
+    );
+    expect(storageMock.createTemporaryReadUrl).toHaveBeenNthCalledWith(
+      2,
+      higherPositionPhoto.objectKey,
+      300,
+    );
+    expect(result.serviceRequest.photos).toEqual([
+      expect.objectContaining({
+        id: lowerPositionPhoto.id,
+        originalName: lowerPositionPhoto.originalName,
+        mimeType: lowerPositionPhoto.mimeType,
+        sizeBytes: lowerPositionPhoto.sizeBytes,
+        position: lowerPositionPhoto.position,
+        url: "https://cdn.example.test/first.jpg",
+      }),
+      expect.objectContaining({
+        id: higherPositionPhoto.id,
+        originalName: higherPositionPhoto.originalName,
+        mimeType: higherPositionPhoto.mimeType,
+        sizeBytes: higherPositionPhoto.sizeBytes,
+        position: higherPositionPhoto.position,
+        url: "https://cdn.example.test/second.png",
+      }),
+    ]);
+    expect(result.serviceRequest.photos[0]).not.toHaveProperty("objectKey");
+    expect(result.serviceRequest.photos[1]).not.toHaveProperty("objectKey");
+  });
+
   it("preserva o viewedAt original na segunda chamada", async () => {
     const originalViewedAt = new Date("2026-08-19T12:30:00.000Z");
     prismaMock.serviceOpportunity.updateMany.mockResolvedValue({ count: 0 });
@@ -254,6 +333,7 @@ function createOpportunity() {
       city: "Campinas",
       neighborhood: "Centro",
       category: { id: "category-id", name: "Elétrica" },
+      files: [],
     },
   };
 }

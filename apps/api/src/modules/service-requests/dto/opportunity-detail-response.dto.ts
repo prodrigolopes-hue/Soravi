@@ -1,5 +1,32 @@
 import { ServiceRequestStatus } from "../../../generated/prisma/client";
 
+export interface OpportunityPhotoDetailResponseDtoProperties {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  position: number;
+  url: string;
+}
+
+export class OpportunityPhotoDetailResponseDto {
+  readonly id: string;
+  readonly originalName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly position: number;
+  readonly url: string;
+
+  constructor(properties: OpportunityPhotoDetailResponseDtoProperties) {
+    this.id = properties.id;
+    this.originalName = properties.originalName;
+    this.mimeType = properties.mimeType;
+    this.sizeBytes = properties.sizeBytes;
+    this.position = properties.position;
+    this.url = properties.url;
+  }
+}
+
 export interface OpportunityDetailResponseProperties {
   id: string;
   createdAt: Date;
@@ -16,6 +43,7 @@ export interface OpportunityDetailResponseProperties {
       id: string;
       name: string;
     };
+    photos?: OpportunityPhotoDetailResponseDto[];
   };
 }
 
@@ -37,6 +65,7 @@ export class OpportunityDetailResponseDto {
       city: string;
       neighborhood: string;
     };
+    photos: OpportunityPhotoDetailResponseDto[];
   };
 
   constructor(properties: OpportunityDetailResponseProperties) {
@@ -54,6 +83,7 @@ export class OpportunityDetailResponseDto {
         city: properties.serviceRequest.city,
         neighborhood: properties.serviceRequest.neighborhood,
       },
+      photos: properties.serviceRequest.photos ?? [],
     };
   }
 }

@@ -6,7 +6,10 @@ import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
 import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-response.dto";
-import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
+import {
+  ServiceRequestPhotoDetailResponseDto,
+  ServiceRequestResponseDto,
+} from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
@@ -50,6 +53,7 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
 } satisfies Prisma.ServiceRequestSelect;
 
 const SERVICE_REQUEST_EDIT_WINDOW_MS = 10 * 60 * 1000;
+const SERVICE_REQUEST_PHOTO_SIGNED_URL_TTL_SECONDS = 300;
 
 @Injectable()
 export class ServiceRequestsService {
@@ -187,16 +191,50 @@ export class ServiceRequestsService {
         customerProfileId: customerProfile.id,
         deletedAt: null,
       },
-      select: SERVICE_REQUEST_RESPONSE_SELECT,
+      select: {
+        ...SERVICE_REQUEST_RESPONSE_SELECT,
+        files: {
+          orderBy: {
+            position: "asc",
+          },
+          select: {
+            id: true,
+            objectKey: true,
+            originalName: true,
+            mimeType: true,
+            sizeBytes: true,
+            position: true,
+          },
+        },
+      },
     });
 
     if (!serviceRequest) {
       throw new ServiceRequestNotFoundException();
     }
 
-    return new ServiceRequestResponseDto(
-      toServiceRequestResponseProperties(serviceRequest),
+    const photos = await Promise.all(
+      serviceRequest.files.map(async (file) => {
+        const url = await this.storage.createTemporaryReadUrl(
+          file.objectKey,
+          SERVICE_REQUEST_PHOTO_SIGNED_URL_TTL_SECONDS,
+        );
+
+        return new ServiceRequestPhotoDetailResponseDto({
+          id: file.id,
+          originalName: file.originalName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          position: file.position,
+          url,
+        });
+      }),
     );
+
+    return new ServiceRequestResponseDto({
+      ...toServiceRequestResponseProperties(serviceRequest),
+      photos,
+    });
   }
 
   async updateMine(

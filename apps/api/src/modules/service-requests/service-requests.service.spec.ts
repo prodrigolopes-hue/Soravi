@@ -234,6 +234,7 @@ describe("ServiceRequestsService", () => {
       ...input.location,
       editableUntil,
       createdAt,
+      files: [],
     });
 
     const result = await service.findOneMine(userId, serviceRequestId);
@@ -244,10 +245,90 @@ describe("ServiceRequestsService", () => {
         customerProfileId,
         deletedAt: null,
       },
-      select: expect.any(Object),
+      select: expect.objectContaining({
+        files: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            objectKey: true,
+            originalName: true,
+            mimeType: true,
+            sizeBytes: true,
+            position: true,
+          },
+        },
+      }),
     });
     expect(result.id).toBe(serviceRequestId);
     expect(result.location).toEqual(input.location);
+    expect(result.photos).toEqual([]);
+  });
+
+  it("retorna fotos ordenadas com URL assinada no detalhe da própria solicitação", async () => {
+    const input = createInput();
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
+      categoryId: input.categoryId,
+      title: input.title,
+      description: input.description,
+      status: ServiceRequestStatus.DRAFT,
+      ...input.location,
+      editableUntil,
+      createdAt,
+      files: [
+        {
+          id: "photo-1",
+          objectKey: "objects/photo-1",
+          originalName: "primeira.png",
+          mimeType: "image/png",
+          sizeBytes: 123,
+          position: 1,
+        },
+        {
+          id: "photo-2",
+          objectKey: "objects/photo-2",
+          originalName: "segunda.jpg",
+          mimeType: "image/jpeg",
+          sizeBytes: 234,
+          position: 2,
+        },
+      ],
+    });
+    storageMock.createTemporaryReadUrl.mockImplementation(
+      async (objectKey: string) => `https://cdn.example/${objectKey}`,
+    );
+
+    const result = await service.findOneMine(userId, serviceRequestId);
+
+    expect(storageMock.createTemporaryReadUrl).toHaveBeenCalledTimes(2);
+    expect(storageMock.createTemporaryReadUrl).toHaveBeenNthCalledWith(
+      1,
+      "objects/photo-1",
+      300,
+    );
+    expect(storageMock.createTemporaryReadUrl).toHaveBeenNthCalledWith(
+      2,
+      "objects/photo-2",
+      300,
+    );
+    expect(result.photos).toEqual([
+      {
+        id: "photo-1",
+        originalName: "primeira.png",
+        mimeType: "image/png",
+        sizeBytes: 123,
+        position: 1,
+        url: "https://cdn.example/objects/photo-1",
+      },
+      {
+        id: "photo-2",
+        originalName: "segunda.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 234,
+        position: 2,
+        url: "https://cdn.example/objects/photo-2",
+      },
+    ]);
   });
 
   it("retorna o mesmo not found quando a solicitação não é acessível", async () => {

@@ -9,7 +9,11 @@ import {
 import {
   OpportunityDetailResponseDto,
   OpportunityDetailResponseProperties,
+  OpportunityPhotoDetailResponseDto,
 } from "./dto/opportunity-detail-response.dto";
+import { StorageService } from "../../storage/storage.service";
+import { Inject } from "@nestjs/common";
+import { STORAGE_SERVICE } from "../../storage/storage.service";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
 import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
@@ -37,9 +41,15 @@ const OPPORTUNITY_SELECT = {
   },
 } satisfies Prisma.ServiceOpportunitySelect;
 
+const OPPORTUNITY_PHOTO_SIGNED_URL_TTL_SECONDS = 300;
+
 @Injectable()
 export class OpportunitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_SERVICE)
+    private readonly storage: StorageService,
+  ) {}
 
   async findMine(
     userId: string,
@@ -122,16 +132,59 @@ export class OpportunitiesService {
           deletedAt: null,
         },
       },
-      select: OPPORTUNITY_SELECT,
+      select: {
+        ...OPPORTUNITY_SELECT,
+        serviceRequest: {
+          select: {
+            ...OPPORTUNITY_SELECT.serviceRequest.select,
+            files: {
+              orderBy: {
+                position: "asc",
+              },
+              select: {
+                id: true,
+                objectKey: true,
+                originalName: true,
+                mimeType: true,
+                sizeBytes: true,
+                position: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!opportunity) {
       throw new OpportunityNotFoundException();
     }
 
-    return new OpportunityDetailResponseDto(
-      opportunity as OpportunityDetailResponseProperties,
+    const serviceRequest = opportunity.serviceRequest;
+    const photos = await Promise.all(
+      serviceRequest.files.map(async (file) => {
+        const url = await this.storage.createTemporaryReadUrl(
+          file.objectKey,
+          OPPORTUNITY_PHOTO_SIGNED_URL_TTL_SECONDS,
+        );
+
+        return new OpportunityPhotoDetailResponseDto({
+          id: file.id,
+          originalName: file.originalName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          position: file.position,
+          url,
+        });
+      }),
     );
+
+    return new OpportunityDetailResponseDto({
+      ...(opportunity as OpportunityDetailResponseProperties),
+      serviceRequest: {
+        ...serviceRequest,
+        photos,
+      },
+    });
   }
 
   private async findProfessionalProfile(userId: string): Promise<{ id: string }> {

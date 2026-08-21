@@ -11,6 +11,33 @@ export interface ServiceRequestLocationResponseDto {
   addressComplement: string | null;
 }
 
+export interface ServiceRequestPhotoDetailResponseDtoProperties {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  position: number;
+  url: string;
+}
+
+export class ServiceRequestPhotoDetailResponseDto {
+  readonly id: string;
+  readonly originalName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly position: number;
+  readonly url: string;
+
+  constructor(properties: ServiceRequestPhotoDetailResponseDtoProperties) {
+    this.id = properties.id;
+    this.originalName = properties.originalName;
+    this.mimeType = properties.mimeType;
+    this.sizeBytes = properties.sizeBytes;
+    this.position = properties.position;
+    this.url = properties.url;
+  }
+}
+
 export interface ServiceRequestResponseDtoProperties {
   id: string;
   categoryId: string;
@@ -20,6 +47,7 @@ export interface ServiceRequestResponseDtoProperties {
   location: ServiceRequestLocationResponseDto;
   editableUntil: Date;
   createdAt: Date;
+  photos?: ServiceRequestPhotoDetailResponseDto[];
 }
 
 export class ServiceRequestResponseDto {
@@ -31,6 +59,7 @@ export class ServiceRequestResponseDto {
   readonly location: ServiceRequestLocationResponseDto;
   readonly editableUntil: Date;
   readonly createdAt: Date;
+  readonly photos: ServiceRequestPhotoDetailResponseDto[];
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
     this.id = properties.id;
@@ -41,5 +70,6 @@ export class ServiceRequestResponseDto {
     this.location = properties.location;
     this.editableUntil = properties.editableUntil;
     this.createdAt = properties.createdAt;
+    this.photos = properties.photos ?? [];
   }
 }

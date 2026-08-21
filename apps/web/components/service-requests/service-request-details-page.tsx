@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 
 import { categoriesUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { ImageLightbox } from "../shared/image-lightbox";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
 import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusPresentation, type ServiceRequestStatus } from "./service-request-presentation";
 
@@ -42,6 +43,15 @@ interface ServiceCategory {
   name: string;
 }
 
+interface ServiceRequestPhoto {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  position: number;
+  url: string;
+}
+
 interface ServiceRequestDetails {
   id: string;
   categoryId: string;
@@ -60,6 +70,7 @@ interface ServiceRequestDetails {
   };
   editableUntil: string;
   createdAt: string;
+  photos: ServiceRequestPhoto[];
 }
 
 interface ProposalReceived {
@@ -263,6 +274,29 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
     return null;
   }
 
+  const rawPhotos = Array.isArray(root.photos) ? root.photos : [];
+
+  if (root.photos !== undefined && !Array.isArray(root.photos)) {
+    return null;
+  }
+
+  const photos: ServiceRequestPhoto[] = [];
+
+  for (const photo of rawPhotos) {
+    if (!isRecord(photo) || typeof photo.id !== "string" || typeof photo.originalName !== "string" || typeof photo.mimeType !== "string" || typeof photo.sizeBytes !== "number" || !Number.isInteger(photo.sizeBytes) || photo.sizeBytes < 0 || typeof photo.position !== "number" || !Number.isInteger(photo.position) || photo.position < 0 || typeof photo.url !== "string") {
+      return null;
+    }
+
+    photos.push({
+      id: photo.id,
+      originalName: photo.originalName,
+      mimeType: photo.mimeType,
+      sizeBytes: photo.sizeBytes,
+      position: photo.position,
+      url: photo.url,
+    });
+  }
+
   return {
     id: root.id,
     categoryId: root.categoryId,
@@ -281,6 +315,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
     },
     editableUntil: root.editableUntil,
     createdAt: root.createdAt,
+    photos: [...photos].sort((first, second) => first.position - second.position),
   };
 }
 
@@ -322,6 +357,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancelBlockedByServer, setCancelBlockedByServer] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
   const editableUntilTimestamp = request ? Date.parse(request.editableUntil) : Number.NaN;
@@ -889,6 +925,32 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
             <p className="font-medium leading-6">{editMessage}</p>
           </div>
         ) : null}
+
+        {request.photos.length > 0 ? (
+          <section aria-labelledby="service-request-photos-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <h2 id="service-request-photos-title" className="text-xl font-bold text-slate-950">Fotos</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {request.photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  aria-label={`Ampliar imagem ${photo.originalName}`}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left shadow-sm transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  onClick={() => setLightboxImage({ src: photo.url, alt: photo.originalName })}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.originalName}
+                    className="h-36 w-full cursor-pointer object-cover transition duration-200 hover:scale-[1.02] sm:h-40"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <ImageLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
 
         {isCancelConfirmationOpen ? (
           <section aria-labelledby="cancel-request-title" className="mt-5 rounded-2xl border border-red-200 bg-white p-5 shadow-sm sm:p-7">

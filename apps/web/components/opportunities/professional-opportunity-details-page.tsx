@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { opportunityByIdUrl, opportunityViewedUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { ImageLightbox } from "../shared/image-lightbox";
 import {
   formatServiceRequestDate,
   isServiceRequestStatus,
@@ -31,6 +32,15 @@ type OpportunityState =
   | "error"
   | "unauthorized"
   | "forbidden";
+
+interface OpportunityPhoto {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  position: number;
+  url: string;
+}
 
 interface OpportunityDetails {
   opportunityId: string;
@@ -50,6 +60,7 @@ interface OpportunityDetails {
       city: string;
       neighborhood: string;
     };
+    photos: OpportunityPhoto[];
   };
 }
 
@@ -97,6 +108,25 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     return null;
   }
 
+  const rawPhotos = Array.isArray(serviceRequest.photos) ? serviceRequest.photos : [];
+
+  const photos: OpportunityPhoto[] = [];
+
+  for (const photo of rawPhotos) {
+    if (!isRecord(photo) || typeof photo.id !== "string" || typeof photo.originalName !== "string" || typeof photo.mimeType !== "string" || typeof photo.sizeBytes !== "number" || !Number.isInteger(photo.sizeBytes) || photo.sizeBytes < 0 || typeof photo.position !== "number" || !Number.isInteger(photo.position) || photo.position < 0 || typeof photo.url !== "string") {
+      return null;
+    }
+
+    photos.push({
+      id: photo.id,
+      originalName: photo.originalName,
+      mimeType: photo.mimeType,
+      sizeBytes: photo.sizeBytes,
+      position: photo.position,
+      url: photo.url,
+    });
+  }
+
   return {
     opportunityId: root.opportunityId,
     createdAt: root.createdAt,
@@ -115,6 +145,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
         city: serviceRequest.location.city,
         neighborhood: serviceRequest.location.neighborhood,
       },
+      photos: [...photos].sort((first, second) => first.position - second.position),
     },
   };
 }
@@ -128,6 +159,7 @@ export function ProfessionalOpportunityDetailsPage({
   );
   const [opportunityState, setOpportunityState] =
     useState<OpportunityState>("idle");
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const viewedOpportunityIdRef = useRef<string | null>(null);
 
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
@@ -375,6 +407,32 @@ export function ProfessionalOpportunityDetailsPage({
             </p>
           </section>
         ) : null}
+
+        {serviceRequest.photos.length > 0 ? (
+          <section aria-labelledby="opportunity-photos-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <h2 id="opportunity-photos-title" className="text-xl font-bold text-slate-950">Fotos</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {serviceRequest.photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  aria-label={`Ampliar imagem ${photo.originalName}`}
+                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left shadow-sm transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  onClick={() => setLightboxImage({ src: photo.url, alt: photo.originalName })}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.originalName}
+                    className="h-36 w-full cursor-pointer object-cover transition duration-200 hover:scale-[1.02] sm:h-40"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <ImageLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
 
         <section aria-labelledby="opportunity-location-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex items-center gap-3">
