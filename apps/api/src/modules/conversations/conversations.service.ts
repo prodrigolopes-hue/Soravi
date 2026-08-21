@@ -12,6 +12,7 @@ import {
 } from "../../generated/prisma/client";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
 import { MessageResponseDto } from "./dto/message-response.dto";
 import { ConversationNotFoundException } from "./errors/conversation-not-found.exception";
@@ -279,6 +280,103 @@ export class ConversationsService {
     return new MessageResponseDto(createdMessage);
   }
 
+  async markAsRead(
+    userId: string,
+    conversationId: string,
+    input: MarkConversationReadDto,
+  ): Promise<void> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        contract: {
+          OR: [
+            {
+              customerProfile: {
+                userId,
+              },
+            },
+            {
+              professionalProfile: {
+                userId,
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      throw new ConversationNotFoundException();
+    }
+
+    const targetMessage = await this.prisma.message.findFirst({
+      where: {
+        id: input.lastReadMessageId,
+        conversationId,
+      },
+      select: {
+        id: true,
+        sentAt: true,
+      },
+    });
+
+    if (!targetMessage) {
+      throw new BadRequestException({
+        code: "INVALID_MESSAGE_CURSOR",
+        message: "Cursor inválido para a conversa informada.",
+      });
+    }
+
+    const currentReadState = await this.prisma.conversationReadState.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId,
+        },
+      },
+      select: {
+        lastReadMessage: {
+          select: {
+            id: true,
+            sentAt: true,
+          },
+        },
+      },
+    });
+
+    if (
+      currentReadState?.lastReadMessage &&
+      this.isMessageBefore(targetMessage, currentReadState.lastReadMessage)
+    ) {
+      throw new ConflictException({
+        code: "READ_STATE_CANNOT_RETROCEDE",
+        message: "O ponto de leitura não pode retroceder.",
+      });
+    }
+
+    const lastReadAt = new Date();
+
+    await this.prisma.conversationReadState.upsert({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId,
+        },
+      },
+      create: {
+        conversationId,
+        userId,
+        lastReadMessageId: targetMessage.id,
+        lastReadAt,
+      },
+      update: {
+        lastReadMessageId: targetMessage.id,
+        lastReadAt,
+      },
+    });
+  }
+
   private parseLimit(rawLimit?: string): number {
     const candidate = rawLimit ?? String(DEFAULT_MESSAGE_LIMIT);
     const value = Number.parseInt(candidate, 10);
@@ -291,5 +389,16 @@ export class ConversationsService {
     }
 
     return Math.min(value, MAX_MESSAGE_LIMIT);
+  }
+
+  private isMessageBefore(
+    candidate: { id: string; sentAt: Date },
+    current: { id: string; sentAt: Date },
+  ): boolean {
+    if (candidate.sentAt.getTime() !== current.sentAt.getTime()) {
+      return candidate.sentAt.getTime() < current.sentAt.getTime();
+    }
+
+    return candidate.id < current.id;
   }
 }

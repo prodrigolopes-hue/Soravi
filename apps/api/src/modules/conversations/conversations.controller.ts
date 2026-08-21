@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -14,6 +16,7 @@ import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
 import { CreateMessageDto } from "./dto/create-message.dto";
+import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
 import { MessageResponseDto } from "./dto/message-response.dto";
 import { ConversationsService } from "./conversations.service";
@@ -55,6 +58,21 @@ export class ConversationsController {
     @Body() input: CreateMessageDto,
   ): Promise<MessageResponseDto> {
     return this.conversationsService.createMessage(
+      currentUser.id,
+      conversationId,
+      input,
+    );
+  }
+
+  @Post(":conversationId/read")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenGuard)
+  async markAsRead(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("conversationId", new ParseUUIDPipe()) conversationId: string,
+    @Body() input: MarkConversationReadDto,
+  ): Promise<void> {
+    await this.conversationsService.markAsRead(
       currentUser.id,
       conversationId,
       input,
