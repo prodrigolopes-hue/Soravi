@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, CheckCircle2, ChevronLeft, CircleX, ClipboardCheck, Clock3, FileText, Loader2, MapPin, Pencil, Save, ShieldAlert, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, CircleX, ClipboardCheck, Clock3, FileText, Loader2, MessageCircle, MapPin, Pencil, Save, ShieldAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -1183,6 +1183,10 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
               <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" role="status">
                 <p className="font-semibold text-emerald-900">Contratação confirmada.</p>
                 <p className="mt-2 text-sm leading-6 text-emerald-800">Valor acordado: {formatProposalAmount(proposalAcceptanceResult.contract.agreedAmountInCents)}.</p>
+                <Link href={`/conversas/${proposalAcceptanceResult.conversation.id}`} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                  <MessageCircle aria-hidden="true" className="size-4" />
+                  Ir para conversa
+                </Link>
               </div>
             ) : null}
 
