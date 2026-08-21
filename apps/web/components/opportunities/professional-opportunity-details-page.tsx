@@ -359,6 +359,13 @@ export function ProfessionalOpportunityDetailsPage({
   const { location } = serviceRequest;
   const status = serviceRequestStatusPresentation[serviceRequest.status];
   const isUnviewed = opportunity.viewedAt === null;
+  const canSubmitProposal =
+    serviceRequest.status === "OPEN" ||
+    serviceRequest.status === "RECEIVING_PROPOSALS";
+  const proposalClosedMessage =
+    serviceRequest.status === "HIRED"
+      ? "Esta solicitação já foi contratada e não aceita novas propostas."
+      : "Esta solicitação não aceita mais propostas no momento.";
 
   return (
     <main className="bg-slate-50">
@@ -449,10 +456,18 @@ export function ProfessionalOpportunityDetailsPage({
           </div>
         </section>
 
-        <ProfessionalProposalForm
-          accessToken={accessToken}
-          serviceRequestId={serviceRequest.id}
-        />
+        {canSubmitProposal ? (
+          <ProfessionalProposalForm
+            accessToken={accessToken}
+            serviceRequestId={serviceRequest.id}
+          />
+        ) : (
+          <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <p className="text-base font-medium text-slate-700">
+              {proposalClosedMessage}
+            </p>
+          </section>
+        )}
       </div>
     </main>
   );
