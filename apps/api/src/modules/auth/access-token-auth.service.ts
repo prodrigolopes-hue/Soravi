@@ -48,26 +48,17 @@ export class AccessTokenAuthService {
   ): Promise<AuthenticatedUser> {
     const payload = await this.verifyAccessToken(accessToken);
 
-    const session = await this.prisma.authSession.findFirst({
-      where: {
-        id: payload.sessionId,
-        userId: payload.sub,
-        revokedAt: null,
-        expiresAt: {
-          gt: new Date(),
-        },
-        user: {
-          deletedAt: null,
-          status: {
-            in: [...AUTHENTICATED_USER_STATUSES],
-          },
-        },
-      },
+    const session = await this.prisma.authSession.findUnique({
+      where: { id: payload.sessionId },
       select: {
         id: true,
         userId: true,
+        revokedAt: true,
+        expiresAt: true,
         user: {
           select: {
+            deletedAt: true,
+            status: true,
             roles: {
               select: {
                 role: true,
@@ -79,6 +70,30 @@ export class AccessTokenAuthService {
     });
 
     if (!session) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (session.userId !== payload.sub) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (session.revokedAt !== null) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (session.expiresAt <= new Date()) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (!session.user) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (session.user.deletedAt !== null) {
+      throw new InvalidAccessTokenException();
+    }
+
+    if (!AUTHENTICATED_USER_STATUSES.includes(session.user.status)) {
       throw new InvalidAccessTokenException();
     }
 
@@ -107,7 +122,11 @@ export class AccessTokenAuthService {
       }
 
       return payload;
-    } catch {
+    } catch (error: unknown) {
+      if (error instanceof InvalidAccessTokenException) {
+        throw error;
+      }
+
       throw new InvalidAccessTokenException();
     }
   }

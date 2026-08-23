@@ -1,14 +1,14 @@
 import {
+  Ack,
   ConnectedSocket,
   MessageBody,
-  OnGatewayConnection,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  WsException,
 } from "@nestjs/websockets";
 import { isUUID } from "class-validator";
-import { Server, Socket } from "socket.io";
+import { Namespace, Socket } from "socket.io";
 
 import { AccessTokenAuthService } from "../auth/access-token-auth.service";
 import { InvalidAccessTokenException } from "../auth/errors/invalid-access-token.exception";
@@ -21,6 +21,16 @@ interface JoinConversationInput {
   conversationId: string;
 }
 
+interface JoinConversationAck {
+  ok: boolean;
+  conversationId?: string;
+  code?: string;
+}
+
+type JoinConversationAcknowledgement = (
+  response: JoinConversationAck,
+) => void;
+
 type AuthenticatedSocket = Socket & {
   data: {
     user?: AuthenticatedUser;
@@ -30,67 +40,64 @@ type AuthenticatedSocket = Socket & {
 @WebSocketGateway({
   namespace: "/conversations",
 })
-export class ConversationsGateway implements OnGatewayConnection {
+export class ConversationsGateway implements OnGatewayInit {
   @WebSocketServer()
-  private server?: Server;
+  private server?: Namespace;
 
   constructor(
     private readonly accessTokenAuthService: AccessTokenAuthService,
     private readonly conversationsService: ConversationsService,
   ) {}
 
-  async handleConnection(client: AuthenticatedSocket): Promise<void> {
-    const accessToken = this.accessTokenAuthService.extractBearerToken(
-      this.readAuthorizationHeader(client),
-    );
+  afterInit(server: Namespace): void {
+    server.use(async (client: Socket, next): Promise<void> => {
+      const accessToken = this.readAccessToken(client);
 
-    if (!accessToken) {
-      client.disconnect(true);
-      return;
-    }
-
-    try {
-      client.data.user = await this.accessTokenAuthService.authenticateAccessToken(
-        accessToken,
-      );
-    } catch (error: unknown) {
-      if (error instanceof InvalidAccessTokenException) {
-        client.disconnect(true);
+      if (!accessToken) {
+        next(new Error("unauthorized"));
         return;
       }
 
-      throw error;
-    }
+      try {
+        client.data.user =
+          await this.accessTokenAuthService.authenticateAccessToken(
+            accessToken,
+          );
+        next();
+      } catch (error: unknown) {
+        if (error instanceof InvalidAccessTokenException) {
+          next(new Error("unauthorized"));
+          return;
+        }
+
+        next(new Error("unauthorized"));
+      }
+    });
   }
 
   @SubscribeMessage("conversation.join")
   async joinConversation(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() input: JoinConversationInput,
-  ): Promise<{ conversationId: string }> {
+    @Ack() acknowledge?: JoinConversationAcknowledgement,
+  ): Promise<void> {
     const currentUser = client.data.user;
 
     if (!currentUser) {
-      throw new WsException({
-        code: "INVALID_ACCESS_TOKEN",
-        message: "Access token inválido.",
-      });
-    }
+      acknowledge?.({ ok: false, code: "INVALID_ACCESS_TOKEN" });
+        return;
+      }
 
     if (!input || typeof input.conversationId !== "string") {
-      throw new WsException({
-        code: "INVALID_CONVERSATION_ID",
-        message: "Identificador da conversa inválido.",
-      });
+      acknowledge?.({ ok: false, code: "INVALID_CONVERSATION_ID" });
+      return;
     }
 
     const conversationId = input.conversationId.trim();
 
     if (!conversationId || !isUUID(conversationId, "4")) {
-      throw new WsException({
-        code: "INVALID_CONVERSATION_ID",
-        message: "Identificador da conversa inválido.",
-      });
+      acknowledge?.({ ok: false, code: "INVALID_CONVERSATION_ID" });
+      return;
     }
 
     try {
@@ -100,10 +107,8 @@ export class ConversationsGateway implements OnGatewayConnection {
       );
     } catch (error: unknown) {
       if (error instanceof ConversationNotFoundException) {
-        throw new WsException({
-          code: "CONVERSATION_NOT_FOUND",
-          message: "Conversa não encontrada.",
-        });
+        acknowledge?.({ ok: false, code: "CONVERSATION_NOT_FOUND" });
+        return;
       }
 
       throw error;
@@ -111,7 +116,7 @@ export class ConversationsGateway implements OnGatewayConnection {
 
     client.join(ConversationsGateway.buildRoomName(conversationId));
 
-    return { conversationId };
+    acknowledge?.({ ok: true, conversationId });
   }
 
   emitMessageCreated(
@@ -136,6 +141,20 @@ export class ConversationsGateway implements OnGatewayConnection {
 
   static buildRoomName(conversationId: string): string {
     return `conversation:${conversationId}`;
+  }
+
+  private readAccessToken(client: Socket): string | undefined {
+    const authAccessToken = client.handshake.auth?.accessToken;
+
+    if (typeof authAccessToken === "string" && authAccessToken.trim()) {
+      return authAccessToken.trim();
+    }
+
+    return (
+      this.accessTokenAuthService.extractBearerToken(
+        this.readAuthorizationHeader(client),
+      ) ?? undefined
+    );
   }
 
   private readAuthorizationHeader(client: Socket): string | undefined {

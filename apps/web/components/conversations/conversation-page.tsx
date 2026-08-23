@@ -9,9 +9,11 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 
 import {
+  apiBaseUrl,
   conversationByIdUrl,
   conversationMessagesUrl,
   conversationReadUrl,
@@ -276,6 +278,7 @@ function statusMessage(status: ConversationStatus): string | null {
 
 export function ConversationPage({ conversationId }: ConversationPageProps) {
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+  const socketRef = useRef<Socket | null>(null);
   const [conversation, setConversation] = useState<ConversationDetails | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -289,6 +292,90 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
   const canSend = conversation?.status === "ACTIVE";
   const trimmedMessage = messageText.trim();
   const isMessageTooLong = messageText.length > MAX_MESSAGE_LENGTH;
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken || !conversationId) {
+      return;
+    }
+
+    const apiOrigin = new URL(apiBaseUrl, window.location.origin).origin;
+    const socket = io(`${apiOrigin}/conversations`, {
+      transports: ["websocket"],
+      withCredentials: true,
+      auth: {
+        accessToken,
+      },
+    });
+
+    socketRef.current = socket;
+
+    const handleConnect = (): void => {
+      socket.emit(
+        "conversation.join",
+        { conversationId },
+        (acknowledgement: unknown): void => {
+          if (
+            isRecord(acknowledgement) &&
+            acknowledgement.ok === true &&
+            acknowledgement.conversationId === conversationId
+          ) {
+            console.info("[conversation socket] join ok");
+            return;
+          }
+
+          const code =
+            isRecord(acknowledgement) &&
+            typeof acknowledgement.code === "string"
+              ? acknowledgement.code
+              : "UNKNOWN";
+
+          console.info("[conversation socket] join failed", code);
+        },
+      );
+    };
+
+    const handleMessageCreated = (payload: unknown): void => {
+      if (!isRecord(payload)) {
+        return;
+      }
+
+      const root = isRecord(payload.data) ? payload.data : payload;
+
+      if (
+        typeof root.conversationId !== "string" ||
+        root.conversationId !== conversationId ||
+        !isRecord(root.message)
+      ) {
+        return;
+      }
+
+      const incomingMessage = parseMessage(root.message);
+
+      if (!incomingMessage) {
+        return;
+      }
+
+      setMessages((currentMessages) => {
+        if (currentMessages.some((message) => message.id === incomingMessage.id)) {
+          return currentMessages;
+        }
+
+        return mergeChronologicalMessages(currentMessages, [incomingMessage]);
+      });
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("conversation.message.created", handleMessageCreated);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("conversation.message.created", handleMessageCreated);
+      socket.disconnect();
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    };
+  }, [accessToken, conversationId, isAuthenticated]);
 
   const markVisibleMessagesAsRead = useCallback(
     async (visibleMessages: ConversationMessage[]): Promise<void> => {
