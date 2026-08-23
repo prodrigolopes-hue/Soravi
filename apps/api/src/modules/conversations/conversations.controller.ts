@@ -19,11 +19,15 @@ import { CreateMessageDto } from "./dto/create-message.dto";
 import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
 import { MessageResponseDto } from "./dto/message-response.dto";
+import { ConversationsGateway } from "./conversations.gateway";
 import { ConversationsService } from "./conversations.service";
 
 @Controller("conversations")
 export class ConversationsController {
-  constructor(private readonly conversationsService: ConversationsService) {}
+  constructor(
+    private readonly conversationsService: ConversationsService,
+    private readonly conversationsGateway: ConversationsGateway,
+  ) {}
 
   @Get(":conversationId")
   @UseGuards(AccessTokenGuard)
@@ -52,16 +56,20 @@ export class ConversationsController {
 
   @Post(":conversationId/messages")
   @UseGuards(AccessTokenGuard)
-  createMessage(
+  async createMessage(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param("conversationId", new ParseUUIDPipe()) conversationId: string,
     @Body() input: CreateMessageDto,
   ): Promise<MessageResponseDto> {
-    return this.conversationsService.createMessage(
+    const createdMessage = await this.conversationsService.createMessage(
       currentUser.id,
       conversationId,
       input,
     );
+
+    this.conversationsGateway.emitMessageCreated(conversationId, createdMessage);
+
+    return createdMessage;
   }
 
   @Post(":conversationId/read")

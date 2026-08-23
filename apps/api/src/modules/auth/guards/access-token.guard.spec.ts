@@ -1,12 +1,14 @@
+/// <reference types="jest" />
+
+import "reflect-metadata";
+
 import {
     ExecutionContext,
     UnauthorizedException,
 } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
 
-import { PrismaService } from "../../../database/prisma.service";
 import { Role } from "../../../generated/prisma/client";
+import { AccessTokenAuthService } from "../access-token-auth.service";
 import { AccessTokenGuard } from "./access-token.guard";
 
 interface RequestMock {
@@ -21,69 +23,21 @@ interface RequestMock {
 }
 
 describe("AccessTokenGuard", () => {
-    const userId =
-        "525afb87-2b81-4de7-9606-8f382fff3341";
-
-    const sessionId =
-        "725afb87-2b81-4de7-9606-8f382fff3341";
-
     let guard: AccessTokenGuard;
 
-    let jwtServiceMock: {
-        verifyAsync: jest.Mock;
-    };
-
-    let configServiceMock: {
-        getOrThrow: jest.Mock;
-    };
-
-    let prismaMock: {
-        authSession: {
-            findFirst: jest.Mock;
-        };
+    let accessTokenAuthServiceMock: {
+        extractBearerToken: jest.Mock;
+        authenticateAccessToken: jest.Mock;
     };
 
     beforeEach(() => {
-        jwtServiceMock = {
-            verifyAsync: jest.fn(),
+        accessTokenAuthServiceMock = {
+            extractBearerToken: jest.fn(),
+            authenticateAccessToken: jest.fn(),
         };
-
-        configServiceMock = {
-            getOrThrow: jest.fn(),
-        };
-
-        prismaMock = {
-            authSession: {
-                findFirst: jest.fn(),
-            },
-        };
-
-        configServiceMock.getOrThrow.mockReturnValue(
-            "test-access-token-secret-with-at-least-32-characters",
-        );
-
-        jwtServiceMock.verifyAsync.mockResolvedValue({
-            sub: userId,
-            sessionId,
-            roles: [Role.CUSTOMER],
-        });
-
-        prismaMock.authSession.findFirst.mockResolvedValue({
-            id: sessionId,
-            userId,
-            user: {
-                roles: [
-                    {
-                        role: Role.CUSTOMER,
-                    },
-                ],
-            },
-        });
 
         guard = new AccessTokenGuard(
-            jwtServiceMock as unknown as JwtService,
-            configServiceMock as unknown as ConfigService,
-            prismaMock as unknown as PrismaService,
+            accessTokenAuthServiceMock as unknown as AccessTokenAuthService,
         );
     });
 
@@ -96,82 +50,30 @@ describe("AccessTokenGuard", () => {
             headers: {},
         };
 
-        await expect(
-            guard.canActivate(createExecutionContext(request)),
-        ).rejects.toBeInstanceOf(UnauthorizedException);
-
-        expect(
-            jwtServiceMock.verifyAsync,
-        ).not.toHaveBeenCalled();
-
-        expect(
-            prismaMock.authSession.findFirst,
-        ).not.toHaveBeenCalled();
-    });
-
-    it("deve rejeitar cabeçalho de autorização inválido", async () => {
-        const request: RequestMock = {
-            headers: {
-                authorization: "Basic access-token-test",
-            },
-        };
+        accessTokenAuthServiceMock.extractBearerToken.mockReturnValue(null);
 
         await expect(
             guard.canActivate(createExecutionContext(request)),
         ).rejects.toBeInstanceOf(UnauthorizedException);
 
         expect(
-            jwtServiceMock.verifyAsync,
+            accessTokenAuthServiceMock.authenticateAccessToken,
         ).not.toHaveBeenCalled();
     });
 
-    it("deve rejeitar JWT inválido ou expirado", async () => {
-        const request = createAuthenticatedRequest();
-
-        jwtServiceMock.verifyAsync.mockRejectedValue(
-            new Error("Token inválido"),
-        );
-
-        await expect(
-            guard.canActivate(createExecutionContext(request)),
-        ).rejects.toBeInstanceOf(UnauthorizedException);
-
-        expect(
-            prismaMock.authSession.findFirst,
-        ).not.toHaveBeenCalled();
-    });
-
-    it("deve rejeitar payload sem identificador de sessão", async () => {
-        const request = createAuthenticatedRequest();
-
-        jwtServiceMock.verifyAsync.mockResolvedValue({
-            sub: userId,
-            roles: [Role.CUSTOMER],
-        });
-
-        await expect(
-            guard.canActivate(createExecutionContext(request)),
-        ).rejects.toBeInstanceOf(UnauthorizedException);
-
-        expect(
-            prismaMock.authSession.findFirst,
-        ).not.toHaveBeenCalled();
-    });
-
-    it("deve rejeitar sessão inexistente ou indisponível", async () => {
-        const request = createAuthenticatedRequest();
-
-        prismaMock.authSession.findFirst.mockResolvedValue(
-            null,
-        );
-
-        await expect(
-            guard.canActivate(createExecutionContext(request)),
-        ).rejects.toBeInstanceOf(UnauthorizedException);
-    });
 
     it("deve autenticar usuário com token e sessão válidos", async () => {
         const request = createAuthenticatedRequest();
+
+        accessTokenAuthServiceMock.extractBearerToken.mockReturnValue(
+            "access-token-test",
+        );
+
+        accessTokenAuthServiceMock.authenticateAccessToken.mockResolvedValue({
+            id: "525afb87-2b81-4de7-9606-8f382fff3341",
+            sessionId: "725afb87-2b81-4de7-9606-8f382fff3341",
+            roles: [Role.CUSTOMER],
+        });
 
         const result = await guard.canActivate(
             createExecutionContext(request),
@@ -180,56 +82,16 @@ describe("AccessTokenGuard", () => {
         expect(result).toBe(true);
 
         expect(
-            configServiceMock.getOrThrow,
-        ).toHaveBeenCalledWith(
-            "JWT_ACCESS_SECRET",
-        );
+            accessTokenAuthServiceMock.extractBearerToken,
+        ).toHaveBeenCalledWith("Bearer access-token-test");
 
         expect(
-            jwtServiceMock.verifyAsync,
-        ).toHaveBeenCalledWith(
-            "access-token-test",
-            {
-                secret:
-                    "test-access-token-secret-with-at-least-32-characters",
-            },
-        );
-
-        expect(
-            prismaMock.authSession.findFirst,
-        ).toHaveBeenCalledWith({
-            where: {
-                id: sessionId,
-                userId,
-                revokedAt: null,
-                expiresAt: {
-                    gt: expect.any(Date),
-                },
-                user: {
-                    deletedAt: null,
-                    status: {
-                        in: expect.any(Array),
-                    },
-                },
-            },
-            select: {
-                id: true,
-                userId: true,
-                user: {
-                    select: {
-                        roles: {
-                            select: {
-                                role: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
+            accessTokenAuthServiceMock.authenticateAccessToken,
+        ).toHaveBeenCalledWith("access-token-test");
 
         expect(request.user).toEqual({
-            id: userId,
-            sessionId,
+            id: "525afb87-2b81-4de7-9606-8f382fff3341",
+            sessionId: "725afb87-2b81-4de7-9606-8f382fff3341",
             roles: [Role.CUSTOMER],
         });
     });

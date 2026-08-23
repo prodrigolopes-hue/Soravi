@@ -280,6 +280,38 @@ export class ConversationsService {
     return new MessageResponseDto(createdMessage);
   }
 
+  async assertParticipant(
+    userId: string,
+    conversationId: string,
+  ): Promise<void> {
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        contract: {
+          OR: [
+            {
+              customerProfile: {
+                userId,
+              },
+            },
+            {
+              professionalProfile: {
+                userId,
+              },
+            },
+          ],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!conversation) {
+      throw new ConversationNotFoundException();
+    }
+  }
+
   async markAsRead(
     userId: string,
     conversationId: string,

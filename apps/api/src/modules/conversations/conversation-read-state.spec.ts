@@ -6,6 +6,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { Role } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { ConversationsController } from "./conversations.controller";
+import { ConversationsGateway } from "./conversations.gateway";
 import { ConversationsService } from "./conversations.service";
 import { ConversationNotFoundException } from "./errors/conversation-not-found.exception";
 
@@ -232,8 +233,13 @@ describe("ConversationsController.markAsRead", () => {
     markAsRead: jest.fn(),
   };
 
+  const gatewayMock = {
+    emitMessageCreated: jest.fn(),
+  };
+
   const controller = new ConversationsController(
     serviceMock as unknown as ConversationsService,
+    gatewayMock as unknown as ConversationsGateway,
   );
 
   afterEach(() => jest.clearAllMocks());
