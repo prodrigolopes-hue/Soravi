@@ -47,6 +47,7 @@ export interface ServiceRequestResponseDtoProperties {
   location: ServiceRequestLocationResponseDto;
   editableUntil: Date;
   createdAt: Date;
+  conversationId?: string | null;
   photos?: ServiceRequestPhotoDetailResponseDto[];
 }
 
@@ -59,6 +60,7 @@ export class ServiceRequestResponseDto {
   readonly location: ServiceRequestLocationResponseDto;
   readonly editableUntil: Date;
   readonly createdAt: Date;
+  readonly conversationId: string | null;
   readonly photos: ServiceRequestPhotoDetailResponseDto[];
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
@@ -70,6 +72,7 @@ export class ServiceRequestResponseDto {
     this.location = properties.location;
     this.editableUntil = properties.editableUntil;
     this.createdAt = properties.createdAt;
+    this.conversationId = properties.conversationId ?? null;
     this.photos = properties.photos ?? [];
   }
 }

@@ -70,6 +70,7 @@ interface ServiceRequestDetails {
   };
   editableUntil: string;
   createdAt: string;
+  conversationId: string | null;
   photos: ServiceRequestPhoto[];
 }
 
@@ -102,10 +103,11 @@ interface ProposalAcceptanceResult {
     agreedAmountInCents: number;
     acceptedAt: string;
   };
-  conversation: {
-    id: string;
-    status: string;
-  };
+}
+
+interface ParsedProposalAcceptanceResponse {
+  result: ProposalAcceptanceResult;
+  conversationId: string;
 }
 
 interface ServiceRequestDetailsPageProps {
@@ -211,7 +213,7 @@ function formatProposalDate(value: string): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
-function parseProposalAcceptanceResponse(payload: unknown): ProposalAcceptanceResult | null {
+function parseProposalAcceptanceResponse(payload: unknown): ParsedProposalAcceptanceResponse | null {
   if (!isRecord(payload)) {
     return null;
   }
@@ -222,17 +224,18 @@ function parseProposalAcceptanceResponse(payload: unknown): ProposalAcceptanceRe
     return null;
   }
 
-  return {
+  const result: ProposalAcceptanceResult = {
     contract: {
       id: root.contract.id,
       status: "ACCEPTED",
       agreedAmountInCents: root.contract.agreedAmountInCents,
       acceptedAt: root.contract.acceptedAt,
     },
-    conversation: {
-      id: root.conversation.id,
-      status: root.conversation.status,
-    },
+  };
+
+  return {
+    result,
+    conversationId: root.conversation.id,
   };
 }
 
@@ -270,7 +273,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
 
   const root = isRecord(payload.data) ? payload.data : payload;
 
-  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string") {
+  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string" || !isNullableString(root.conversationId)) {
     return null;
   }
 
@@ -315,6 +318,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
     },
     editableUntil: root.editableUntil,
     createdAt: root.createdAt,
+    conversationId: root.conversationId,
     photos: [...photos].sort((first, second) => first.position - second.position),
   };
 }
@@ -650,10 +654,14 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
       }
 
       const acceptedProposalId = proposalAcceptanceProposalId;
-      setProposalAcceptanceResult(parsedResult);
+      setProposalAcceptanceResult(parsedResult.result);
       setProposalAcceptanceProposalId(null);
       setProposalAcceptanceState("success");
-      setRequest((currentRequest) => currentRequest ? { ...currentRequest, status: "HIRED" } : currentRequest);
+      setRequest((currentRequest) => currentRequest ? {
+        ...currentRequest,
+        status: "HIRED",
+        conversationId: parsedResult.conversationId,
+      } : currentRequest);
       setProposals((currentProposals) => currentProposals ? {
         ...currentProposals,
         items: currentProposals.items.map((proposal) => proposal.status === "ACTIVE"
@@ -1183,11 +1191,14 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
               <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" role="status">
                 <p className="font-semibold text-emerald-900">Contratação confirmada.</p>
                 <p className="mt-2 text-sm leading-6 text-emerald-800">Valor acordado: {formatProposalAmount(proposalAcceptanceResult.contract.agreedAmountInCents)}.</p>
-                <Link href={`/conversas/${proposalAcceptanceResult.conversation.id}`} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
-                  <MessageCircle aria-hidden="true" className="size-4" />
-                  Ir para conversa
-                </Link>
               </div>
+            ) : null}
+
+            {request.conversationId ? (
+              <Link href={`/conversas/${request.conversationId}`} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                <MessageCircle aria-hidden="true" className="size-4" />
+                Ir para conversa
+              </Link>
             ) : null}
 
             {proposalAcceptanceState === "confirming" || proposalAcceptanceState === "submitting" ? (

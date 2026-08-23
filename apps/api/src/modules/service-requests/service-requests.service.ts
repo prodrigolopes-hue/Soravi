@@ -206,6 +206,15 @@ export class ServiceRequestsService {
             position: true,
           },
         },
+        contract: {
+          select: {
+            conversation: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -233,6 +242,7 @@ export class ServiceRequestsService {
 
     return new ServiceRequestResponseDto({
       ...toServiceRequestResponseProperties(serviceRequest),
+      conversationId: serviceRequest.contract?.conversation?.id ?? null,
       photos,
     });
   }

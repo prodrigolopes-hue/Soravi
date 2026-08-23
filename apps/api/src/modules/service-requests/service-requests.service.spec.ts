@@ -235,6 +235,9 @@ describe("ServiceRequestsService", () => {
       editableUntil,
       createdAt,
       files: [],
+      contract: {
+        conversation: { id: "conversation-id" },
+      },
     });
 
     const result = await service.findOneMine(userId, serviceRequestId);
@@ -260,8 +263,34 @@ describe("ServiceRequestsService", () => {
       }),
     });
     expect(result.id).toBe(serviceRequestId);
+    expect(result.conversationId).toBe("conversation-id");
     expect(result.location).toEqual(input.location);
     expect(result.photos).toEqual([]);
+  });
+
+  it.each([
+    ["sem Contract", null],
+    ["com Contract sem Conversation", { conversation: null }],
+  ])("retorna conversationId nulo quando a solicitação está %s", async (_description, contract) => {
+    const input = createInput();
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
+      categoryId: input.categoryId,
+      title: input.title,
+      description: input.description,
+      status: ServiceRequestStatus.HIRED,
+      ...input.location,
+      editableUntil,
+      createdAt,
+      files: [],
+      contract,
+    });
+
+    const result = await service.findOneMine(userId, serviceRequestId);
+
+    expect(result.conversationId).toBeNull();
+    expect(result).not.toHaveProperty("contractId");
+    expect(result).not.toHaveProperty("professionalProfileId");
   });
 
   it("retorna fotos ordenadas com URL assinada no detalhe da própria solicitação", async () => {
