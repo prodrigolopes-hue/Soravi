@@ -19,6 +19,43 @@ export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 
 export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
 
+export type ConversationStatus = "ACTIVE" | "CLOSED" | "BLOCKED";
+
+export interface ConversationListItem {
+  id: string;
+  status: ConversationStatus;
+  updatedAt: string;
+  serviceRequest: {
+    id: string;
+    title: string;
+  };
+  contract: {
+    status: string;
+  };
+  lastMessage: {
+    id: string;
+    senderUserId: string;
+    content: string;
+    status: string;
+    sentAt: string;
+  } | null;
+  hasUnread: boolean;
+}
+
+export interface ConversationsListResponse {
+  items: ConversationListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function conversationsListUrl(page: number, limit: number): string {
+  return `${conversationsUrl}?page=${encodeURIComponent(String(page))}&limit=${encodeURIComponent(String(limit))}`;
+}
+
 export function opportunityByIdUrl(opportunityId: string): string {
   return `${opportunitiesUrl}/${encodeURIComponent(opportunityId)}`;
 }
