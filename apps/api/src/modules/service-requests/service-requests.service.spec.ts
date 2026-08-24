@@ -264,6 +264,10 @@ describe("ServiceRequestsService", () => {
     });
     expect(result.id).toBe(serviceRequestId);
     expect(result.conversationId).toBe("conversation-id");
+    expect(JSON.parse(JSON.stringify(result))).toHaveProperty(
+      "conversationId",
+      "conversation-id",
+    );
     expect(result.location).toEqual(input.location);
     expect(result.photos).toEqual([]);
   });
@@ -289,6 +293,10 @@ describe("ServiceRequestsService", () => {
     const result = await service.findOneMine(userId, serviceRequestId);
 
     expect(result.conversationId).toBeNull();
+    expect(JSON.parse(JSON.stringify(result))).toHaveProperty(
+      "conversationId",
+      null,
+    );
     expect(result).not.toHaveProperty("contractId");
     expect(result).not.toHaveProperty("professionalProfileId");
   });

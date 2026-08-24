@@ -242,7 +242,6 @@ export class ServiceRequestsService {
 
     return new ServiceRequestResponseDto({
       ...toServiceRequestResponseProperties(serviceRequest),
-      conversationId: serviceRequest.contract?.conversation?.id ?? null,
       photos,
     });
   }
@@ -506,7 +505,11 @@ function validatePhoto(file: UploadedPhoto | undefined): {
 function toServiceRequestResponseProperties(
   serviceRequest: Prisma.ServiceRequestGetPayload<{
     select: typeof SERVICE_REQUEST_RESPONSE_SELECT;
-  }>,
+  }> & {
+    contract?: {
+      conversation: { id: string } | null;
+    } | null;
+  },
 ) {
   return {
     id: serviceRequest.id,
@@ -526,5 +529,6 @@ function toServiceRequestResponseProperties(
     },
     editableUntil: serviceRequest.editableUntil,
     createdAt: serviceRequest.createdAt,
+    conversationId: serviceRequest.contract?.conversation?.id ?? null,
   };
 }
