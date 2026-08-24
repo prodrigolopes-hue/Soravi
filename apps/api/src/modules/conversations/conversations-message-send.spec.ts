@@ -11,14 +11,16 @@ import { ConversationNotFoundException } from "./errors/conversation-not-found.e
 describe("ConversationsService.createMessage", () => {
   let service: ConversationsService;
   let prismaMock: {
-    conversation: { findFirst: jest.Mock };
+    conversation: { findFirst: jest.Mock; update: jest.Mock };
     message: { create: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prismaMock = {
-      conversation: { findFirst: jest.fn() },
+      conversation: { findFirst: jest.fn(), update: jest.fn() },
       message: { create: jest.fn() },
+      $transaction: jest.fn((callback) => callback(prismaMock)),
     };
 
     service = new ConversationsService(
@@ -214,6 +216,32 @@ describe("ConversationsService.createMessage", () => {
         }),
       }),
     );
+  });
+
+  it("atualiza Conversation.updatedAt ao enviar mensagem", async () => {
+    prismaMock.conversation.findFirst.mockResolvedValue({
+      id: "conversation-id",
+      status: ConversationStatus.ACTIVE,
+    });
+    prismaMock.message.create.mockResolvedValue({
+      id: "msg-6",
+      senderUserId: "customer-user-id",
+      content: "Nova mensagem",
+      status: MessageStatus.SENT,
+      sentAt: new Date("2026-08-20T09:25:00.000Z"),
+      editedAt: null,
+      deletedAt: null,
+    });
+
+    await service.createMessage("customer-user-id", "conversation-id", {
+      content: "Nova mensagem",
+    });
+
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function));
+    expect(prismaMock.conversation.update).toHaveBeenCalledWith({
+      where: { id: "conversation-id" },
+      data: { updatedAt: expect.any(Date) },
+    });
   });
 
   it("vazio dispara DTO validation", async () => {

@@ -10,6 +10,7 @@ import { MessageResponseDto } from "./dto/message-response.dto";
 
 describe("ConversationsController", () => {
   const serviceMock = {
+    findAll: jest.fn(),
     findOne: jest.fn(),
     createMessage: jest.fn(),
   };
@@ -129,5 +130,55 @@ describe("ConversationsController", () => {
     );
 
     expect(guards).toEqual([AccessTokenGuard]);
+  });
+
+  it("protege a listagem de conversas com autenticação", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      ConversationsController.prototype.findAll,
+    );
+
+    expect(guards).toEqual([AccessTokenGuard]);
+  });
+
+  it("encaminha o usuário autenticado e a paginação para a listagem de conversas", async () => {
+    const currentUser = {
+      id: "customer-user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+
+    const response = {
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    };
+
+    serviceMock.findAll.mockResolvedValue(response);
+
+    const result = await controller.findAll(currentUser, { page: 2, limit: 10 });
+
+    expect(serviceMock.findAll).toHaveBeenCalledWith(
+      currentUser.id,
+      2,
+      10,
+    );
+    expect(result).toBe(response);
+  });
+
+  it("aplica defaults de page e limit quando não informados", async () => {
+    const currentUser = {
+      id: "customer-user-id",
+      sessionId: "session-id",
+      roles: [Role.CUSTOMER],
+    };
+
+    serviceMock.findAll.mockResolvedValue({
+      items: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+
+    await controller.findAll(currentUser, {});
+
+    expect(serviceMock.findAll).toHaveBeenCalledWith(currentUser.id, 1, 20);
   });
 });

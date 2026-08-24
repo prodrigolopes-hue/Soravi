@@ -15,6 +15,8 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
+import { ConversationsListQueryDto } from "./dto/conversations-list-query.dto";
+import { ConversationsListResponseDto } from "./dto/conversations-list-response.dto";
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
@@ -28,6 +30,19 @@ export class ConversationsController {
     private readonly conversationsService: ConversationsService,
     private readonly conversationsGateway: ConversationsGateway,
   ) {}
+
+  @Get()
+  @UseGuards(AccessTokenGuard)
+  findAll(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Query() query: ConversationsListQueryDto,
+  ): Promise<ConversationsListResponseDto> {
+    return this.conversationsService.findAll(
+      currentUser.id,
+      query.page ?? 1,
+      query.limit ?? 20,
+    );
+  }
 
   @Get(":conversationId")
   @UseGuards(AccessTokenGuard)

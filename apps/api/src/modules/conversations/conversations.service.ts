@@ -11,6 +11,10 @@ import {
   Prisma,
 } from "../../generated/prisma/client";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
+import {
+  ConversationListItemProperties,
+  ConversationsListResponseDto,
+} from "./dto/conversations-list-response.dto";
 import { CreateMessageDto } from "./dto/create-message.dto";
 import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
@@ -68,6 +72,103 @@ const MESSAGE_ITEM_SELECT = {
 @Injectable()
 export class ConversationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(
+    userId: string,
+    page: number,
+    limit: number,
+  ): Promise<ConversationsListResponseDto> {
+    const where: Prisma.ConversationWhereInput = {
+      contract: {
+        OR: [
+          {
+            customerProfile: {
+              userId,
+            },
+          },
+          {
+            professionalProfile: {
+              userId,
+            },
+          },
+        ],
+      },
+    };
+
+    const [total, conversations] = await this.prisma.$transaction([
+      this.prisma.conversation.count({ where }),
+      this.prisma.conversation.findMany({
+        where,
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          status: true,
+          updatedAt: true,
+          contract: {
+            select: {
+              status: true,
+              serviceRequest: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+            select: {
+              id: true,
+              senderUserId: true,
+              content: true,
+              status: true,
+              sentAt: true,
+            },
+          },
+          readStates: {
+            where: { userId },
+            select: {
+              lastReadMessageId: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: ConversationListItemProperties[] = conversations.map(
+      (conversation) => {
+        const lastMessage = conversation.messages[0] ?? null;
+        const readState = conversation.readStates[0] ?? null;
+
+        return {
+          id: conversation.id,
+          status: conversation.status,
+          updatedAt: conversation.updatedAt,
+          serviceRequest: conversation.contract.serviceRequest,
+          contract: { status: conversation.contract.status },
+          lastMessage,
+          hasUnread: this.computeHasUnread(userId, lastMessage, readState),
+        };
+      },
+    );
+
+    return new ConversationsListResponseDto(items, page, limit, total);
+  }
+
+  private computeHasUnread(
+    userId: string,
+    lastMessage: { senderUserId: string; id: string } | null,
+    readState: { lastReadMessageId: string | null } | null,
+  ): boolean {
+    if (!lastMessage || lastMessage.senderUserId === userId) {
+      return false;
+    }
+
+    return readState?.lastReadMessageId !== lastMessage.id;
+  }
 
   async findOne(
     userId: string,
@@ -264,17 +365,26 @@ export class ConversationsService {
       });
     }
 
-    const createdMessage = await this.prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderUserId: userId,
-        content: input.content.trim(),
-        status: MessageStatus.SENT,
-        sentAt: new Date(),
-        editedAt: null,
-        deletedAt: null,
-      },
-      select: MESSAGE_ITEM_SELECT,
+    const createdMessage = await this.prisma.$transaction(async (transaction) => {
+      const message = await transaction.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderUserId: userId,
+          content: input.content.trim(),
+          status: MessageStatus.SENT,
+          sentAt: new Date(),
+          editedAt: null,
+          deletedAt: null,
+        },
+        select: MESSAGE_ITEM_SELECT,
+      });
+
+      await transaction.conversation.update({
+        where: { id: conversation.id },
+        data: { updatedAt: new Date() },
+      });
+
+      return message;
     });
 
     return new MessageResponseDto(createdMessage);
