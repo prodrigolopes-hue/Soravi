@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Bell,
   Check,
   ChevronLeft,
@@ -9,6 +10,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -27,6 +29,7 @@ const PAGE_SIZE = 20;
 type RequestState = "idle" | "loading" | "success" | "empty" | "error";
 
 export function NotificationsPage() {
+  const router = useRouter();
   const { accessToken, isAuthenticated, isLoading } = useAuth();
   const [page, setPage] = useState(1);
   const [response, setResponse] =
@@ -94,9 +97,9 @@ export function NotificationsPage() {
     void loadNotifications(page);
   }, [accessToken, isAuthenticated, isLoading, loadNotifications, page]);
 
-  async function markAsRead(notification: NotificationListItem): Promise<void> {
+  async function markAsRead(notification: NotificationListItem): Promise<boolean> {
     if (!accessToken || notification.readAt !== null) {
-      return;
+      return notification.readAt !== null;
     }
 
     setMarkingNotificationId(notification.id);
@@ -111,7 +114,7 @@ export function NotificationsPage() {
 
       if (httpResponse.status !== 204) {
         setReadErrorId(notification.id);
-        return;
+        return false;
       }
 
       const readAt = new Date().toISOString();
@@ -127,11 +130,28 @@ export function NotificationsPage() {
           : currentResponse,
       );
       window.dispatchEvent(new Event(notificationsUpdatedEventName));
+      return true;
     } catch {
       setReadErrorId(notification.id);
+      return false;
     } finally {
       setMarkingNotificationId(null);
     }
+  }
+
+  async function openNotification(
+    notification: NotificationListItem,
+  ): Promise<void> {
+    if (!notification.href) {
+      await markAsRead(notification);
+      return;
+    }
+
+    if (notification.readAt === null) {
+      await markAsRead(notification);
+    }
+
+    router.push(notification.href);
   }
 
   if (isLoading) {
@@ -244,22 +264,29 @@ export function NotificationsPage() {
                           </time>
                         </div>
 
-                        {isUnread ? (
+                        {notification.href !== null || isUnread ? (
                           <button
                             type="button"
                             disabled={isMarking}
                             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-                            onClick={() => void markAsRead(notification)}
+                            onClick={() => void openNotification(notification)}
                           >
                             {isMarking ? (
                               <Loader2
                                 aria-hidden="true"
                                 className="size-4 animate-spin"
                               />
+                            ) : notification.href !== null ? (
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="size-4"
+                              />
                             ) : (
                               <Check aria-hidden="true" className="size-4" />
                             )}
-                            Marcar como lida
+                            {notification.href !== null
+                              ? notificationActionLabel(notification.type)
+                              : "Marcar como lida"}
                           </button>
                         ) : null}
                       </div>
@@ -316,6 +343,12 @@ export function NotificationsPage() {
 
 function notificationTypeLabel(type: NotificationType): string {
   return type === "OPPORTUNITY_CREATED" ? "Oportunidade" : "Proposta";
+}
+
+function notificationActionLabel(type: NotificationType): string {
+  return type === "OPPORTUNITY_CREATED"
+    ? "Ver oportunidade"
+    : "Ver proposta";
 }
 
 function formatDateTime(value: string): string {

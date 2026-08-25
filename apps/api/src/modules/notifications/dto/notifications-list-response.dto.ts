@@ -7,6 +7,7 @@ export interface NotificationListItemProperties {
   message: string;
   resourceType: string;
   resourceId: string;
+  href: string | null;
   readAt: Date | null;
   createdAt: Date;
 }
@@ -18,6 +19,7 @@ export class NotificationListItemResponseDto {
   message!: string;
   resourceType!: string;
   resourceId!: string;
+  href!: string | null;
   readAt!: Date | null;
   createdAt!: Date;
 
@@ -28,6 +30,7 @@ export class NotificationListItemResponseDto {
     this.message = properties.message;
     this.resourceType = properties.resourceType;
     this.resourceId = properties.resourceId;
+    this.href = properties.href;
     this.readAt = properties.readAt;
     this.createdAt = properties.createdAt;
   }

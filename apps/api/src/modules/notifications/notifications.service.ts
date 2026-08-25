@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
+import { NotificationType, Prisma } from "../../generated/prisma/client";
 import {
   NotificationListItemProperties,
   NotificationsListResponseDto,
@@ -44,8 +44,79 @@ export class NotificationsService {
       }),
     ]);
 
+    const opportunityIds = notifications
+      .filter(
+        (notification) =>
+          notification.type === NotificationType.OPPORTUNITY_CREATED &&
+          notification.resourceType === "SERVICE_OPPORTUNITY",
+      )
+      .map((notification) => notification.resourceId);
+    const proposalIds = notifications
+      .filter(
+        (notification) =>
+          notification.type === NotificationType.PROPOSAL_CREATED &&
+          notification.resourceType === "PROPOSAL",
+      )
+      .map((notification) => notification.resourceId);
+
+    const [opportunities, proposals] = await Promise.all([
+      this.prisma.serviceOpportunity.findMany({
+        where: {
+          id: { in: opportunityIds },
+          professionalProfile: { userId },
+        },
+        select: { id: true },
+      }),
+      this.prisma.proposal.findMany({
+        where: {
+          id: { in: proposalIds },
+          serviceRequest: {
+            deletedAt: null,
+            customerProfile: { userId },
+          },
+        },
+        select: { id: true, serviceRequestId: true },
+      }),
+    ]);
+    const opportunityIdsWithAccess = new Set(
+      opportunities.map((opportunity) => opportunity.id),
+    );
+    const proposalServiceRequestIds = new Map<string, string>();
+
+    for (const proposal of proposals) {
+      proposalServiceRequestIds.set(proposal.id, proposal.serviceRequestId);
+    }
+    const items: NotificationListItemProperties[] = notifications.map(
+      (notification) => {
+        let href: string | null = null;
+
+        if (
+          notification.type === NotificationType.OPPORTUNITY_CREATED &&
+          notification.resourceType === "SERVICE_OPPORTUNITY" &&
+          opportunityIdsWithAccess.has(notification.resourceId)
+        ) {
+          href = `/profissional/oportunidades/${notification.resourceId}`;
+        }
+
+        if (
+          notification.type === NotificationType.PROPOSAL_CREATED &&
+          notification.resourceType === "PROPOSAL"
+        ) {
+          const serviceRequestId = proposalServiceRequestIds.get(
+            notification.resourceId,
+          );
+
+          if (serviceRequestId) {
+            href = `/solicitacoes/${serviceRequestId}`;
+          }
+        }
+
+        return { ...notification, href };
+      },
+    );
+
     return new NotificationsListResponseDto(
-      notifications as NotificationListItemProperties[],
+      items,
       page,
       limit,
       total,

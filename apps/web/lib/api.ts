@@ -34,6 +34,7 @@ export interface NotificationListItem {
   message: string;
   resourceType: string;
   resourceId: string;
+  href: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -143,6 +144,7 @@ function parseNotificationListItem(
     typeof value.message !== "string" ||
     typeof value.resourceType !== "string" ||
     typeof value.resourceId !== "string" ||
+    (typeof value.href !== "string" && value.href !== null) ||
     (typeof value.readAt !== "string" && value.readAt !== null) ||
     typeof value.createdAt !== "string"
   ) {
@@ -156,6 +158,7 @@ function parseNotificationListItem(
     message: value.message,
     resourceType: value.resourceType,
     resourceId: value.resourceId,
+    href: value.href,
     readAt: value.readAt,
     createdAt: value.createdAt,
   };

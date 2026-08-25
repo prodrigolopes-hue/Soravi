@@ -17,6 +17,8 @@ describe("NotificationsService", () => {
       findFirst: jest.Mock;
       updateMany: jest.Mock;
     };
+    serviceOpportunity: { findMany: jest.Mock };
+    proposal: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -27,6 +29,14 @@ describe("NotificationsService", () => {
         findMany: jest.fn().mockResolvedValue([createNotification()]),
         findFirst: jest.fn().mockResolvedValue({ id: notificationId, readAt: null }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      serviceOpportunity: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: "725afb87-2b81-4de7-9606-8f382fff3341" },
+        ]),
+      },
+      proposal: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(),
     };
@@ -109,6 +119,76 @@ describe("NotificationsService", () => {
     expect(result.items[0]).not.toHaveProperty("userId");
   });
 
+  it("retorna href da oportunidade pertencente ao profissional", async () => {
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(prismaMock.serviceOpportunity.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["725afb87-2b81-4de7-9606-8f382fff3341"] },
+        professionalProfile: { userId },
+      },
+      select: { id: true },
+    });
+    expect(result.items[0]?.href).toBe(
+      "/profissional/oportunidades/725afb87-2b81-4de7-9606-8f382fff3341",
+    );
+  });
+
+  it("resolve a proposta para retornar o href da solicitação do cliente", async () => {
+    const proposalId = "825afb87-2b81-4de7-9606-8f382fff3341";
+    const serviceRequestId = "925afb87-2b81-4de7-9606-8f382fff3341";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.PROPOSAL_CREATED,
+        resourceType: "PROPOSAL",
+        resourceId: proposalId,
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.proposal.findMany.mockResolvedValue([
+      { id: proposalId, serviceRequestId },
+    ]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(prismaMock.proposal.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: [proposalId] },
+        serviceRequest: {
+          deletedAt: null,
+          customerProfile: { userId },
+        },
+      },
+      select: { id: true, serviceRequestId: true },
+    });
+    expect(result.items[0]?.href).toBe(`/solicitacoes/${serviceRequestId}`);
+  });
+
+  it("retorna href null quando o recurso relacionado não existe", async () => {
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]?.href).toBeNull();
+  });
+
+  it("não expõe dados privados extras ao adicionar href", async () => {
+    prismaMock.notification.findMany.mockResolvedValue([
+      {
+        ...createNotification(),
+        userId,
+        professionalProfileId: "professional-profile-id",
+        customerProfileId: "customer-profile-id",
+      },
+    ]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]).not.toHaveProperty("userId");
+    expect(result.items[0]).not.toHaveProperty("professionalProfileId");
+    expect(result.items[0]).not.toHaveProperty("customerProfileId");
+  });
+
   it("permite que o owner marque a notificação como lida", async () => {
     const before = Date.now();
 
@@ -162,7 +242,7 @@ describe("NotificationsService", () => {
   });
 });
 
-function createNotification() {
+function createNotification(overrides: Record<string, unknown> = {}) {
   return {
     id: "625afb87-2b81-4de7-9606-8f382fff3341",
     type: NotificationType.OPPORTUNITY_CREATED,
@@ -172,5 +252,6 @@ function createNotification() {
     resourceId: "725afb87-2b81-4de7-9606-8f382fff3341",
     readAt: null,
     createdAt: new Date("2026-08-24T10:00:00.000Z"),
+    ...overrides,
   };
 }
