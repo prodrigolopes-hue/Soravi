@@ -3,6 +3,7 @@ import "reflect-metadata";
 import { PrismaService } from "../../database/prisma.service";
 import {
   EstimatedDurationUnit,
+  NotificationType,
   Prisma,
   ProfessionalVerificationStatus,
   ProposalStatus,
@@ -21,6 +22,7 @@ import { ProposalsService } from "./proposals.service";
 describe("ProposalsService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const customerProfileId = "425afb87-2b81-4de7-9606-8f382fff3341";
+  const customerUserId = "325afb87-2b81-4de7-9606-8f382fff3341";
   const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
   const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
 
@@ -30,6 +32,7 @@ describe("ProposalsService", () => {
     serviceRequest: { findFirst: jest.Mock; update: jest.Mock };
     serviceOpportunity: { findUnique: jest.Mock };
     proposal: { findUnique: jest.Mock; create: jest.Mock };
+    notification: { upsert: jest.Mock };
   };
   let prismaMock: {
     customerProfile: { findUnique: jest.Mock };
@@ -46,7 +49,10 @@ describe("ProposalsService", () => {
       serviceRequest: {
         findFirst: jest
           .fn()
-          .mockResolvedValue({ status: ServiceRequestStatus.OPEN }),
+          .mockResolvedValue({
+            status: ServiceRequestStatus.OPEN,
+            customerProfile: { userId: customerUserId },
+          }),
         update: jest.fn().mockResolvedValue({}),
       },
       serviceOpportunity: {
@@ -55,6 +61,9 @@ describe("ProposalsService", () => {
       proposal: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(createProposal()),
+      },
+      notification: {
+        upsert: jest.fn().mockResolvedValue({}),
       },
     };
     prismaMock = {
@@ -212,6 +221,15 @@ describe("ProposalsService", () => {
       },
       select: { id: true },
     });
+    expect(transactionMock.serviceRequest.findFirst).toHaveBeenCalledWith({
+      where: { id: serviceRequestId, deletedAt: null },
+      select: {
+        status: true,
+        customerProfile: {
+          select: { userId: true },
+        },
+      },
+    });
     expect(transactionMock.proposal.create).toHaveBeenCalledWith({
       data: {
         serviceRequestId,
@@ -231,16 +249,47 @@ describe("ProposalsService", () => {
     expect(result.status).toBe(ProposalStatus.ACTIVE);
   });
 
+  it("cria notificação idempotente para o cliente proprietário da solicitação", async () => {
+    await service.create(userId, serviceRequestId, createDto());
+
+    expect(transactionMock.notification.upsert).toHaveBeenCalledWith({
+      where: {
+        userId_type_resourceType_resourceId: {
+          userId: customerUserId,
+          type: NotificationType.PROPOSAL_CREATED,
+          resourceType: "PROPOSAL",
+          resourceId: "proposal-id",
+        },
+      },
+      update: {},
+      create: {
+        userId: customerUserId,
+        type: NotificationType.PROPOSAL_CREATED,
+        title: "Nova proposta recebida",
+        message: "Você recebeu uma nova proposta para sua solicitação.",
+        resourceType: "PROPOSAL",
+        resourceId: "proposal-id",
+      },
+    });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      transactionMock.proposal.create.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      transactionMock.notification.upsert.mock.invocationCallOrder[0],
+    );
+  });
+
   it("altera OPEN para RECEIVING_PROPOSALS depois de criar", async () => {
     await service.create(userId, serviceRequestId, createDto());
 
     expect(transactionMock.proposal.create).toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).toHaveBeenCalledWith({
       where: { id: serviceRequestId },
       data: { status: ServiceRequestStatus.RECEIVING_PROPOSALS },
     });
     expect(
-      transactionMock.proposal.create.mock.invocationCallOrder[0],
+      transactionMock.notification.upsert.mock.invocationCallOrder[0],
     ).toBeLessThan(
       transactionMock.serviceRequest.update.mock.invocationCallOrder[0],
     );
@@ -249,6 +298,7 @@ describe("ProposalsService", () => {
   it("mantém RECEIVING_PROPOSALS sem atualizar a solicitação", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
       status: ServiceRequestStatus.RECEIVING_PROPOSALS,
+      customerProfile: { userId: customerUserId },
     });
 
     await service.create(userId, serviceRequestId, createDto());
@@ -265,6 +315,7 @@ describe("ProposalsService", () => {
     ).rejects.toBeInstanceOf(ProposalCreationUnavailableException);
 
     expect(transactionMock.proposal.create).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
   });
 
   it("bloqueia perfil não aprovado pela consulta de elegibilidade", async () => {
@@ -344,6 +395,7 @@ describe("ProposalsService", () => {
     ).rejects.toThrow("Falha ao criar proposta");
 
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
   });
 
   it("não expõe professionalProfileId na resposta", async () => {
@@ -351,6 +403,11 @@ describe("ProposalsService", () => {
 
     expect(result).toEqual(createProposal());
     expect(result).not.toHaveProperty("professionalProfileId");
+    expect(result).not.toHaveProperty("customerProfile");
+    expect(result).not.toHaveProperty("userId");
+    expect(result).not.toHaveProperty("email");
+    expect(result).not.toHaveProperty("phone");
+    expect(result).not.toHaveProperty("address");
   });
 });
 

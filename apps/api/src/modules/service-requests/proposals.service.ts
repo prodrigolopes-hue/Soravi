@@ -8,6 +8,7 @@ import {
   ServiceRequestStatus,
   ContractStatus,
   ConversationStatus,
+  NotificationType,
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
 import {
@@ -140,7 +141,12 @@ export class ProposalsService {
 
         const serviceRequest = await transaction.serviceRequest.findFirst({
           where: { id: serviceRequestId, deletedAt: null },
-          select: { status: true },
+          select: {
+            status: true,
+            customerProfile: {
+              select: { userId: true },
+            },
+          },
         });
 
         if (!serviceRequest) {
@@ -197,6 +203,26 @@ export class ProposalsService {
             expiredAt: null,
           },
           select: PROPOSAL_RESPONSE_SELECT,
+        });
+
+        await transaction.notification.upsert({
+          where: {
+            userId_type_resourceType_resourceId: {
+              userId: serviceRequest.customerProfile.userId,
+              type: NotificationType.PROPOSAL_CREATED,
+              resourceType: "PROPOSAL",
+              resourceId: createdProposal.id,
+            },
+          },
+          update: {},
+          create: {
+            userId: serviceRequest.customerProfile.userId,
+            type: NotificationType.PROPOSAL_CREATED,
+            title: "Nova proposta recebida",
+            message: "Você recebeu uma nova proposta para sua solicitação.",
+            resourceType: "PROPOSAL",
+            resourceId: createdProposal.id,
+          },
         });
 
         if (serviceRequest.status === ServiceRequestStatus.OPEN) {
