@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
+  NotificationType,
   Prisma,
   ProfessionalVerificationStatus,
   ServiceRequestStatus,
@@ -64,24 +65,61 @@ export class ServiceOpportunityDistributionService {
             some: { categoryId: serviceRequest.categoryId },
           },
         },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
 
       if (professionals.length === 0) {
         return NOT_DISPATCHED;
       }
 
-      const created = await transaction.serviceOpportunity.createMany({
-        data: professionals.map((professional) => ({
-          serviceRequestId,
-          professionalProfileId: professional.id,
-        })),
-        skipDuplicates: true,
-      });
+      const professionalUserIds = new Map<string, string>();
 
-      if (created.count === 0) {
+      for (const professional of professionals) {
+        professionalUserIds.set(professional.id, professional.userId);
+      }
+
+      const createdOpportunities =
+        await transaction.serviceOpportunity.createManyAndReturn({
+          data: professionals.map((professional) => ({
+            serviceRequestId,
+            professionalProfileId: professional.id,
+          })),
+          skipDuplicates: true,
+          select: {
+            id: true,
+            professionalProfileId: true,
+          },
+        });
+
+      if (createdOpportunities.length === 0) {
         return NOT_DISPATCHED;
       }
+
+      const notifications = createdOpportunities.map((opportunity) => {
+        const professionalUserId = professionalUserIds.get(
+          opportunity.professionalProfileId,
+        );
+
+        if (!professionalUserId) {
+          throw new Error(
+            "Profissional da oportunidade criada não encontrado na distribuição.",
+          );
+        }
+
+        return {
+          userId: professionalUserId,
+          type: NotificationType.OPPORTUNITY_CREATED,
+          title: "Nova oportunidade",
+          message: "Uma nova oportunidade está disponível.",
+          resourceType: "SERVICE_OPPORTUNITY",
+          resourceId: opportunity.id,
+        };
+      });
+
+      await transaction.notification.createMany({
+        data: notifications,
+        skipDuplicates: true,
+      });
 
       await transaction.serviceRequest.update({
         where: { id: serviceRequestId },
@@ -90,7 +128,7 @@ export class ServiceOpportunityDistributionService {
 
       return {
         dispatched: true,
-        opportunitiesCreated: created.count,
+        opportunitiesCreated: createdOpportunities.length,
       };
     });
   }

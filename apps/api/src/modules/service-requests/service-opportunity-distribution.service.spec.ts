@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
+  NotificationType,
   ProfessionalVerificationStatus,
   ServiceRequestStatus,
 } from "../../generated/prisma/client";
@@ -17,6 +18,9 @@ interface TransactionClientMock {
     findMany: jest.Mock;
   };
   serviceOpportunity: {
+    createManyAndReturn: jest.Mock;
+  };
+  notification: {
     createMany: jest.Mock;
   };
 }
@@ -24,6 +28,12 @@ interface TransactionClientMock {
 describe("ServiceOpportunityDistributionService", () => {
   const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
   const categoryId = "825afb87-2b81-4de7-9606-8f382fff3341";
+  const firstProfessionalProfileId = "925afb87-2b81-4de7-9606-8f382fff3341";
+  const secondProfessionalProfileId = "a25afb87-2b81-4de7-9606-8f382fff3341";
+  const firstProfessionalUserId = "b25afb87-2b81-4de7-9606-8f382fff3341";
+  const secondProfessionalUserId = "c25afb87-2b81-4de7-9606-8f382fff3341";
+  const firstOpportunityId = "d25afb87-2b81-4de7-9606-8f382fff3341";
+  const secondOpportunityId = "e25afb87-2b81-4de7-9606-8f382fff3341";
 
   let service: ServiceOpportunityDistributionService;
   let prismaMock: { $transaction: jest.Mock };
@@ -40,11 +50,29 @@ describe("ServiceOpportunityDistributionService", () => {
         findMany: jest
           .fn()
           .mockResolvedValue([
-            { id: "925afb87-2b81-4de7-9606-8f382fff3341" },
-            { id: "a25afb87-2b81-4de7-9606-8f382fff3341" },
+            {
+              id: firstProfessionalProfileId,
+              userId: firstProfessionalUserId,
+            },
+            {
+              id: secondProfessionalProfileId,
+              userId: secondProfessionalUserId,
+            },
           ]),
       },
       serviceOpportunity: {
+        createManyAndReturn: jest.fn().mockResolvedValue([
+          {
+            id: firstOpportunityId,
+            professionalProfileId: firstProfessionalProfileId,
+          },
+          {
+            id: secondOpportunityId,
+            professionalProfileId: secondProfessionalProfileId,
+          },
+        ]),
+      },
+      notification: {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
@@ -110,7 +138,7 @@ describe("ServiceOpportunityDistributionService", () => {
     });
     expect(transactionMock.professionalProfile.findMany).not.toHaveBeenCalled();
     expect(
-      transactionMock.serviceOpportunity.createMany,
+      transactionMock.serviceOpportunity.createManyAndReturn,
     ).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
@@ -139,7 +167,7 @@ describe("ServiceOpportunityDistributionService", () => {
           some: { categoryId },
         },
       },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
   });
 
@@ -153,7 +181,7 @@ describe("ServiceOpportunityDistributionService", () => {
       opportunitiesCreated: 0,
     });
     expect(
-      transactionMock.serviceOpportunity.createMany,
+      transactionMock.serviceOpportunity.createManyAndReturn,
     ).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
@@ -161,15 +189,42 @@ describe("ServiceOpportunityDistributionService", () => {
   it("cria oportunidades idempotentes e marca o instante da distribuição", async () => {
     const result = await service.distribute(serviceRequestId);
 
-    expect(transactionMock.serviceOpportunity.createMany).toHaveBeenCalledWith({
+    expect(
+      transactionMock.serviceOpportunity.createManyAndReturn,
+    ).toHaveBeenCalledWith({
       data: [
         {
           serviceRequestId,
-          professionalProfileId: "925afb87-2b81-4de7-9606-8f382fff3341",
+          professionalProfileId: firstProfessionalProfileId,
         },
         {
           serviceRequestId,
-          professionalProfileId: "a25afb87-2b81-4de7-9606-8f382fff3341",
+          professionalProfileId: secondProfessionalProfileId,
+        },
+      ],
+      skipDuplicates: true,
+      select: {
+        id: true,
+        professionalProfileId: true,
+      },
+    });
+    expect(transactionMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          userId: firstProfessionalUserId,
+          type: NotificationType.OPPORTUNITY_CREATED,
+          title: "Nova oportunidade",
+          message: "Uma nova oportunidade está disponível.",
+          resourceType: "SERVICE_OPPORTUNITY",
+          resourceId: firstOpportunityId,
+        },
+        {
+          userId: secondProfessionalUserId,
+          type: NotificationType.OPPORTUNITY_CREATED,
+          title: "Nova oportunidade",
+          message: "Uma nova oportunidade está disponível.",
+          resourceType: "SERVICE_OPPORTUNITY",
+          resourceId: secondOpportunityId,
         },
       ],
       skipDuplicates: true,
@@ -185,9 +240,7 @@ describe("ServiceOpportunityDistributionService", () => {
   });
 
   it("não marca como distribuída quando nenhuma oportunidade nova é criada", async () => {
-    transactionMock.serviceOpportunity.createMany.mockResolvedValue({
-      count: 0,
-    });
+    transactionMock.serviceOpportunity.createManyAndReturn.mockResolvedValue([]);
 
     const result = await service.distribute(serviceRequestId);
 
@@ -195,7 +248,37 @@ describe("ServiceOpportunityDistributionService", () => {
       dispatched: false,
       opportunitiesCreated: 0,
     });
+    expect(transactionMock.notification.createMany).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("não notifica profissional cuja oportunidade foi ignorada por duplicidade", async () => {
+    transactionMock.serviceOpportunity.createManyAndReturn.mockResolvedValue([
+      {
+        id: firstOpportunityId,
+        professionalProfileId: firstProfessionalProfileId,
+      },
+    ]);
+
+    const result = await service.distribute(serviceRequestId);
+
+    expect(transactionMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          userId: firstProfessionalUserId,
+          resourceId: firstOpportunityId,
+        }),
+      ],
+      skipDuplicates: true,
+    });
+    expect(transactionMock.notification.createMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({ userId: secondProfessionalUserId }),
+        ]),
+      }),
+    );
+    expect(result.opportunitiesCreated).toBe(1);
   });
 
   it("a segunda chamada não duplica oportunidades", async () => {
@@ -214,14 +297,15 @@ describe("ServiceOpportunityDistributionService", () => {
       dispatched: false,
       opportunitiesCreated: 0,
     });
-    expect(transactionMock.serviceOpportunity.createMany).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      transactionMock.serviceOpportunity.createManyAndReturn,
+    ).toHaveBeenCalledTimes(1);
+    expect(transactionMock.notification.createMany).toHaveBeenCalledTimes(1);
     expect(transactionMock.serviceRequest.update).toHaveBeenCalledTimes(1);
   });
 
   it("não marca dispatchedAt quando a criação de oportunidades falha", async () => {
-    transactionMock.serviceOpportunity.createMany.mockRejectedValue(
+    transactionMock.serviceOpportunity.createManyAndReturn.mockRejectedValue(
       new Error("database unavailable"),
     );
 
@@ -229,30 +313,57 @@ describe("ServiceOpportunityDistributionService", () => {
       "database unavailable",
     );
 
+    expect(transactionMock.notification.createMany).not.toHaveBeenCalled();
+    expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("não marca dispatchedAt quando a criação de notificações falha", async () => {
+    transactionMock.notification.createMany.mockRejectedValue(
+      new Error("notification unavailable"),
+    );
+
+    await expect(service.distribute(serviceRequestId)).rejects.toThrow(
+      "notification unavailable",
+    );
+
+    expect(
+      transactionMock.serviceOpportunity.createManyAndReturn,
+    ).toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
   it("mantém lock, criação e atualização na mesma transação e na ordem correta", async () => {
     await service.distribute(serviceRequestId);
 
-    expect(transactionMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
-      transactionMock.serviceRequest.findFirst.mock.invocationCallOrder[0]!,
+    const lockOrder = firstCallOrder(transactionMock.$queryRaw);
+    const validationOrder = firstCallOrder(
+      transactionMock.serviceRequest.findFirst,
     );
-    expect(
-      transactionMock.serviceRequest.findFirst.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      transactionMock.professionalProfile.findMany.mock.invocationCallOrder[0]!,
+    const professionalsOrder = firstCallOrder(
+      transactionMock.professionalProfile.findMany,
     );
-    expect(
-      transactionMock.professionalProfile.findMany.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      transactionMock.serviceOpportunity.createMany.mock
-        .invocationCallOrder[0]!,
+    const opportunitiesOrder = firstCallOrder(
+      transactionMock.serviceOpportunity.createManyAndReturn,
     );
-    expect(
-      transactionMock.serviceOpportunity.createMany.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      transactionMock.serviceRequest.update.mock.invocationCallOrder[0]!,
+    const notificationsOrder = firstCallOrder(
+      transactionMock.notification.createMany,
     );
+    const updateOrder = firstCallOrder(transactionMock.serviceRequest.update);
+
+    expect(lockOrder).toBeLessThan(validationOrder);
+    expect(validationOrder).toBeLessThan(professionalsOrder);
+    expect(professionalsOrder).toBeLessThan(opportunitiesOrder);
+    expect(opportunitiesOrder).toBeLessThan(notificationsOrder);
+    expect(notificationsOrder).toBeLessThan(updateOrder);
   });
 });
+
+function firstCallOrder(mock: jest.Mock): number {
+  const order = mock.mock.invocationCallOrder[0];
+
+  if (order === undefined) {
+    throw new Error("A chamada esperada não foi realizada.");
+  }
+
+  return order;
+}
