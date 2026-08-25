@@ -25,7 +25,8 @@ export const notificationsUpdatedEventName = "notifications-updated";
 
 export type NotificationType =
   | "OPPORTUNITY_CREATED"
-  | "PROPOSAL_CREATED";
+  | "PROPOSAL_CREATED"
+  | "MESSAGE_CREATED";
 
 export interface NotificationListItem {
   id: string;
@@ -165,7 +166,11 @@ function parseNotificationListItem(
 }
 
 function isNotificationType(value: unknown): value is NotificationType {
-  return value === "OPPORTUNITY_CREATED" || value === "PROPOSAL_CREATED";
+  return (
+    value === "OPPORTUNITY_CREATED" ||
+    value === "PROPOSAL_CREATED" ||
+    value === "MESSAGE_CREATED"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

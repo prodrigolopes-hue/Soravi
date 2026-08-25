@@ -342,13 +342,19 @@ export function NotificationsPage() {
 }
 
 function notificationTypeLabel(type: NotificationType): string {
-  return type === "OPPORTUNITY_CREATED" ? "Oportunidade" : "Proposta";
+  if (type === "OPPORTUNITY_CREATED") {
+    return "Oportunidade";
+  }
+
+  return type === "PROPOSAL_CREATED" ? "Proposta" : "Mensagem";
 }
 
 function notificationActionLabel(type: NotificationType): string {
-  return type === "OPPORTUNITY_CREATED"
-    ? "Ver oportunidade"
-    : "Ver proposta";
+  if (type === "OPPORTUNITY_CREATED") {
+    return "Ver oportunidade";
+  }
+
+  return type === "PROPOSAL_CREATED" ? "Ver proposta" : "Ver conversa";
 }
 
 function formatDateTime(value: string): string {
