@@ -19,6 +19,35 @@ export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 
 export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
 
+export const notificationsUrl = `${normalizedApiBaseUrl}/api/v1/notifications`;
+
+export const notificationsUpdatedEventName = "notifications-updated";
+
+export type NotificationType =
+  | "OPPORTUNITY_CREATED"
+  | "PROPOSAL_CREATED";
+
+export interface NotificationListItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  resourceType: string;
+  resourceId: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationsListResponse {
+  items: NotificationListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export type ConversationStatus = "ACTIVE" | "CLOSED" | "BLOCKED";
 
 export interface ConversationListItem {
@@ -54,6 +83,98 @@ export interface ConversationsListResponse {
 
 export function conversationsListUrl(page: number, limit: number): string {
   return `${conversationsUrl}?page=${encodeURIComponent(String(page))}&limit=${encodeURIComponent(String(limit))}`;
+}
+
+export function notificationsListUrl(page: number, limit: number): string {
+  return `${notificationsUrl}?page=${encodeURIComponent(String(page))}&limit=${encodeURIComponent(String(limit))}`;
+}
+
+export function notificationReadUrl(notificationId: string): string {
+  return `${notificationsUrl}/${encodeURIComponent(notificationId)}/read`;
+}
+
+export function parseNotificationsListResponse(
+  payload: unknown,
+): NotificationsListResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const root = isRecord(payload.data) ? payload.data : payload;
+
+  if (!Array.isArray(root.items) || !isRecord(root.pagination)) {
+    return null;
+  }
+
+  const items: NotificationListItem[] = [];
+
+  for (const value of root.items) {
+    const item = parseNotificationListItem(value);
+
+    if (!item) {
+      return null;
+    }
+
+    items.push(item);
+  }
+
+  const { page, limit, total, totalPages } = root.pagination;
+
+  if (
+    !isPositiveInteger(page) ||
+    !isPositiveInteger(limit) ||
+    !isNonNegativeInteger(total) ||
+    !isNonNegativeInteger(totalPages)
+  ) {
+    return null;
+  }
+
+  return { items, pagination: { page, limit, total, totalPages } };
+}
+
+function parseNotificationListItem(
+  value: unknown,
+): NotificationListItem | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    !isNotificationType(value.type) ||
+    typeof value.title !== "string" ||
+    typeof value.message !== "string" ||
+    typeof value.resourceType !== "string" ||
+    typeof value.resourceId !== "string" ||
+    (typeof value.readAt !== "string" && value.readAt !== null) ||
+    typeof value.createdAt !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    type: value.type,
+    title: value.title,
+    message: value.message,
+    resourceType: value.resourceType,
+    resourceId: value.resourceId,
+    readAt: value.readAt,
+    createdAt: value.createdAt,
+  };
+}
+
+function isNotificationType(value: unknown): value is NotificationType {
+  return value === "OPPORTUNITY_CREATED" || value === "PROPOSAL_CREATED";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 export function opportunityByIdUrl(opportunityId: string): string {

@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
 import { useAuth } from "../auth/auth-provider";
+import { NotificationBell } from "../notifications/notification-bell";
 
 const navigationItems = [
   {
@@ -86,6 +87,10 @@ export function HeaderAuthAction({
           </Link>
         ) : null}
 
+        {isCustomer || isProfessional ? (
+          <NotificationBell mobile onAction={onAction} />
+        ) : null}
+
         {isAdmin ? (
           <Link
             href="/admin"
@@ -135,6 +140,8 @@ export function HeaderAuthAction({
             Conversas
           </Link>
         ) : null}
+
+        {isCustomer || isProfessional ? <NotificationBell /> : null}
 
         {isAdmin ? (
           <Link
