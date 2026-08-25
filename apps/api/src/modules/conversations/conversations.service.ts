@@ -8,6 +8,7 @@ import { PrismaService } from "../../database/prisma.service";
 import {
   ConversationStatus,
   MessageStatus,
+  NotificationType,
   Prisma,
 } from "../../generated/prisma/client";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
@@ -348,6 +349,16 @@ export class ConversationsService {
       select: {
         id: true,
         status: true,
+        contract: {
+          select: {
+            customerProfile: {
+              select: { userId: true },
+            },
+            professionalProfile: {
+              select: { userId: true },
+            },
+          },
+        },
       },
     });
 
@@ -365,6 +376,12 @@ export class ConversationsService {
       });
     }
 
+    const customerUserId = conversation.contract.customerProfile.userId;
+    const professionalUserId =
+      conversation.contract.professionalProfile.userId;
+    const recipientUserId =
+      userId === customerUserId ? professionalUserId : customerUserId;
+
     const createdMessage = await this.prisma.$transaction(async (transaction) => {
       const message = await transaction.message.create({
         data: {
@@ -378,6 +395,28 @@ export class ConversationsService {
         },
         select: MESSAGE_ITEM_SELECT,
       });
+
+      if (recipientUserId !== userId) {
+        await transaction.notification.upsert({
+          where: {
+            userId_type_resourceType_resourceId: {
+              userId: recipientUserId,
+              type: NotificationType.MESSAGE_CREATED,
+              resourceType: "MESSAGE",
+              resourceId: message.id,
+            },
+          },
+          update: {},
+          create: {
+            userId: recipientUserId,
+            type: NotificationType.MESSAGE_CREATED,
+            title: "Nova mensagem",
+            message: "Você recebeu uma nova mensagem.",
+            resourceType: "MESSAGE",
+            resourceId: message.id,
+          },
+        });
+      }
 
       await transaction.conversation.update({
         where: { id: conversation.id },

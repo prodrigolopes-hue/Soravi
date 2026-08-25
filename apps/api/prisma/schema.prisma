@@ -112,6 +112,7 @@ enum MessageStatus {
 enum NotificationType {
   OPPORTUNITY_CREATED
   PROPOSAL_CREATED
+  MESSAGE_CREATED
 }
 
 model User {
