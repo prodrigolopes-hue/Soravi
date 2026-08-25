@@ -109,6 +109,11 @@ enum MessageStatus {
   REMOVED
 }
 
+enum NotificationType {
+  OPPORTUNITY_CREATED
+  PROPOSAL_CREATED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -138,6 +143,7 @@ model User {
   reviewedPublicCategorySuggestions PublicCategorySuggestion[] @relation("PublicCategorySuggestionReviewer")
   messages                          Message[]
   conversationReadStates            ConversationReadState[]
+  notifications                     Notification[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -447,6 +453,26 @@ model Message {
   @@index([conversationId, sentAt, id], map: "messages_conversation_sent_at_id_idx")
   @@index([senderUserId, sentAt], map: "messages_sender_sent_at_idx")
   @@map("messages")
+}
+
+model Notification {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  type         NotificationType
+  title        String           @db.VarChar(160)
+  message      String           @db.VarChar(500)
+  resourceType String           @map("resource_type") @db.VarChar(64)
+  resourceId   String           @map("resource_id") @db.Uuid
+  readAt       DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt    DateTime?        @map("deleted_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, type, resourceType, resourceId], map: "notifications_user_type_resource_key")
+  @@index([userId, readAt, createdAt], map: "notifications_user_read_at_created_at_idx")
+  @@index([userId, type, createdAt], map: "notifications_user_type_created_at_idx")
+  @@map("notifications")
 }
 
 model ConversationReadState {

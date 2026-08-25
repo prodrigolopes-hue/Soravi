@@ -12,6 +12,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { LaunchInterestsModule } from "./modules/launch-interests/launch-interests.module";
 import { CategorySuggestionsModule } from "./modules/category-suggestions/category-suggestions.module";
 import { ConversationsModule } from "./modules/conversations/conversations.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { ServiceRequestsModule } from "./modules/service-requests/service-requests.module";
 
 @Module({
@@ -31,6 +32,7 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
     LaunchInterestsModule,
     CategorySuggestionsModule,
     ConversationsModule,
+    NotificationsModule,
     ServiceRequestsModule,
   ],
   controllers: [HealthController],
