@@ -21,6 +21,10 @@ import { MarkConversationReadDto } from "./dto/mark-conversation-read.dto";
 import { MessageListResponseDto } from "./dto/message-list-response.dto";
 import { MessageResponseDto } from "./dto/message-response.dto";
 import { ConversationNotFoundException } from "./errors/conversation-not-found.exception";
+import {
+  getFirstName,
+  normalizeDisplayName,
+} from "../users/user-name.utils";
 
 const DEFAULT_MESSAGE_LIMIT = 30;
 const MAX_MESSAGE_LIMIT = 100;
@@ -42,11 +46,17 @@ const CONVERSATION_SELECT = {
       customerProfile: {
         select: {
           userId: true,
+          user: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
       professionalProfile: {
         select: {
           userId: true,
+          displayName: true,
         },
       },
       serviceRequest: {
@@ -203,6 +213,10 @@ export class ConversationsService {
     const contract = conversation.contract;
     const participantRole: "CUSTOMER" | "PROFESSIONAL" =
       contract.customerProfile.userId === userId ? "CUSTOMER" : "PROFESSIONAL";
+    const otherParticipantName =
+      participantRole === "CUSTOMER"
+        ? normalizeDisplayName(contract.professionalProfile.displayName)
+        : getFirstName(contract.customerProfile.user.name);
 
     return new ConversationResponseDto({
       id: conversation.id,
@@ -224,6 +238,7 @@ export class ConversationsService {
         status: contract.serviceRequest.status,
       },
       participantRole,
+      otherParticipantName,
     });
   }
 

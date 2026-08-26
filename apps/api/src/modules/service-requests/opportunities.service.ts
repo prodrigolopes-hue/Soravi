@@ -8,7 +8,6 @@ import {
 } from "./dto/opportunities-list-response.dto";
 import {
   OpportunityDetailResponseDto,
-  OpportunityDetailResponseProperties,
   OpportunityPhotoDetailResponseDto,
 } from "./dto/opportunity-detail-response.dto";
 import { StorageService } from "../../storage/storage.service";
@@ -17,6 +16,7 @@ import { STORAGE_SERVICE } from "../../storage/storage.service";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
 import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
+import { getFirstName } from "../users/user-name.utils";
 
 const OPPORTUNITY_SELECT = {
   id: true,
@@ -31,6 +31,15 @@ const OPPORTUNITY_SELECT = {
       state: true,
       city: true,
       neighborhood: true,
+      customerProfile: {
+        select: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
       category: {
         select: {
           id: true,
@@ -77,8 +86,21 @@ export class OpportunitiesService {
       }),
     ]);
 
+    const items: OpportunityListItemProperties[] = opportunities.map(
+      (opportunity) => {
+        const { customerProfile, ...serviceRequest } =
+          opportunity.serviceRequest;
+
+        return {
+          ...opportunity,
+          customerFirstName: getFirstName(customerProfile.user.name),
+          serviceRequest,
+        };
+      },
+    );
+
     return new OpportunitiesListResponseDto(
-      opportunities as OpportunityListItemProperties[],
+      items,
       page,
       limit,
       total,
@@ -170,6 +192,9 @@ export class OpportunitiesService {
     }
 
     const serviceRequest = opportunity.serviceRequest;
+    const customerFirstName = getFirstName(
+      serviceRequest.customerProfile.user.name,
+    );
     const conversationId =
       serviceRequest.contract?.professionalProfileId === professionalProfileId
         ? serviceRequest.contract.conversation?.id ?? null
@@ -197,6 +222,7 @@ export class OpportunitiesService {
       createdAt: opportunity.createdAt,
       viewedAt: opportunity.viewedAt,
       conversationId,
+      customerFirstName,
       serviceRequest: {
         id: serviceRequest.id,
         title: serviceRequest.title,

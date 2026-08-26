@@ -33,6 +33,7 @@ import { ProposalNotFoundException } from "./errors/proposal-not-found.exception
 import { ProposalCreationUnavailableException } from "./errors/proposal-creation-unavailable.exception";
 import { ServiceRequestNotFoundException } from "./errors/service-request-not-found.exception";
 import { ServiceRequestNotAcceptingProposalsException } from "./errors/service-request-not-accepting-proposals.exception";
+import { normalizeDisplayName } from "../users/user-name.utils";
 
 const PROPOSAL_RESPONSE_SELECT = {
   id: true,
@@ -55,6 +56,11 @@ const PROPOSAL_RECEIVED_SELECT = {
   message: true,
   status: true,
   submittedAt: true,
+  professionalProfile: {
+    select: {
+      displayName: true,
+    },
+  },
 } satisfies Prisma.ProposalSelect;
 
 @Injectable()
@@ -106,8 +112,19 @@ export class ProposalsService {
       }),
     ]);
 
+    const items: ProposalReceivedProperties[] = proposals.map((proposal) => {
+      const { professionalProfile, ...proposalProperties } = proposal;
+
+      return {
+        ...proposalProperties,
+        professionalName: normalizeDisplayName(
+          professionalProfile.displayName,
+        ),
+      };
+    });
+
     return new ProposalsReceivedListResponseDto(
-      proposals as ProposalReceivedProperties[],
+      items,
       page,
       limit,
       total,

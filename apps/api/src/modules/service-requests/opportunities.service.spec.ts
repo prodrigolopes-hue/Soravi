@@ -90,7 +90,19 @@ describe("OpportunitiesService", () => {
       orderBy: { createdAt: "desc" },
       skip: 10,
       take: 10,
-      select: expect.any(Object),
+      select: expect.objectContaining({
+        serviceRequest: {
+          select: expect.objectContaining({
+            customerProfile: {
+              select: {
+                user: {
+                  select: { name: true },
+                },
+              },
+            },
+          }),
+        },
+      }),
     });
     expect(result.pagination).toEqual({
       page: 2,
@@ -108,6 +120,7 @@ describe("OpportunitiesService", () => {
       id: "opportunity-id",
       createdAt: new Date("2026-08-19T12:00:00.000Z"),
       viewedAt: null,
+      customerFirstName: "Paulo",
       serviceRequest: {
         id: "request-id",
         title: "Instalar uma tomada",
@@ -154,6 +167,7 @@ describe("OpportunitiesService", () => {
       createdAt: new Date("2026-08-19T12:00:00.000Z"),
       viewedAt: null,
       conversationId: null,
+      customerFirstName: "Paulo",
       serviceRequest: {
         id: "request-id",
         title: "Instalar uma tomada",
@@ -191,6 +205,10 @@ describe("OpportunitiesService", () => {
     expect(result.serviceRequest).not.toHaveProperty("postalCode");
     expect(result.serviceRequest).not.toHaveProperty("addressLine");
     expect(result.serviceRequest).not.toHaveProperty("customerProfile");
+    expect(result).not.toHaveProperty("customerProfile");
+    expect(result).not.toHaveProperty("userId");
+    expect(result).not.toHaveProperty("email");
+    expect(result).not.toHaveProperty("phone");
     expect(result.serviceRequest).not.toHaveProperty("contractId");
     expect(result.serviceRequest).not.toHaveProperty("customerProfileId");
     expect(prismaMock.serviceOpportunity).not.toHaveProperty("update");
@@ -218,6 +236,31 @@ describe("OpportunitiesService", () => {
     expect(result).not.toHaveProperty("contractId");
     expect(result).not.toHaveProperty("customerProfileId");
     expect(result.serviceRequest).not.toHaveProperty("contract");
+  });
+
+  it.each<[string, string | null]>([
+    ["Paulo Rodrigo", "Paulo"],
+    ["  Maria   Clara  ", "Maria"],
+    ["   ", null],
+  ])("normaliza o primeiro nome do cliente na lista: %p", async (name, expected) => {
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([
+      createOpportunity(name),
+    ]);
+
+    const result = await service.findMine(userId, new OpportunitiesQueryDto());
+
+    expect(result.items[0]?.customerFirstName).toBe(expected);
+  });
+
+  it("retorna somente o primeiro nome do cliente no detalhe", async () => {
+    prismaMock.serviceOpportunity.findFirst.mockResolvedValue(
+      createOpportunity("Paulo Rodrigo da Silva"),
+    );
+
+    const result = await service.findOneMine(userId, "opportunity-id");
+
+    expect(result.customerFirstName).toBe("Paulo");
+    expect(JSON.stringify(result)).not.toContain("Rodrigo da Silva");
   });
 
   it("oportunidade sem Contract retorna conversationId null", async () => {
@@ -386,7 +429,7 @@ describe("OpportunitiesService", () => {
   );
 });
 
-function createOpportunity() {
+function createOpportunity(customerName = "Paulo Rodrigo") {
   return {
     id: "opportunity-id",
     createdAt: new Date("2026-08-19T12:00:00.000Z"),
@@ -399,6 +442,9 @@ function createOpportunity() {
       state: "SP",
       city: "Campinas",
       neighborhood: "Centro",
+      customerProfile: {
+        user: { name: customerName },
+      },
       category: { id: "category-id", name: "Elétrica" },
       contract: null,
       files: [],

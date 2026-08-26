@@ -25,6 +25,7 @@ export interface ConversationResponseDtoProperties {
     status: ServiceRequestStatus;
   };
   participantRole: "CUSTOMER" | "PROFESSIONAL";
+  otherParticipantName: string | null;
 }
 
 export class ConversationResponseDto {
@@ -47,6 +48,7 @@ export class ConversationResponseDto {
     status: ServiceRequestStatus;
   };
   readonly participantRole: "CUSTOMER" | "PROFESSIONAL";
+  readonly otherParticipantName: string | null;
 
   constructor(properties: ConversationResponseDtoProperties) {
     this.id = properties.id;
@@ -57,5 +59,6 @@ export class ConversationResponseDto {
     this.contract = properties.contract;
     this.serviceRequest = properties.serviceRequest;
     this.participantRole = properties.participantRole;
+    this.otherParticipantName = properties.otherParticipantName;
   }
 }

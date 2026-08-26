@@ -55,6 +55,7 @@ describe("ConversationsController", () => {
         status: "OPEN" as any,
       },
       participantRole: "CUSTOMER",
+      otherParticipantName: "Profissional Soravi",
     });
 
     serviceMock.findOne.mockResolvedValue(response);

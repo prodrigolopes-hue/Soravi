@@ -128,7 +128,11 @@ describe("ProposalsService", () => {
       orderBy: { submittedAt: "asc" },
       skip: 10,
       take: 10,
-      select: expect.any(Object),
+      select: expect.objectContaining({
+        professionalProfile: {
+          select: { displayName: true },
+        },
+      }),
     });
     expect(result.pagination).toEqual({
       page: 2,
@@ -189,11 +193,39 @@ describe("ProposalsService", () => {
       new ProposalsReceivedQueryDto(),
     );
 
-    expect(result.items[0]).toEqual(createReceivedProposal());
+    expect(result.items[0]).toEqual({
+      id: "proposal-id",
+      amountInCents: 15000,
+      estimatedDurationValue: 2,
+      estimatedDurationUnit: EstimatedDurationUnit.HOUR,
+      message: "Posso realizar amanhã.",
+      status: ProposalStatus.ACTIVE,
+      submittedAt: new Date("2026-08-19T12:00:00.000Z"),
+      professionalName: "Profissional Soravi",
+    });
     expect(result.items[0]).not.toHaveProperty("professionalProfileId");
     expect(result.items[0]).not.toHaveProperty("professionalProfile");
     expect(result.items[0]).not.toHaveProperty("email");
     expect(result.items[0]).not.toHaveProperty("phone");
+    expect(result.items[0]).not.toHaveProperty("userId");
+  });
+
+  it.each<[string, string | null]>([
+    ["  Profissional Soravi  ", "Profissional Soravi"],
+    ["   ", null],
+  ])("normaliza o nome público do profissional: %p", async (displayName, expected) => {
+    prismaMock.proposal.findMany.mockResolvedValue([
+      createReceivedProposal(displayName),
+    ]);
+
+    const result = await service.findReceived(
+      userId,
+      serviceRequestId,
+      new ProposalsReceivedQueryDto(),
+    );
+
+    expect(result.items[0]?.professionalName).toBe(expected);
+    expect(result.items[0]).not.toHaveProperty("professionalProfile");
   });
 
   it("cria proposta ACTIVE para profissional elegível com oportunidade", async () => {
@@ -435,7 +467,7 @@ function createProposal() {
   };
 }
 
-function createReceivedProposal() {
+function createReceivedProposal(displayName = "Profissional Soravi") {
   return {
     id: "proposal-id",
     amountInCents: 15000,
@@ -444,5 +476,6 @@ function createReceivedProposal() {
     message: "Posso realizar amanhã.",
     status: ProposalStatus.ACTIVE,
     submittedAt: new Date("2026-08-19T12:00:00.000Z"),
+    professionalProfile: { displayName },
   };
 }

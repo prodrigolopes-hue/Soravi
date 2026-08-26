@@ -43,8 +43,14 @@ describe("ConversationsService", () => {
         agreedDurationValue: 2,
         agreedDurationUnit: EstimatedDurationUnit.HOUR,
         acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
-        customerProfile: { userId: "customer-user-id" },
-        professionalProfile: { userId: "professional-user-id" },
+        customerProfile: {
+          userId: "customer-user-id",
+          user: { name: "Cliente Completo" },
+        },
+        professionalProfile: {
+          userId: "professional-user-id",
+          displayName: "  Profissional Soravi  ",
+        },
         serviceRequest: {
           id: "request-id",
           title: "Instalar tomada",
@@ -68,11 +74,28 @@ describe("ConversationsService", () => {
       select: expect.objectContaining({
         id: true,
         status: true,
+        contract: {
+          select: expect.objectContaining({
+            customerProfile: {
+              select: {
+                userId: true,
+                user: { select: { name: true } },
+              },
+            },
+            professionalProfile: {
+              select: {
+                userId: true,
+                displayName: true,
+              },
+            },
+          }),
+        },
       }),
     });
     expect(result).toMatchObject({
       id: "conversation-id",
       participantRole: "CUSTOMER",
+      otherParticipantName: "Profissional Soravi",
       contract: {
         id: "contract-id",
         status: ContractStatus.ACCEPTED,
@@ -100,8 +123,14 @@ describe("ConversationsService", () => {
         agreedDurationValue: 2,
         agreedDurationUnit: EstimatedDurationUnit.HOUR,
         acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
-        customerProfile: { userId: "customer-user-id" },
-        professionalProfile: { userId: "professional-user-id" },
+        customerProfile: {
+          userId: "customer-user-id",
+          user: { name: "  Maria   Clara  " },
+        },
+        professionalProfile: {
+          userId: "professional-user-id",
+          displayName: "Profissional Soravi",
+        },
         serviceRequest: {
           id: "request-id",
           title: "Instalar tomada",
@@ -113,6 +142,7 @@ describe("ConversationsService", () => {
     const result = await service.findOne("professional-user-id", "conversation-id");
 
     expect(result.participantRole).toBe("PROFESSIONAL");
+    expect(result.otherParticipantName).toBe("Maria");
   });
 
   it("outro CUSTOMER recebe 404 neutro", async () => {
@@ -153,8 +183,14 @@ describe("ConversationsService", () => {
         agreedDurationValue: 4,
         agreedDurationUnit: EstimatedDurationUnit.DAY,
         acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
-        customerProfile: { userId: "customer-user-id" },
-        professionalProfile: { userId: "professional-user-id" },
+        customerProfile: {
+          userId: "customer-user-id",
+          user: { name: "Cliente Completo" },
+        },
+        professionalProfile: {
+          userId: "professional-user-id",
+          displayName: "Profissional Soravi",
+        },
         serviceRequest: {
           id: "request-id",
           title: "Instalar tomadas",
@@ -189,8 +225,14 @@ describe("ConversationsService", () => {
         agreedDurationValue: 2,
         agreedDurationUnit: EstimatedDurationUnit.HOUR,
         acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
-        customerProfile: { userId: "customer-user-id" },
-        professionalProfile: { userId: "professional-user-id" },
+        customerProfile: {
+          userId: "customer-user-id",
+          user: { name: "Cliente Completo" },
+        },
+        professionalProfile: {
+          userId: "professional-user-id",
+          displayName: "Profissional Soravi",
+        },
         serviceRequest: {
           id: "request-id",
           title: "Instalar tomada",
@@ -204,6 +246,7 @@ describe("ConversationsService", () => {
     expect(result).toMatchObject({
       id: "conversation-id",
       participantRole: "CUSTOMER",
+      otherParticipantName: "Profissional Soravi",
     });
     expect(result).not.toHaveProperty("contract.customerProfile");
     expect(result).not.toHaveProperty("contract.professionalProfile");
@@ -211,6 +254,42 @@ describe("ConversationsService", () => {
     expect(result).not.toHaveProperty("messages");
     expect(result).not.toHaveProperty("email");
     expect(result).not.toHaveProperty("phone");
+    expect(result).not.toHaveProperty("userId");
     expect(result).not.toHaveProperty("address");
+  });
+
+  it("retorna otherParticipantName null para nome vazio", async () => {
+    prismaMock.conversation.findFirst.mockResolvedValue({
+      id: "conversation-id",
+      status: ConversationStatus.ACTIVE,
+      createdAt: new Date("2026-08-20T10:00:00.000Z"),
+      updatedAt: new Date("2026-08-20T11:00:00.000Z"),
+      closedAt: null,
+      contract: {
+        id: "contract-id",
+        status: ContractStatus.ACCEPTED,
+        agreedAmountInCents: 150000,
+        agreedDurationValue: 2,
+        agreedDurationUnit: EstimatedDurationUnit.HOUR,
+        acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
+        customerProfile: {
+          userId: "customer-user-id",
+          user: { name: "   " },
+        },
+        professionalProfile: {
+          userId: "professional-user-id",
+          displayName: "Profissional Soravi",
+        },
+        serviceRequest: {
+          id: "request-id",
+          title: "Instalar tomada",
+          status: ServiceRequestStatus.OPEN,
+        },
+      },
+    });
+
+    const result = await service.findOne("professional-user-id", "conversation-id");
+
+    expect(result.otherParticipantName).toBeNull();
   });
 });

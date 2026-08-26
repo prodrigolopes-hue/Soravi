@@ -4,6 +4,7 @@ export interface OpportunityListItemProperties {
   id: string;
   createdAt: Date;
   viewedAt: Date | null;
+  customerFirstName: string | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -23,6 +24,7 @@ export class OpportunityListItemResponseDto {
   id!: string;
   createdAt!: Date;
   viewedAt!: Date | null;
+  customerFirstName!: string | null;
   serviceRequest!: {
     id: string;
     title: string;
@@ -43,6 +45,7 @@ export class OpportunityListItemResponseDto {
     this.id = properties.id;
     this.createdAt = properties.createdAt;
     this.viewedAt = properties.viewedAt;
+    this.customerFirstName = properties.customerFirstName;
     this.serviceRequest = {
       id: properties.serviceRequest.id,
       title: properties.serviceRequest.title,
