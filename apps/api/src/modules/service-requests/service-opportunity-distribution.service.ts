@@ -2,11 +2,13 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
+  CommunicationChannel,
   NotificationType,
   Prisma,
   ProfessionalVerificationStatus,
   ServiceRequestStatus,
 } from "../../generated/prisma/client";
+import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 
 export interface ServiceOpportunityDistributionResult {
   dispatched: boolean;
@@ -20,7 +22,10 @@ const NOT_DISPATCHED: ServiceOpportunityDistributionResult = {
 
 @Injectable()
 export class ServiceOpportunityDistributionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly outboundNotificationsService: OutboundNotificationsService,
+  ) {}
 
   distribute(
     serviceRequestId: string,
@@ -116,10 +121,29 @@ export class ServiceOpportunityDistributionService {
         };
       });
 
-      await transaction.notification.createMany({
-        data: notifications,
-        skipDuplicates: true,
-      });
+      for (const notificationData of notifications) {
+        const notification = await transaction.notification.upsert({
+          where: {
+            userId_type_resourceType_resourceId: {
+              userId: notificationData.userId,
+              type: notificationData.type,
+              resourceType: notificationData.resourceType,
+              resourceId: notificationData.resourceId,
+            },
+          },
+          update: {},
+          create: notificationData,
+          select: { id: true },
+        });
+
+        await this.outboundNotificationsService.createPending({
+          transaction,
+          notificationId: notification.id,
+          userId: notificationData.userId,
+          channel: CommunicationChannel.WHATSAPP,
+          eventType: NotificationType.OPPORTUNITY_CREATED,
+        });
+      }
 
       await transaction.serviceRequest.update({
         where: { id: serviceRequestId },

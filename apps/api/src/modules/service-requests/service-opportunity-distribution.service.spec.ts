@@ -2,10 +2,13 @@ import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
+  CommunicationChannel,
   NotificationType,
+  Prisma,
   ProfessionalVerificationStatus,
   ServiceRequestStatus,
 } from "../../generated/prisma/client";
+import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
 
 interface TransactionClientMock {
@@ -21,7 +24,7 @@ interface TransactionClientMock {
     createManyAndReturn: jest.Mock;
   };
   notification: {
-    createMany: jest.Mock;
+    upsert: jest.Mock;
   };
 }
 
@@ -34,10 +37,13 @@ describe("ServiceOpportunityDistributionService", () => {
   const secondProfessionalUserId = "c25afb87-2b81-4de7-9606-8f382fff3341";
   const firstOpportunityId = "d25afb87-2b81-4de7-9606-8f382fff3341";
   const secondOpportunityId = "e25afb87-2b81-4de7-9606-8f382fff3341";
+  const firstNotificationId = "f25afb87-2b81-4de7-9606-8f382fff3341";
+  const secondNotificationId = "125afb87-2b81-4de7-9606-8f382fff3342";
 
   let service: ServiceOpportunityDistributionService;
   let prismaMock: { $transaction: jest.Mock };
   let transactionMock: TransactionClientMock;
+  let outboundNotificationsServiceMock: { createPending: jest.Mock };
 
   beforeEach(() => {
     transactionMock = {
@@ -73,8 +79,18 @@ describe("ServiceOpportunityDistributionService", () => {
         ]),
       },
       notification: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        upsert: jest.fn().mockImplementation(
+          ({ create }: { create: { resourceId: string } }) =>
+            Promise.resolve({
+              id: create.resourceId === firstOpportunityId
+                ? firstNotificationId
+                : secondNotificationId,
+            }),
+        ),
       },
+    };
+    outboundNotificationsServiceMock = {
+      createPending: jest.fn().mockResolvedValue({ id: "outbound-id" }),
     };
     prismaMock = {
       $transaction: jest.fn(
@@ -85,6 +101,7 @@ describe("ServiceOpportunityDistributionService", () => {
     };
     service = new ServiceOpportunityDistributionService(
       prismaMock as unknown as PrismaService,
+      outboundNotificationsServiceMock as unknown as OutboundNotificationsService,
     );
   });
 
@@ -208,26 +225,59 @@ describe("ServiceOpportunityDistributionService", () => {
         professionalProfileId: true,
       },
     });
-    expect(transactionMock.notification.createMany).toHaveBeenCalledWith({
-      data: [
-        {
+    expect(transactionMock.notification.upsert).toHaveBeenNthCalledWith(1, {
+      where: {
+        userId_type_resourceType_resourceId: {
           userId: firstProfessionalUserId,
           type: NotificationType.OPPORTUNITY_CREATED,
-          title: "Nova oportunidade",
-          message: "Uma nova oportunidade está disponível.",
           resourceType: "SERVICE_OPPORTUNITY",
           resourceId: firstOpportunityId,
         },
-        {
+      },
+      update: {},
+      create: {
+        userId: firstProfessionalUserId,
+        type: NotificationType.OPPORTUNITY_CREATED,
+        title: "Nova oportunidade",
+        message: "Uma nova oportunidade está disponível.",
+        resourceType: "SERVICE_OPPORTUNITY",
+        resourceId: firstOpportunityId,
+      },
+      select: { id: true },
+    });
+    expect(transactionMock.notification.upsert).toHaveBeenNthCalledWith(2, {
+      where: {
+        userId_type_resourceType_resourceId: {
           userId: secondProfessionalUserId,
           type: NotificationType.OPPORTUNITY_CREATED,
-          title: "Nova oportunidade",
-          message: "Uma nova oportunidade está disponível.",
           resourceType: "SERVICE_OPPORTUNITY",
           resourceId: secondOpportunityId,
         },
-      ],
-      skipDuplicates: true,
+      },
+      update: {},
+      create: {
+        userId: secondProfessionalUserId,
+        type: NotificationType.OPPORTUNITY_CREATED,
+        title: "Nova oportunidade",
+        message: "Uma nova oportunidade está disponível.",
+        resourceType: "SERVICE_OPPORTUNITY",
+        resourceId: secondOpportunityId,
+      },
+      select: { id: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenNthCalledWith(1, {
+      transaction: transactionMock as unknown as Prisma.TransactionClient,
+      notificationId: firstNotificationId,
+      userId: firstProfessionalUserId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenNthCalledWith(2, {
+      transaction: transactionMock as unknown as Prisma.TransactionClient,
+      notificationId: secondNotificationId,
+      userId: secondProfessionalUserId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
     });
     expect(transactionMock.serviceRequest.update).toHaveBeenCalledWith({
       where: { id: serviceRequestId },
@@ -248,7 +298,8 @@ describe("ServiceOpportunityDistributionService", () => {
       dispatched: false,
       opportunitiesCreated: 0,
     });
-    expect(transactionMock.notification.createMany).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
@@ -262,22 +313,16 @@ describe("ServiceOpportunityDistributionService", () => {
 
     const result = await service.distribute(serviceRequestId);
 
-    expect(transactionMock.notification.createMany).toHaveBeenCalledWith({
-      data: [
-        expect.objectContaining({
+    expect(transactionMock.notification.upsert).toHaveBeenCalledTimes(1);
+    expect(transactionMock.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
           userId: firstProfessionalUserId,
           resourceId: firstOpportunityId,
         }),
-      ],
-      skipDuplicates: true,
-    });
-    expect(transactionMock.notification.createMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({ userId: secondProfessionalUserId }),
-        ]),
       }),
     );
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
     expect(result.opportunitiesCreated).toBe(1);
   });
 
@@ -300,7 +345,8 @@ describe("ServiceOpportunityDistributionService", () => {
     expect(
       transactionMock.serviceOpportunity.createManyAndReturn,
     ).toHaveBeenCalledTimes(1);
-    expect(transactionMock.notification.createMany).toHaveBeenCalledTimes(1);
+    expect(transactionMock.notification.upsert).toHaveBeenCalledTimes(2);
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(2);
     expect(transactionMock.serviceRequest.update).toHaveBeenCalledTimes(1);
   });
 
@@ -313,12 +359,13 @@ describe("ServiceOpportunityDistributionService", () => {
       "database unavailable",
     );
 
-    expect(transactionMock.notification.createMany).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
   it("não marca dispatchedAt quando a criação de notificações falha", async () => {
-    transactionMock.notification.createMany.mockRejectedValue(
+    transactionMock.notification.upsert.mockRejectedValue(
       new Error("notification unavailable"),
     );
 
@@ -329,6 +376,26 @@ describe("ServiceOpportunityDistributionService", () => {
     expect(
       transactionMock.serviceOpportunity.createManyAndReturn,
     ).toHaveBeenCalled();
+    expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("não marca dispatchedAt quando a criação do outbox falha", async () => {
+    outboundNotificationsServiceMock.createPending.mockRejectedValue(
+      new Error("outbox unavailable"),
+    );
+
+    await expect(service.distribute(serviceRequestId)).rejects.toThrow(
+      "outbox unavailable",
+    );
+
+    expect(transactionMock.notification.upsert).toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction: transactionMock,
+        channel: CommunicationChannel.WHATSAPP,
+        eventType: NotificationType.OPPORTUNITY_CREATED,
+      }),
+    );
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
@@ -346,7 +413,10 @@ describe("ServiceOpportunityDistributionService", () => {
       transactionMock.serviceOpportunity.createManyAndReturn,
     );
     const notificationsOrder = firstCallOrder(
-      transactionMock.notification.createMany,
+      transactionMock.notification.upsert,
+    );
+    const outboundOrder = firstCallOrder(
+      outboundNotificationsServiceMock.createPending,
     );
     const updateOrder = firstCallOrder(transactionMock.serviceRequest.update);
 
@@ -354,7 +424,8 @@ describe("ServiceOpportunityDistributionService", () => {
     expect(validationOrder).toBeLessThan(professionalsOrder);
     expect(professionalsOrder).toBeLessThan(opportunitiesOrder);
     expect(opportunitiesOrder).toBeLessThan(notificationsOrder);
-    expect(notificationsOrder).toBeLessThan(updateOrder);
+    expect(notificationsOrder).toBeLessThan(outboundOrder);
+    expect(outboundOrder).toBeLessThan(updateOrder);
   });
 });
 

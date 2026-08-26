@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
+import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 import {
   ContractStatus,
   ConversationStatus,
@@ -77,7 +78,10 @@ describe("ProposalsService.accept", () => {
           callback(transaction),
       ),
     };
-    service = new ProposalsService(prisma as unknown as PrismaService);
+    service = new ProposalsService(
+      prisma as unknown as PrismaService,
+      { createPending: jest.fn() } as unknown as OutboundNotificationsService,
+    );
   });
 
   afterEach(() => {

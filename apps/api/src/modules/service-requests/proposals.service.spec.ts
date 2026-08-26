@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { PrismaService } from "../../database/prisma.service";
 import {
+  CommunicationChannel,
   EstimatedDurationUnit,
   NotificationType,
   Prisma,
@@ -10,6 +11,7 @@ import {
   Role,
   ServiceRequestStatus,
 } from "../../generated/prisma/client";
+import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 import { CreateProposalDto } from "./dto/create-proposal.dto";
 import { ProposalsReceivedQueryDto } from "./dto/proposals-received-query.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
@@ -25,6 +27,7 @@ describe("ProposalsService", () => {
   const customerUserId = "325afb87-2b81-4de7-9606-8f382fff3341";
   const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
   const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
+  const notificationId = "825afb87-2b81-4de7-9606-8f382fff3341";
 
   let service: ProposalsService;
   let transactionMock: {
@@ -40,6 +43,7 @@ describe("ProposalsService", () => {
     proposal: { count: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
+  let outboundNotificationsServiceMock: { createPending: jest.Mock };
 
   beforeEach(() => {
     transactionMock = {
@@ -63,8 +67,11 @@ describe("ProposalsService", () => {
         create: jest.fn().mockResolvedValue(createProposal()),
       },
       notification: {
-        upsert: jest.fn().mockResolvedValue({}),
+        upsert: jest.fn().mockResolvedValue({ id: notificationId }),
       },
+    };
+    outboundNotificationsServiceMock = {
+      createPending: jest.fn().mockResolvedValue({ id: "outbound-id" }),
     };
     prismaMock = {
       customerProfile: {
@@ -88,7 +95,10 @@ describe("ProposalsService", () => {
             : input(transactionMock),
       ),
     };
-    service = new ProposalsService(prismaMock as unknown as PrismaService);
+    service = new ProposalsService(
+      prismaMock as unknown as PrismaService,
+      outboundNotificationsServiceMock as unknown as OutboundNotificationsService,
+    );
   });
 
   afterEach(() => {
@@ -302,6 +312,14 @@ describe("ProposalsService", () => {
         resourceType: "PROPOSAL",
         resourceId: "proposal-id",
       },
+      select: { id: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith({
+      transaction: transactionMock as unknown as Prisma.TransactionClient,
+      notificationId,
+      userId: customerUserId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
     });
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(
@@ -325,6 +343,19 @@ describe("ProposalsService", () => {
     ).toBeLessThan(
       transactionMock.serviceRequest.update.mock.invocationCallOrder[0],
     );
+    expect(
+      outboundNotificationsServiceMock.createPending.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      transactionMock.serviceRequest.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("não consulta telefone nem preferência de comunicação ao criar o outbox", async () => {
+    await service.create(userId, serviceRequestId, createDto());
+
+    expect(transactionMock).not.toHaveProperty("user");
+    expect(transactionMock).not.toHaveProperty("communicationPreference");
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
   });
 
   it("mantém RECEIVING_PROPOSALS sem atualizar a solicitação", async () => {
@@ -440,6 +471,28 @@ describe("ProposalsService", () => {
     expect(result).not.toHaveProperty("email");
     expect(result).not.toHaveProperty("phone");
     expect(result).not.toHaveProperty("address");
+  });
+
+  it("não altera a solicitação quando a criação do outbox falha", async () => {
+    outboundNotificationsServiceMock.createPending.mockRejectedValue(
+      new Error("outbox unavailable"),
+    );
+
+    await expect(
+      service.create(userId, serviceRequestId, createDto()),
+    ).rejects.toThrow("outbox unavailable");
+
+    expect(transactionMock.notification.upsert).toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction: transactionMock,
+        notificationId,
+        userId: customerUserId,
+        channel: CommunicationChannel.WHATSAPP,
+        eventType: NotificationType.PROPOSAL_CREATED,
+      }),
+    );
+    expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 });
 
