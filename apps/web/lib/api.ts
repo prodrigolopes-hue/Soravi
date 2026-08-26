@@ -21,6 +21,8 @@ export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
 
 export const notificationsUrl = `${normalizedApiBaseUrl}/api/v1/notifications`;
 
+export const notificationsUnreadCountUrl = `${notificationsUrl}/unread-count`;
+
 export const notificationsUpdatedEventName = "notifications-updated";
 
 export type NotificationType =
@@ -48,6 +50,10 @@ export interface NotificationsListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface NotificationsUnreadCountResponse {
+  count: number;
 }
 
 export type ConversationStatus = "ACTIVE" | "CLOSED" | "BLOCKED";
@@ -89,6 +95,16 @@ export function conversationsListUrl(page: number, limit: number): string {
 
 export function notificationsListUrl(page: number, limit: number): string {
   return `${notificationsUrl}?page=${encodeURIComponent(String(page))}&limit=${encodeURIComponent(String(limit))}`;
+}
+
+export function parseNotificationsUnreadCountResponse(
+  payload: unknown,
+): NotificationsUnreadCountResponse | null {
+  if (!isRecord(payload) || !isNonNegativeInteger(payload.count)) {
+    return null;
+  }
+
+  return { count: payload.count };
 }
 
 export function notificationReadUrl(notificationId: string): string {

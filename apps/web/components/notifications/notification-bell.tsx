@@ -5,13 +5,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  notificationsListUrl,
+  notificationsUnreadCountUrl,
   notificationsUpdatedEventName,
-  parseNotificationsListResponse,
+  parseNotificationsUnreadCountResponse,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
-
-const PAGE_SIZE = 20;
 
 interface NotificationBellProps {
   mobile?: boolean;
@@ -32,7 +30,7 @@ export function NotificationBell({
     }
 
     try {
-      const response = await fetch(notificationsListUrl(1, PAGE_SIZE), {
+      const response = await fetch(notificationsUnreadCountUrl, {
         headers: { Authorization: `Bearer ${accessToken}` },
         credentials: "include",
         cache: "no-store",
@@ -43,10 +41,10 @@ export function NotificationBell({
         return;
       }
 
-      const parsed = parseNotificationsListResponse(payload);
+      const parsed = parseNotificationsUnreadCountResponse(payload);
 
       if (parsed) {
-        setHasUnread(parsed.items.some((item) => item.readAt === null));
+        setHasUnread(parsed.count > 0);
       }
     } catch {
       // O sino permanece funcional mesmo quando o indicador não pode ser carregado.
