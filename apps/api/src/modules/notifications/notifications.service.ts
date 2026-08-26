@@ -6,6 +6,7 @@ import {
   NotificationListItemProperties,
   NotificationsListResponseDto,
 } from "./dto/notifications-list-response.dto";
+import { NotificationsUnreadCountResponseDto } from "./dto/notifications-unread-count-response.dto";
 import { NotificationNotFoundException } from "./errors/notification-not-found.exception";
 
 const NOTIFICATION_LIST_SELECT = {
@@ -22,6 +23,18 @@ const NOTIFICATION_LIST_SELECT = {
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async countUnread(userId: string): Promise<NotificationsUnreadCountResponseDto> {
+    const count = await this.prisma.notification.count({
+      where: {
+        userId,
+        readAt: null,
+        deletedAt: null,
+      },
+    });
+
+    return new NotificationsUnreadCountResponseDto(count);
+  }
 
   async findAll(
     userId: string,

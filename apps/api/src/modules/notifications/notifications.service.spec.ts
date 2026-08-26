@@ -59,6 +59,28 @@ describe("NotificationsService", () => {
     jest.clearAllMocks();
   });
 
+  it("conta somente notificações não lidas e não excluídas do usuário autenticado", async () => {
+    prismaMock.notification.count.mockResolvedValue(4);
+
+    const result = await service.countUnread(userId);
+
+    expect(prismaMock.notification.count).toHaveBeenCalledWith({
+      where: {
+        userId,
+        readAt: null,
+        deletedAt: null,
+      },
+    });
+    expect(result).toEqual({ count: 4 });
+    expect(prismaMock.notification.findMany).not.toHaveBeenCalled();
+  });
+
+  it("retorna zero quando não há notificações não lidas", async () => {
+    prismaMock.notification.count.mockResolvedValue(0);
+
+    await expect(service.countUnread(userId)).resolves.toEqual({ count: 0 });
+  });
+
   it("lista somente notificações do usuário autenticado", async () => {
     const result = await service.findAll(userId, 1, 20);
 

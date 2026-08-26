@@ -15,11 +15,20 @@ import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { NotificationsListResponseDto } from "./dto/notifications-list-response.dto";
 import { NotificationsQueryDto } from "./dto/notifications-query.dto";
+import { NotificationsUnreadCountResponseDto } from "./dto/notifications-unread-count-response.dto";
 import { NotificationsService } from "./notifications.service";
 
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
+
+  @Get("unread-count")
+  @UseGuards(AccessTokenGuard)
+  countUnread(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<NotificationsUnreadCountResponseDto> {
+    return this.notificationsService.countUnread(currentUser.id);
+  }
 
   @Get()
   @UseGuards(AccessTokenGuard)

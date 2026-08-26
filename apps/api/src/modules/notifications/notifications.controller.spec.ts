@@ -11,6 +11,7 @@ import { NotificationsService } from "./notifications.service";
 
 describe("NotificationsController", () => {
   const serviceMock = {
+    countUnread: jest.fn(),
     findAll: jest.fn(),
     markAsRead: jest.fn(),
   };
@@ -25,6 +26,27 @@ describe("NotificationsController", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("retorna o contador do usuário autenticado", async () => {
+    serviceMock.countUnread.mockResolvedValue({ count: 3 });
+
+    await expect(controller.countUnread(currentUser)).resolves.toEqual({ count: 3 });
+    expect(serviceMock.countUnread).toHaveBeenCalledWith(currentUser.id);
+  });
+
+  it("mantém unread-count como rota estática distinta da rota parametrizada", () => {
+    const unreadCountPath = Reflect.getMetadata(
+      "path",
+      NotificationsController.prototype.countUnread,
+    );
+    const markAsReadPath = Reflect.getMetadata(
+      "path",
+      NotificationsController.prototype.markAsRead,
+    );
+
+    expect(unreadCountPath).toBe("unread-count");
+    expect(markAsReadPath).toBe(":notificationId/read");
   });
 
   it("aplica paginação default", async () => {
@@ -59,8 +81,13 @@ describe("NotificationsController", () => {
       "__guards__",
       NotificationsController.prototype.markAsRead,
     );
+    const unreadCountGuards = Reflect.getMetadata(
+      "__guards__",
+      NotificationsController.prototype.countUnread,
+    );
 
     expect(listGuards).toEqual([AccessTokenGuard]);
     expect(readGuards).toEqual([AccessTokenGuard]);
+    expect(unreadCountGuards).toEqual([AccessTokenGuard]);
   });
 });
