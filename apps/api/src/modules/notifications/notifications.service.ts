@@ -65,8 +65,15 @@ export class NotificationsService {
           notification.resourceType === "MESSAGE",
       )
       .map((notification) => notification.resourceId);
+    const conversationIds = notifications
+      .filter(
+        (notification) =>
+          notification.type === NotificationType.MESSAGE_CREATED &&
+          notification.resourceType === "CONVERSATION",
+      )
+      .map((notification) => notification.resourceId);
 
-    const [opportunities, proposals, messages] = await Promise.all([
+    const [opportunities, proposals, messages, conversations] = await Promise.all([
       this.prisma.serviceOpportunity.findMany({
         where: {
           id: { in: opportunityIds },
@@ -98,6 +105,18 @@ export class NotificationsService {
         },
         select: { id: true, conversationId: true },
       }),
+      this.prisma.conversation.findMany({
+        where: {
+          id: { in: conversationIds },
+          contract: {
+            OR: [
+              { customerProfile: { userId } },
+              { professionalProfile: { userId } },
+            ],
+          },
+        },
+        select: { id: true },
+      }),
     ]);
     const opportunityIdsWithAccess = new Set(
       opportunities.map((opportunity) => opportunity.id),
@@ -112,6 +131,9 @@ export class NotificationsService {
     for (const message of messages) {
       messageConversationIds.set(message.id, message.conversationId);
     }
+    const conversationIdsWithAccess = new Set(
+      conversations.map((conversation) => conversation.id),
+    );
     const items: NotificationListItemProperties[] = notifications.map(
       (notification) => {
         let href: string | null = null;
@@ -148,6 +170,14 @@ export class NotificationsService {
           if (conversationId) {
             href = `/conversas/${conversationId}`;
           }
+        }
+
+        if (
+          notification.type === NotificationType.MESSAGE_CREATED &&
+          notification.resourceType === "CONVERSATION" &&
+          conversationIdsWithAccess.has(notification.resourceId)
+        ) {
+          href = `/conversas/${notification.resourceId}`;
         }
 
         return { ...notification, href };

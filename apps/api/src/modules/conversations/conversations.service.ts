@@ -352,10 +352,18 @@ export class ConversationsService {
         contract: {
           select: {
             customerProfile: {
-              select: { userId: true },
+              select: {
+                userId: true,
+                user: {
+                  select: { name: true },
+                },
+              },
             },
             professionalProfile: {
-              select: { userId: true },
+              select: {
+                userId: true,
+                displayName: true,
+              },
             },
           },
         },
@@ -381,6 +389,10 @@ export class ConversationsService {
       conversation.contract.professionalProfile.userId;
     const recipientUserId =
       userId === customerUserId ? professionalUserId : customerUserId;
+    const senderName =
+      userId === customerUserId
+        ? conversation.contract.customerProfile.user.name
+        : conversation.contract.professionalProfile.displayName;
 
     const createdMessage = await this.prisma.$transaction(async (transaction) => {
       const message = await transaction.message.create({
@@ -397,23 +409,32 @@ export class ConversationsService {
       });
 
       if (recipientUserId !== userId) {
+        const notificationTimestamp = new Date();
+
         await transaction.notification.upsert({
           where: {
             userId_type_resourceType_resourceId: {
               userId: recipientUserId,
               type: NotificationType.MESSAGE_CREATED,
-              resourceType: "MESSAGE",
-              resourceId: message.id,
+              resourceType: "CONVERSATION",
+              resourceId: conversation.id,
             },
           },
-          update: {},
+          update: {
+            title: `Nova mensagem de ${senderName}`,
+            message: "Você recebeu uma nova mensagem.",
+            readAt: null,
+            createdAt: notificationTimestamp,
+            deletedAt: null,
+          },
           create: {
             userId: recipientUserId,
             type: NotificationType.MESSAGE_CREATED,
-            title: "Nova mensagem",
+            title: `Nova mensagem de ${senderName}`,
             message: "Você recebeu uma nova mensagem.",
-            resourceType: "MESSAGE",
-            resourceId: message.id,
+            resourceType: "CONVERSATION",
+            resourceId: conversation.id,
+            createdAt: notificationTimestamp,
           },
         });
       }

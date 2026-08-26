@@ -91,8 +91,15 @@ describe("ConversationsService.createMessage", () => {
           status: true,
           contract: {
             select: {
-              customerProfile: { select: { userId: true } },
-              professionalProfile: { select: { userId: true } },
+              customerProfile: {
+                select: {
+                  userId: true,
+                  user: { select: { name: true } },
+                },
+              },
+              professionalProfile: {
+                select: { userId: true, displayName: true },
+              },
             },
           },
         },
@@ -103,18 +110,25 @@ describe("ConversationsService.createMessage", () => {
         userId_type_resourceType_resourceId: {
           userId: "professional-user-id",
           type: NotificationType.MESSAGE_CREATED,
-          resourceType: "MESSAGE",
-          resourceId: "msg-1",
+          resourceType: "CONVERSATION",
+          resourceId: "conversation-id",
         },
       },
-      update: {},
+      update: {
+        title: "Nova mensagem de Cliente Soravi",
+        message: "Você recebeu uma nova mensagem.",
+        readAt: null,
+        createdAt: expect.any(Date),
+        deletedAt: null,
+      },
       create: {
         userId: "professional-user-id",
         type: NotificationType.MESSAGE_CREATED,
-        title: "Nova mensagem",
+        title: "Nova mensagem de Cliente Soravi",
         message: "Você recebeu uma nova mensagem.",
-        resourceType: "MESSAGE",
-        resourceId: "msg-1",
+        resourceType: "CONVERSATION",
+        resourceId: "conversation-id",
+        createdAt: expect.any(Date),
       },
     });
     expect(prismaMock.notification.upsert).not.toHaveBeenCalledWith(
@@ -147,7 +161,10 @@ describe("ConversationsService.createMessage", () => {
     expect(result.senderUserId).toBe("professional-user-id");
     expect(prismaMock.notification.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ userId: "customer-user-id" }),
+        create: expect.objectContaining({
+          userId: "customer-user-id",
+          title: "Nova mensagem de Profissional Soravi",
+        }),
       }),
     );
     expect(prismaMock.notification.upsert).not.toHaveBeenCalledWith(
@@ -173,6 +190,36 @@ describe("ConversationsService.createMessage", () => {
       service.createMessage("customer-user-id", "missing-conversation-id", { content: "Oi" }),
     ).rejects.toBeInstanceOf(ConversationNotFoundException);
     expect(prismaMock.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it("usa a mesma compound key para mensagens da mesma Conversation", async () => {
+    prismaMock.conversation.findFirst.mockResolvedValue({
+      id: "conversation-id",
+      status: ConversationStatus.ACTIVE,
+      contract: createContractParticipants(),
+    });
+    prismaMock.message.create
+      .mockResolvedValueOnce(createMessage({ id: "message-1" }))
+      .mockResolvedValueOnce(createMessage({ id: "message-2" }));
+
+    await service.createMessage("customer-user-id", "conversation-id", {
+      content: "Primeira mensagem",
+    });
+    await service.createMessage("customer-user-id", "conversation-id", {
+      content: "Segunda mensagem",
+    });
+
+    const firstWhere = prismaMock.notification.upsert.mock.calls[0][0].where;
+    const secondWhere = prismaMock.notification.upsert.mock.calls[1][0].where;
+    expect(firstWhere).toEqual(secondWhere);
+    expect(firstWhere).toEqual({
+      userId_type_resourceType_resourceId: {
+        userId: "professional-user-id",
+        type: NotificationType.MESSAGE_CREATED,
+        resourceType: "CONVERSATION",
+        resourceId: "conversation-id",
+      },
+    });
   });
 
   it("ACTIVE permite envio", async () => {
@@ -438,9 +485,11 @@ function createContractParticipants(
   return {
     customerProfile: {
       userId: overrides.customerUserId ?? "customer-user-id",
+      user: { name: "Cliente Soravi" },
     },
     professionalProfile: {
       userId: overrides.professionalUserId ?? "professional-user-id",
+      displayName: "Profissional Soravi",
     },
   };
 }

@@ -20,6 +20,7 @@ describe("NotificationsService", () => {
     serviceOpportunity: { findMany: jest.Mock };
     proposal: { findMany: jest.Mock };
     message: { findMany: jest.Mock };
+    conversation: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -40,6 +41,9 @@ describe("NotificationsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       message: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      conversation: {
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(),
@@ -208,6 +212,73 @@ describe("NotificationsService", () => {
       select: { id: true, conversationId: true },
     });
     expect(result.items[0]?.href).toBe(`/conversas/${conversationId}`);
+  });
+
+  it("resolve MESSAGE_CREATED + CONVERSATION com ownership", async () => {
+    const conversationId = "e25afb87-2b81-4de7-9606-8f382fff3341";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.MESSAGE_CREATED,
+        resourceType: "CONVERSATION",
+        resourceId: conversationId,
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.conversation.findMany.mockResolvedValue([{ id: conversationId }]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(prismaMock.conversation.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: [conversationId] },
+        contract: {
+          OR: [
+            { customerProfile: { userId } },
+            { professionalProfile: { userId } },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    expect(result.items[0]?.href).toBe(`/conversas/${conversationId}`);
+  });
+
+  it("retorna href null quando a Conversation não existe ou não pertence ao usuário", async () => {
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.MESSAGE_CREATED,
+        resourceType: "CONVERSATION",
+        resourceId: "f25afb87-2b81-4de7-9606-8f382fff3341",
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.conversation.findMany.mockResolvedValue([]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]?.href).toBeNull();
+  });
+
+  it("não expõe dados privados ao resolver MESSAGE_CREATED + CONVERSATION", async () => {
+    const conversationId = "125afb87-2b81-4de7-9606-8f382fff3342";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.MESSAGE_CREATED,
+        resourceType: "CONVERSATION",
+        resourceId: conversationId,
+        userId,
+        customerProfileId: "customer-profile-id",
+        professionalProfileId: "professional-profile-id",
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.conversation.findMany.mockResolvedValue([{ id: conversationId }]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]).not.toHaveProperty("userId");
+    expect(result.items[0]).not.toHaveProperty("customerProfileId");
+    expect(result.items[0]).not.toHaveProperty("professionalProfileId");
   });
 
   it("retorna href null quando a Message não existe ou não pertence ao usuário", async () => {
