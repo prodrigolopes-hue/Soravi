@@ -115,6 +115,18 @@ enum NotificationType {
   MESSAGE_CREATED
 }
 
+enum CommunicationChannel {
+  WHATSAPP
+}
+
+enum OutboundNotificationStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -145,6 +157,8 @@ model User {
   messages                          Message[]
   conversationReadStates            ConversationReadState[]
   notifications                     Notification[]
+  communicationPreferences          CommunicationPreference[]
+  outboundNotifications             OutboundNotification[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -468,12 +482,57 @@ model Notification {
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   deletedAt    DateTime?        @map("deleted_at") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  outboundNotifications OutboundNotification[]
 
   @@unique([userId, type, resourceType, resourceId], map: "notifications_user_type_resource_key")
   @@index([userId, readAt, createdAt], map: "notifications_user_read_at_created_at_idx")
   @@index([userId, type, createdAt], map: "notifications_user_type_created_at_idx")
   @@map("notifications")
+}
+
+model CommunicationPreference {
+  id             String               @id @default(uuid()) @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  channel        CommunicationChannel
+  enabled        Boolean              @default(false)
+  consentVersion String?              @map("consent_version") @db.VarChar(32)
+  consentPurpose String?              @map("consent_purpose") @db.VarChar(160)
+  optedInAt      DateTime?            @map("opted_in_at") @db.Timestamptz(3)
+  optedOutAt     DateTime?            @map("opted_out_at") @db.Timestamptz(3)
+  consentSource  String?              @map("consent_source") @db.VarChar(64)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel], map: "communication_preferences_user_channel_key")
+  @@index([channel, enabled], map: "communication_preferences_channel_enabled_idx")
+  @@map("communication_preferences")
+}
+
+model OutboundNotification {
+  id                String                     @id @default(uuid()) @db.Uuid
+  notificationId    String                     @map("notification_id") @db.Uuid
+  userId            String                     @map("user_id") @db.Uuid
+  channel           CommunicationChannel
+  eventType         NotificationType           @map("event_type")
+  status            OutboundNotificationStatus @default(PENDING)
+  attemptCount      Int                        @default(0) @map("attempt_count")
+  nextAttemptAt     DateTime?                  @map("next_attempt_at") @db.Timestamptz(3)
+  sentAt            DateTime?                  @map("sent_at") @db.Timestamptz(3)
+  lastErrorCode     String?                    @map("last_error_code") @db.VarChar(64)
+  providerMessageId String?                    @map("provider_message_id") @db.VarChar(255)
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Restrict)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([notificationId, channel], map: "outbound_notifications_notification_channel_key")
+  @@index([status, nextAttemptAt], map: "outbound_notifications_status_next_attempt_at_idx")
+  @@index([userId, channel, createdAt], map: "outbound_notifications_user_channel_created_at_idx")
+  @@map("outbound_notifications")
 }
 
 model ConversationReadState {
