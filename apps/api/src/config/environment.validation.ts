@@ -73,6 +73,20 @@ class EnvironmentVariables {
   @IsOptional()
   OPPORTUNITY_DISTRIBUTION_BATCH_SIZE = 50;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(86400000)
+  @IsOptional()
+  OUTBOUND_NOTIFICATION_INTERVAL_MS = 60000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  @IsOptional()
+  OUTBOUND_NOTIFICATION_BATCH_SIZE = 25;
+
   @IsString()
   @MinLength(1)
   DATABASE_URL!: string;

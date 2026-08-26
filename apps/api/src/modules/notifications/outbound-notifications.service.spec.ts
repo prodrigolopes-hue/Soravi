@@ -11,16 +11,20 @@ describe("OutboundNotificationsService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   let service: OutboundNotificationsService;
   let transactionMock: {
+    $queryRaw: jest.Mock;
     outboundNotification: {
       upsert: jest.Mock;
+      findMany: jest.Mock;
     };
   };
 
   beforeEach(() => {
     service = new OutboundNotificationsService();
     transactionMock = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       outboundNotification: {
         upsert: jest.fn().mockResolvedValue({ id: "outbound-id" }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
     };
   });
@@ -92,6 +96,74 @@ describe("OutboundNotificationsService", () => {
     expect(create).not.toHaveProperty("email");
     expect(create).not.toHaveProperty("payload");
     expect(create).not.toHaveProperty("message");
-    expect(Object.keys(transactionMock)).toEqual(["outboundNotification"]);
+    expect(Object.keys(transactionMock)).toEqual([
+      "$queryRaw",
+      "outboundNotification",
+    ]);
+  });
+
+  it("seleciona lote PENDING vencido com FOR UPDATE SKIP LOCKED", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([{ id: "outbound-id" }]);
+    transactionMock.outboundNotification.findMany.mockResolvedValue([]);
+
+    await service.findEligibilityCandidates(
+      transactionMock as unknown as Prisma.TransactionClient,
+      25,
+    );
+
+    const query = transactionMock.$queryRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+      values: unknown[];
+    };
+    const sql = query.strings.join(" ");
+    expect(sql).toContain('"status" =');
+    expect(sql).toContain('"next_attempt_at" IS NULL');
+    expect(sql).toContain('"next_attempt_at" <= NOW()');
+    expect(sql).toContain('ORDER BY "created_at" ASC, "id" ASC');
+    expect(sql).toContain("FOR UPDATE SKIP LOCKED");
+    expect(sql).toContain("LIMIT");
+    expect(query.values).toContain(OutboundNotificationStatus.PENDING);
+    expect(query.values).toContain(25);
+  });
+
+  it("carrega somente os campos mínimos e preserva a ordenação", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([{ id: "outbound-id" }]);
+    transactionMock.outboundNotification.findMany.mockResolvedValue([]);
+
+    await service.findEligibilityCandidates(
+      transactionMock as unknown as Prisma.TransactionClient,
+      10,
+    );
+
+    expect(transactionMock.outboundNotification.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ["outbound-id"] } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        userId: true,
+        notificationId: true,
+        channel: true,
+        eventType: true,
+        status: true,
+        nextAttemptAt: true,
+        user: {
+          select: {
+            id: true,
+            status: true,
+            deletedAt: true,
+            phoneNormalized: true,
+            phoneVerifiedAt: true,
+            communicationPreferences: {
+              where: { channel: CommunicationChannel.WHATSAPP },
+              take: 1,
+              select: { enabled: true, channel: true },
+            },
+          },
+        },
+        notification: {
+          select: { id: true, userId: true, deletedAt: true },
+        },
+      },
+    });
   });
 });
