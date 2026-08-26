@@ -42,6 +42,7 @@ interface ConversationDetails {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  otherParticipantName: string | null;
   contract: {
     id: string;
     status: string;
@@ -113,6 +114,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     typeof root.createdAt !== "string" ||
     typeof root.updatedAt !== "string" ||
     !isNullableString(root.closedAt) ||
+    !isNullableString(root.otherParticipantName) ||
     !isRecord(root.contract) ||
     typeof root.contract.id !== "string" ||
     typeof root.contract.status !== "string" ||
@@ -135,6 +137,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     createdAt: root.createdAt,
     updatedAt: root.updatedAt,
     closedAt: root.closedAt,
+    otherParticipantName: root.otherParticipantName,
     contract: {
       id: root.contract.id,
       status: root.contract.status,
@@ -666,6 +669,11 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
                 {conversation.serviceRequest.title}
               </h1>
+              {conversation.otherParticipantName ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Conversando com {conversation.otherParticipantName}
+                </p>
+              ) : null}
               <p className="mt-2 text-sm text-slate-600">
                 Contratação aceita em {formatDateTime(conversation.contract.acceptedAt)}
               </p>

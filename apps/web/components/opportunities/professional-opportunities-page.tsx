@@ -33,6 +33,7 @@ interface OpportunityItem {
   id: string;
   createdAt: string;
   viewedAt: string | null;
+  customerFirstName: string | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -78,6 +79,7 @@ function parseOpportunity(value: unknown): OpportunityItem | null {
     typeof value.id !== "string" ||
     typeof value.createdAt !== "string" ||
     !isNullableString(value.viewedAt) ||
+    !isNullableString(value.customerFirstName) ||
     typeof serviceRequest.id !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
@@ -96,6 +98,7 @@ function parseOpportunity(value: unknown): OpportunityItem | null {
     id: value.id,
     createdAt: value.createdAt,
     viewedAt: value.viewedAt,
+    customerFirstName: value.customerFirstName,
     serviceRequest: {
       id: serviceRequest.id,
       title: serviceRequest.title,
@@ -363,6 +366,11 @@ export function ProfessionalOpportunitiesPage() {
                           <h2 className="mt-2 text-lg font-bold leading-7 text-slate-950">
                             {serviceRequest.title}
                           </h2>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {opportunity.customerFirstName
+                              ? `Cliente: ${opportunity.customerFirstName}`
+                              : "Cliente"}
+                          </p>
                         </div>
                         <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${isUnviewed ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
                           {isUnviewed ? <EyeOff aria-hidden="true" className="size-3.5" /> : <Eye aria-hidden="true" className="size-3.5" />}

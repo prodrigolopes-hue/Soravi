@@ -76,6 +76,7 @@ interface ServiceRequestDetails {
 
 interface ProposalReceived {
   id: string;
+  professionalName: string | null;
   amountInCents: number;
   estimatedDurationValue: number;
   estimatedDurationUnit: ProposalDurationUnit;
@@ -162,12 +163,13 @@ function parseProposalsResponse(payload: unknown): ProposalsResponse | null {
   const items: ProposalReceived[] = [];
 
   for (const item of root.items) {
-    if (!isRecord(item) || typeof item.id !== "string" || typeof item.amountInCents !== "number" || !Number.isInteger(item.amountInCents) || item.amountInCents < 0 || typeof item.estimatedDurationValue !== "number" || !Number.isInteger(item.estimatedDurationValue) || item.estimatedDurationValue < 1 || !isProposalDurationUnit(item.estimatedDurationUnit) || typeof item.message !== "string" || !isProposalStatus(item.status) || typeof item.submittedAt !== "string") {
+    if (!isRecord(item) || typeof item.id !== "string" || !isNullableString(item.professionalName) || typeof item.amountInCents !== "number" || !Number.isInteger(item.amountInCents) || item.amountInCents < 0 || typeof item.estimatedDurationValue !== "number" || !Number.isInteger(item.estimatedDurationValue) || item.estimatedDurationValue < 1 || !isProposalDurationUnit(item.estimatedDurationUnit) || typeof item.message !== "string" || !isProposalStatus(item.status) || typeof item.submittedAt !== "string") {
       return null;
     }
 
     items.push({
       id: item.id,
+      professionalName: item.professionalName,
       amountInCents: item.amountInCents,
       estimatedDurationValue: item.estimatedDurationValue,
       estimatedDurationUnit: item.estimatedDurationUnit,
@@ -1228,7 +1230,14 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                   {proposals.items.map((proposal) => (
                     <article key={proposal.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <p className="text-2xl font-bold text-slate-950">{formatProposalAmount(proposal.amountInCents)}</p>
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-600">
+                            {proposal.professionalName
+                              ? `Proposta de ${proposal.professionalName}`
+                              : "Proposta recebida"}
+                          </h3>
+                          <p className="mt-1 text-2xl font-bold text-slate-950">{formatProposalAmount(proposal.amountInCents)}</p>
+                        </div>
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${proposalStatusTones[proposal.status]}`}>{proposalStatusLabels[proposal.status]}</span>
                       </div>
                       <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">

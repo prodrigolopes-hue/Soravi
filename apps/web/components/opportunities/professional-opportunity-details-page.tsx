@@ -48,6 +48,7 @@ interface OpportunityDetails {
   createdAt: string;
   viewedAt: string | null;
   conversationId: string | null;
+  customerFirstName: string | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -96,6 +97,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     typeof root.createdAt !== "string" ||
     !isNullableString(root.viewedAt) ||
     !isNullableString(root.conversationId) ||
+    !isNullableString(root.customerFirstName) ||
     typeof serviceRequest.id !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
@@ -135,6 +137,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     createdAt: root.createdAt,
     viewedAt: root.viewedAt,
     conversationId: root.conversationId,
+    customerFirstName: root.customerFirstName,
     serviceRequest: {
       id: serviceRequest.id,
       title: serviceRequest.title,
@@ -388,6 +391,11 @@ export function ProfessionalOpportunityDetailsPage({
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
                 {serviceRequest.title}
               </h1>
+              <p className="mt-2 text-sm text-slate-500">
+                {opportunity.customerFirstName
+                  ? `Cliente: ${opportunity.customerFirstName}`
+                  : "Cliente"}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <span className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${status.className}`}>
