@@ -36,6 +36,7 @@ export interface OutboundNotificationEligibilityInput {
   } | null;
   preference: {
     channel: CommunicationChannel;
+    eventType: NotificationType;
     enabled: boolean;
   } | null;
   notification: {
@@ -55,6 +56,7 @@ export type OutboundNotificationEligibilityResult =
 const SUPPORTED_EVENTS: readonly NotificationType[] = [
   NotificationType.OPPORTUNITY_CREATED,
   NotificationType.PROPOSAL_CREATED,
+  NotificationType.MESSAGE_CREATED,
 ];
 
 const ELIGIBLE_USER_STATUSES: readonly UserStatus[] = [
@@ -99,8 +101,11 @@ export class OutboundNotificationEligibilityService {
       return { status: "CANCELLED", reason: "PREFERENCE_NOT_FOUND" };
     }
 
-    if (input.preference.channel !== CommunicationChannel.WHATSAPP) {
-      return { status: "CANCELLED", reason: "UNSUPPORTED_CHANNEL" };
+    if (
+      input.preference.channel !== input.outbound.channel ||
+      input.preference.eventType !== input.outbound.eventType
+    ) {
+      return { status: "CANCELLED", reason: "PREFERENCE_NOT_FOUND" };
     }
 
     if (!input.preference.enabled) {

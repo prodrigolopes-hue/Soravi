@@ -1,18 +1,16 @@
+import { PrismaService } from "../../database/prisma.service";
 import {
   CommunicationChannel,
   CommunicationPreference,
+  NotificationType,
 } from "../../generated/prisma/client";
-import { PrismaService } from "../../database/prisma.service";
 import { CommunicationPreferencesService } from "./communication-preferences.service";
 
 describe("CommunicationPreferencesService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   let service: CommunicationPreferencesService;
   let prismaMock: {
-    communicationPreference: {
-      findUnique: jest.Mock;
-      upsert: jest.Mock;
-    };
+    communicationPreference: { findUnique: jest.Mock; upsert: jest.Mock };
   };
 
   beforeEach(() => {
@@ -27,75 +25,138 @@ describe("CommunicationPreferencesService", () => {
     );
   });
 
-  it("cria preferência WHATSAPP com opt-in e limpa optedOutAt", async () => {
-    const before = Date.now();
-
+  it.each([
+    NotificationType.OPPORTUNITY_CREATED,
+    NotificationType.PROPOSAL_CREATED,
+  ])("cria preferencia separada para o evento %s", async (eventType) => {
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType,
+      enabled: true,
+    });
+
+    expect(prismaMock.communicationPreference.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId_channel_eventType: {
+            userId,
+            channel: CommunicationChannel.WHATSAPP,
+            eventType,
+          },
+        },
+        create: expect.objectContaining({ userId, eventType, enabled: true }),
+      }),
+    );
+  });
+
+  it("usa userId, channel e eventType na leitura", async () => {
+    await service.getPreference(
+      userId,
+      CommunicationChannel.WHATSAPP,
+      NotificationType.MESSAGE_CREATED,
+    );
+
+    expect(prismaMock.communicationPreference.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_channel_eventType: {
+          userId,
+          channel: CommunicationChannel.WHATSAPP,
+          eventType: NotificationType.MESSAGE_CREATED,
+        },
+      },
+    });
+  });
+
+  it("permite preferencias diferentes para o mesmo usuario e canal", async () => {
+    await service.upsertPreference({
+      userId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
+      enabled: true,
+    });
+    await service.upsertPreference({
+      userId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
+      enabled: false,
+    });
+
+    const keys = prismaMock.communicationPreference.upsert.mock.calls.map(
+      ([call]) => call.where.userId_channel_eventType,
+    );
+    expect(keys).toEqual([
+      {
+        userId,
+        channel: CommunicationChannel.WHATSAPP,
+        eventType: NotificationType.OPPORTUNITY_CREATED,
+      },
+      {
+        userId,
+        channel: CommunicationChannel.WHATSAPP,
+        eventType: NotificationType.PROPOSAL_CREATED,
+      },
+    ]);
+  });
+
+  it("faz opt-in, limpa optedOutAt e inclui metadados fornecidos", async () => {
+    const before = Date.now();
+    await service.upsertPreference({
+      userId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
       enabled: true,
       consentVersion: "1.0",
       consentPurpose: "Alertas operacionais",
       consentSource: "ACCOUNT_SETTINGS",
     });
+    const call = prismaMock.communicationPreference.upsert.mock.calls[0][0];
 
-    const after = Date.now();
-    expect(prismaMock.communicationPreference.upsert).toHaveBeenCalledWith({
-      where: {
-        userId_channel: { userId, channel: CommunicationChannel.WHATSAPP },
-      },
-      create: {
-        userId,
-        channel: CommunicationChannel.WHATSAPP,
-        enabled: true,
-        optedInAt: expect.any(Date),
-        optedOutAt: null,
-        consentVersion: "1.0",
-        consentPurpose: "Alertas operacionais",
-        consentSource: "ACCOUNT_SETTINGS",
-      },
-      update: expect.objectContaining({
-        enabled: true,
-        optedInAt: expect.any(Date),
-        optedOutAt: null,
-      }),
+    expect(call.create).toEqual({
+      userId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
+      enabled: true,
+      optedInAt: expect.any(Date),
+      optedOutAt: null,
+      consentVersion: "1.0",
+      consentPurpose: "Alertas operacionais",
+      consentSource: "ACCOUNT_SETTINGS",
     });
-    const optedInAt = prismaMock.communicationPreference.upsert.mock.calls[0][0]
-      .create.optedInAt as Date;
-    expect(optedInAt.getTime()).toBeGreaterThanOrEqual(before);
-    expect(optedInAt.getTime()).toBeLessThanOrEqual(after);
+    expect(call.create.optedInAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(call.update).toEqual({
+      enabled: true,
+      optedInAt: expect.any(Date),
+      optedOutAt: null,
+      consentVersion: "1.0",
+      consentPurpose: "Alertas operacionais",
+      consentSource: "ACCOUNT_SETTINGS",
+    });
   });
 
-  it("define optedOutAt ao desabilitar preferência ativa", async () => {
+  it("faz opt-out somente na transicao de true para false", async () => {
     prismaMock.communicationPreference.findUnique.mockResolvedValue(
       createPreference({ enabled: true, optedOutAt: null }),
     );
-
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
       enabled: false,
     });
 
-    expect(prismaMock.communicationPreference.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: {
-          enabled: false,
-          optedOutAt: expect.any(Date),
-        },
-      }),
-    );
+    expect(prismaMock.communicationPreference.upsert.mock.calls[0][0].update)
+      .toEqual({ enabled: false, optedOutAt: expect.any(Date) });
   });
 
-  it("não reinicia optedInAt quando a preferência continua habilitada", async () => {
-    const originalOptedInAt = new Date("2026-08-25T10:00:00.000Z");
+  it("preserva optedInAt quando continua habilitada", async () => {
     prismaMock.communicationPreference.findUnique.mockResolvedValue(
-      createPreference({ enabled: true, optedInAt: originalOptedInAt }),
+      createPreference({ enabled: true }),
     );
-
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
       enabled: true,
     });
 
@@ -103,14 +164,14 @@ describe("CommunicationPreferencesService", () => {
       .toEqual({ enabled: true });
   });
 
-  it("não inventa optedOutAt quando a preferência continua desabilitada", async () => {
+  it("nao cria outro optedOutAt quando continua desabilitada", async () => {
     prismaMock.communicationPreference.findUnique.mockResolvedValue(
       createPreference({ enabled: false, optedInAt: null, optedOutAt: null }),
     );
-
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
       enabled: false,
     });
 
@@ -118,28 +179,28 @@ describe("CommunicationPreferencesService", () => {
       .toEqual({ enabled: false });
   });
 
-  it("usa a chave única userId e channel para leitura e escrita", async () => {
+  it("nao usa nem cria consentimento global implicito", async () => {
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
       enabled: false,
     });
 
-    const uniqueWhere = {
-      userId_channel: { userId, channel: CommunicationChannel.WHATSAPP },
-    };
-    expect(prismaMock.communicationPreference.findUnique).toHaveBeenCalledWith({
-      where: uniqueWhere,
-    });
-    expect(prismaMock.communicationPreference.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ where: uniqueWhere }),
+    const call = prismaMock.communicationPreference.upsert.mock.calls[0][0];
+    expect(call.where).toHaveProperty("userId_channel_eventType");
+    expect(call.where).not.toHaveProperty("userId_channel");
+    expect(call.create).toHaveProperty(
+      "eventType",
+      NotificationType.PROPOSAL_CREATED,
     );
   });
 
-  it("não armazena dados sensíveis fora dos metadados de consentimento", async () => {
+  it("nao armazena dados sensiveis", async () => {
     await service.upsertPreference({
       userId,
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.MESSAGE_CREATED,
       enabled: true,
     });
 
@@ -160,6 +221,7 @@ function createPreference(
     id: "625afb87-2b81-4de7-9606-8f382fff3341",
     userId: "525afb87-2b81-4de7-9606-8f382fff3341",
     channel: CommunicationChannel.WHATSAPP,
+    eventType: NotificationType.OPPORTUNITY_CREATED,
     enabled: true,
     consentVersion: "1.0",
     consentPurpose: "Alertas operacionais",

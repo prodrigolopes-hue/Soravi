@@ -4,11 +4,13 @@ import { PrismaService } from "../../database/prisma.service";
 import {
   CommunicationChannel,
   CommunicationPreference,
+  NotificationType,
 } from "../../generated/prisma/client";
 
 export interface UpsertCommunicationPreferenceInput {
   userId: string;
   channel: CommunicationChannel;
+  eventType: NotificationType;
   enabled: boolean;
   consentVersion?: string;
   consentPurpose?: string;
@@ -22,10 +24,11 @@ export class CommunicationPreferencesService {
   getPreference(
     userId: string,
     channel: CommunicationChannel,
+    eventType: NotificationType,
   ): Promise<CommunicationPreference | null> {
     return this.prisma.communicationPreference.findUnique({
       where: {
-        userId_channel: { userId, channel },
+        userId_channel_eventType: { userId, channel, eventType },
       },
     });
   }
@@ -36,6 +39,7 @@ export class CommunicationPreferencesService {
     const currentPreference = await this.getPreference(
       input.userId,
       input.channel,
+      input.eventType,
     );
     const now = new Date();
     const isOptingIn = input.enabled && currentPreference?.enabled !== true;
@@ -54,14 +58,16 @@ export class CommunicationPreferencesService {
 
     return this.prisma.communicationPreference.upsert({
       where: {
-        userId_channel: {
+        userId_channel_eventType: {
           userId: input.userId,
           channel: input.channel,
+          eventType: input.eventType,
         },
       },
       create: {
         userId: input.userId,
         channel: input.channel,
+        eventType: input.eventType,
         enabled: input.enabled,
         optedInAt: input.enabled ? now : null,
         optedOutAt: null,

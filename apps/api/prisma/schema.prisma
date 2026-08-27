@@ -495,6 +495,7 @@ model CommunicationPreference {
   id             String               @id @default(uuid()) @db.Uuid
   userId         String               @map("user_id") @db.Uuid
   channel        CommunicationChannel
+  eventType      NotificationType     @map("event_type")
   enabled        Boolean              @default(false)
   consentVersion String?              @map("consent_version") @db.VarChar(32)
   consentPurpose String?              @map("consent_purpose") @db.VarChar(160)
@@ -506,8 +507,8 @@ model CommunicationPreference {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, channel], map: "communication_preferences_user_channel_key")
-  @@index([channel, enabled], map: "communication_preferences_channel_enabled_idx")
+  @@unique([userId, channel, eventType], map: "communication_preferences_user_channel_event_type_key")
+  @@index([userId, channel, eventType, enabled], map: "communication_preferences_user_channel_event_enabled_idx")
   @@map("communication_preferences")
 }
 

@@ -37,6 +37,7 @@ export interface OutboundNotificationEligibilityCandidate {
   preference: {
     enabled: boolean;
     channel: CommunicationChannel;
+    eventType: NotificationType;
   } | null;
   notification: {
     id: string;
@@ -86,9 +87,7 @@ export class OutboundNotificationsService {
             phoneNormalized: true,
             phoneVerifiedAt: true,
             communicationPreferences: {
-              where: { channel: CommunicationChannel.WHATSAPP },
-              take: 1,
-              select: { enabled: true, channel: true },
+              select: { enabled: true, channel: true, eventType: true },
             },
           },
         },
@@ -109,7 +108,12 @@ export class OutboundNotificationsService {
             phoneVerifiedAt: user.phoneVerifiedAt,
           }
         : null,
-      preference: user?.communicationPreferences[0] ?? null,
+      preference:
+        user?.communicationPreferences.find(
+          (preference) =>
+            preference.channel === outbound.channel &&
+            preference.eventType === outbound.eventType,
+        ) ?? null,
       notification,
     }));
   }

@@ -1931,3 +1931,20 @@ poderão exigir e-mail ou telefone verificado.
 
 O login implementado nesta etapa não gera JWT, refresh token
 ou sessão persistente.
+
+## 2026-08-26 — Preferências operacionais por canal e evento
+
+### Decisão
+
+Preferências operacionais são específicas por canal e evento.
+Consentimento de um evento não implica consentimento para outro.
+
+### Motivo
+
+Evitar que uma autorização genérica de canal seja interpretada como opt-in
+para eventos que o usuário não autorizou explicitamente.
+
+### Impacto
+
+Cada preferência é identificada por `userId`, `channel` e `eventType`.
+Registros legados sem evento associado não são convertidos em consentimentos.

@@ -154,9 +154,7 @@ describe("OutboundNotificationsService", () => {
             phoneNormalized: true,
             phoneVerifiedAt: true,
             communicationPreferences: {
-              where: { channel: CommunicationChannel.WHATSAPP },
-              take: 1,
-              select: { enabled: true, channel: true },
+              select: { enabled: true, channel: true, eventType: true },
             },
           },
         },
@@ -164,6 +162,52 @@ describe("OutboundNotificationsService", () => {
           select: { id: true, userId: true, deletedAt: true },
         },
       },
+    });
+  });
+
+  it("associa somente a preferência do mesmo evento do outbound", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([{ id: "outbound-id" }]);
+    transactionMock.outboundNotification.findMany.mockResolvedValue([
+      {
+        id: "outbound-id",
+        userId,
+        notificationId,
+        channel: CommunicationChannel.WHATSAPP,
+        eventType: NotificationType.PROPOSAL_CREATED,
+        status: OutboundNotificationStatus.PENDING,
+        nextAttemptAt: null,
+        user: {
+          id: userId,
+          status: "ACTIVE",
+          deletedAt: null,
+          phoneNormalized: "5511999999999",
+          phoneVerifiedAt: new Date("2026-08-26T10:00:00.000Z"),
+          communicationPreferences: [
+            {
+              channel: CommunicationChannel.WHATSAPP,
+              eventType: NotificationType.OPPORTUNITY_CREATED,
+              enabled: true,
+            },
+            {
+              channel: CommunicationChannel.WHATSAPP,
+              eventType: NotificationType.PROPOSAL_CREATED,
+              enabled: false,
+            },
+          ],
+        },
+        notification: { id: notificationId, userId, deletedAt: null },
+      },
+    ]);
+
+    const [candidate] = await service.findEligibilityCandidates(
+      transactionMock as unknown as Prisma.TransactionClient,
+      10,
+    );
+
+    expect(candidate.preference).toEqual({
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
+      enabled: false,
     });
   });
 });

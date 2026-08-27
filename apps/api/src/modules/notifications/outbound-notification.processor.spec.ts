@@ -263,6 +263,7 @@ function createCandidate(
     },
     preference: {
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
       enabled: true,
     },
     notification: {

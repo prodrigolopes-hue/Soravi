@@ -30,7 +30,13 @@ describe("OutboundNotificationEligibilityService", () => {
     ["preferência inexistente", { preference: null }, "PREFERENCE_NOT_FOUND"],
     [
       "preferência desabilitada",
-      { preference: { channel: CommunicationChannel.WHATSAPP, enabled: false } },
+      {
+        preference: {
+          channel: CommunicationChannel.WHATSAPP,
+          eventType: NotificationType.OPPORTUNITY_CREATED,
+          enabled: false,
+        },
+      },
       "PREFERENCE_DISABLED",
     ],
     ["telefone ausente", { user: createUser({ phoneNormalized: null }) }, "PHONE_MISSING"],
@@ -61,8 +67,23 @@ describe("OutboundNotificationEligibilityService", () => {
     ],
     [
       "evento não suportado",
-      { outbound: createOutbound({ eventType: NotificationType.MESSAGE_CREATED }) },
+      {
+        outbound: createOutbound({
+          eventType: "REVIEW_REQUESTED" as NotificationType,
+        }),
+      },
       "UNSUPPORTED_EVENT",
+    ],
+    [
+      "preferência de outro evento",
+      {
+        preference: {
+          channel: CommunicationChannel.WHATSAPP,
+          eventType: NotificationType.PROPOSAL_CREATED,
+          enabled: true,
+        },
+      },
+      "PREFERENCE_NOT_FOUND",
     ],
     [
       "canal não suportado",
@@ -88,6 +109,25 @@ describe("OutboundNotificationEligibilityService", () => {
       ).toEqual({ status: "READY" });
     },
   );
+
+  it.each([
+    NotificationType.OPPORTUNITY_CREATED,
+    NotificationType.PROPOSAL_CREATED,
+    NotificationType.MESSAGE_CREATED,
+  ])("retorna READY somente com preferência do evento %s", (eventType) => {
+    expect(
+      service.evaluate(
+        createInput({
+          outbound: createOutbound({ eventType }),
+          preference: {
+            channel: CommunicationChannel.WHATSAPP,
+            eventType,
+            enabled: true,
+          },
+        }),
+      ),
+    ).toEqual({ status: "READY" });
+  });
 });
 
 function createInput(
@@ -98,6 +138,7 @@ function createInput(
     user: createUser(),
     preference: {
       channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.OPPORTUNITY_CREATED,
       enabled: true,
     },
     notification: createNotification(),
