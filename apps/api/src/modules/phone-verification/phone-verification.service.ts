@@ -1,12 +1,18 @@
 import { randomUUID } from "node:crypto";
 
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, UserStatus } from "../../generated/prisma/client";
 import { InvalidPhoneVerificationCodeException } from "./errors/invalid-phone-verification-code.exception";
+import { PhoneVerificationDeliveryUnavailableException } from "./errors/phone-verification-delivery-unavailable.exception";
 import { PhoneVerificationCodeService } from "./phone-verification-code.service";
+import {
+  PHONE_VERIFICATION_DELIVERY_PORT,
+  PhoneVerificationDeliveryPort,
+  SendPhoneVerificationOtpInput,
+} from "./phone-verification-delivery.port";
 
 interface LockedPhoneVerificationUser {
   id: string;
@@ -40,6 +46,8 @@ export class PhoneVerificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly codeService: PhoneVerificationCodeService,
+    @Inject(PHONE_VERIFICATION_DELIVERY_PORT)
+    private readonly deliveryPort: PhoneVerificationDeliveryPort,
     configService: ConfigService,
   ) {
     this.ttlSeconds = configService.get<number>(
@@ -57,16 +65,18 @@ export class PhoneVerificationService {
   }
 
   async requestChallenge(userId: string): Promise<void> {
-    await this.prisma.$transaction(async (transaction) => {
+    const deliveryData = await this.prisma.$transaction<
+      SendPhoneVerificationOtpInput | null
+    >(async (transaction) => {
       const user = await this.lockUser(transaction, userId);
 
       if (!this.isEligibleForRequest(user)) {
-        return;
+        return null;
       }
 
       const latestChallenge =
         await transaction.phoneVerificationChallenge.findFirst({
-          where: { userId },
+          where: { userId, invalidatedAt: null },
           orderBy: { createdAt: "desc" },
           select: { createdAt: true },
         });
@@ -79,7 +89,7 @@ export class PhoneVerificationService {
         latestChallenge &&
         latestChallenge.createdAt > cooldownStartedAt
       ) {
-        return;
+        return null;
       }
 
       await transaction.phoneVerificationChallenge.updateMany({
@@ -93,6 +103,7 @@ export class PhoneVerificationService {
 
       const challengeId = randomUUID();
       const code = this.codeService.generateCode();
+      const expiresAt = new Date(now.getTime() + this.ttlSeconds * 1_000);
       const codeHash = this.codeService.hashCode({
         challengeId,
         userId,
@@ -106,14 +117,45 @@ export class PhoneVerificationService {
           userId,
           phoneNormalized: user.phoneNormalized,
           codeHash,
-          expiresAt: new Date(now.getTime() + this.ttlSeconds * 1_000),
+          expiresAt,
           attemptCount: 0,
           maxAttempts: this.maxAttempts,
           consumedAt: null,
           invalidatedAt: null,
         },
       });
+
+      return {
+        challengeId,
+        phoneNormalized: user.phoneNormalized,
+        code,
+        expiresAt,
+      };
     });
+
+    if (deliveryData === null) {
+      return;
+    }
+
+    try {
+      await this.deliveryPort.sendOtp(deliveryData);
+    } catch {
+      await this.prisma
+        .$transaction(async (transaction) => {
+          await transaction.phoneVerificationChallenge.updateMany({
+            where: {
+              id: deliveryData.challengeId,
+              userId,
+              consumedAt: null,
+              invalidatedAt: null,
+            },
+            data: { invalidatedAt: new Date() },
+          });
+        })
+        .catch(() => undefined);
+
+      throw new PhoneVerificationDeliveryUnavailableException();
+    }
   }
 
   async confirmCode(userId: string, code: string): Promise<void> {

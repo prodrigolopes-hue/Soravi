@@ -4,6 +4,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { UserStatus } from "../../generated/prisma/client";
 import { InvalidPhoneVerificationCodeException } from "./errors/invalid-phone-verification-code.exception";
 import { PhoneVerificationCodeService } from "./phone-verification-code.service";
+import { PhoneVerificationDeliveryPort } from "./phone-verification-delivery.port";
 import { PhoneVerificationService } from "./phone-verification.service";
 
 type UserFixture = {
@@ -34,6 +35,7 @@ describe("PhoneVerificationService", () => {
     hashCode: jest.Mock;
     verifyCode: jest.Mock;
   };
+  let deliveryPortMock: { sendOtp: jest.Mock };
 
   beforeEach(() => {
     transactionMock = {
@@ -57,6 +59,9 @@ describe("PhoneVerificationService", () => {
       hashCode: jest.fn().mockReturnValue("a".repeat(64)),
       verifyCode: jest.fn().mockReturnValue(true),
     };
+    deliveryPortMock = {
+      sendOtp: jest.fn().mockResolvedValue(undefined),
+    };
     const configServiceMock = {
       get: jest.fn((key: string, fallback: number) => {
         const values: Record<string, number> = {
@@ -71,6 +76,7 @@ describe("PhoneVerificationService", () => {
     service = new PhoneVerificationService(
       prismaMock as unknown as PrismaService,
       codeServiceMock as unknown as PhoneVerificationCodeService,
+      deliveryPortMock as unknown as PhoneVerificationDeliveryPort,
       configServiceMock as unknown as ConfigService,
     );
   });
@@ -144,6 +150,145 @@ describe("PhoneVerificationService", () => {
 
     expect(transactionMock.phoneVerificationChallenge.create).not.toHaveBeenCalled();
     expect(codeServiceMock.generateCode).not.toHaveBeenCalled();
+    expect(deliveryPortMock.sendOtp).not.toHaveBeenCalled();
+    expect(transactionMock.phoneVerificationChallenge.findFirst)
+      .toHaveBeenCalledWith({
+        where: { userId, invalidatedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+  });
+
+  it("entrega somente depois que a transaction de criação resolve", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+    let releaseTransaction: (() => void) | undefined;
+    prismaMock.$transaction.mockImplementationOnce(
+      async (
+        callback: (transaction: typeof transactionMock) => Promise<unknown>,
+      ) => {
+        const result = await callback(transactionMock);
+        await new Promise<void>((resolve) => {
+          releaseTransaction = resolve;
+        });
+        return result;
+      },
+    );
+
+    const requestPromise = service.requestChallenge(userId);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(transactionMock.phoneVerificationChallenge.create).toHaveBeenCalled();
+    expect(deliveryPortMock.sendOtp).not.toHaveBeenCalled();
+
+    releaseTransaction?.();
+    await requestPromise;
+
+    expect(deliveryPortMock.sendOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it("envia ao port somente os dados efêmeros mínimos", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+
+    await service.requestChallenge(userId);
+
+    const persistedData =
+      transactionMock.phoneVerificationChallenge.create.mock.calls[0][0].data;
+    expect(deliveryPortMock.sendOtp).toHaveBeenCalledWith({
+      challengeId: persistedData.id,
+      phoneNormalized: "+5521999999999",
+      code: "012345",
+      expiresAt: persistedData.expiresAt,
+    });
+    expect(Object.keys(deliveryPortMock.sendOtp.mock.calls[0][0]).sort()).toEqual(
+      ["challengeId", "code", "expiresAt", "phoneNormalized"].sort(),
+    );
+    expect(persistedData).not.toHaveProperty("code");
+  });
+
+  it("usuário inelegível não chama o port", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([
+      createUser({ phoneVerifiedAt: new Date() }),
+    ]);
+
+    await service.requestChallenge(userId);
+
+    expect(deliveryPortMock.sendOtp).not.toHaveBeenCalled();
+  });
+
+  it("falha de entrega invalida somente o challenge recém-criado", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+    deliveryPortMock.sendOtp.mockRejectedValue(
+      new Error("provider raw error +5521999999999 012345"),
+    );
+
+    await expect(service.requestChallenge(userId)).rejects.toMatchObject({
+      response: {
+        code: "PHONE_VERIFICATION_DELIVERY_UNAVAILABLE",
+        message: "Não foi possível enviar o código de verificação.",
+      },
+    });
+
+    const createdId =
+      transactionMock.phoneVerificationChallenge.create.mock.calls[0][0].data.id;
+    expect(transactionMock.phoneVerificationChallenge.updateMany)
+      .toHaveBeenCalledWith({
+        where: {
+          id: createdId,
+          userId,
+          consumedAt: null,
+          invalidatedAt: null,
+        },
+        data: { invalidatedAt: expect.any(Date) },
+      });
+    expect(
+      transactionMock.phoneVerificationChallenge.updateMany.mock.calls.some(
+        ([input]) => input.where.id === "another-challenge",
+      ),
+    ).toBe(false);
+  });
+
+  it("erro público não expõe telefone, code ou erro bruto", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+    deliveryPortMock.sendOtp.mockRejectedValue(
+      new Error("provider raw error +5521999999999 012345"),
+    );
+
+    const error = await service.requestChallenge(userId).catch((caught) => caught);
+    const serializedError = JSON.stringify(error.response);
+
+    expect(serializedError).not.toContain("+5521999999999");
+    expect(serializedError).not.toContain("012345");
+    expect(serializedError).not.toContain("provider raw error");
+  });
+
+  it("challenge compensado não participa do cooldown do novo request", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+    deliveryPortMock.sendOtp
+      .mockRejectedValueOnce(new Error("unavailable"))
+      .mockResolvedValueOnce(undefined);
+
+    await expect(service.requestChallenge(userId)).rejects.toBeDefined();
+    await expect(service.requestChallenge(userId)).resolves.toBeUndefined();
+
+    expect(transactionMock.phoneVerificationChallenge.findFirst)
+      .toHaveBeenNthCalledWith(2, {
+        where: { userId, invalidatedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+    expect(deliveryPortMock.sendOtp).toHaveBeenCalledTimes(2);
+  });
+
+  it("sucesso não executa a invalidação compensatória", async () => {
+    transactionMock.$queryRaw.mockResolvedValue([createUser()]);
+
+    await service.requestChallenge(userId);
+
+    expect(
+      transactionMock.phoneVerificationChallenge.updateMany.mock.calls.some(
+        ([input]) => Object.prototype.hasOwnProperty.call(input.where, "id"),
+      ),
+    ).toBe(false);
   });
 
   it("usa SELECT FOR UPDATE para bloquear o usuário no request", async () => {
