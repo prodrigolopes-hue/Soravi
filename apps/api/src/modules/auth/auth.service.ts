@@ -10,6 +10,7 @@ import {
   verify as verifyPassword,
 } from "argon2";
 
+import { normalizeBrazilianPhoneToE164 } from "../../common/phone/brazilian-phone";
 import { PrismaService } from "../../database/prisma.service";
 import {
   LegalDocumentType,
@@ -74,7 +75,17 @@ export class AuthService {
         : [];
 
     const normalizedEmail = this.normalizeEmail(input.email);
-    const normalizedPhone = this.normalizePhone(input.phone);
+    const presentedPhone = input.phone?.trim();
+    const normalizedPhone = presentedPhone
+      ? normalizeBrazilianPhoneToE164(presentedPhone)
+      : null;
+
+    if (input.phone != null && normalizedPhone === null) {
+      throw new BadRequestException({
+        code: "INVALID_BRAZILIAN_PHONE",
+        message: "Informe um telefone brasileiro válido com DDD.",
+      });
+    }
 
     const existingUser = await this.prisma.user.findFirst({
       where: {
@@ -132,8 +143,9 @@ export class AuthService {
               email: input.email.trim(),
               emailNormalized: normalizedEmail,
               passwordHash,
-              phone: input.phone?.trim() || null,
+              phone: presentedPhone || null,
               phoneNormalized: normalizedPhone,
+              phoneVerifiedAt: null,
               status: UserStatus.PENDING,
               roles: {
                 create: {
@@ -512,18 +524,6 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
-  }
-
-  private normalizePhone(
-    phone: string | undefined,
-  ): string | null {
-    if (!phone) {
-      return null;
-    }
-
-    const digits = phone.replace(/\D/g, "");
-
-    return digits.length > 0 ? digits : null;
   }
 
   private handleUniqueConstraintError(

@@ -180,7 +180,7 @@ describe("OutboundNotificationsService", () => {
           id: userId,
           status: "ACTIVE",
           deletedAt: null,
-          phoneNormalized: "5511999999999",
+          phoneNormalized: "+5511999999999",
           phoneVerifiedAt: new Date("2026-08-26T10:00:00.000Z"),
           communicationPreferences: [
             {

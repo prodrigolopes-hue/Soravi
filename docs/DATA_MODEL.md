@@ -245,6 +245,7 @@ DEACTIVATED
 
 - O e-mail normalizado deverá ser único.
 - O telefone normalizado poderá ser único quando informado.
+- `User.phoneNormalized` usa formato E.164 para números brasileiros: `+55`, DDD e número local.
 - A senha nunca será armazenada em texto puro.
 - O usuário poderá possuir perfil de cliente e profissional.
 - Um usuário poderá possuir mais de um papel.

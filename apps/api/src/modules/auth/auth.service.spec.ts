@@ -231,7 +231,9 @@ describe("AuthService", () => {
           email: "maria.teste@soravi.com.br",
           emailNormalized: "maria.teste@soravi.com.br",
           passwordHash: "hashed-password",
-          phoneNormalized: "5511999999999",
+          phone: "+55 11 99999-9999",
+          phoneNormalized: "+5511999999999",
+          phoneVerifiedAt: null,
           status: UserStatus.PENDING,
           roles: {
             create: {
@@ -262,6 +264,45 @@ describe("AuthService", () => {
     expect(response.data).not.toHaveProperty("password");
     expect(response.data).not.toHaveProperty("passwordHash");
     expect(response.data).not.toHaveProperty("sessions");
+  });
+
+  it.each(["(21) 99999-9999", "+55 21 99999-9999"])(
+    "salva entradas equivalentes em E.164: %s",
+    async (phone) => {
+      const input = createRegistrationInput(Role.CUSTOMER);
+      input.phone = phone;
+      prismaMock.user.findFirst.mockResolvedValue(null);
+      transactionClientMock.user.create.mockResolvedValue({ id: userId });
+      transactionClientMock.customerProfile.create.mockResolvedValue({
+        id: customerProfileId,
+        userId,
+      });
+      usersServiceMock.findSafeById.mockResolvedValue(createCustomerResponse());
+
+      await authService.register(input);
+
+      expect(transactionClientMock.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            phone,
+            phoneNormalized: "+5521999999999",
+            phoneVerifiedAt: null,
+          }),
+        }),
+      );
+    },
+  );
+
+  it("não cria usuário quando o telefone é inválido", async () => {
+    const input = createRegistrationInput(Role.CUSTOMER);
+    input.phone = "telefone inválido";
+
+    await expect(authService.register(input)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
+    expect(hashPasswordMock).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it("deve cadastrar um profissional com perfil profissional", async () => {
@@ -609,6 +650,29 @@ describe("AuthService", () => {
     ).not.toHaveBeenCalled();
   });
 
+  it("detecta colisão de formatos equivalentes pela unique normalizada", async () => {
+    const input = createRegistrationInput(Role.CUSTOMER);
+    input.phone = "(21) 99999-9999";
+    prismaMock.user.findFirst.mockResolvedValue({
+      emailNormalized: "outra.pessoa@soravi.com.br",
+      phoneNormalized: "+5521999999999",
+    });
+
+    await expect(authService.register(input)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(prismaMock.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { phoneNormalized: "+5521999999999" },
+          ]),
+        }),
+      }),
+    );
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it("deve normalizar o e-mail antes da consulta de cadastro", async () => {
     const input = createRegistrationInput(Role.CUSTOMER);
 
@@ -630,7 +694,7 @@ describe("AuthService", () => {
             emailNormalized: "maria.teste@soravi.com.br",
           },
           {
-            phoneNormalized: "5511999999999",
+            phoneNormalized: "+5511999999999",
           },
         ],
         deletedAt: null,

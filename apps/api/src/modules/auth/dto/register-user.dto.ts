@@ -11,6 +11,7 @@ import {
   MinLength,
 } from "class-validator";
 
+import { IsBrazilianPhone } from "../../../common/phone/is-brazilian-phone.decorator";
 import { Role } from "../../../generated/prisma/client";
 
 const INITIAL_REGISTRATION_ROLES = [
@@ -59,9 +60,7 @@ export class RegisterUserDto {
   @IsString({
     message: "O telefone deve ser um texto.",
   })
-  @Matches(/^\+?[0-9()\-\s]{10,24}$/, {
-    message: "Informe um telefone válido.",
-  })
+  @IsBrazilianPhone()
   phone?: string;
 
   @IsString({

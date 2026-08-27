@@ -1948,3 +1948,21 @@ para eventos que o usuário não autorizou explicitamente.
 
 Cada preferência é identificada por `userId`, `channel` e `eventType`.
 Registros legados sem evento associado não são convertidos em consentimentos.
+
+## 2026-08-26 — Telefone brasileiro normalizado em E.164
+
+### Decisão
+
+`User.phoneNormalized` usa formato E.164 para números brasileiros, composto
+por `+55`, DDD de dois dígitos e número local válido de oito ou nove dígitos.
+
+### Motivo
+
+Garantir uma representação canônica para unicidade e futuras integrações,
+independentemente da formatação apresentada no cadastro.
+
+### Impacto
+
+Novos cadastros armazenam o telefone normalizado com `+55`. Dados legados
+sem o prefixo `+` devem ser auditados e corrigidos por backfill separado antes
+de serem considerados canônicos; esta mudança não altera dados existentes.
