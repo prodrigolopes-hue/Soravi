@@ -59,6 +59,31 @@ class EnvironmentVariables {
   @IsOptional()
   JWT_REFRESH_EXPIRES_IN_DAYS = 30;
 
+  @IsString()
+  @MinLength(32)
+  PHONE_VERIFICATION_HMAC_SECRET!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  @Max(3600)
+  @IsOptional()
+  PHONE_VERIFICATION_TTL_SECONDS = 600;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  @IsOptional()
+  PHONE_VERIFICATION_MAX_ATTEMPTS = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(10)
+  @Max(3600)
+  @IsOptional()
+  PHONE_VERIFICATION_COOLDOWN_SECONDS = 60;
+
   @Type(() => Number)
   @IsInt()
   @Min(1000)
@@ -137,6 +162,15 @@ export function validateEnvironment(
       `Variáveis de ambiente inválidas: ${errors
         .map((error) => error.toString())
         .join("; ")}`,
+    );
+  }
+
+  if (
+    validatedEnvironment.PHONE_VERIFICATION_HMAC_SECRET ===
+    validatedEnvironment.JWT_ACCESS_SECRET
+  ) {
+    throw new Error(
+      "Variáveis de ambiente inválidas: PHONE_VERIFICATION_HMAC_SECRET deve ser diferente de JWT_ACCESS_SECRET.",
     );
   }
 

@@ -152,13 +152,14 @@ model User {
   passwordResetTokens               PasswordResetToken[]
   emailVerificationTokens           EmailVerificationToken[]
   legalAcceptances                  LegalAcceptance[]
-  reviewedCategoryRequests          CategoryRequest[]          @relation("CategoryRequestReviewer")
-  reviewedPublicCategorySuggestions PublicCategorySuggestion[] @relation("PublicCategorySuggestionReviewer")
+  reviewedCategoryRequests          CategoryRequest[]            @relation("CategoryRequestReviewer")
+  reviewedPublicCategorySuggestions PublicCategorySuggestion[]   @relation("PublicCategorySuggestionReviewer")
   messages                          Message[]
   conversationReadStates            ConversationReadState[]
   notifications                     Notification[]
   communicationPreferences          CommunicationPreference[]
   outboundNotifications             OutboundNotification[]
+  phoneVerificationChallenges       PhoneVerificationChallenge[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -283,6 +284,26 @@ model EmailVerificationToken {
   @@index([userId, createdAt], map: "email_verification_tokens_user_created_at_idx")
   @@index([expiresAt], map: "email_verification_tokens_expires_at_idx")
   @@map("email_verification_tokens")
+}
+
+model PhoneVerificationChallenge {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  phoneNormalized String    @map("phone_normalized") @db.VarChar(32)
+  codeHash        String    @map("code_hash") @db.VarChar(64)
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+  attemptCount    Int       @default(0) @map("attempt_count")
+  maxAttempts     Int       @default(5) @map("max_attempts")
+  consumedAt      DateTime? @map("consumed_at") @db.Timestamptz(3)
+  invalidatedAt   DateTime? @map("invalidated_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "phone_verification_challenges_user_created_at_idx")
+  @@index([userId, consumedAt, invalidatedAt, expiresAt], map: "phone_verification_challenges_user_state_expires_at_idx")
+  @@index([expiresAt], map: "phone_verification_challenges_expires_at_idx")
+  @@map("phone_verification_challenges")
 }
 
 model Category {
