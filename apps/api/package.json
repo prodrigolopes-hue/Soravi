@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "admin:set-password": "tsx scripts/set-admin-password.ts",
     "start:dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/src/main.js",
