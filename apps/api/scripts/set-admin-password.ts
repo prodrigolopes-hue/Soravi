@@ -72,6 +72,16 @@ export function normalizeAdminEmail(value: string | undefined): string {
   return normalizedEmail;
 }
 
+export function validateDatabaseUrl(value: string | undefined): string {
+  if (!value?.trim()) {
+    throw new AdminPasswordOperationError(
+      "DATABASE_URL não está definida no ambiente.",
+    );
+  }
+
+  return value;
+}
+
 export function validateAdminPassword(password: string): void {
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new AdminPasswordOperationError(
@@ -237,13 +247,7 @@ interface CommandDependencies {
 }
 
 function createProductionPrisma(): AdminPasswordPrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new AdminPasswordOperationError(
-      "DATABASE_URL não está definida no ambiente.",
-    );
-  }
+  const connectionString = validateDatabaseUrl(process.env.DATABASE_URL);
 
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString }),
@@ -264,6 +268,7 @@ export async function runSetAdminPasswordCommand(
 
   try {
     const emailNormalized = normalizeAdminEmail(process.env.ADMIN_EMAIL);
+    validateDatabaseUrl(process.env.DATABASE_URL);
     password = await dependencies.promptHidden("Nova senha: ");
     confirmation = await dependencies.promptHidden("Confirme a nova senha: ");
     validatePasswordConfirmation(password, confirmation);

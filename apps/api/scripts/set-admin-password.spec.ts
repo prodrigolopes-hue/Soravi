@@ -8,6 +8,7 @@ import {
   runSetAdminPasswordCommand,
   setAdminPassword,
   validateAdminPassword,
+  validateDatabaseUrl,
   validatePasswordConfirmation,
 } from "./set-admin-password";
 
@@ -45,6 +46,77 @@ describe("set-admin-password", () => {
   it("normaliza o e-mail e rejeita valor vazio", () => {
     expect(normalizeAdminEmail("  ADMIN@Soravi.COM  ")).toBe("admin@soravi.com");
     expect(() => normalizeAdminEmail("   ")).toThrow(AdminPasswordOperationError);
+  });
+
+  it("falha sem DATABASE_URL antes de solicitar senha e sem expor seu valor", async () => {
+    const previousEmail = process.env.ADMIN_EMAIL;
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    process.env.ADMIN_EMAIL = "admin@soravi.com";
+    delete process.env.DATABASE_URL;
+    const promptHidden = jest.fn();
+    const createPrisma = jest.fn();
+    const logError = jest.fn();
+
+    try {
+      const exitCode = await runSetAdminPasswordCommand({
+        createPrisma,
+        promptHidden,
+        log: jest.fn(),
+        logError,
+      });
+
+      expect(exitCode).toBe(1);
+      expect(promptHidden).not.toHaveBeenCalled();
+      expect(createPrisma).not.toHaveBeenCalled();
+      expect(logError).toHaveBeenCalledWith(
+        "DATABASE_URL não está definida no ambiente.",
+      );
+      expect(JSON.stringify(logError.mock.calls)).not.toContain("undefined");
+    } finally {
+      if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = previousEmail;
+      if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previousDatabaseUrl;
+    }
+  });
+
+  it("falha sem ADMIN_EMAIL antes de solicitar senha ou acessar o banco", async () => {
+    const previousEmail = process.env.ADMIN_EMAIL;
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const databaseUrl = "postgresql://secret-admin-email-test";
+    delete process.env.ADMIN_EMAIL;
+    process.env.DATABASE_URL = databaseUrl;
+    const promptHidden = jest.fn();
+    const createPrisma = jest.fn();
+    const logError = jest.fn();
+
+    try {
+      const exitCode = await runSetAdminPasswordCommand({
+        createPrisma,
+        promptHidden,
+        log: jest.fn(),
+        logError,
+      });
+
+      expect(exitCode).toBe(1);
+      expect(promptHidden).not.toHaveBeenCalled();
+      expect(createPrisma).not.toHaveBeenCalled();
+      expect(logError).toHaveBeenCalledWith(
+        "Defina ADMIN_EMAIL com o e-mail da conta ADMIN.",
+      );
+      expect(JSON.stringify(logError.mock.calls)).not.toContain(databaseUrl);
+    } finally {
+      if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = previousEmail;
+      if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previousDatabaseUrl;
+    }
+  });
+
+  it("rejeita DATABASE_URL vazia", () => {
+    expect(() => validateDatabaseUrl("   ")).toThrow(
+      "DATABASE_URL não está definida no ambiente.",
+    );
   });
 
   it.each([
@@ -121,33 +193,45 @@ describe("set-admin-password", () => {
 
   it("não retorna nem imprime senha ou hash e desconecta no finally", async () => {
     const previousEmail = process.env.ADMIN_EMAIL;
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const databaseUrl = "postgresql://valid-test-url";
     process.env.ADMIN_EMAIL = "admin@soravi.com";
+    process.env.DATABASE_URL = databaseUrl;
     const { prisma } = createPrismaMock();
     const log = jest.fn();
     const logError = jest.fn();
+    const promptHidden = jest
+      .fn()
+      .mockResolvedValueOnce("SenhaSegura123")
+      .mockResolvedValueOnce("SenhaSegura123");
 
     try {
       const exitCode = await runSetAdminPasswordCommand({
         createPrisma: () => prisma,
-        promptHidden: jest
-          .fn()
-          .mockResolvedValueOnce("SenhaSegura123")
-          .mockResolvedValueOnce("SenhaSegura123"),
+        promptHidden,
         log,
         logError,
       });
 
       expect(exitCode).toBe(0);
+      expect(promptHidden).toHaveBeenNthCalledWith(1, "Nova senha: ");
+      expect(promptHidden).toHaveBeenNthCalledWith(
+        2,
+        "Confirme a nova senha: ",
+      );
       expect(prisma.$disconnect).toHaveBeenCalledTimes(1);
       const output = [...log.mock.calls, ...logError.mock.calls].flat().join(" ");
       expect(output).not.toContain("SenhaSegura123");
       expect(output).not.toContain("generated-hash");
+      expect(output).not.toContain(databaseUrl);
     } finally {
       if (previousEmail === undefined) {
         delete process.env.ADMIN_EMAIL;
       } else {
         process.env.ADMIN_EMAIL = previousEmail;
       }
+      if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previousDatabaseUrl;
     }
   });
 
