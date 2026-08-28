@@ -9,6 +9,15 @@ describe("validateEnvironment", () => {
     PHONE_VERIFICATION_HMAC_SECRET:
       "a-distinct-phone-verification-secret-with-safe-length",
   };
+  const completeMetaEnvironment = {
+    ...requiredEnvironment,
+    PHONE_VERIFICATION_DELIVERY_PROVIDER: "meta",
+    META_WHATSAPP_ACCESS_TOKEN: "meta-access-token",
+    META_WHATSAPP_PHONE_NUMBER_ID: "123456789",
+    META_WHATSAPP_GRAPH_API_VERSION: "v26.0",
+    META_WHATSAPP_OTP_TEMPLATE_NAME: "soravi_phone_verification",
+    META_WHATSAPP_OTP_TEMPLATE_LANGUAGE: "pt_BR",
+  };
 
   it("aplica os defaults da distribuição de oportunidades", () => {
     const environment = validateEnvironment(requiredEnvironment);
@@ -20,6 +29,24 @@ describe("validateEnvironment", () => {
     expect(environment.PHONE_VERIFICATION_TTL_SECONDS).toBe(600);
     expect(environment.PHONE_VERIFICATION_MAX_ATTEMPTS).toBe(5);
     expect(environment.PHONE_VERIFICATION_COOLDOWN_SECONDS).toBe(60);
+    expect(environment.PHONE_VERIFICATION_DELIVERY_PROVIDER).toBe(
+      "unavailable",
+    );
+    expect(environment.META_WHATSAPP_HTTP_TIMEOUT_MS).toBe(5_000);
+  });
+
+  it("aceita provider unavailable sem configuração Meta", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        PHONE_VERIFICATION_DELIVERY_PROVIDER: "unavailable",
+        META_WHATSAPP_ACCESS_TOKEN: "",
+        META_WHATSAPP_PHONE_NUMBER_ID: "",
+        META_WHATSAPP_GRAPH_API_VERSION: "",
+        META_WHATSAPP_OTP_TEMPLATE_NAME: "",
+        META_WHATSAPP_OTP_TEMPLATE_LANGUAGE: "",
+      }),
+    ).not.toThrow();
   });
 
   it("converte valores configurados para números", () => {
@@ -32,6 +59,7 @@ describe("validateEnvironment", () => {
       PHONE_VERIFICATION_TTL_SECONDS: "900",
       PHONE_VERIFICATION_MAX_ATTEMPTS: "7",
       PHONE_VERIFICATION_COOLDOWN_SECONDS: "120",
+      META_WHATSAPP_HTTP_TIMEOUT_MS: "7000",
     });
 
     expect(environment.OPPORTUNITY_DISTRIBUTION_INTERVAL_MS).toBe(5_000);
@@ -41,6 +69,7 @@ describe("validateEnvironment", () => {
     expect(environment.PHONE_VERIFICATION_TTL_SECONDS).toBe(900);
     expect(environment.PHONE_VERIFICATION_MAX_ATTEMPTS).toBe(7);
     expect(environment.PHONE_VERIFICATION_COOLDOWN_SECONDS).toBe(120);
+    expect(environment.META_WHATSAPP_HTTP_TIMEOUT_MS).toBe(7_000);
   });
 
   it.each([
@@ -58,6 +87,8 @@ describe("validateEnvironment", () => {
     ["PHONE_VERIFICATION_MAX_ATTEMPTS", "11"],
     ["PHONE_VERIFICATION_COOLDOWN_SECONDS", "9"],
     ["PHONE_VERIFICATION_COOLDOWN_SECONDS", "3601"],
+    ["META_WHATSAPP_HTTP_TIMEOUT_MS", "999"],
+    ["META_WHATSAPP_HTTP_TIMEOUT_MS", "15001"],
   ])("rejeita %s fora dos limites", (key, value) => {
     expect(() =>
       validateEnvironment({
@@ -93,5 +124,46 @@ describe("validateEnvironment", () => {
           requiredEnvironment.JWT_ACCESS_SECRET,
       }),
     ).toThrow("deve ser diferente de JWT_ACCESS_SECRET");
+  });
+
+  it.each([
+    "META_WHATSAPP_ACCESS_TOKEN",
+    "META_WHATSAPP_PHONE_NUMBER_ID",
+    "META_WHATSAPP_GRAPH_API_VERSION",
+    "META_WHATSAPP_OTP_TEMPLATE_NAME",
+    "META_WHATSAPP_OTP_TEMPLATE_LANGUAGE",
+  ])("rejeita configuração Meta obrigatória ausente: %s", (key) => {
+    const environment = {
+      ...completeMetaEnvironment,
+    } as Record<string, unknown>;
+    delete environment[key];
+
+    expect(() => validateEnvironment(environment)).toThrow(
+      "Variáveis de ambiente inválidas",
+    );
+  });
+
+  it("aceita provider meta com configuração completa", () => {
+    const environment = validateEnvironment(completeMetaEnvironment);
+
+    expect(environment.PHONE_VERIFICATION_DELIVERY_PROVIDER).toBe("meta");
+  });
+
+  it("rejeita provider de entrega desconhecido", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        PHONE_VERIFICATION_DELIVERY_PROVIDER: "unknown",
+      }),
+    ).toThrow("Variáveis de ambiente inválidas");
+  });
+
+  it("rejeita versão implícita da Graph API", () => {
+    expect(() =>
+      validateEnvironment({
+        ...completeMetaEnvironment,
+        META_WHATSAPP_GRAPH_API_VERSION: "latest",
+      }),
+    ).toThrow("Variáveis de ambiente inválidas");
   });
 });

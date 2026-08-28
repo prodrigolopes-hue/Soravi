@@ -1966,3 +1966,33 @@ independentemente da formatação apresentada no cadastro.
 Novos cadastros armazenam o telefone normalizado com `+55`. Dados legados
 sem o prefixo `+` devem ser auditados e corrigidos por backfill separado antes
 de serem considerados canônicos; esta mudança não altera dados existentes.
+
+## 2026-08-27 — Meta WhatsApp Cloud API como canal inicial de OTP
+
+### Decisão
+
+A Meta WhatsApp Cloud API é o primeiro canal oficial de entrega do OTP de
+verificação de telefone no MVP.
+
+A Soravi permanece responsável por criar o challenge, gerar o código, proteger
+o código com HMAC, controlar sua expiração e validar a confirmação. A Meta
+atua somente como transporte da mensagem por template de autenticação.
+
+### Arquitetura
+
+A integração fica isolada por um adapter atrás de
+`PhoneVerificationDeliveryPort`. O domínio de verificação de telefone não
+depende diretamente da Meta nem delega a ela a validação do OTP.
+
+### Impactos
+
+- outro canal poderá substituir o adapter sem mudar o fluxo de verificação;
+- credenciais da Meta permanecem somente no backend;
+- webhook, retry e notificações operacionais continuam fora deste incremento.
+
+### Seleção operacional
+
+A entrega de OTP usa provider explícito por configuração. O default local é
+`unavailable`, com comportamento fail-closed; a Meta somente é ativada quando
+`PHONE_VERIFICATION_DELIVERY_PROVIDER=meta`. Nesse modo, sua configuração
+completa é obrigatória no bootstrap.

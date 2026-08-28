@@ -4,9 +4,11 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
+  ValidateIf,
   validateSync,
 } from "class-validator";
 
@@ -17,6 +19,14 @@ const environmentNames = [
 ] as const;
 
 type EnvironmentName = (typeof environmentNames)[number];
+
+const phoneVerificationDeliveryProviders = [
+  "unavailable",
+  "meta",
+] as const;
+
+type PhoneVerificationDeliveryProvider =
+  (typeof phoneVerificationDeliveryProviders)[number];
 
 class EnvironmentVariables {
   @IsIn(environmentNames)
@@ -83,6 +93,48 @@ class EnvironmentVariables {
   @Max(3600)
   @IsOptional()
   PHONE_VERIFICATION_COOLDOWN_SECONDS = 60;
+
+  @IsIn(phoneVerificationDeliveryProviders)
+  @IsOptional()
+  PHONE_VERIFICATION_DELIVERY_PROVIDER: PhoneVerificationDeliveryProvider =
+    "unavailable";
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_ACCESS_TOKEN!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_PHONE_NUMBER_ID!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @Matches(/^v\d+\.\d+$/u)
+  @IsOptional()
+  META_WHATSAPP_GRAPH_API_VERSION!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_OTP_TEMPLATE_NAME!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_OTP_TEMPLATE_LANGUAGE!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(15000)
+  @IsOptional()
+  META_WHATSAPP_HTTP_TIMEOUT_MS = 5000;
 
   @Type(() => Number)
   @IsInt()
@@ -163,6 +215,31 @@ export function validateEnvironment(
         .map((error) => error.toString())
         .join("; ")}`,
     );
+  }
+
+  if (
+    validatedEnvironment.PHONE_VERIFICATION_DELIVERY_PROVIDER === "meta"
+  ) {
+    const requiredMetaVariables = [
+      "META_WHATSAPP_ACCESS_TOKEN",
+      "META_WHATSAPP_PHONE_NUMBER_ID",
+      "META_WHATSAPP_GRAPH_API_VERSION",
+      "META_WHATSAPP_OTP_TEMPLATE_NAME",
+      "META_WHATSAPP_OTP_TEMPLATE_LANGUAGE",
+    ] as const;
+    const missingMetaVariables = requiredMetaVariables.filter((key) => {
+      const value = validatedEnvironment[key];
+
+      return typeof value !== "string" || value.length === 0;
+    });
+
+    if (missingMetaVariables.length > 0) {
+      throw new Error(
+        `Variáveis de ambiente inválidas: configuração Meta incompleta (${missingMetaVariables.join(
+          ", ",
+        )}).`,
+      );
+    }
   }
 
   if (
