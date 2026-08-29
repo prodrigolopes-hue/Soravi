@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -139,6 +140,7 @@ function formatPhone(value: string): string {
 }
 
 export function ProfessionalRegistrationForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -304,6 +306,7 @@ export function ProfessionalRegistrationForm() {
       setFormMessage(
         "Cadastro profissional enviado com sucesso. Você já pode entrar na Soravi.",
       );
+      router.replace("/entrar");
     } catch {
       setFormMessage(
         "Não foi possível conectar à Soravi. Tente novamente em instantes.",

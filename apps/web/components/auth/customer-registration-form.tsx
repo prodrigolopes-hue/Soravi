@@ -10,6 +10,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -88,6 +89,7 @@ function formatPhone(value: string): string {
 type SubmissionState = "idle" | "submitting" | "success" | "error";
 
 export function CustomerRegistrationForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -164,6 +166,7 @@ export function CustomerRegistrationForm() {
         passwordConfirmation: "",
         acceptedTerms: false,
       });
+      router.replace("/entrar");
     } catch {
       setSubmissionState("error");
       setFormError("Não foi possível conectar à Soravi. Tente novamente em instantes.");
