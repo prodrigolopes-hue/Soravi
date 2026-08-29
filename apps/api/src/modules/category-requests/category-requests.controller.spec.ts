@@ -1,5 +1,6 @@
 import { Role } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CategoryRequestsController } from "./category-requests.controller";
 import { CategoryRequestsService } from "./category-requests.service";
@@ -58,6 +59,19 @@ describe("CategoryRequestsController", () => {
       dto,
     );
     expect(result).toBe(response);
+  });
+
+  it("exige telefone na criacao de category request", () => {
+    const guards = Reflect.getMetadata(
+      "__guards__",
+      CategoryRequestsController.prototype.create,
+    );
+
+    expect(guards).toEqual([
+      AccessTokenGuard,
+      RolesGuard,
+      PhoneVerifiedGuard,
+    ]);
   });
 
   it("encaminha a listagem administrativa de category requests", async () => {

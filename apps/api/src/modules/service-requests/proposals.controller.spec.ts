@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { EstimatedDurationUnit, Role } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { CreateProposalDto } from "./dto/create-proposal.dto";
 import { ProposalsReceivedQueryDto } from "./dto/proposals-received-query.dto";
@@ -101,7 +102,11 @@ describe("ProposalsController", () => {
       ProposalsController.prototype.create,
     );
 
-    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(guards).toEqual([
+      AccessTokenGuard,
+      RolesGuard,
+      PhoneVerifiedGuard,
+    ]);
     expect(roles).toEqual([Role.PROFESSIONAL]);
   });
 });

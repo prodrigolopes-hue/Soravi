@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { Role } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { ProposalAcceptanceController } from "./proposals.controller";
 import { ProposalsService } from "./proposals.service";
@@ -47,7 +48,11 @@ describe("ProposalAcceptanceController", () => {
       ProposalAcceptanceController.prototype.accept,
     );
 
-    expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(guards).toEqual([
+      AccessTokenGuard,
+      RolesGuard,
+      PhoneVerifiedGuard,
+    ]);
     expect(roles).toEqual([Role.CUSTOMER]);
   });
 });

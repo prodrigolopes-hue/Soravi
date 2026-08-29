@@ -4,6 +4,7 @@ import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { CategoryRequestsService } from "./category-requests.service";
@@ -20,7 +21,7 @@ export class CategoryRequestsController {
 
   @Post()
   @Roles(Role.PROFESSIONAL)
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   create(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() input: CreateCategoryRequestDto,

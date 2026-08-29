@@ -13,6 +13,7 @@ import {
 
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { ConversationResponseDto } from "./dto/conversation-response.dto";
 import { ConversationsListQueryDto } from "./dto/conversations-list-query.dto";
@@ -70,7 +71,7 @@ export class ConversationsController {
   }
 
   @Post(":conversationId/messages")
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard, PhoneVerifiedGuard)
   async createMessage(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param("conversationId", new ParseUUIDPipe()) conversationId: string,

@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { Role } from "../../generated/prisma/client";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { ConversationsController } from "./conversations.controller";
 import { ConversationsGateway } from "./conversations.gateway";
 import { ConversationsService } from "./conversations.service";
@@ -186,5 +187,27 @@ describe("ConversationsController", () => {
     await controller.findAll(currentUser, {});
 
     expect(serviceMock.findAll).toHaveBeenCalledWith(currentUser.id, 1, 20);
+  });
+
+  it("exige telefone somente no envio de mensagem", () => {
+    const messageGuards = Reflect.getMetadata(
+      "__guards__",
+      ConversationsController.prototype.createMessage,
+    );
+    const messagesReadGuards = Reflect.getMetadata(
+      "__guards__",
+      ConversationsController.prototype.findMessages,
+    );
+    const markReadGuards = Reflect.getMetadata(
+      "__guards__",
+      ConversationsController.prototype.markAsRead,
+    );
+
+    expect(messageGuards).toEqual([
+      AccessTokenGuard,
+      PhoneVerifiedGuard,
+    ]);
+    expect(messagesReadGuards).toEqual([AccessTokenGuard]);
+    expect(markReadGuards).toEqual([AccessTokenGuard]);
   });
 });

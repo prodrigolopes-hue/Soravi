@@ -17,6 +17,7 @@ import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
@@ -67,7 +68,7 @@ export class ServiceRequestsController {
 
   @Patch(":serviceRequestId")
   @Roles(Role.CUSTOMER)
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   updateMine(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param("serviceRequestId", new ParseUUIDPipe()) serviceRequestId: string,
@@ -82,7 +83,7 @@ export class ServiceRequestsController {
 
   @Post(":serviceRequestId/cancel")
   @Roles(Role.CUSTOMER)
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   cancelMine(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param("serviceRequestId", new ParseUUIDPipe()) serviceRequestId: string,
@@ -97,7 +98,7 @@ export class ServiceRequestsController {
 
   @Post()
   @Roles(Role.CUSTOMER)
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   create(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() input: CreateServiceRequestDto,
@@ -110,7 +111,7 @@ export class ServiceRequestsController {
 
   @Post(":serviceRequestId/photos")
   @Roles(Role.CUSTOMER)
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   @UseInterceptors(
     FileInterceptor("file", {
       limits: {
