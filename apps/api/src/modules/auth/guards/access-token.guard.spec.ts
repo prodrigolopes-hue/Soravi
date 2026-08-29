@@ -19,6 +19,7 @@ interface RequestMock {
         id: string;
         sessionId: string;
         roles: Role[];
+        phoneVerifiedAt: Date | null;
     };
 }
 
@@ -73,6 +74,7 @@ describe("AccessTokenGuard", () => {
             id: "525afb87-2b81-4de7-9606-8f382fff3341",
             sessionId: "725afb87-2b81-4de7-9606-8f382fff3341",
             roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
         });
 
         const result = await guard.canActivate(
@@ -93,6 +95,7 @@ describe("AccessTokenGuard", () => {
             id: "525afb87-2b81-4de7-9606-8f382fff3341",
             sessionId: "725afb87-2b81-4de7-9606-8f382fff3341",
             roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
         });
     });
 

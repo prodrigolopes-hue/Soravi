@@ -2016,3 +2016,16 @@ operacional em produção.
 - `phoneVerified` estabelecido;
 - recuperação segura do acesso;
 - idealmente, autenticação administrativa mais forte.
+
+## 2026-08-29 — Enforcement backend explícito de verificação de telefone
+
+### Decisão
+
+O backend exigirá verificação de telefone somente nos handlers sensíveis que
+declararem `PhoneVerifiedGuard`. `phoneVerifiedAt` será carregado do banco na
+autenticação já executada por request e não será adicionado ao JWT.
+
+### Exceção temporária
+
+Contas `ADMIN` permanecem fora dessa exigência no MVP para evitar lockout
+administrativo, sem remover autenticação, papéis ou autorização backend.

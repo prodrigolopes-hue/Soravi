@@ -26,6 +26,7 @@ describe("ProposalsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
     const query = new ProposalsReceivedQueryDto();
@@ -68,6 +69,7 @@ describe("ProposalsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.PROFESSIONAL],
+      phoneVerifiedAt: null,
     };
     const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
     const dto: CreateProposalDto = {

@@ -46,6 +46,7 @@ describe("UsersController", () => {
             id: userId,
             sessionId,
             roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
         };
 
         const safeUser = new UserResponseDto({

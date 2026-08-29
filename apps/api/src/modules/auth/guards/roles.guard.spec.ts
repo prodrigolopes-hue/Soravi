@@ -12,6 +12,7 @@ interface RequestMock {
         id: string;
         sessionId: string;
         roles: Role[];
+        phoneVerifiedAt: Date | null;
     };
 }
 
@@ -76,6 +77,7 @@ describe("RolesGuard", () => {
                 id: userId,
                 sessionId,
                 roles: [Role.CUSTOMER],
+                phoneVerifiedAt: null,
             },
         };
 
@@ -96,6 +98,7 @@ describe("RolesGuard", () => {
                 id: userId,
                 sessionId,
                 roles: [Role.PROFESSIONAL],
+                phoneVerifiedAt: null,
             },
         };
 
@@ -117,6 +120,7 @@ describe("RolesGuard", () => {
                 id: userId,
                 sessionId,
                 roles: [Role.ADMIN],
+                phoneVerifiedAt: null,
             },
         };
 

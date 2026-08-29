@@ -35,6 +35,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const input = createInput();
     const response = new ServiceRequestResponseDto({
@@ -67,6 +68,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const query = new ServiceRequestsMineQueryDto();
     const response = new ServiceRequestsMineListResponseDto([], 1, 20, 0);
@@ -97,6 +99,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const response = new ServiceRequestResponseDto({
       id: "725afb87-2b81-4de7-9606-8f382fff3341",
@@ -147,6 +150,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const input: UpdateServiceRequestDto = {
       title: "Instalar duas tomadas",
@@ -201,6 +205,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const input: CancelServiceRequestDto = {
       reason: "Não preciso mais do serviço.",
@@ -269,6 +274,7 @@ describe("ServiceRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const file = {
       buffer: Buffer.from([0xff, 0xd8, 0xff]),

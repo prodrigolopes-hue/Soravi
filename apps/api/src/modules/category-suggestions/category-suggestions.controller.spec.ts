@@ -126,6 +126,7 @@ describe("CategorySuggestionsController", () => {
       id: "admin-id",
       sessionId: "session-id",
       roles: [Role.ADMIN],
+      phoneVerifiedAt: null,
     };
 
     const input: ModeratePublicCategorySuggestionDto = {

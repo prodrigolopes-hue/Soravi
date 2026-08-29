@@ -26,6 +26,7 @@ describe("OpportunitiesController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.PROFESSIONAL],
+      phoneVerifiedAt: null,
     };
     const query = new OpportunitiesQueryDto();
     const response = {
@@ -62,6 +63,7 @@ describe("OpportunitiesController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.PROFESSIONAL],
+      phoneVerifiedAt: null,
     };
     const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
     const response = { opportunityId };
@@ -95,6 +97,7 @@ describe("OpportunitiesController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.PROFESSIONAL],
+      phoneVerifiedAt: null,
     };
     const opportunityId = "725afb87-2b81-4de7-9606-8f382fff3341";
     const response = { opportunityId };

@@ -33,6 +33,7 @@ describe("ConversationsController", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
 
     const response = new ConversationResponseDto({
@@ -74,6 +75,7 @@ describe("ConversationsController", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
 
     const createdMessage = new MessageResponseDto({
@@ -111,6 +113,7 @@ describe("ConversationsController", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
 
     serviceMock.createMessage.mockRejectedValue(new Error("db-failure"));
@@ -147,6 +150,7 @@ describe("ConversationsController", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
 
     const response = {
@@ -171,6 +175,7 @@ describe("ConversationsController", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
 
     serviceMock.findAll.mockResolvedValue({

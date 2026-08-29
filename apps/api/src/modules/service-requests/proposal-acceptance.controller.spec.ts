@@ -23,6 +23,7 @@ describe("ProposalAcceptanceController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const response = { data: { contract: {}, conversation: {} } };
     proposalsServiceMock.accept.mockResolvedValue(response);

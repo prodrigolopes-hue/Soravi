@@ -72,6 +72,7 @@ describe("ConversationsGateway", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [],
+      phoneVerifiedAt: null,
     });
 
     await runSocketMiddleware(socket);
@@ -96,6 +97,7 @@ describe("ConversationsGateway", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [],
+      phoneVerifiedAt: null,
     });
     expect(acknowledge).toHaveBeenCalledWith({
       ok: true,
@@ -114,6 +116,7 @@ describe("ConversationsGateway", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [],
+      phoneVerifiedAt: null,
     });
 
     conversationsServiceMock.assertParticipant.mockRejectedValue(
@@ -173,6 +176,7 @@ describe("ConversationsGateway", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [],
+      phoneVerifiedAt: null,
     });
 
     await runSocketMiddleware(socket);

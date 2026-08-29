@@ -249,6 +249,7 @@ describe("ConversationsController.markAsRead", () => {
       id: "customer-user-id",
       sessionId: "session-id",
       roles: [Role.CUSTOMER],
+      phoneVerifiedAt: null,
     };
     const payload = { lastReadMessageId: "msg-1" };
 

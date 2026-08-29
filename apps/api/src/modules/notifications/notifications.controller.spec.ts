@@ -22,6 +22,7 @@ describe("NotificationsController", () => {
     id: "525afb87-2b81-4de7-9606-8f382fff3341",
     sessionId: "session-id",
     roles: [Role.CUSTOMER],
+    phoneVerifiedAt: null,
   };
 
   afterEach(() => {

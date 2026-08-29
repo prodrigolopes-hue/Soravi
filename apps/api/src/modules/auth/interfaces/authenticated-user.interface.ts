@@ -4,4 +4,5 @@ export interface AuthenticatedUser {
   id: string;
   sessionId: string;
   roles: Role[];
+  phoneVerifiedAt: Date | null;
 }

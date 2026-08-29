@@ -35,6 +35,7 @@ describe("CategoryRequestsController", () => {
       id: "user-id",
       sessionId: "session-id",
       roles: [Role.PROFESSIONAL],
+      phoneVerifiedAt: null,
     };
     const dto: CreateCategoryRequestDto = {
       suggestedName: "Eletricista residencial",

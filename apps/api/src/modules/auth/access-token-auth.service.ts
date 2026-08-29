@@ -59,6 +59,7 @@ export class AccessTokenAuthService {
           select: {
             deletedAt: true,
             status: true,
+            phoneVerifiedAt: true,
             roles: {
               select: {
                 role: true,
@@ -101,6 +102,7 @@ export class AccessTokenAuthService {
       id: session.userId,
       sessionId: session.id,
       roles: session.user.roles.map(({ role }): Role => role),
+      phoneVerifiedAt: session.user.phoneVerifiedAt,
     };
   }
 
