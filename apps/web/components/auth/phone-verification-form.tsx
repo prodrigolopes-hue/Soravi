@@ -45,6 +45,7 @@ export function PhoneVerificationForm() {
   const confirmationInFlightRef = useRef(false);
 
   const destination = phoneVerificationDestination(user?.roles ?? []);
+  const isAdmin = Boolean(user?.roles.includes("ADMIN"));
 
   useEffect(() => {
     if (isLoading) {
@@ -56,10 +57,10 @@ export function PhoneVerificationForm() {
       return;
     }
 
-    if (user.phoneVerified) {
+    if (isAdmin || user.phoneVerified) {
       router.replace(destination);
     }
-  }, [accessToken, destination, isAuthenticated, isLoading, router, user]);
+  }, [accessToken, destination, isAdmin, isAuthenticated, isLoading, router, user]);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) {
@@ -135,6 +136,7 @@ export function PhoneVerificationForm() {
     !isAuthenticated ||
     !accessToken ||
     !user ||
+    isAdmin ||
     user.phoneVerified
   ) {
     return (

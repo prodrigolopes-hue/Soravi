@@ -1996,3 +1996,23 @@ A entrega de OTP usa provider explícito por configuração. O default local é
 `unavailable`, com comportamento fail-closed; a Meta somente é ativada quando
 `PHONE_VERIFICATION_DELIVERY_PROVIDER=meta`. Nesse modo, sua configuração
 completa é obrigatória no bootstrap.
+
+## 2026-08-29 — Exceção temporária de verificação de telefone para ADMIN
+
+### Decisão
+
+Contas com papel `ADMIN` ficam temporariamente excluídas da exigência de
+verificação de telefone no MVP.
+
+### Motivo
+
+Evitar lockout administrativo enquanto não há garantia de telefone normalizado
+e verificável para todas as contas ADMIN e o canal de entrega ainda não está
+operacional em produção.
+
+### Condição para remover a exceção
+
+- telefone ADMIN válido;
+- `phoneVerified` estabelecido;
+- recuperação segura do acesso;
+- idealmente, autenticação administrativa mais forte.

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { GoogleAnalytics } from "../components/analytics/google-analytics";
 import { AuthProvider } from "../components/auth/auth-provider";
+import { PhoneVerificationGuard } from "../components/auth/phone-verification-guard";
 import { CookieConsentProvider } from "../components/cookies/cookie-consent";
 import { SiteFooter } from "../components/layout/site-footer";
 import { PageHeader } from "../components/layout/page-header";
@@ -24,14 +25,16 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className="min-h-screen bg-white text-slate-950 antialiased">
         <CookieConsentProvider>
           <AuthProvider>
-            <GoogleAnalytics />
-            <div className="flex min-h-screen flex-col">
-              <PageHeader />
+            <PhoneVerificationGuard>
+              <GoogleAnalytics />
+              <div className="flex min-h-screen flex-col">
+                <PageHeader />
 
-              <div className="flex-1">{children}</div>
+                <div className="flex-1">{children}</div>
 
-              <SiteFooter />
-            </div>
+                <SiteFooter />
+              </div>
+            </PhoneVerificationGuard>
           </AuthProvider>
         </CookieConsentProvider>
       </body>
