@@ -39,7 +39,7 @@ interface AuthContextValue {
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -273,7 +273,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [clearSession]);
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<void> => {
+    async (email: string, password: string): Promise<AuthUser | null> => {
       const operationVersion = ++authOperationVersionRef.current;
 
       setIsLoading(true);
@@ -320,11 +320,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           data.data?.user ?? (await fetchCurrentUser(nextAccessToken));
 
         if (operationVersion !== authOperationVersionRef.current) {
-          return;
+          return null;
         }
 
         setAccessToken(nextAccessToken);
         setUser(nextUser);
+
+        return nextUser;
       } catch (error) {
         if (operationVersion === authOperationVersionRef.current) {
           clearSession();

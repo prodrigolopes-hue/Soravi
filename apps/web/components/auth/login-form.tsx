@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { useAuth } from "./auth-provider";
+import { postLoginDestination } from "./phone-verification-routing";
 
 const loginSchema = z.object({
   email: z
@@ -49,9 +50,14 @@ export function LoginForm() {
     setFormMessage(null);
 
     try {
-      await signIn(data.email, data.password);
+      const authenticatedUser = await signIn(data.email, data.password);
+
+      if (!authenticatedUser) {
+        return;
+      }
+
       setFormMessage("Login realizado com sucesso. Redirecionando...");
-      router.push("/");
+      router.replace(postLoginDestination(authenticatedUser));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível entrar na Soravi.";
       setFormError(message);
