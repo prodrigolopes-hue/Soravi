@@ -1,13 +1,19 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 import {
   confirmPhoneVerification,
+  CurrentUserPhoneApiError,
+  formatBrazilianPhoneInput,
   PhoneVerificationApiError,
   requestPhoneVerification,
+  updateCurrentUserPhone,
 } from "../../lib/phone-verification";
 import { useAuth } from "./auth-provider";
 import {
@@ -18,6 +24,26 @@ import {
 const RESEND_COOLDOWN_SECONDS = 60;
 const GENERIC_ERROR_MESSAGE =
   "Não foi possível concluir a verificação agora. Tente novamente em instantes.";
+const PHONE_CHANGED_MESSAGE =
+  "Telefone alterado. Envie um novo código para verificar.";
+
+const phoneChangeSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Informe o novo telefone.")
+    .refine((value) => {
+      const digits = value.replace(/\D/gu, "");
+
+      return digits.length === 10 || digits.length === 11;
+    }, "Informe um telefone brasileiro válido com DDD."),
+  currentPassword: z
+    .string()
+    .min(1, "Informe sua senha atual.")
+    .max(128, "A senha atual deve possuir no máximo 128 caracteres."),
+});
+
+type PhoneChangeFormData = z.infer<typeof phoneChangeSchema>;
 
 function publicErrorMessage(error: unknown): string {
   return error instanceof PhoneVerificationApiError
@@ -39,10 +65,27 @@ export function PhoneVerificationForm() {
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const requestInFlightRef = useRef(false);
   const confirmationInFlightRef = useRef(false);
+  const phoneChangeInFlightRef = useRef(false);
+  const {
+    formState: { errors: phoneChangeErrors, isSubmitting: isChangingPhone },
+    handleSubmit: handlePhoneChangeSubmit,
+    register: registerPhoneChange,
+    reset: resetPhoneChange,
+    setFocus: setPhoneChangeFocus,
+  } = useForm<PhoneChangeFormData>({
+    resolver: zodResolver(phoneChangeSchema),
+    defaultValues: {
+      phone: "",
+      currentPassword: "",
+    },
+    mode: "onTouched",
+  });
+  const newPhoneField = registerPhoneChange("phone");
 
   const destination = phoneVerificationDestination(user?.roles ?? []);
   const isAdmin = Boolean(user?.roles.includes("ADMIN"));
@@ -73,6 +116,12 @@ export function PhoneVerificationForm() {
 
     return () => window.clearTimeout(timerId);
   }, [cooldownSeconds]);
+
+  useEffect(() => {
+    if (isEditingPhone) {
+      setPhoneChangeFocus("phone");
+    }
+  }, [isEditingPhone, setPhoneChangeFocus]);
 
   async function handleRequestCode(): Promise<void> {
     if (
@@ -128,6 +177,60 @@ export function PhoneVerificationForm() {
     } finally {
       confirmationInFlightRef.current = false;
       setIsConfirming(false);
+    }
+  }
+
+  function openPhoneChange(): void {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditingPhone(true);
+  }
+
+  function cancelPhoneChange(): void {
+    if (phoneChangeInFlightRef.current) {
+      return;
+    }
+
+    resetPhoneChange();
+    setErrorMessage(null);
+    setIsEditingPhone(false);
+  }
+
+  async function submitPhoneChange(data: PhoneChangeFormData): Promise<void> {
+    if (phoneChangeInFlightRef.current || !accessToken) {
+      return;
+    }
+
+    phoneChangeInFlightRef.current = true;
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      await updateCurrentUserPhone(accessToken, {
+        phone: data.phone.trim(),
+        currentPassword: data.currentPassword,
+      });
+      resetPhoneChange();
+      setIsEditingPhone(false);
+      setCode("");
+      setCodeSent(false);
+      setCooldownSeconds(0);
+      setErrorMessage(null);
+      setSuccessMessage(PHONE_CHANGED_MESSAGE);
+      await refreshSession();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof CurrentUserPhoneApiError
+          ? error.message
+          : GENERIC_ERROR_MESSAGE,
+      );
+
+      if (error instanceof CurrentUserPhoneApiError && error.status === 401) {
+        resetPhoneChange();
+        await refreshSession();
+      }
+    } finally {
+      phoneChangeInFlightRef.current = false;
     }
   }
 
@@ -192,7 +295,95 @@ export function PhoneVerificationForm() {
             ) : null}
           </div>
 
-          {!codeSent ? (
+          {isEditingPhone ? (
+            <form
+              className="mt-8 space-y-5"
+              noValidate
+              onSubmit={handlePhoneChangeSubmit(submitPhoneChange)}
+            >
+              <div>
+                <label
+                  htmlFor="new-phone"
+                  className="block text-sm font-semibold text-slate-800"
+                >
+                  Novo telefone
+                </label>
+                <input
+                  id="new-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  aria-describedby={phoneChangeErrors.phone ? "new-phone-error" : "new-phone-hint"}
+                  aria-invalid={Boolean(phoneChangeErrors.phone)}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  placeholder="(11) 99999-9999"
+                  {...newPhoneField}
+                  onChange={(event) => {
+                    event.target.value = formatBrazilianPhoneInput(
+                      event.target.value,
+                    );
+                    void newPhoneField.onChange(event);
+                  }}
+                />
+                {phoneChangeErrors.phone ? (
+                  <p id="new-phone-error" className="mt-2 text-sm text-red-700">
+                    {phoneChangeErrors.phone.message}
+                  </p>
+                ) : (
+                  <p id="new-phone-hint" className="mt-2 text-sm text-slate-600">
+                    Informe o DDD e o número.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="current-password"
+                  className="block text-sm font-semibold text-slate-800"
+                >
+                  Senha atual
+                </label>
+                <input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  aria-describedby={phoneChangeErrors.currentPassword ? "current-password-error" : undefined}
+                  aria-invalid={Boolean(phoneChangeErrors.currentPassword)}
+                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  {...registerPhoneChange("currentPassword")}
+                />
+                {phoneChangeErrors.currentPassword ? (
+                  <p id="current-password-error" className="mt-2 text-sm text-red-700">
+                    {phoneChangeErrors.currentPassword.message}
+                  </p>
+                ) : null}
+              </div>
+
+              <button
+                type="submit"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isChangingPhone}
+              >
+                {isChangingPhone ? (
+                  <>
+                    <Loader2 aria-hidden="true" className="size-5 animate-spin" />
+                    <span>Salvando telefone...</span>
+                  </>
+                ) : (
+                  "Salvar novo telefone"
+                )}
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isChangingPhone}
+                onClick={cancelPhoneChange}
+              >
+                Cancelar
+              </button>
+            </form>
+          ) : !codeSent ? (
             <button
               type="button"
               className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
@@ -273,6 +464,16 @@ export function PhoneVerificationForm() {
               </p>
             </form>
           )}
+
+          {!isEditingPhone ? (
+            <button
+              type="button"
+              className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              onClick={openPhoneChange}
+            >
+              Este número não está correto? Alterar telefone
+            </button>
+          ) : null}
         </section>
       </div>
     </main>
