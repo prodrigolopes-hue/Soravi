@@ -1,9 +1,12 @@
 import {
+  Body,
   Controller,
   Get,
+  Patch,
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -16,12 +19,15 @@ import { UsersAdminCustomersQueryDto } from "./dto/users-admin-customers-query.d
 import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-professionals-list-response.dto";
 import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
+import { UpdateCurrentUserPhoneDto } from "./dto/update-current-user-phone.dto";
+import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
 
 @Controller("users")
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    private readonly usersPhoneService: UsersPhoneService,
   ) {}
 
   @Get("me")
@@ -31,6 +37,25 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     return this.usersService.findSafeById(
       currentUser.id,
+    );
+  }
+
+  @Patch("me/phone")
+  @UseGuards(AccessTokenGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  updateCurrentUserPhone(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: UpdateCurrentUserPhoneDto,
+  ): Promise<UserResponseDto> {
+    return this.usersPhoneService.updateCurrentUserPhone(
+      currentUser.id,
+      currentUser.sessionId,
+      input,
     );
   }
 

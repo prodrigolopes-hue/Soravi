@@ -160,6 +160,7 @@ export class PhoneVerificationService {
 
   async confirmCode(userId: string, code: string): Promise<void> {
     const confirmed = await this.prisma.$transaction(async (transaction) => {
+      const user = await this.lockUser(transaction, userId);
       const challenge = await this.lockLatestActiveChallenge(
         transaction,
         userId,
@@ -170,7 +171,6 @@ export class PhoneVerificationService {
       }
 
       const now = new Date();
-      const user = await this.lockUser(transaction, userId);
 
       if (!this.isEligibleForConfirmation(user, challenge)) {
         await this.invalidateChallenge(transaction, challenge.id, now);

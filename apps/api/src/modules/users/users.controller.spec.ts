@@ -1,4 +1,5 @@
 import { ProfessionalVerificationStatus, Role, UserStatus, } from "../../generated/prisma/client";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -8,6 +9,7 @@ import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-profes
 import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UsersController } from "./users.controller";
+import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
 
 describe("UsersController", () => {
@@ -24,6 +26,9 @@ describe("UsersController", () => {
         findAllAdminCustomers: jest.Mock;
         findAllAdminProfessionals: jest.Mock;
     };
+    let usersPhoneServiceMock: {
+        updateCurrentUserPhone: jest.Mock;
+    };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -31,9 +36,13 @@ describe("UsersController", () => {
             findAllAdminCustomers: jest.fn(),
             findAllAdminProfessionals: jest.fn(),
         };
+        usersPhoneServiceMock = {
+            updateCurrentUserPhone: jest.fn(),
+        };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
+            usersPhoneServiceMock as unknown as UsersPhoneService,
         );
     });
 
@@ -49,23 +58,7 @@ describe("UsersController", () => {
             phoneVerifiedAt: null,
         };
 
-        const safeUser = new UserResponseDto({
-            id: userId,
-            name: "Maria da Silva",
-            email: "maria.teste@soravi.com.br",
-            phone: null,
-            status: UserStatus.ACTIVE,
-            roles: [Role.CUSTOMER],
-            emailVerified: false,
-            phoneVerified: false,
-            customerProfile: {
-                id: "26c03da3-548b-4de6-bf75-783b1fade521",
-            },
-            professionalProfile: null,
-            createdAt: new Date(
-                "2026-07-31T17:57:46.624Z",
-            ),
-        });
+        const safeUser = createUserResponse(Role.CUSTOMER);
 
         usersServiceMock.findSafeById.mockResolvedValue(
             safeUser,
@@ -96,6 +89,55 @@ describe("UsersController", () => {
                 role: Role.PROFESSIONAL,
             },
         });
+    });
+
+    it.each([Role.CUSTOMER, Role.ADMIN])(
+        "permite que usuário autenticado %s altere o próprio telefone",
+        async (role) => {
+            const currentUser: AuthenticatedUser = {
+                id: userId,
+                sessionId,
+                roles: [role],
+                phoneVerifiedAt: null,
+            };
+            const input = {
+                phone: "(11) 98888-7777",
+                currentPassword: "senha atual",
+            };
+            const response = createUserResponse(role);
+            usersPhoneServiceMock.updateCurrentUserPhone.mockResolvedValue(
+                response,
+            );
+
+            await expect(
+                controller.updateCurrentUserPhone(currentUser, input),
+            ).resolves.toBe(response);
+            expect(
+                usersPhoneServiceMock.updateCurrentUserPhone,
+            ).toHaveBeenCalledWith(userId, sessionId, input);
+        },
+    );
+
+    it("protege a alteração com autenticação e throttle, sem PhoneVerifiedGuard", () => {
+        const guards = Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.updateCurrentUserPhone,
+        );
+
+        expect(guards).toEqual([AccessTokenGuard, ThrottlerGuard]);
+    });
+
+    it("limita a alteração a três tentativas por hora", () => {
+        const values = Reflect.getMetadataKeys(
+            UsersController.prototype.updateCurrentUserPhone,
+        )
+            .filter((key) => String(key).toLowerCase().includes("throttler"))
+            .map((key) => Reflect.getMetadata(
+                key,
+                UsersController.prototype.updateCurrentUserPhone,
+            ));
+
+        expect(values).toEqual(expect.arrayContaining([3, 3_600_000]));
     });
 
     it("encaminha a listagem administrativa de clientes", async () => {
@@ -207,4 +249,22 @@ describe("UsersController", () => {
 
         expect(roles).toEqual([Role.ADMIN]);
     });
+
+    function createUserResponse(role: Role): UserResponseDto {
+        return new UserResponseDto({
+            id: userId,
+            name: "Maria da Silva",
+            email: "maria.teste@soravi.com.br",
+            phone: "(11) 98888-7777",
+            status: UserStatus.ACTIVE,
+            roles: [role],
+            emailVerified: false,
+            phoneVerified: false,
+            customerProfile: {
+                id: "26c03da3-548b-4de6-bf75-783b1fade521",
+            },
+            professionalProfile: null,
+            createdAt: new Date("2026-07-31T17:57:46.624Z"),
+        });
+    }
 });

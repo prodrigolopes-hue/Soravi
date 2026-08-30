@@ -2029,3 +2029,16 @@ autenticação já executada por request e não será adicionado ao JWT.
 
 Contas `ADMIN` permanecem fora dessa exigência no MVP para evitar lockout
 administrativo, sem remover autenticação, papéis ou autorização backend.
+
+## 2026-08-30 — Alteração segura do telefone autenticado
+
+### Decisão
+
+A alteração do próprio telefone exige a senha atual, normaliza o número em
+E.164 e, quando o número realmente muda, remove sua verificação, invalida OTPs
+ativos e revoga as demais sessões, preservando apenas a sessão corrente.
+
+### Impacto
+
+O endpoint é limitado a três alterações por hora. Reenvio do mesmo número
+normalizado preserva a verificação, os challenges e as sessões existentes.

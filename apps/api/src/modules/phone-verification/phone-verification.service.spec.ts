@@ -369,8 +369,8 @@ describe("PhoneVerificationService", () => {
     ["tentativas esgotadas", createChallenge({ attemptCount: 5 }), createUser()],
   ])("retorna o mesmo erro genérico para challenge %s", async (_case, challenge, user) => {
     transactionMock.$queryRaw
-      .mockResolvedValueOnce(challenge ? [challenge] : [])
-      .mockResolvedValueOnce(user ? [user] : []);
+      .mockResolvedValueOnce(user ? [user] : [])
+      .mockResolvedValueOnce(challenge ? [challenge] : []);
 
     await expect(service.confirmCode(userId, "012345")).rejects.toMatchObject({
       response: {
@@ -388,12 +388,14 @@ describe("PhoneVerificationService", () => {
   });
 
   it("seleciona somente challenge ativo do usuário autenticado com lock", async () => {
-    transactionMock.$queryRaw.mockResolvedValueOnce([]);
+    transactionMock.$queryRaw
+      .mockResolvedValueOnce([createUser()])
+      .mockResolvedValueOnce([]);
 
     await expect(service.confirmCode(userId, "012345")).rejects.toBeInstanceOf(
       InvalidPhoneVerificationCodeException,
     );
-    const query = transactionMock.$queryRaw.mock.calls[0][0] as {
+    const query = transactionMock.$queryRaw.mock.calls[1][0] as {
       strings: readonly string[];
       values: unknown[];
     };
@@ -406,13 +408,30 @@ describe("PhoneVerificationService", () => {
     expect(query.values).toContain(userId);
   });
 
+  it("bloqueia usuário antes do challenge para manter ordem concorrente", async () => {
+    prepareConfirmation();
+
+    await service.confirmCode(userId, "012345");
+
+    const userQuery = transactionMock.$queryRaw.mock.calls[0][0] as {
+      strings: readonly string[];
+    };
+    const challengeQuery = transactionMock.$queryRaw.mock.calls[1][0] as {
+      strings: readonly string[];
+    };
+    expect(userQuery.strings.join(" ")).toContain('FROM "users"');
+    expect(challengeQuery.strings.join(" ")).toContain(
+      'FROM "phone_verification_challenges"',
+    );
+  });
+
   function prepareConfirmation(
     challenge = createChallenge(),
     user = createUser(),
   ): void {
     transactionMock.$queryRaw
-      .mockResolvedValueOnce([challenge])
-      .mockResolvedValueOnce([user]);
+      .mockResolvedValueOnce([user])
+      .mockResolvedValueOnce([challenge]);
   }
 
   function createUser(
