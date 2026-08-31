@@ -2,6 +2,7 @@ import { plainToInstance, Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
+  IsUrl,
   IsOptional,
   IsString,
   Matches,
@@ -27,6 +28,11 @@ const phoneVerificationDeliveryProviders = [
 
 type PhoneVerificationDeliveryProvider =
   (typeof phoneVerificationDeliveryProviders)[number];
+
+const passwordResetDeliveryProviders = ["unavailable", "resend"] as const;
+
+type PasswordResetDeliveryProvider =
+  (typeof passwordResetDeliveryProviders)[number];
 
 class EnvironmentVariables {
   @IsIn(environmentNames)
@@ -135,6 +141,28 @@ class EnvironmentVariables {
   @Max(15000)
   @IsOptional()
   META_WHATSAPP_HTTP_TIMEOUT_MS = 5000;
+
+  @IsIn(passwordResetDeliveryProviders)
+  @IsOptional()
+  PASSWORD_RESET_DELIVERY_PROVIDER: PasswordResetDeliveryProvider =
+    "unavailable";
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  RESEND_API_KEY!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  PASSWORD_RESET_EMAIL_FROM!: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsUrl({ require_protocol: true, require_tld: false })
+  @IsOptional()
+  FRONTEND_PUBLIC_URL!: string;
 
   @Type(() => Number)
   @IsInt()
@@ -249,6 +277,27 @@ export function validateEnvironment(
     throw new Error(
       "Variáveis de ambiente inválidas: PHONE_VERIFICATION_HMAC_SECRET deve ser diferente de JWT_ACCESS_SECRET.",
     );
+  }
+
+  if (validatedEnvironment.PASSWORD_RESET_DELIVERY_PROVIDER === "resend") {
+    const requiredResendVariables = [
+      "RESEND_API_KEY",
+      "PASSWORD_RESET_EMAIL_FROM",
+      "FRONTEND_PUBLIC_URL",
+    ] as const;
+    const missingResendVariables = requiredResendVariables.filter((key) => {
+      const value = validatedEnvironment[key];
+
+      return typeof value !== "string" || value.length === 0;
+    });
+
+    if (missingResendVariables.length > 0) {
+      throw new Error(
+        `Variáveis de ambiente inválidas: configuração Resend incompleta (${missingResendVariables.join(
+          ", ",
+        )}).`,
+      );
+    }
   }
 
   return validatedEnvironment;

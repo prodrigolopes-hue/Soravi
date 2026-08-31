@@ -2058,3 +2058,9 @@ O link futuro usará `/redefinir-senha#token=<token>`.
 ## 2026-08-31 — Invalidação de reset na troca administrativa de senha
 
 Troca administrativa de senha invalida também `PasswordResetToken` pendentes.
+
+## 2026-08-31 — Resend como provider inicial de e-mail
+
+Resend é o provider inicial de e-mail do MVP, desacoplado por
+`PasswordResetDeliveryPort` e substituível futuramente. O envio em produção
+depende da verificação do domínio e da configuração de DNS.

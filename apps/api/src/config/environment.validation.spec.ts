@@ -32,6 +32,7 @@ describe("validateEnvironment", () => {
     expect(environment.PHONE_VERIFICATION_DELIVERY_PROVIDER).toBe(
       "unavailable",
     );
+    expect(environment.PASSWORD_RESET_DELIVERY_PROVIDER).toBe("unavailable");
     expect(environment.META_WHATSAPP_HTTP_TIMEOUT_MS).toBe(5_000);
   });
 
@@ -47,6 +48,61 @@ describe("validateEnvironment", () => {
         META_WHATSAPP_OTP_TEMPLATE_LANGUAGE: "",
       }),
     ).not.toThrow();
+  });
+
+  it("aceita delivery de reset unavailable sem configuração Resend", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        PASSWORD_RESET_DELIVERY_PROVIDER: "unavailable",
+        RESEND_API_KEY: "",
+        PASSWORD_RESET_EMAIL_FROM: "",
+        FRONTEND_PUBLIC_URL: "",
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    "RESEND_API_KEY",
+    "PASSWORD_RESET_EMAIL_FROM",
+    "FRONTEND_PUBLIC_URL",
+  ])("rejeita configuração Resend obrigatória ausente: %s", (key) => {
+    const environment: Record<string, unknown> = {
+      ...requiredEnvironment,
+      PASSWORD_RESET_DELIVERY_PROVIDER: "resend",
+      RESEND_API_KEY: "re_test_key",
+      PASSWORD_RESET_EMAIL_FROM: "Soravi <nao-responda@example.com>",
+      FRONTEND_PUBLIC_URL: "https://app.example.com",
+    };
+    delete environment[key];
+
+    expect(() => validateEnvironment(environment)).toThrow(
+      "Variáveis de ambiente inválidas",
+    );
+  });
+
+  it("aceita provider Resend com configuração completa", () => {
+    const environment = validateEnvironment({
+      ...requiredEnvironment,
+      PASSWORD_RESET_DELIVERY_PROVIDER: "resend",
+      RESEND_API_KEY: "re_test_key",
+      PASSWORD_RESET_EMAIL_FROM: "Soravi <nao-responda@example.com>",
+      FRONTEND_PUBLIC_URL: "https://app.example.com",
+    });
+
+    expect(environment.PASSWORD_RESET_DELIVERY_PROVIDER).toBe("resend");
+  });
+
+  it("rejeita URL pública inválida para o frontend", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        PASSWORD_RESET_DELIVERY_PROVIDER: "resend",
+        RESEND_API_KEY: "re_test_key",
+        PASSWORD_RESET_EMAIL_FROM: "Soravi <nao-responda@example.com>",
+        FRONTEND_PUBLIC_URL: "app.example.com",
+      }),
+    ).toThrow("Variáveis de ambiente inválidas");
   });
 
   it("converte valores configurados para números", () => {
