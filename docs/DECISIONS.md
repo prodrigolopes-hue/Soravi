@@ -2042,3 +2042,15 @@ ativos e revoga as demais sessões, preservando apenas a sessão corrente.
 
 O endpoint é limitado a três alterações por hora. Reenvio do mesmo número
 normalizado preserva a verificação, os challenges e as sessões existentes.
+
+## 2026-08-30 — Fundação segura de recuperação de senha
+
+### Decisão
+
+A recuperação usa token opaco de 256 bits, persiste somente seu SHA-256 e
+expira em 30 minutos. Apenas contas `PENDING` e `ACTIVE` são elegíveis, sem
+distinção pública entre e-mail existente, inexistente ou conta inelegível.
+
+Uma redefinição válida consome todos os tokens pendentes e revoga todas as
+sessões. A entrega usa um port fail-closed; nenhum provider real foi escolhido.
+O link futuro usará `/redefinir-senha#token=<token>`.

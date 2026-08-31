@@ -7,15 +7,24 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { type Request, type Response } from "express";
 
 import { AuthService } from "./auth.service";
 import { LoginResponseDto } from "./dto/login-response.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
+import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
+import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { RegisterResponseDto } from "./dto/register-response.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { PasswordResetService } from "./password-reset.service";
+
+const PASSWORD_RESET_REQUEST_RESPONSE = {
+  message: "Se existir uma conta com este e-mail, enviaremos as instruções.",
+} as const;
 
 @Controller("auth")
 export class AuthController {
@@ -23,7 +32,33 @@ export class AuthController {
 
   constructor(
     private readonly authService: AuthService,
+    private readonly passwordResetService: PasswordResetService,
   ) { }
+
+  @Post("password-reset/request")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 900_000 } })
+  async requestPasswordReset(
+    @Body() input: PasswordResetRequestDto,
+  ): Promise<{ message: string }> {
+    await this.passwordResetService.requestReset(input.email);
+
+    return PASSWORD_RESET_REQUEST_RESPONSE;
+  }
+
+  @Post("password-reset/confirm")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 900_000 } })
+  async confirmPasswordReset(
+    @Body() input: PasswordResetConfirmDto,
+  ): Promise<void> {
+    await this.passwordResetService.confirmReset(
+      input.token,
+      input.newPassword,
+    );
+  }
 
   @Post("register")
   register(
