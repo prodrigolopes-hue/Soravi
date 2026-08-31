@@ -137,6 +137,24 @@ A plataforma poderá bloquear usuários que:
 Sempre priorizar confiança, simplicidade e segurança em qualquer decisão
 de produto.
 
+## Verificação e alteração de telefone
+
+- `CUSTOMER` e `PROFESSIONAL` precisam de telefone verificado para ações sensíveis protegidas explicitamente pelo backend;
+- leituras privadas autenticadas permanecem disponíveis sem verificação de telefone;
+- `ADMIN` está temporariamente fora dessa exigência para evitar lockout operacional;
+- a troca do próprio telefone exige a senha atual;
+- informar o mesmo número normalizado é um no-op seguro;
+- uma mudança real invalida a verificação e exige novo OTP, mas não solicita OTP automaticamente;
+- a sessão atual é preservada e as demais sessões ativas são revogadas.
+
+## Recuperação de senha
+
+- a solicitação pública nunca revela se o e-mail existe ou se a conta é elegível;
+- somente contas `PENDING` e `ACTIVE`, não excluídas, podem receber reset;
+- o token é temporário, de uso único e nunca é persistido em claro;
+- a redefinição válida revoga todas as sessões e invalida os demais tokens pendentes;
+- uma troca administrativa de senha também invalida tokens de reset pendentes.
+
 ## Autenticação e sessões
 
 - o cadastro público permite apenas os papéis `CUSTOMER` e `PROFESSIONAL`;

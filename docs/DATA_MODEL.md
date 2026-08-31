@@ -1258,11 +1258,12 @@ createdAt
 
 ### Regras
 
-- O token será armazenado como hash.
-- O token terá validade limitada.
-- O token será de uso único.
-- Uma redefinição bem-sucedida poderá revogar sessões anteriores.
-- A API não deverá revelar se o e-mail está cadastrado.
+- O token opaco possui 256 bits, é entregue em base64url e somente seu SHA-256 é armazenado.
+- O token possui validade de 30 minutos.
+- `usedAt = null` identifica token pendente; o preenchimento de `usedAt` representa consumo ou invalidação, sem exclusão do registro.
+- Uma redefinição bem-sucedida revoga todas as sessões e invalida todos os tokens pendentes do usuário.
+- A troca administrativa de senha também invalida tokens pendentes na mesma transação.
+- A API não revela se o e-mail está cadastrado ou se a conta é elegível.
 - Tokens expirados ou utilizados não poderão ser reaproveitados.
 - A criação deverá estar protegida por rate limiting.
 

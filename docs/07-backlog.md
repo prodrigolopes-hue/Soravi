@@ -241,7 +241,10 @@ Cada tarefa somente será considerada concluída quando:
 
 ### Pendente
 
-- [ ] Recuperação de senha no backend.
+- [x] Fundação de recuperação de senha no backend, com request/confirm, tokens protegidos e revogação de sessões.
+- [ ] Provider real de e-mail para recuperação de senha.
+- [ ] Frontend integrado de solicitar recuperação de senha.
+- [ ] Frontend integrado de redefinir senha.
 - [ ] Confirmação de e-mail.
 - [ ] Encerramento de todas as sessões.
 - [ ] Listagem de sessões ativas.
@@ -306,7 +309,8 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 
 ### Itens futuros
 
-- [ ] confirmação de telefone;
+- [x] fundação de confirmação de telefone, frontend `/verificar-telefone` e enforcement explícito em ações sensíveis;
+- [ ] operação da entrega Meta WhatsApp em produção;
 - [ ] verificação básica de identidade;
 - [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;

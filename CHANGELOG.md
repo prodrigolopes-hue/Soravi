@@ -1,5 +1,127 @@
 # Changelog
 
+## 2026-08-31
+
+### Segurança administrativa
+
+- o script administrativo de troca de senha passou a invalidar todos os `PasswordResetToken` pendentes do ADMIN na mesma transação que atualiza o hash Argon2id e revoga as sessões;
+- tokens já utilizados permanecem inalterados e a operação inteira sofre rollback se a invalidação falhar.
+
+## 2026-08-30
+
+### Alteração segura de telefone
+
+- implementado `PATCH /api/v1/users/me/phone`, autenticado e limitado a três alterações por hora;
+- a troca exige a senha atual e normaliza telefones brasileiros para E.164, rejeitando números inválidos ou já utilizados;
+- informar o mesmo número normalizado funciona como no-op seguro, preservando verificação, challenges e sessões;
+- uma mudança real zera `phoneVerifiedAt`, invalida challenges pendentes e revoga as demais sessões, preservando a sessão atual, tudo de forma transacional;
+- a tela `/verificar-telefone` passou a permitir correção do número sem disparar OTP automaticamente, com máscara brasileira e limite de 11 dígitos nacionais.
+
+### Recuperação de senha
+
+- implementados `POST /api/v1/auth/password-reset/request` e `POST /api/v1/auth/password-reset/confirm`, com resposta antienumeração e rate limits próprios;
+- criados tokens opacos de 256 bits em base64url, persistidos somente como SHA-256, com validade de 30 minutos e elegibilidade restrita a contas `PENDING` e `ACTIVE`;
+- criada `PasswordResetDeliveryPort` fail-closed; nenhum provider real de e-mail foi escolhido;
+- a confirmação bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza a senha com Argon2id, consome todos os tokens pendentes e revoga todas as sessões;
+- definido o link futuro `/redefinir-senha#token=<token>`.
+
+## 2026-08-29
+
+### Navegação e verificação de telefone
+
+- o login passou a direcionar usuários conforme papéis e estado de verificação, enquanto cadastros concluídos retornam ao login;
+- criado guard frontend centralizado para exigir `/verificar-telefone` nas rotas autenticadas aplicáveis;
+- contas `ADMIN` ficaram temporariamente fora da exigência, evitando lockout enquanto o canal de entrega não está operacional em produção;
+- criado `PhoneVerifiedGuard`; `phoneVerifiedAt` é carregado do banco em cada request autenticado e não foi adicionado ao JWT;
+- o backend passou a declarar o guard explicitamente em ações sensíveis de solicitações, propostas, aceite, conversas e solicitações de categoria, mantendo leituras privadas sem essa exigência.
+
+## 2026-08-28
+
+### Verificação de telefone
+
+- implementado adapter da Meta WhatsApp Cloud API atrás de `PhoneVerificationDeliveryPort`, selecionável por configuração e sem acoplar a validação do OTP ao provider;
+- criada a página `/verificar-telefone`, com solicitação e confirmação autenticadas do código e tratamento dos estados públicos do fluxo;
+- a integração Meta permaneceu não operacional em produção até configuração válida do provider e das credenciais.
+
+### Operação administrativa
+
+- criado script interativo para troca segura da senha ADMIN, com entrada oculta, validação de papel, política de senha, hash Argon2id e revogação transacional de sessões;
+- a validação de `ADMIN_EMAIL` e `DATABASE_URL` passou a ocorrer antes da solicitação da senha, mantendo a saída sanitizada.
+
+## 2026-08-27
+
+### Fundação de verificação de telefone
+
+- telefones brasileiros passaram a ser validados e normalizados para E.164 no cadastro, com unicidade sobre a representação canônica;
+- criado `PhoneVerificationChallenge`, com OTP de seis dígitos protegido por HMAC, expiração, cooldown, limite de tentativas, consumo e invalidação;
+- implementados os endpoints autenticados `POST /api/v1/phone-verification/request` e `POST /api/v1/phone-verification/confirm`;
+- criada abstração `PhoneVerificationDeliveryPort` com implementação padrão indisponível e comportamento fail-closed;
+- a seleção do provider foi desacoplada das credenciais Meta: o modo local permanece `unavailable`, e configuração Meta incompleta impede o bootstrap apenas quando esse provider é escolhido.
+
+## 2026-08-26
+
+### Jornadas de serviço e notificações
+
+- nomes públicos passaram a ser exibidos nas telas de solicitações, oportunidades e conversas sem expor dados privados;
+- criado endpoint de contagem de notificações não lidas e integrado o contador real ao sino do frontend;
+- criados modelos e serviços de preferências de comunicação e `OutboundNotification`, preservando consentimento por canal e tipo de evento;
+- oportunidades e propostas passaram a gravar eventos no outbox dentro de suas transações de domínio;
+- adicionado processador periódico de elegibilidade do outbox, com políticas de conta, telefone verificado e preferências antes de liberar a entrega;
+- preferências antigas sem evento associado não são tratadas como consentimento para novos eventos.
+
+## 2026-08-25
+
+### Notificações internas
+
+- clientes passaram a receber notificação quando uma proposta é criada e profissionais quando uma nova oportunidade é distribuída;
+- criada a página `/notificacoes`, o sino no cabeçalho e a navegação segura apenas para recursos autorizados;
+- o envio de mensagem passou a notificar o outro participante da conversa;
+- notificações de mensagens não lidas passaram a ser consolidadas por conversa, evitando acúmulo redundante;
+- APIs de solicitações, oportunidades, propostas e conversas passaram a retornar nomes públicos adequados a cada jornada.
+
+## 2026-08-24
+
+### Conversas
+
+- o detalhe da solicitação passou a expor `conversationId` ao participante autorizado após a contratação;
+- criada listagem paginada de conversas para clientes e profissionais;
+- adicionada a página compartilhada `/conversas` e seu acesso na navegação autenticada.
+
+### Notificações
+
+- criada a fundação persistente de notificações internas, com listagem autenticada, paginação, marcação de leitura e proteção por proprietário.
+
+## 2026-08-23
+
+### Chat em tempo real
+
+- criada gateway autenticada para eventos de conversa, com validação da sessão no banco e autorização por participação;
+- mensagens passaram a chegar em tempo real na tela da conversa, preservando o PostgreSQL como fonte oficial;
+- corrigida a restauração do acesso do cliente à conversa após reload da página.
+
+## 2026-08-21
+
+### Conversas pós-contratação
+
+- implementados detalhe de conversa, listagem paginada de mensagens, envio de mensagens e estado de leitura;
+- criada a tela `/conversas/[conversationId]` para cliente e profissional;
+- adicionados atalhos seguros para a conversa nos detalhes da solicitação contratada e da oportunidade profissional;
+- o detalhe da oportunidade passou a expor `conversationId` somente ao participante autorizado.
+
+## 2026-08-20
+
+### Propostas e contratação
+
+- propostas recebidas passaram a ser exibidas no detalhe da solicitação do cliente;
+- criados os modelos persistentes `Contract` e `Conversation`;
+- implementado aceite transacional de proposta, restrito ao cliente proprietário, criando contrato e conversa, aceitando a proposta escolhida e rejeitando as concorrentes;
+- adicionada interface de aceite no frontend e ocultado o envio de proposta quando a solicitação já está contratada.
+
+### Mensagens e experiência visual
+
+- criados os modelos `Message` e `ConversationReadState` como fundação persistente do chat;
+- fotos das solicitações passaram a poder ser ampliadas por clientes e profissionais em um lightbox compartilhado.
+
 ## 2026-08-19
 
 ### Solicitações e oportunidades
@@ -18,8 +140,11 @@
 - criado o modelo `Proposal`, com vínculo direto a `ServiceRequest` e `ProfessionalProfile`, sem `serviceOpportunityId`;
 - definidos os enums `ProposalStatus` e `EstimatedDurationUnit`;
 - registrada a unicidade de uma proposta por profissional e solicitação;
-- definida a regra futura de exigir `ServiceOpportunity` correspondente, permitir criação em `OPEN` ou `RECEIVING_PROPOSALS` e transicionar a primeira proposta de `OPEN` para `RECEIVING_PROPOSALS` na mesma transação;
-- registrado que matching geográfico não será exigido até existir área de atendimento estruturada.
+- implementada a criação transacional de proposta pelo profissional, exigindo oportunidade correspondente e solicitação em `OPEN` ou `RECEIVING_PROPOSALS`;
+- a primeira proposta transiciona a solicitação de `OPEN` para `RECEIVING_PROPOSALS` na mesma transação;
+- criado formulário de envio de proposta no detalhe da oportunidade;
+- implementada listagem paginada de propostas recebidas para o cliente proprietário da solicitação;
+- matching geográfico não é exigido enquanto não existir área de atendimento estruturada.
 
 ## 2026-08-18
 

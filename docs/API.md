@@ -4,6 +4,55 @@
 
 Este documento define os contratos, padrões e endpoints oficiais da API do MVP da Soravi.
 
+## Estado implementado — telefone e recuperação de senha (2026-08-31)
+
+Esta seção registra os contratos atualmente implementados e substitui, para estas operações, exemplos antigos ou planejados existentes mais adiante neste documento.
+
+### `POST /api/v1/phone-verification/request`
+
+- Autenticação: Bearer access token e sessão válida.
+- Body: nenhum.
+- Sucesso: `202 Accepted`, com `{ "accepted": true }`.
+- Rate limit: 3 requisições por 10 minutos.
+- Erros principais: `401` para autenticação inválida, `429` por excesso e `503 PHONE_VERIFICATION_DELIVERY_UNAVAILABLE` quando a entrega falha.
+- Segurança: resposta neutra para conta inelegível, já verificada ou em cooldown; o OTP não é persistido em claro e o challenge usa HMAC, expiração e limite de tentativas.
+
+### `POST /api/v1/phone-verification/confirm`
+
+- Autenticação: Bearer access token e sessão válida.
+- Body: `{ "code": "012345" }`, exatamente seis dígitos.
+- Sucesso: `204 No Content`.
+- Rate limit: 10 requisições por 10 minutos.
+- Erros principais: `400 INVALID_PHONE_VERIFICATION_CODE`, `401` e `429`.
+- Segurança: código inválido, expirado, consumido ou sem challenge ativo recebe o mesmo erro público.
+
+### `PATCH /api/v1/users/me/phone`
+
+- Autenticação: Bearer access token e sessão válida; não exige `PhoneVerifiedGuard`.
+- Body: `{ "phone": "(21) 99999-9999", "currentPassword": "senha-atual" }`.
+- Sucesso: `200 OK`, com o DTO público atual de usuário.
+- Rate limit: 3 alterações por hora.
+- Erros principais: `400 INVALID_BRAZILIAN_PHONE`, `403 INVALID_CURRENT_PASSWORD`, `404 USER_NOT_FOUND`, `409 PHONE_ALREADY_IN_USE`, além de `401` e `429`.
+- Segurança: aceita somente telefone brasileiro com DDD, normaliza para E.164 no backend e nunca recebe `userId` ou `phoneNormalized`. O mesmo número normalizado é no-op seguro. Mudança real zera `phoneVerifiedAt`, invalida challenges pendentes, preserva a sessão atual e revoga as demais. Nenhum OTP é solicitado automaticamente.
+
+### `POST /api/v1/auth/password-reset/request`
+
+- Autenticação: pública.
+- Body: `{ "email": "maria@example.com" }`.
+- Sucesso: `202 Accepted`, sempre com mensagem neutra.
+- Rate limit: 3 requisições por 15 minutos.
+- Erros principais: `400` para DTO inválido e `429`; indisponibilidade do delivery não revela elegibilidade.
+- Segurança: somente contas `PENDING` e `ACTIVE` são elegíveis. O token tem 256 bits, é codificado em base64url, expira em 30 minutos e somente seu SHA-256 é persistido. A porta de entrega é fail-closed e ainda não existe provider real de e-mail configurado.
+
+### `POST /api/v1/auth/password-reset/confirm`
+
+- Autenticação: pública, mediante token.
+- Body: `{ "token": "<43 caracteres base64url>", "newPassword": "NovaSenhaSegura123" }`.
+- Sucesso: `204 No Content`.
+- Rate limit: 10 requisições por 15 minutos.
+- Erros principais: `400 PASSWORD_RESET_INVALID_OR_EXPIRED`, `400` para senha fora da política e `429`.
+- Segurança: o fluxo bloqueia `User` antes de `PasswordResetToken`, valida hash em tempo constante e executa transacionalmente a troca por Argon2id, o consumo de todos os tokens pendentes e a revogação de todas as sessões. O link futuro transportará o token no fragmento: `/redefinir-senha#token=<token>`.
+
 A API deverá permitir:
 
 - autenticação segura;
@@ -698,7 +747,7 @@ Obrigatória.
 ## 14.6 Solicitar recuperação de senha
 
 ```text
-POST /api/v1/auth/forgot-password
+POST /api/v1/auth/password-reset/request
 ```
 
 ### Público
@@ -725,7 +774,7 @@ Sim.
 - token temporário;
 - token armazenado como hash;
 - rate limiting;
-- envio assíncrono de e-mail;
+- entrega por port fail-closed, com provider real de e-mail ainda pendente;
 - invalidar tokens anteriores quando necessário.
 
 ---
@@ -733,7 +782,7 @@ Sim.
 ## 14.7 Redefinir senha
 
 ```text
-POST /api/v1/auth/reset-password
+POST /api/v1/auth/password-reset/confirm
 ```
 
 ### Público
@@ -2825,8 +2874,8 @@ Rate limiting deverá ser aplicado principalmente em:
 
 ```text
 POST /auth/login
-POST /auth/forgot-password
-POST /auth/reset-password
+POST /auth/password-reset/request
+POST /auth/password-reset/confirm
 POST /auth/resend-email-verification
 POST /reports
 POST /uploads/presign

@@ -23,9 +23,9 @@ POST /api/v1/auth/register - Criar conta
 
 POST /api/v1/auth/login - Autenticar usuário
 
-POST /api/v1/auth/forgot-password - Solicitar recuperação de senha
+POST /api/v1/auth/password-reset/request - Solicitar recuperação de senha
 
-POST /api/v1/auth/reset-password - Redefinir senha
+POST /api/v1/auth/password-reset/confirm - Redefinir senha
 
 ## Registro de conta
 
