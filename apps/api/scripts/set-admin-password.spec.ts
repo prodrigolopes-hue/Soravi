@@ -33,6 +33,9 @@ function createPrismaMock(options?: {
     authSession: {
       updateMany: jest.fn().mockResolvedValue({ count: 2 }),
     },
+    passwordResetToken: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
   };
   const prisma = {
     $transaction: jest.fn(async (operation) => operation(transaction)),
@@ -147,7 +150,7 @@ describe("set-admin-password", () => {
     ).rejects.toThrow(expectedMessage);
   });
 
-  it("usa argon2id, altera somente passwordHash e revoga sessões na mesma transaction", async () => {
+  it("usa argon2id e altera hash, sessões e tokens na mesma transaction", async () => {
     const { prisma, transaction } = createPrismaMock();
     const hashPassword = jest.fn().mockResolvedValue("generated-hash");
 
@@ -180,6 +183,15 @@ describe("set-admin-password", () => {
       where: { userId: "admin-id", revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+    expect(transaction.passwordResetToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "admin-id", usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
+
+    const sessionUpdate = transaction.authSession.updateMany.mock.calls[0][0];
+    const tokenUpdate = transaction.passwordResetToken.updateMany.mock.calls[0][0];
+
+    expect(tokenUpdate.data.usedAt).toBe(sessionUpdate.data.revokedAt);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 
     const result = await setAdminPassword(
@@ -189,6 +201,27 @@ describe("set-admin-password", () => {
       hashPassword,
     );
     expect(result).toBeUndefined();
+  });
+
+  it("rejeita a transaction quando a invalidação dos tokens falha", async () => {
+    const { prisma, transaction } = createPrismaMock();
+    transaction.passwordResetToken.updateMany.mockRejectedValueOnce(
+      new Error("token-hash-secreto"),
+    );
+
+    await expect(
+      setAdminPassword(
+        prisma,
+        "admin@soravi.com",
+        "SenhaSegura123",
+        jest.fn().mockResolvedValue("generated-hash"),
+      ),
+    ).rejects.toThrow("token-hash-secreto");
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.user.update).toHaveBeenCalledTimes(1);
+    expect(transaction.authSession.updateMany).toHaveBeenCalledTimes(1);
+    expect(transaction.passwordResetToken.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("não retorna nem imprime senha ou hash e desconecta no finally", async () => {
@@ -240,9 +273,12 @@ describe("set-admin-password", () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     process.env.ADMIN_EMAIL = "admin@soravi.com";
     process.env.DATABASE_URL = "postgresql://secret-production-url";
+    const sensitiveTokenReference = "token-hash-secreto";
     const { prisma } = createPrismaMock();
     (prisma.$transaction as jest.Mock).mockRejectedValue(
-      new Error(`connection failed: ${process.env.DATABASE_URL}`),
+      new Error(
+        `connection failed: ${process.env.DATABASE_URL}; ${sensitiveTokenReference}`,
+      ),
     );
     const logError = jest.fn();
 
@@ -261,6 +297,9 @@ describe("set-admin-password", () => {
       );
       expect(JSON.stringify(logError.mock.calls)).not.toContain(
         process.env.DATABASE_URL,
+      );
+      expect(JSON.stringify(logError.mock.calls)).not.toContain(
+        sensitiveTokenReference,
       );
     } finally {
       if (previousEmail === undefined) delete process.env.ADMIN_EMAIL;

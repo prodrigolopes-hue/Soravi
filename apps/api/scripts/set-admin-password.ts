@@ -46,6 +46,12 @@ interface AdminPasswordTransaction {
       data: { revokedAt: Date };
     }): Promise<{ count: number }>;
   };
+  passwordResetToken: {
+    updateMany(args: {
+      where: { userId: string; usedAt: null };
+      data: { usedAt: Date };
+    }): Promise<{ count: number }>;
+  };
 }
 
 export interface AdminPasswordPrismaClient {
@@ -177,6 +183,16 @@ export async function setAdminPassword(
       },
       data: {
         revokedAt: now,
+      },
+    });
+
+    await transaction.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
+      data: {
+        usedAt: now,
       },
     });
   });

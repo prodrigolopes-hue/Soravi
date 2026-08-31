@@ -2054,3 +2054,7 @@ distinção pública entre e-mail existente, inexistente ou conta inelegível.
 Uma redefinição válida consome todos os tokens pendentes e revoga todas as
 sessões. A entrega usa um port fail-closed; nenhum provider real foi escolhido.
 O link futuro usará `/redefinir-senha#token=<token>`.
+
+## 2026-08-31 — Invalidação de reset na troca administrativa de senha
+
+Troca administrativa de senha invalida também `PasswordResetToken` pendentes.
