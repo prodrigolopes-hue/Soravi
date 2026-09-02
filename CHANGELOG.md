@@ -1,11 +1,23 @@
 # Changelog
 
+## 2026-09-01
+
+### Recuperação de senha ponta a ponta
+
+- conectado `/recuperar-senha` ao endpoint real, enviando somente o e-mail e mantendo respostas neutras, sanitizadas e sem persistência local;
+- validado manualmente o fluxo completo `/recuperar-senha` → API → Resend → `/redefinir-senha`, incluindo recebimento do e-mail, rejeição de token expirado, troca da senha e login apenas com a nova credencial.
+
 ## 2026-08-31
 
 ### Segurança administrativa
 
 - o script administrativo de troca de senha passou a invalidar todos os `PasswordResetToken` pendentes do ADMIN na mesma transação que atualiza o hash Argon2id e revoga as sessões;
 - tokens já utilizados permanecem inalterados e a operação inteira sofre rollback se a invalidação falhar.
+
+### Recuperação de senha
+
+- implementado adapter Resend por `PasswordResetDeliveryPort`, preservando o desacoplamento do provider de e-mail;
+- concluído o frontend seguro de `/redefinir-senha`, com token recebido em `#token`, remoção imediata do fragmento da URL, manutenção do token somente em memória e confirmação sem auto-login.
 
 ## 2026-08-30
 

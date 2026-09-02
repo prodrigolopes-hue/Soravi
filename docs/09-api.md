@@ -27,6 +27,16 @@ POST /api/v1/auth/password-reset/request - Solicitar recuperação de senha
 
 POST /api/v1/auth/password-reset/confirm - Redefinir senha
 
+Os dois endpoints são públicos. A solicitação recebe somente `email`, retorna
+`202 Accepted` de forma neutra e possui rate limit, sem revelar existência ou
+elegibilidade da conta. A entrega atual usa Resend por meio de
+`PasswordResetDeliveryPort`.
+
+A confirmação recebe somente `token` e `newPassword`, retorna `204 No Content`
+e exige senha de 12 a 128 caracteres com pelo menos uma letra e um número. Uma
+confirmação válida consome o token, invalida os demais tokens ativos, revoga
+todas as sessões e não realiza auto-login.
+
 ## Registro de conta
 
 ### Requisição

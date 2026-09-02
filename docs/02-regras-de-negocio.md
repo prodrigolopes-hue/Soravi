@@ -151,8 +151,10 @@ de produto.
 
 - a solicitação pública nunca revela se o e-mail existe ou se a conta é elegível;
 - somente contas `PENDING` e `ACTIVE`, não excluídas, podem receber reset;
-- o token é temporário, de uso único e nunca é persistido em claro;
+- o token expira em 30 minutos, é de uso único e nunca é persistido em claro;
+- a nova senha deve ter de 12 a 128 caracteres, com pelo menos uma letra e um número;
 - a redefinição válida revoga todas as sessões e invalida os demais tokens pendentes;
+- a redefinição não autentica o usuário automaticamente; o acesso exige novo login;
 - uma troca administrativa de senha também invalida tokens de reset pendentes.
 
 ## Autenticação e sessões

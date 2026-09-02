@@ -4,7 +4,7 @@
 
 Este documento define os contratos, padrões e endpoints oficiais da API do MVP da Soravi.
 
-## Estado implementado — telefone e recuperação de senha (2026-08-31)
+## Estado implementado — telefone e recuperação de senha (2026-09-01)
 
 Esta seção registra os contratos atualmente implementados e substitui, para estas operações, exemplos antigos ou planejados existentes mais adiante neste documento.
 
@@ -42,7 +42,9 @@ Esta seção registra os contratos atualmente implementados e substitui, para es
 - Sucesso: `202 Accepted`, sempre com mensagem neutra.
 - Rate limit: 3 requisições por 15 minutos.
 - Erros principais: `400` para DTO inválido e `429`; indisponibilidade do delivery não revela elegibilidade.
-- Segurança: somente contas `PENDING` e `ACTIVE` são elegíveis. O token tem 256 bits, é codificado em base64url, expira em 30 minutos e somente seu SHA-256 é persistido. A porta de entrega é fail-closed e ainda não existe provider real de e-mail configurado.
+- Segurança: somente contas `PENDING` e `ACTIVE` são elegíveis, sem distinção pública para contas inexistentes, bloqueadas, suspensas, desativadas ou inelegíveis. O token opaco tem 256 bits, é codificado em base64url, expira em 30 minutos e somente seu SHA-256 é persistido; o valor raw existe apenas em memória durante o delivery. Novas solicitações invalidam tokens anteriores conforme a regra implementada.
+- Delivery: realizado pelo adapter Resend atrás de `PasswordResetDeliveryPort`; falhas do provider não expõem elegibilidade nem detalhes internos ao solicitante.
+- Frontend: `/recuperar-senha` envia somente `email`, não persiste esse dado e apresenta resposta neutra, orientação sobre spam e erros sanitizados, inclusive para `429`.
 
 ### `POST /api/v1/auth/password-reset/confirm`
 
@@ -51,7 +53,9 @@ Esta seção registra os contratos atualmente implementados e substitui, para es
 - Sucesso: `204 No Content`.
 - Rate limit: 10 requisições por 15 minutos.
 - Erros principais: `400 PASSWORD_RESET_INVALID_OR_EXPIRED`, `400` para senha fora da política e `429`.
-- Segurança: o fluxo bloqueia `User` antes de `PasswordResetToken`, valida hash em tempo constante e executa transacionalmente a troca por Argon2id, o consumo de todos os tokens pendentes e a revogação de todas as sessões. O link futuro transportará o token no fragmento: `/redefinir-senha#token=<token>`.
+- Política da nova senha: de 12 a 128 caracteres, com pelo menos uma letra e um número.
+- Segurança: o fluxo bloqueia `User` antes de `PasswordResetToken`, valida hash em tempo constante e executa transacionalmente a troca por Argon2id, o consumo do token utilizado, a invalidação dos demais tokens ativos e a revogação de todas as `AuthSession` do usuário.
+- Frontend: o link usa `/redefinir-senha#token=<token>`. O fragmento é lido somente no client, validado, removido imediatamente da URL e mantido apenas em memória, sem `localStorage`, `sessionStorage` ou cookie. Após `204`, a navegação usa `router.replace("/entrar")`, sem auto-login.
 
 A API deverá permitir:
 
@@ -774,7 +778,7 @@ Sim.
 - token temporário;
 - token armazenado como hash;
 - rate limiting;
-- entrega por port fail-closed, com provider real de e-mail ainda pendente;
+- entrega pelo adapter Resend por meio de `PasswordResetDeliveryPort`, com falhas sanitizadas;
 - invalidar tokens anteriores quando necessário.
 
 ---
@@ -806,11 +810,12 @@ Sim, com token.
 
 ### Regras
 
-- token válido;
-- token não expirado;
+- token válido e não expirado, com erro público sanitizado caso contrário;
 - token de uso único;
-- revogação de sessões anteriores conforme política;
-- nova senha armazenada com hash.
+- senha de 12 a 128 caracteres, com pelo menos uma letra e um número;
+- nova senha armazenada com Argon2id;
+- invalidação dos demais tokens ativos e revogação de todas as sessões;
+- retorno ao login sem autenticação automática.
 
 ---
 

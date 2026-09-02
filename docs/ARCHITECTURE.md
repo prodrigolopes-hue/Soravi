@@ -4,15 +4,16 @@
 
 Este documento define a arquitetura técnica oficial da Soravi para o desenvolvimento do MVP.
 
-## Estado de segurança implementado — 2026-08-31
+## Estado de segurança implementado — 2026-09-01
 
 - O access token é curto e cada request autenticado valida também a sessão no PostgreSQL.
 - `phoneVerifiedAt` é obtido do banco durante a autenticação do request; não existe claim de verificação de telefone no JWT.
 - `PhoneVerifiedGuard` é declarado explicitamente apenas nos handlers sensíveis. Leituras privadas continuam autenticadas sem essa exigência, e `ADMIN` permanece temporariamente dispensado.
 - A verificação de telefone mantém challenges com código protegido por HMAC, expiração, tentativas e invalidação. `PhoneVerificationDeliveryPort` desacopla a entrega; há adapter Meta selecionável por configuração, ainda não operacional em produção.
 - A alteração de telefone bloqueia o usuário e ocorre em transação: valida a senha atual, normaliza o número, zera `phoneVerifiedAt` em mudança real, invalida challenges, preserva a sessão atual e revoga as demais.
-- A recuperação usa `PasswordResetDeliveryPort` fail-closed; nenhum provider real de e-mail foi escolhido. Tokens opacos de 256 bits são entregues em base64url e persistidos somente como SHA-256.
-- A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome tokens pendentes e revoga todas as sessões.
+- A recuperação usa `PasswordResetDeliveryPort` fail-closed, com adapter Resend como provider real atual e possibilidade de substituição futura. Tokens opacos de 256 bits são entregues em base64url, persistidos somente como SHA-256 e mantidos raw apenas em memória durante o delivery.
+- A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome o token utilizado, invalida os demais tokens ativos e revoga todas as sessões.
+- O frontend recebe o token em `/redefinir-senha#token=<token>`, lê e remove o fragmento somente no client e mantém o token apenas em memória. O fluxo não persiste credenciais ou tokens e retorna ao login sem auto-login.
 - A troca administrativa de senha também invalida tokens de reset pendentes dentro de sua transação.
 - Roubo de token ou sessão permanece risco de hardening pré-beta. CSP, mitigação contínua de XSS, política final de cookies, rotação de refresh, revisão de rate limits e demais controles em profundidade continuam como trabalho futuro.
 

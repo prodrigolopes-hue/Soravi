@@ -165,6 +165,22 @@ Itens de fundação inicial:
 -   melhorias de SEO técnico;
 -   dados estruturados básicos.
 
+## Pré-beta — importante
+
+### SEO técnico, indexação e identidade digital da Soravi
+
+Objetivo: ajudar mecanismos de busca a reconhecer `soravi.com.br` como a
+plataforma brasileira Soravi de serviços e profissionais, sem atribuir a este
+trabalho prioridade superior às funcionalidades críticas do MVP.
+
+- [ ] Configurar Google Search Console, `sitemap.xml`, `robots.txt` e canonical.
+- [ ] Revisar metadata, Open Graph e consistência da descrição institucional.
+- [ ] Implementar JSON-LD `Organization` e `WebSite` com redes oficiais em `sameAs`.
+- [ ] Solicitar a indexação das páginas públicas principais.
+- [ ] Monitorar buscas por Soravi/Soravi Brasil e confusão com outras entidades chamadas Soravi.
+- [ ] Executar o hardening obrigatório: auditoria de dependências e investigação das vulnerabilidades npm sem `npm audit fix --force`.
+- [ ] Revisar CSP/XSS, proteção de sessão e token, cookies/refresh, rate limits e OWASP ASVS pré-beta.
+
 ## Crescimento
 
 -   Hub de Problemas completo;
@@ -172,6 +188,7 @@ Itens de fundação inicial:
 -   conteúdo educativo e blog técnico;
 -   perfis públicos indexáveis;
 -   expansão geográfica e editorial.
+-   realizar análise competitiva estruturada de plataformas de serviços, usando É Pra Ontem, GetNinjas e Triider apenas como referências de pesquisa futura.
 
 ## Infraestrutura editorial
 
@@ -242,9 +259,10 @@ Cada tarefa somente será considerada concluída quando:
 ### Pendente
 
 - [x] Fundação de recuperação de senha no backend, com request/confirm, tokens protegidos e revogação de sessões.
-- [ ] Provider real de e-mail para recuperação de senha.
-- [ ] Frontend integrado de solicitar recuperação de senha.
-- [ ] Frontend integrado de redefinir senha.
+- [x] Adapter Resend como provider real de recuperação de senha, desacoplado por `PasswordResetDeliveryPort`.
+- [x] Frontend `/recuperar-senha` integrado ao endpoint real, com resposta neutra e erros sanitizados.
+- [x] Frontend `/redefinir-senha` seguro, com token no fragmento mantido somente em memória e sem auto-login.
+- [x] Validação manual ponta a ponta pela interface, incluindo Resend, expiração, redefinição e novo login.
 - [ ] Confirmação de e-mail.
 - [ ] Encerramento de todas as sessões.
 - [ ] Listagem de sessões ativas.
@@ -310,7 +328,7 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 ### Itens futuros
 
 - [x] fundação de confirmação de telefone, frontend `/verificar-telefone` e enforcement explícito em ações sensíveis;
-- [ ] operação da entrega Meta WhatsApp em produção;
+- [ ] avaliar/configurar onboarding Meta e coexistência segura com WhatsApp Business/Cloud API; o número da Soravi está disponível e cadastrado no WhatsApp Business, sem afirmar Cloud API, WABA ou templates ativos;
 - [ ] verificação básica de identidade;
 - [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
