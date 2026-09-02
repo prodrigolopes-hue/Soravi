@@ -1,7 +1,30 @@
 import { apiBaseUrl } from "./api";
 
 const confirmUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/password-reset/confirm`;
+const requestUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/password-reset/request`;
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/u;
+
+export const passwordResetRequestSuccessMessage =
+  "Se existir uma conta com este e-mail, enviaremos as instruções de recuperação.";
+
+export function passwordResetRequestErrorMessage(status: number): string {
+  if (status === 429) {
+    return "Muitas solicitações. Aguarde um pouco antes de tentar novamente.";
+  }
+
+  if (status === 400) {
+    return "Digite um e-mail válido.";
+  }
+
+  return "Não foi possível processar sua solicitação agora. Tente novamente em instantes.";
+}
+
+export class PasswordResetRequestApiError extends Error {
+  constructor(readonly status: number) {
+    super(passwordResetRequestErrorMessage(status));
+    this.name = "PasswordResetRequestApiError";
+  }
+}
 
 export class PasswordResetApiError extends Error {
   constructor(readonly status: number, readonly code?: string) { super(passwordResetErrorMessage(status, code)); this.name = "PasswordResetApiError"; }
@@ -47,5 +70,21 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
   } catch (error) {
     if (error instanceof PasswordResetApiError) throw error;
     throw new PasswordResetApiError(0);
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    const response = await fetch(requestUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+
+    if (response.status === 202) return;
+    throw new PasswordResetRequestApiError(response.status);
+  } catch (error) {
+    if (error instanceof PasswordResetRequestApiError) throw error;
+    throw new PasswordResetRequestApiError(0);
   }
 }

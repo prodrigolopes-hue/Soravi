@@ -7,6 +7,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import {
+  PasswordResetRequestApiError,
+  passwordResetRequestSuccessMessage,
+  requestPasswordReset,
+} from "../../lib/password-reset";
+
 const forgotPasswordSchema = z.object({
   email: z
     .string()
@@ -19,11 +25,12 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export function ForgotPasswordForm() {
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
@@ -32,14 +39,27 @@ export function ForgotPasswordForm() {
     mode: "onSubmit",
   });
 
-  function handleValidSubmit(): void {
-    setFormMessage(
-      "Solicitação validada. O envio do e-mail de recuperação será conectado à API em uma próxima etapa.",
-    );
+  async function handleValidSubmit(
+    data: ForgotPasswordFormData,
+  ): Promise<void> {
+    setFormMessage(null);
+    setFormError(null);
+
+    try {
+      await requestPasswordReset(data.email);
+      setFormMessage(passwordResetRequestSuccessMessage);
+    } catch (error) {
+      setFormError(
+        error instanceof PasswordResetRequestApiError
+          ? error.message
+          : "Não foi possível processar sua solicitação agora. Tente novamente em instantes.",
+      );
+    }
   }
 
   function handleInvalidSubmit(): void {
     setFormMessage(null);
+    setFormError(null);
   }
 
   return (
@@ -66,6 +86,7 @@ export function ForgotPasswordForm() {
             id="email"
             type="email"
             autoComplete="email"
+            inputMode="email"
             placeholder="voce@exemplo.com"
             className="min-h-12 w-full rounded-xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             aria-invalid={Boolean(errors.email)}
@@ -95,15 +116,30 @@ export function ForgotPasswordForm() {
           aria-live="polite"
           className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-800"
         >
-          {formMessage}
+          <p>{formMessage}</p>
+          <p className="mt-2">
+            Verifique também a pasta de spam ou lixo eletrônico.
+          </p>
+        </div>
+      ) : null}
+
+      {formError ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
+        >
+          {formError}
         </div>
       ) : null}
 
       <button
         type="submit"
-        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        disabled={isSubmitting}
+        aria-busy={isSubmitting}
+        className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
       >
-        Enviar instruções
+        {isSubmitting ? "Enviando..." : "Enviar instruções"}
       </button>
 
       <p className="text-center text-sm text-slate-600">
