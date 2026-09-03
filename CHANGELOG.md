@@ -8,7 +8,7 @@
 - o Prisma 7.10.0 removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2;
 - o baseline residual de 6 vulnerabilidades foi registrado como risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, interno de `@prisma/config`; `mysql2` 3.15.3, interno do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25;
 - não foi utilizado `npm audit fix --force` nem foram aplicados overrides em dependências internas do Prisma ou Next.js apenas para zerar a auditoria sem validação de compatibilidade;
-- TypeScript, 62 suítes com 678 testes da API, build da API e build do frontend passaram após as atualizações.
+- durante o primeiro patch de dependências, a API passou em TypeScript, 62 suítes com 678 testes e build; após as atualizações compatíveis do frontend, passaram TypeScript, ESLint e build; após a atualização do Prisma para 7.10.0, foram validados Prisma Client generation e build da API.
 
 ### Infraestrutura WhatsApp/Meta
 

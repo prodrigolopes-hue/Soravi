@@ -22,7 +22,7 @@
 - recuperação e redefinição de senha ponta a ponta, com backend, adapter Resend e frontends `/recuperar-senha` e `/redefinir-senha`;
 - validação manual real do fluxo pela interface, incluindo delivery, expiração, redefinição e novo login;
 - invalidação de tokens pendentes na troca administrativa de senha;
-- hardening compatível de dependências concluído em 2026-09-02, reduzindo o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades, sem `npm audit fix --force` e com TypeScript, 62 suítes/678 testes da API e builds da API e do frontend aprovados;
+- hardening compatível de dependências concluído em 2026-09-02, reduzindo o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades, sem `npm audit fix --force`; no primeiro patch, a API passou em TypeScript, 62 suítes/678 testes e build; após as atualizações compatíveis do frontend, passaram TypeScript, ESLint e build; após o Prisma 7.10.0, foram validados Prisma Client generation e build da API;
 - infraestrutura inicial da Meta: número oficial dedicado à Soravi, WABA existente e número registrado na WhatsApp Cloud API.
 
 ### Pendente
