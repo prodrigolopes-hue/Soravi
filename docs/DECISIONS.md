@@ -1997,6 +1997,23 @@ A entrega de OTP usa provider explícito por configuração. O default local é
 `PHONE_VERIFICATION_DELIVERY_PROVIDER=meta`. Nesse modo, sua configuração
 completa é obrigatória no bootstrap.
 
+## 2026-09-02 — Número dedicado à Cloud API e verificação empresarial no pré-beta
+
+### Decisão
+
+- o número oficial da Soravi será dedicado à WhatsApp Cloud API e não será mantida, neste momento, a complexidade de coexistência com o WhatsApp Business App;
+- a regularização empresarial não será antecipada exclusivamente para liberar uma integração técnica;
+- Business Verification será retomada antes do beta, quando houver estrutura jurídica adequada;
+- não serão usados documentos de terceiros nem dados artificiais para validação.
+
+### Estado operacional
+
+A Soravi possui WABA e número registrado na Cloud API, mas a Meta recusou a
+criação do template de autenticação pretendido por falta de permissão da WABA.
+Entrega real de OTP, webhook e provider Meta em produção permanecem bloqueados
+por essa dependência externa, sem interromper o restante do desenvolvimento do
+MVP.
+
 ## 2026-08-29 — Exceção temporária de verificação de telefone para ADMIN
 
 ### Decisão

@@ -21,13 +21,17 @@
 - alteração segura do próprio telefone;
 - recuperação e redefinição de senha ponta a ponta, com backend, adapter Resend e frontends `/recuperar-senha` e `/redefinir-senha`;
 - validação manual real do fluxo pela interface, incluindo delivery, expiração, redefinição e novo login;
-- invalidação de tokens pendentes na troca administrativa de senha.
+- invalidação de tokens pendentes na troca administrativa de senha;
+- infraestrutura inicial da Meta: número oficial dedicado à Soravi, WABA existente e número registrado na WhatsApp Cloud API.
 
 ### Pendente
 
-- onboarding/configuração segura da Meta e avaliação de coexistência com o WhatsApp Business/Cloud API; o número da Soravi está disponível e cadastrado no WhatsApp Business, mas Cloud API, WABA e templates ainda não estão confirmados como ativos;
+- dependência externa/pré-beta da Meta: concluir Business Verification quando houver estrutura jurídica adequada e obter permissão para criar o template de autenticação pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a tentativa atual foi recusada pela Meta por falta de permissão da WABA;
+- validar o envio real de OTP, configurar e assinar o webhook e somente então ativar o provider Meta em produção; a integração não está operacional para OTP;
 - hardening obrigatório pré-beta: auditoria de dependências, investigação das vulnerabilidades npm sem `npm audit fix --force`, CSP/XSS, proteção de sessão e tokens, cookies/refresh, revisão de rate limits e revisão OWASP ASVS;
 - favoritos, avaliações e demais etapas ainda não implementadas.
+
+O bloqueio externo da Meta não interrompe o restante do desenvolvimento do MVP.
 
 ## Pré-beta — importante
 

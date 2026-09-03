@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-02
+
+### Infraestrutura WhatsApp/Meta
+
+- disponibilizado número oficial dedicado à Soravi, retirado do uso normal no WhatsApp Business App para registro na infraestrutura da Meta;
+- confirmadas a WABA da Soravi e a inscrição do número na WhatsApp Cloud API;
+- definido como pretendido o template `codigo_verificacao_soravi`, da categoria `AUTHENTICATION`, em `pt_BR`, com ação `COPY_CODE` e expiração de 10 minutos;
+- a criação do template foi recusada pela Meta por falta de permissão da WABA; por isso, a entrega real de OTP, o webhook e a ativação do provider Meta em produção permanecem pendentes;
+- Business Verification será retomada na preparação pré-beta, quando houver estrutura jurídica adequada, sem antecipar a formalização empresarial nem usar documentos de terceiros ou dados artificiais.
+
 ## 2026-09-01
 
 ### Recuperação de senha ponta a ponta

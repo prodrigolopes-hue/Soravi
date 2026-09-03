@@ -328,7 +328,10 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 ### Itens futuros
 
 - [x] fundação de confirmação de telefone, frontend `/verificar-telefone` e enforcement explícito em ações sensíveis;
-- [ ] avaliar/configurar onboarding Meta e coexistência segura com WhatsApp Business/Cloud API; o número da Soravi está disponível e cadastrado no WhatsApp Business, sem afirmar Cloud API, WABA ou templates ativos;
+- [x] disponibilizar número oficial dedicado à Soravi, criar a WABA e registrar o número na WhatsApp Cloud API;
+- [ ] retomar Business Verification na preparação pré-beta, quando houver estrutura jurídica adequada, sem antecipar a formalização empresarial nem usar documentos de terceiros ou dados artificiais;
+- [ ] obter da Meta permissão para criar o template pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a criação foi recusada por falta de permissão da WABA;
+- [ ] validar envio real de OTP, configurar e assinar o webhook e ativar o provider Meta em produção;
 - [ ] verificação básica de identidade;
 - [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;

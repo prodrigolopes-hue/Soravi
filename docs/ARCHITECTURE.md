@@ -4,12 +4,14 @@
 
 Este documento define a arquitetura técnica oficial da Soravi para o desenvolvimento do MVP.
 
-## Estado de segurança implementado — 2026-09-01
+## Estado de segurança implementado — 2026-09-02
 
 - O access token é curto e cada request autenticado valida também a sessão no PostgreSQL.
 - `phoneVerifiedAt` é obtido do banco durante a autenticação do request; não existe claim de verificação de telefone no JWT.
 - `PhoneVerifiedGuard` é declarado explicitamente apenas nos handlers sensíveis. Leituras privadas continuam autenticadas sem essa exigência, e `ADMIN` permanece temporariamente dispensado.
 - A verificação de telefone mantém challenges com código protegido por HMAC, expiração, tentativas e invalidação. `PhoneVerificationDeliveryPort` desacopla a entrega; há adapter Meta selecionável por configuração, ainda não operacional em produção.
+- A infraestrutura Meta possui número oficial dedicado à Soravi, WABA e registro do número na WhatsApp Cloud API. O template pretendido `codigo_verificacao_soravi` é `AUTHENTICATION`, `pt_BR`, com ação `COPY_CODE` e expiração de 10 minutos, mas sua criação foi recusada por falta de permissão da WABA. Portanto, não há template criado ou aprovado nem entrega real de OTP.
+- O webhook da Meta ainda não foi configurado nem assinado e não está operacional em produção. Sua configuração será retomada quando o delivery Meta estiver apto a avançar; até lá, o provider não deve ser ativado em produção.
 - A alteração de telefone bloqueia o usuário e ocorre em transação: valida a senha atual, normaliza o número, zera `phoneVerifiedAt` em mudança real, invalida challenges, preserva a sessão atual e revoga as demais.
 - A recuperação usa `PasswordResetDeliveryPort` fail-closed, com adapter Resend como provider real atual e possibilidade de substituição futura. Tokens opacos de 256 bits são entregues em base64url, persistidos somente como SHA-256 e mantidos raw apenas em memória durante o delivery.
 - A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome o token utilizado, invalida os demais tokens ativos e revoga todas as sessões.
