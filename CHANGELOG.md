@@ -2,6 +2,14 @@
 
 ## 2026-09-02
 
+### Hardening de dependências
+
+- reduzido o baseline de produção de `npm audit --omit=dev` de 14 para 6 vulnerabilidades por meio de atualizações compatíveis de Next.js para 15.5.25, `qs` para 6.16.0, `sharp` para 0.35.4, `fast-uri` para 3.1.7, `nanoid` para 3.3.18 e Prisma/`@prisma/client` para 7.10.0;
+- o Prisma 7.10.0 removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2;
+- o baseline residual de 6 vulnerabilidades foi registrado como risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, interno de `@prisma/config`; `mysql2` 3.15.3, interno do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25;
+- não foi utilizado `npm audit fix --force` nem foram aplicados overrides em dependências internas do Prisma ou Next.js apenas para zerar a auditoria sem validação de compatibilidade;
+- TypeScript, 62 suítes com 678 testes da API, build da API e build do frontend passaram após as atualizações.
+
 ### Infraestrutura WhatsApp/Meta
 
 - disponibilizado número oficial dedicado à Soravi, retirado do uso normal no WhatsApp Business App para registro na infraestrutura da Meta;

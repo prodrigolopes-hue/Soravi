@@ -178,7 +178,8 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [ ] Implementar JSON-LD `Organization` e `WebSite` com redes oficiais em `sameAs`.
 - [ ] Solicitar a indexação das páginas públicas principais.
 - [ ] Monitorar buscas por Soravi/Soravi Brasil e confusão com outras entidades chamadas Soravi.
-- [ ] Executar o hardening obrigatório: auditoria de dependências e investigação das vulnerabilidades npm sem `npm audit fix --force`.
+- [x] Executar o hardening de dependências com atualizações compatíveis: baseline de `npm audit --omit=dev` reduzido de 14 para 6 vulnerabilidades em 2026-09-02, sem `npm audit fix --force`; TypeScript, 62 suítes/678 testes da API e builds da API e do frontend aprovados.
+- [ ] Revisar antes do beta e sempre que houver atualização compatível upstream o risco residual conhecido e monitorado em `deepmerge-ts` 7.1.5 (`@prisma/config`), `mysql2` 3.15.3 (Prisma/tooling; a Soravi usa PostgreSQL) e `postcss` 8.4.31 (Next.js 15.5.25), sem overrides internos apenas para zerar o `npm audit` sem validação de compatibilidade.
 - [ ] Revisar CSP/XSS, proteção de sessão e token, cookies/refresh, rate limits e OWASP ASVS pré-beta.
 
 ## Crescimento

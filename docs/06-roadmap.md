@@ -95,3 +95,12 @@ Meta: expansão nacional.
 
 Concluir o MVP e disponibilizar uma versão beta para os primeiros
 usuários, coletando feedback antes do lançamento oficial.
+
+Antes do beta, revisar o risco residual conhecido e monitorado do hardening de
+dependências de 2026-09-02. O baseline de `npm audit --omit=dev` foi reduzido de
+14 para 6 vulnerabilidades por atualizações compatíveis, sem
+`npm audit fix --force`; as ocorrências restantes estão concentradas em
+`deepmerge-ts` 7.1.5,
+`mysql2` 3.15.3 e `postcss` 8.4.31. A revisão deverá ser repetida sempre que
+houver atualização compatível upstream, sem overrides internos do Prisma ou
+Next.js apenas para zerar a auditoria sem validação de compatibilidade.

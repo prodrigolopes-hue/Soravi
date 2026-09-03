@@ -17,6 +17,8 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 - A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome o token utilizado, invalida os demais tokens ativos e revoga todas as sessões.
 - O frontend recebe o token em `/redefinir-senha#token=<token>`, lê e remove o fragmento somente no client e mantém o token apenas em memória. O fluxo não persiste credenciais ou tokens e retorna ao login sem auto-login.
 - A troca administrativa de senha também invalida tokens de reset pendentes dentro de sua transação.
+- O hardening de dependências reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades por atualizações compatíveis: Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0. O Prisma 7.10.0 também removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
+- As 6 vulnerabilidades residuais são risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, dependência interna de `@prisma/config`; `mysql2` 3.15.3, dependência interna do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25. Não foram usados `npm audit fix --force` ou overrides internos sem validação de compatibilidade.
 - Roubo de token ou sessão permanece risco de hardening pré-beta. CSP, mitigação contínua de XSS, política final de cookies, rotação de refresh, revisão de rate limits e demais controles em profundidade continuam como trabalho futuro.
 
 A arquitetura deve permitir:

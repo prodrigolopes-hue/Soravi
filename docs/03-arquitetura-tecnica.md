@@ -117,6 +117,8 @@ Redis será utilizado para:
 -   Validação de entradas.
 -   Controle de permissões por perfil.
 -   Variáveis de ambiente para segredos.
+-   Em 2026-09-02, o hardening compatível reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades. Foram atualizados Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0; o Prisma removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
+-   O baseline residual é risco conhecido e monitorado: `deepmerge-ts` 7.1.5 em `@prisma/config`, `mysql2` 3.15.3 no Prisma/tooling apesar do uso de PostgreSQL pela Soravi e `postcss` 8.4.31 interno do Next.js 15.5.25. Não foram usados `npm audit fix --force` nem overrides internos sem validação de compatibilidade.
 
 ------------------------------------------------------------------------
 
