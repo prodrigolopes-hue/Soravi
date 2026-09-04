@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../../lib/zod";
 
 export const serviceRequestSchema = z.object({
   categoryId: z.uuidv4("Selecione uma categoria válida."),

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 
 import { useAuth } from "./auth-provider";
 import { postLoginDestination } from "./phone-verification-routing";

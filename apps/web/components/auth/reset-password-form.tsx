@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 import { confirmPasswordReset, extractPasswordResetToken, PasswordResetApiError, passwordConfirmationMessage, passwordValidationMessage } from "../../lib/password-reset";
 
 const schema = z.object({

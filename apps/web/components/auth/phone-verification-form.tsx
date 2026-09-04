@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 
 import {
   confirmPhoneVerification,

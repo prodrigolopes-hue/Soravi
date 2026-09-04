@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 
 import { apiBaseUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";

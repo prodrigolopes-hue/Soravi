@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 
 import { proposalCreateUrl } from "../../lib/api";
 

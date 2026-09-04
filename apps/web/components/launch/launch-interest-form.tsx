@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { type FieldErrors, type Path, useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "../../lib/zod";
 import {
   BriefcaseBusiness,
   Check,
