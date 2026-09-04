@@ -55,7 +55,11 @@ function removeGoogleAnalyticsCookies(): void {
   }
 }
 
-export function GoogleAnalytics() {
+interface GoogleAnalyticsProps {
+  nonce?: string;
+}
+
+export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
   const { preference } = useCookieConsent();
   const configuredRef = useRef(false);
 
@@ -107,12 +111,14 @@ export function GoogleAnalytics() {
   return (
     <>
       <Script
+        nonce={nonce}
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
         strategy="afterInteractive"
       />
 
       <Script
         id="soravi-google-analytics-bootstrap"
+        nonce={nonce}
         strategy="afterInteractive"
       >
         {`

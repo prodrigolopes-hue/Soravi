@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import { GoogleAnalytics } from "../components/analytics/google-analytics";
@@ -19,14 +20,16 @@ interface RootLayoutProps {
   children: ReactNode;
 }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-white text-slate-950 antialiased">
         <CookieConsentProvider>
           <AuthProvider>
             <PhoneVerificationGuard>
-              <GoogleAnalytics />
+              <GoogleAnalytics nonce={nonce} />
               <div className="flex min-h-screen flex-col">
                 <PageHeader />
 
