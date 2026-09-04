@@ -4,7 +4,7 @@
 
 Este documento define a arquitetura técnica oficial da Soravi para o desenvolvimento do MVP.
 
-## Estado de segurança implementado — 2026-09-02
+## Estado de segurança implementado — 2026-09-03
 
 - O access token é curto e cada request autenticado valida também a sessão no PostgreSQL.
 - `phoneVerifiedAt` é obtido do banco durante a autenticação do request; não existe claim de verificação de telefone no JWT.
@@ -19,7 +19,10 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 - A troca administrativa de senha também invalida tokens de reset pendentes dentro de sua transação.
 - O hardening de dependências reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades por atualizações compatíveis: Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0. O Prisma 7.10.0 também removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
 - As 6 vulnerabilidades residuais são risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, dependência interna de `@prisma/config`; `mysql2` 3.15.3, dependência interna do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25. Não foram usados `npm audit fix --force` ou overrides internos sem validação de compatibilidade.
-- Roubo de token ou sessão permanece risco de hardening pré-beta. CSP, mitigação contínua de XSS, política final de cookies, rotação de refresh, revisão de rate limits e demais controles em profundidade continuam como trabalho futuro.
+- Em 2026-09-03, o frontend passou a remover `X-Powered-By` e a enviar `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`; `Strict-Transport-Security` é enviado somente em produção.
+- A primeira etapa de CSP usa exclusivamente `Content-Security-Policy-Report-Only`, sem enforcement. Ela permite explicitamente a API configurada, a origem WebSocket equivalente, ViaCEP, Google Analytics e a origem privada R2 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com` usada pelas fotos. `img-src` aceita somente `'self'`, `data:`, `blob:` e essa origin específica, sem wildcard ou `https:` genérico.
+- Durante a observação report-only, `script-src` e `style-src` mantêm `'unsafe-inline'` temporariamente. O `'unsafe-eval'` observado localmente pertence ao Next.js/Fast Refresh de desenvolvimento e não será permitido em produção. Testes locais confirmaram fotos, navegação e chat sem novas violações funcionais de CSP.
+- Roubo de token ou sessão permanece risco de hardening pré-beta. A próxima etapa da CSP é remover gradualmente `'unsafe-inline'` com nonce/hash; somente depois será avaliada a ativação da política bloqueante. Mitigação contínua de XSS, política final de cookies, rotação de refresh, revisão de rate limits e demais controles em profundidade continuam como trabalho futuro.
 
 A arquitetura deve permitir:
 

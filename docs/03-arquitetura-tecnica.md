@@ -119,6 +119,9 @@ Redis será utilizado para:
 -   Variáveis de ambiente para segredos.
 -   Em 2026-09-02, o hardening compatível reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades. Foram atualizados Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0; o Prisma removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
 -   O baseline residual é risco conhecido e monitorado: `deepmerge-ts` 7.1.5 em `@prisma/config`, `mysql2` 3.15.3 no Prisma/tooling apesar do uso de PostgreSQL pela Soravi e `postcss` 8.4.31 interno do Next.js 15.5.25. Não foram usados `npm audit fix --force` nem overrides internos sem validação de compatibilidade.
+-   Em 2026-09-03, o frontend passou a remover `X-Powered-By` e a enviar `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`, com `Strict-Transport-Security` somente em produção.
+-   A CSP está em observação por `Content-Security-Policy-Report-Only`, sem enforcement. Ela permite explicitamente API, WebSocket equivalente, ViaCEP, Google Analytics e a origin privada R2 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com`; `img-src` aceita somente `'self'`, `data:`, `blob:` e essa origin, sem wildcard ou `https:` genérico.
+-   `script-src` e `style-src` mantêm `'unsafe-inline'` temporariamente. O `'unsafe-eval'` observado localmente vem do Next.js/Fast Refresh e não será liberado em produção. Fotos, navegação e chat passaram nos testes locais sem novas violações funcionais. O próximo hardening removerá gradualmente `'unsafe-inline'` com nonce/hash antes de avaliar CSP bloqueante.
 
 ------------------------------------------------------------------------
 

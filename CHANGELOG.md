@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-03
+
+### Hardening HTTP e CSP do frontend
+
+- removido o header `X-Powered-By` do Next.js e adicionados `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy` restritiva; `Strict-Transport-Security` é aplicado somente em produção;
+- adicionada `Content-Security-Policy-Report-Only` para observar violações sem enforcement e sem bloquear funcionalidades;
+- a política permite explicitamente a API configurada, sua origem WebSocket equivalente, ViaCEP, Google Analytics e a origem privada R2 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com` usada pelas fotos;
+- `img-src` ficou restrito a `'self'`, `data:`, `blob:` e à origin específica do R2, sem wildcard ou `https:` genérico;
+- `script-src` e `style-src` ainda usam `'unsafe-inline'` temporariamente durante a fase report-only; o `'unsafe-eval'` observado localmente é gerado pelo Next.js/Fast Refresh em desenvolvimento e não será liberado em produção;
+- testes locais confirmaram carregamento de fotos, navegação e chat sem novas violações funcionais de CSP;
+- a próxima etapa será remover gradualmente `'unsafe-inline'` com nonce/hash e somente depois avaliar a ativação de uma CSP bloqueante.
+
 ## 2026-09-02
 
 ### Hardening de dependências

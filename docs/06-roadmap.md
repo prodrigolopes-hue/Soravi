@@ -104,3 +104,17 @@ dependências de 2026-09-02. O baseline de `npm audit --omit=dev` foi reduzido d
 `mysql2` 3.15.3 e `postcss` 8.4.31. A revisão deverá ser repetida sempre que
 houver atualização compatível upstream, sem overrides internos do Prisma ou
 Next.js apenas para zerar a auditoria sem validação de compatibilidade.
+
+Em 2026-09-03, foi concluída a primeira etapa do hardening HTTP/CSP do frontend:
+`X-Powered-By` foi removido; foram adicionados `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` e HSTS somente em
+produção; e a CSP entrou em `Content-Security-Policy-Report-Only`, ainda sem
+enforcement. A política explicita API, WebSocket equivalente, ViaCEP, Google
+Analytics e a origin privada R2 das fotos. `img-src` aceita apenas `'self'`,
+`data:`, `blob:` e
+`https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com`,
+sem wildcard ou `https:` genérico. Testes locais confirmaram fotos, navegação e
+chat sem novas violações funcionais. A próxima etapa removerá gradualmente o
+`'unsafe-inline'` temporário de `script-src` e `style-src` com nonce/hash; o
+`'unsafe-eval'` observado no Next.js/Fast Refresh local não será liberado em
+produção. Somente depois será avaliada uma CSP bloqueante.
