@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-04
+
+### CSP com nonce dinâmico no frontend
+
+- concluído o commit técnico `40f766f feat(web): adiciona nonce dinamico ao CSP`;
+- a CSP continua exclusivamente em `Content-Security-Policy-Report-Only`: o navegador não recebe nem aplica uma CSP bloqueante;
+- o middleware gera, a cada requisição, um nonce criptograficamente imprevisível, encaminha-o nos request headers internos para o Next.js e o Next.js o aplica aos scripts renderizados; os dois componentes `next/script` do Google Analytics recebem o mesmo nonce;
+- `script-src` deixou de usar `'unsafe-inline'` e passou a usar nonce e `'strict-dynamic'`; `'unsafe-eval'` é incluído somente em desenvolvimento para compatibilidade com Next.js/Fast Refresh e foi confirmado ausente no teste local em modo production;
+- `style-src` ainda mantém `'unsafe-inline'` temporariamente e será o próximo hardening;
+- API, WebSocket, ViaCEP, Google Analytics e a origin específica do R2 continuam explicitamente permitidos, sem wildcard nem `https:` genérico; HSTS continua condicionado ao ambiente production;
+- o nonce no header CSP, sua variação entre requisições e sua presença no HTML foram validados localmente. Também passaram TypeScript, ESLint dos arquivos alterados, build do frontend e `git diff --check`; o navegador recebeu somente Report-Only e HSTS apareceu no teste local em modo production;
+- como trade-off conhecido, o nonce por requisição tornou as páginas server-rendered dinamicamente, com impacto potencial de cache/performance a ser monitorado. Esta conclusão não representa deploy em produção nem ativação de CSP enforcement.
+
 ## 2026-09-03
 
 ### Hardening HTTP e CSP do frontend

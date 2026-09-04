@@ -24,6 +24,7 @@
 - invalidação de tokens pendentes na troca administrativa de senha;
 - hardening compatível de dependências concluído em 2026-09-02, reduzindo o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades, sem `npm audit fix --force`; no primeiro patch, a API passou em TypeScript, 62 suítes/678 testes e build; após as atualizações compatíveis do frontend, passaram TypeScript, ESLint e build; após o Prisma 7.10.0, foram validados Prisma Client generation e build da API;
 - primeira etapa do hardening HTTP/CSP do frontend concluída em 2026-09-03: remoção de `X-Powered-By`, headers básicos de segurança, HSTS somente em produção e `Content-Security-Policy-Report-Only` sem enforcement; a política explicita API, WebSocket, ViaCEP, Google Analytics e a origin privada R2 das fotos, sem wildcard ou `https:` genérico em `img-src`; testes locais confirmaram fotos, navegação e chat sem novas violações funcionais;
+- hardening de `script-src` concluído em 2026-09-04 no commit técnico `40f766f feat(web): adiciona nonce dinamico ao CSP`: nonce imprevisível por requisição propagado internamente ao Next.js e aos scripts renderizados, incluindo os dois `next/script` do Google Analytics; `script-src` sem `'unsafe-inline'`, com nonce e `'strict-dynamic'`; `'unsafe-eval'` somente em development e confirmado ausente em production local; a CSP segue exclusivamente Report-Only, sem enforcement. As páginas passaram a ser server-rendered dinamicamente, trade-off de cache/performance a monitorar;
 - infraestrutura inicial da Meta: número oficial dedicado à Soravi, WABA existente e número registrado na WhatsApp Cloud API.
 
 ### Pendente
@@ -31,7 +32,7 @@
 - dependência externa/pré-beta da Meta: concluir Business Verification quando houver estrutura jurídica adequada e obter permissão para criar o template de autenticação pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a tentativa atual foi recusada pela Meta por falta de permissão da WABA;
 - validar o envio real de OTP, configurar e assinar o webhook e somente então ativar o provider Meta em produção; a integração não está operacional para OTP;
 - revisar antes do beta e a cada atualização compatível upstream o risco residual conhecido das 6 vulnerabilidades, concentrado em `deepmerge-ts` 7.1.5 (`@prisma/config`), `mysql2` 3.15.3 (Prisma/tooling; a Soravi usa PostgreSQL) e `postcss` 8.4.31 (interno do Next.js 15.5.25), sem aplicar overrides internos apenas para zerar o `npm audit` sem validação de compatibilidade;
-- hardening obrigatório pré-beta ainda pendente: remover gradualmente `'unsafe-inline'` de `script-src` e `style-src` com nonce/hash e somente depois avaliar CSP bloqueante; não liberar em produção o `'unsafe-eval'` observado no Next.js/Fast Refresh local; revisar XSS, proteção de sessão e tokens, cookies/refresh, rate limits e OWASP ASVS;
+- hardening obrigatório pré-beta ainda pendente: remover `'unsafe-inline'` de `style-src`, monitorar o impacto de cache/performance da renderização dinâmica e, somente depois, avaliar futuramente uma CSP bloqueante; revisar XSS, proteção de sessão e tokens, cookies/refresh, sessões, rate limits e OWASP ASVS;
 - favoritos, avaliações e demais etapas ainda não implementadas.
 
 O bloqueio externo da Meta não interrompe o restante do desenvolvimento do MVP.

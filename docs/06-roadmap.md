@@ -114,7 +114,26 @@ Analytics e a origin privada R2 das fotos. `img-src` aceita apenas `'self'`,
 `data:`, `blob:` e
 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com`,
 sem wildcard ou `https:` genérico. Testes locais confirmaram fotos, navegação e
-chat sem novas violações funcionais. A próxima etapa removerá gradualmente o
-`'unsafe-inline'` temporário de `script-src` e `style-src` com nonce/hash; o
-`'unsafe-eval'` observado no Next.js/Fast Refresh local não será liberado em
-produção. Somente depois será avaliada uma CSP bloqueante.
+chat sem novas violações funcionais.
+
+Em 2026-09-04, o commit técnico
+`40f766f feat(web): adiciona nonce dinamico ao CSP` concluiu o hardening de
+`script-src`. Um nonce criptograficamente imprevisível é gerado por requisição
+no middleware, enviado nos request headers internos ao Next.js e aplicado aos
+scripts renderizados; os dois componentes `next/script` do Google Analytics
+recebem o mesmo nonce. `script-src` não usa mais `'unsafe-inline'` e usa nonce
+com `'strict-dynamic'`. `'unsafe-eval'` existe somente em development para
+compatibilidade com Next.js/Fast Refresh e foi confirmado ausente no teste
+local em modo production. A CSP continua exclusivamente Report-Only, sem CSP
+bloqueante ativa no navegador; API, WebSocket, ViaCEP, Google Analytics e a
+origin específica do R2 permanecem explicitamente permitidos, sem wildcard ou
+`https:` genérico, e HSTS continua condicionado a production.
+
+TypeScript, ESLint dos arquivos alterados, build do frontend e
+`git diff --check` passaram. Também foram confirmados nonce no header CSP,
+variação entre requisições, nonce no HTML, resposta do navegador somente
+Report-Only e HSTS no teste local em production. O nonce por requisição tornou
+as páginas server-rendered dinamicamente; esse trade-off de cache/performance
+será monitorado. Não se afirma deploy em produção nem CSP enforcement ativo.
+Permanecem pendentes o hardening de `style-src`, que ainda usa
+`'unsafe-inline'`, e a avaliação futura de uma CSP bloqueante.
