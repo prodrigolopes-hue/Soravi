@@ -122,9 +122,16 @@ Em 2026-09-04, o commit técnico
 no middleware, enviado nos request headers internos ao Next.js e aplicado aos
 scripts renderizados; os dois componentes `next/script` do Google Analytics
 recebem o mesmo nonce. `script-src` não usa mais `'unsafe-inline'` e usa nonce
-com `'strict-dynamic'`. `'unsafe-eval'` existe somente em development para
-compatibilidade com Next.js/Fast Refresh e foi confirmado ausente no teste
-local em modo production. A CSP continua exclusivamente Report-Only, sem CSP
+com `'strict-dynamic'`. A CSP de production não permite `'unsafe-eval'`. Em um
+teste local posterior, porém, o modo Report-Only detectou uma tentativa de uso
+pela geração dinâmica de código/JIT do Zod 4.4.3. O commit técnico
+`c755262 feat(web): configura Zod sem JIT para CSP` criou
+`apps/web/lib/zod.ts`, configurou `z.config({ jitless: true })` e centralizou os
+imports diretos de Zod, sem alterar schemas, mensagens ou regras de negócio e
+sem adicionar `'unsafe-eval'` à política. TypeScript, ESLint direcionado, build
+e `git diff --check` passaram; a violação anteriormente observada deixou de
+aparecer em `/solicitacoes/nova` no teste local em production. A CSP continua
+exclusivamente Report-Only, sem CSP
 bloqueante ativa no navegador; API, WebSocket, ViaCEP, Google Analytics e a
 origin específica do R2 permanecem explicitamente permitidos, sem wildcard ou
 `https:` genérico, e HSTS continua condicionado a production.
@@ -135,5 +142,13 @@ variação entre requisições, nonce no HTML, resposta do navegador somente
 Report-Only e HSTS no teste local em production. O nonce por requisição tornou
 as páginas server-rendered dinamicamente; esse trade-off de cache/performance
 será monitorado. Não se afirma deploy em produção nem CSP enforcement ativo.
-Permanecem pendentes o hardening de `style-src`, que ainda usa
-`'unsafe-inline'`, e a avaliação futura de uma CSP bloqueante.
+
+O commit técnico `83b25bf feat(web): restringe estilos inline no CSP` trocou
+`style-src 'self' 'unsafe-inline'` por `style-src 'self'`,
+`style-src-elem 'self'` e `style-src-attr 'unsafe-inline'`, sem alterar
+`script-src` ou nonce. O diagnóstico encontrou zero tags `<style>` no HTML
+inicial e no DOM observado, mas atributos `style=""` são gerados em runtime,
+inclusive por elementos internos do Next.js/Next Image. Portanto,
+`'unsafe-inline'` permanece temporariamente restrito a atributos, sem wildcard
+ou `https:` genérico. Continuam pendentes sua remoção futura, a avaliação de
+CSP bloqueante, sessões/tokens, cookies/refresh, rate limits e OWASP ASVS.

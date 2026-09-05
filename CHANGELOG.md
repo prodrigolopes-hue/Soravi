@@ -7,11 +7,25 @@
 - concluído o commit técnico `40f766f feat(web): adiciona nonce dinamico ao CSP`;
 - a CSP continua exclusivamente em `Content-Security-Policy-Report-Only`: o navegador não recebe nem aplica uma CSP bloqueante;
 - o middleware gera, a cada requisição, um nonce criptograficamente imprevisível, encaminha-o nos request headers internos para o Next.js e o Next.js o aplica aos scripts renderizados; os dois componentes `next/script` do Google Analytics recebem o mesmo nonce;
-- `script-src` deixou de usar `'unsafe-inline'` e passou a usar nonce e `'strict-dynamic'`; `'unsafe-eval'` é incluído somente em desenvolvimento para compatibilidade com Next.js/Fast Refresh e foi confirmado ausente no teste local em modo production;
-- `style-src` ainda mantém `'unsafe-inline'` temporariamente e será o próximo hardening;
+- `script-src` deixou de usar `'unsafe-inline'` e passou a usar nonce e `'strict-dynamic'`; a CSP de production não permite `'unsafe-eval'`;
 - API, WebSocket, ViaCEP, Google Analytics e a origin específica do R2 continuam explicitamente permitidos, sem wildcard nem `https:` genérico; HSTS continua condicionado ao ambiente production;
 - o nonce no header CSP, sua variação entre requisições e sua presença no HTML foram validados localmente. Também passaram TypeScript, ESLint dos arquivos alterados, build do frontend e `git diff --check`; o navegador recebeu somente Report-Only e HSTS apareceu no teste local em modo production;
 - como trade-off conhecido, o nonce por requisição tornou as páginas server-rendered dinamicamente, com impacto potencial de cache/performance a ser monitorado. Esta conclusão não representa deploy em produção nem ativação de CSP enforcement.
+
+### Restrição de estilos inline no CSP
+
+- concluído o commit técnico `83b25bf feat(web): restringe estilos inline no CSP`, sem alterar `script-src` ou o nonce;
+- `style-src 'self' 'unsafe-inline'` foi substituído por `style-src 'self'`, `style-src-elem 'self'` e `style-src-attr 'unsafe-inline'`. Assim, `'unsafe-inline'` de estilos permanece temporariamente apenas para atributos `style=""`;
+- o diagnóstico local encontrou zero tags `<style>` no HTML inicial e no DOM observado, mas encontrou atributos `style=""` gerados em runtime, inclusive por elementos internos do Next.js/Next Image;
+- a CSP segue exclusivamente em `Content-Security-Policy-Report-Only`, sem CSP bloqueante ativa no navegador e sem wildcard ou `https:` genérico.
+
+### Zod sem JIT para compatibilidade com CSP
+
+- concluído o commit técnico `c755262 feat(web): configura Zod sem JIT para CSP`;
+- embora a CSP de production já não permitisse `'unsafe-eval'`, um teste local em modo production detectou, via Report-Only, uma tentativa de uso causada pela geração dinâmica de código/JIT do Zod 4.4.3;
+- não foi adicionado `'unsafe-eval'` à CSP de production. Foi criado `apps/web/lib/zod.ts`, que executa `z.config({ jitless: true })`, e todos os imports diretos de Zod no código-fonte do frontend foram centralizados nesse módulo;
+- schemas, mensagens de validação e regras de negócio não foram alterados. TypeScript, ESLint direcionado, build do frontend e `git diff --check` passaram, e a tela `/solicitacoes/nova` deixou de apresentar a violação de `'unsafe-eval'` anteriormente observada no teste local em production;
+- os resultados são locais: não representam deploy em produção nem ativação de CSP enforcement.
 
 ## 2026-09-03
 
@@ -21,7 +35,7 @@
 - adicionada `Content-Security-Policy-Report-Only` para observar violações sem enforcement e sem bloquear funcionalidades;
 - a política permite explicitamente a API configurada, sua origem WebSocket equivalente, ViaCEP, Google Analytics e a origem privada R2 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com` usada pelas fotos;
 - `img-src` ficou restrito a `'self'`, `data:`, `blob:` e à origin específica do R2, sem wildcard ou `https:` genérico;
-- `script-src` e `style-src` ainda usam `'unsafe-inline'` temporariamente durante a fase report-only; o `'unsafe-eval'` observado localmente é gerado pelo Next.js/Fast Refresh em desenvolvimento e não será liberado em produção;
+- `script-src` e `style-src` ainda usam `'unsafe-inline'` temporariamente durante a fase report-only; naquela etapa, o `'unsafe-eval'` observado localmente estava associado ao Next.js/Fast Refresh em desenvolvimento e não seria liberado em produção — a tentativa posteriormente detectada no JIT do Zod está registrada na seção de 2026-09-04;
 - testes locais confirmaram carregamento de fotos, navegação e chat sem novas violações funcionais de CSP;
 - a próxima etapa será remover gradualmente `'unsafe-inline'` com nonce/hash e somente depois avaliar a ativação de uma CSP bloqueante.
 
