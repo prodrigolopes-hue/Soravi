@@ -10,7 +10,11 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { type Request, type Response } from "express";
+import {
+  type CookieOptions,
+  type Request,
+  type Response,
+} from "express";
 
 import { AuthService } from "./auth.service";
 import { LoginResponseDto } from "./dto/login-response.dto";
@@ -164,9 +168,24 @@ export class AuthController {
       separatorIndex + 1,
     );
 
-    return rawValue
-      ? decodeURIComponent(rawValue)
-      : null;
+    if (!rawValue) {
+      return null;
+    }
+
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return null;
+    }
+  }
+
+  private getRefreshTokenCookieOptions(): CookieOptions {
+    return {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/v1/auth",
+    };
   }
 
   private setRefreshTokenCookie(
@@ -178,11 +197,7 @@ export class AuthController {
       this.refreshTokenCookieName,
       refreshToken,
       {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
+        ...this.getRefreshTokenCookieOptions(),
         expires: expiresAt,
       },
     );
@@ -193,13 +208,7 @@ export class AuthController {
   ): void {
     response.clearCookie(
       this.refreshTokenCookieName,
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-      },
+      this.getRefreshTokenCookieOptions(),
     );
   }
 }
