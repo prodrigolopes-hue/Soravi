@@ -5,6 +5,7 @@ import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../database/prisma.service";
 import { Role, UserStatus } from "../../generated/prisma/client";
 import { InvalidAccessTokenException } from "./errors/invalid-access-token.exception";
+import { getAuthSessionAbsoluteExpiresAt } from "./auth-session-lifetime";
 import { AccessTokenPayload } from "./interfaces/access-token-payload.interface";
 import { AuthenticatedUser } from "./interfaces/authenticated-user.interface";
 
@@ -55,6 +56,7 @@ export class AccessTokenAuthService {
         userId: true,
         revokedAt: true,
         expiresAt: true,
+        createdAt: true,
         user: {
           select: {
             deletedAt: true,
@@ -82,7 +84,12 @@ export class AccessTokenAuthService {
       throw new InvalidAccessTokenException();
     }
 
-    if (session.expiresAt <= new Date()) {
+    const now = new Date();
+
+    if (
+      session.expiresAt <= now ||
+      getAuthSessionAbsoluteExpiresAt(session.createdAt) <= now
+    ) {
       throw new InvalidAccessTokenException();
     }
 

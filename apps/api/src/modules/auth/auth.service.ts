@@ -29,6 +29,10 @@ import { InvalidCredentialsException } from "./errors/invalid-credentials.except
 import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
 import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthTokensService } from "./auth-tokens.service";
+import {
+  capAuthSessionExpiresAt,
+  getAuthSessionAbsoluteExpiresAt,
+} from "./auth-session-lifetime";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
@@ -260,6 +264,7 @@ export class AuthService {
     this.ensureLoginAllowed(user.status);
 
     const sessionId = randomUUID();
+    const createdAt = new Date();
 
     const roles = user.roles.map(
       (userRole) => userRole.role,
@@ -272,13 +277,19 @@ export class AuthService {
         roles,
       });
 
+    const expiresAt = capAuthSessionExpiresAt(
+      tokens.refreshTokenExpiresAt,
+      getAuthSessionAbsoluteExpiresAt(createdAt),
+    );
+
     await this.prisma.$transaction([
       this.prisma.authSession.create({
         data: {
           id: sessionId,
           userId: user.id,
           refreshTokenHash: tokens.refreshTokenHash,
-          expiresAt: tokens.refreshTokenExpiresAt,
+          createdAt,
+          expiresAt,
         },
       }),
       this.prisma.user.update({
@@ -302,8 +313,7 @@ export class AuthService {
           tokens.accessTokenExpiresIn,
       }),
       refreshToken: tokens.refreshToken,
-      refreshTokenExpiresAt:
-        tokens.refreshTokenExpiresAt,
+      refreshTokenExpiresAt: expiresAt,
     };
   }
 
@@ -335,6 +345,7 @@ export class AuthService {
         select: {
           id: true,
           userId: true,
+          createdAt: true,
           expiresAt: true,
           revokedAt: true,
           user: {
@@ -362,6 +373,12 @@ export class AuthService {
       throw new InvalidRefreshTokenException();
     }
 
+    const absoluteExpiresAt = getAuthSessionAbsoluteExpiresAt(session.createdAt);
+
+    if (absoluteExpiresAt <= now) {
+      throw new InvalidRefreshTokenException();
+    }
+
     this.ensureLoginAllowed(session.user.status);
 
     const roles = session.user.roles.map(
@@ -374,6 +391,11 @@ export class AuthService {
         sessionId: session.id,
         roles,
       });
+
+    const expiresAt = capAuthSessionExpiresAt(
+      tokens.refreshTokenExpiresAt,
+      absoluteExpiresAt,
+    );
 
     const rotationResult =
       await this.prisma.authSession.updateMany({
@@ -388,8 +410,7 @@ export class AuthService {
         data: {
           refreshTokenHash:
             tokens.refreshTokenHash,
-          expiresAt:
-            tokens.refreshTokenExpiresAt,
+          expiresAt,
           lastUsedAt: now,
         },
       });
@@ -405,8 +426,7 @@ export class AuthService {
           tokens.accessTokenExpiresIn,
       }),
       refreshToken: tokens.refreshToken,
-      refreshTokenExpiresAt:
-        tokens.refreshTokenExpiresAt,
+      refreshTokenExpiresAt: expiresAt,
     };
   }
 

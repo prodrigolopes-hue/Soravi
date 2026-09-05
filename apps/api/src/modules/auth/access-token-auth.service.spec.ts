@@ -19,6 +19,7 @@ describe("AccessTokenAuthService", () => {
   let service: AccessTokenAuthService;
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
     authSessionFindUnique = jest.fn().mockResolvedValue(
       createSession(verifiedAt),
     );
@@ -47,6 +48,7 @@ describe("AccessTokenAuthService", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -67,6 +69,7 @@ describe("AccessTokenAuthService", () => {
         userId: true,
         revokedAt: true,
         expiresAt: true,
+        createdAt: true,
         user: {
           select: {
             deletedAt: true,
@@ -107,10 +110,35 @@ describe("AccessTokenAuthService", () => {
     ).rejects.toBeInstanceOf(InvalidAccessTokenException);
   });
 
+  it.each(["2026-05-03T12:00:00.000Z", "2026-05-03T11:59:59.999Z"])(
+    "rejects access at or after 90 days despite future expiresAt (createdAt %s)",
+    async (createdAt) => {
+      authSessionFindUnique.mockResolvedValue({
+        ...createSession(verifiedAt),
+        createdAt: new Date(createdAt),
+      });
+
+      await expect(
+        service.authenticateAccessToken("access-token"),
+      ).rejects.toBeInstanceOf(InvalidAccessTokenException);
+    },
+  );
+
+  it("accepts a session one millisecond before its absolute expiration", async () => {
+    authSessionFindUnique.mockResolvedValue({
+      ...createSession(verifiedAt),
+      createdAt: new Date("2026-05-03T12:00:00.001Z"),
+    });
+
+    await expect(service.authenticateAccessToken("access-token"))
+      .resolves.toMatchObject({ id: userId, sessionId });
+  });
+
   function createSession(phoneVerifiedAt: Date | null) {
     return {
       id: sessionId,
       userId,
+      createdAt: new Date("2026-05-04T12:00:00.000Z"),
       revokedAt: null,
       expiresAt: new Date(Date.now() + 60_000),
       user: {

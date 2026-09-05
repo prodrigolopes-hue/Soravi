@@ -18,6 +18,7 @@ import {
 import { PrismaService } from "../../database/prisma.service";
 import { UserResponseDto } from "../users/dto/user-response.dto";
 import { UsersService } from "../users/users.service";
+import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthService } from "./auth.service";
 import { AuthTokensService } from "./auth-tokens.service";
 import { LoginUserDto } from "./dto/login-user.dto";
@@ -91,6 +92,7 @@ describe("AuthService", () => {
   let transactionClientMock: TransactionClientMock;
 
   beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
     prismaMock = {
       user: {
         findFirst: jest.fn(),
@@ -189,6 +191,7 @@ describe("AuthService", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -888,6 +891,7 @@ describe("AuthService", () => {
     prismaMock.authSession.findUnique.mockResolvedValue({
       id: sessionId,
       userId,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
       expiresAt,
       revokedAt: null,
       user: {
@@ -901,7 +905,7 @@ describe("AuthService", () => {
       },
     });
 
-    const response = await authService.refresh({
+    const result = await authService.refreshWithSession({
       refreshToken: validRefreshToken,
     });
 
@@ -919,6 +923,7 @@ describe("AuthService", () => {
       select: {
         id: true,
         userId: true,
+        createdAt: true,
         expiresAt: true,
         revokedAt: true,
         user: {
@@ -965,7 +970,10 @@ describe("AuthService", () => {
       },
     });
 
-    expect(response.data).toEqual({
+    expect(result.refreshTokenExpiresAt).toEqual(
+      prismaMock.authSession.updateMany.mock.calls[0][0].data.expiresAt,
+    );
+    expect(result.response.data).toEqual({
       accessToken: "access-token-test",
       accessTokenExpiresIn: 900,
     });
@@ -995,6 +1003,7 @@ describe("AuthService", () => {
     prismaMock.authSession.findUnique.mockResolvedValue({
       id: sessionId,
       userId,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
       expiresAt: new Date(
         Date.now() + 24 * 60 * 60 * 1000,
       ),
@@ -1025,6 +1034,7 @@ describe("AuthService", () => {
     prismaMock.authSession.findUnique.mockResolvedValue({
       id: sessionId,
       userId,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
       expiresAt: new Date(
         Date.now() - 24 * 60 * 60 * 1000,
       ),
@@ -1055,6 +1065,7 @@ describe("AuthService", () => {
     prismaMock.authSession.findUnique.mockResolvedValue({
       id: sessionId,
       userId,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
       expiresAt: new Date(
         Date.now() + 24 * 60 * 60 * 1000,
       ),
@@ -1117,6 +1128,98 @@ describe("AuthService", () => {
     ).resolves.toBeUndefined();
   });
   
+  it("limits login expiration to 90 days and returns the persisted expiration", async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: userId,
+      passwordHash: "hashed-password",
+      status: UserStatus.ACTIVE,
+      roles: [{ role: Role.CUSTOMER }],
+    });
+    usersServiceMock.findSafeById.mockResolvedValue(createCustomerResponse());
+    authTokensServiceMock.createTokens.mockResolvedValue({
+      accessToken: "access-token-test",
+      refreshToken: "refresh-token-test",
+      refreshTokenHash: "refresh-token-hash-test",
+      accessTokenExpiresIn: 900,
+      refreshTokenExpiresAt: new Date("2027-01-01T12:00:00.000Z"),
+    });
+
+    const result = await authService.loginWithSession(createLoginInput());
+
+    expect(prismaMock.authSession.create).toHaveBeenCalledWith({
+      data: {
+        id: expect.any(String),
+        userId,
+        refreshTokenHash: "refresh-token-hash-test",
+        createdAt: new Date("2026-08-01T12:00:00.000Z"),
+        expiresAt: new Date("2026-10-30T12:00:00.000Z"),
+      },
+    });
+    expect(result.refreshTokenExpiresAt).toEqual(
+      prismaMock.authSession.create.mock.calls[0][0].data.expiresAt,
+    );
+  });
+
+  it("caps refresh near day 90 and returns the persisted expiration", async () => {
+    prismaMock.authSession.findUnique.mockResolvedValue({
+      id: sessionId,
+      userId,
+      createdAt: new Date("2026-05-04T12:00:00.000Z"),
+      expiresAt: new Date("2026-08-15T12:00:00.000Z"),
+      revokedAt: null,
+      user: {
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        roles: [{ role: Role.CUSTOMER }],
+      },
+    });
+
+    const result = await authService.refreshWithSession({
+      refreshToken: validRefreshToken,
+    });
+
+    expect(prismaMock.authSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: sessionId,
+        refreshTokenHash: "current-refresh-token-hash",
+        revokedAt: null,
+        expiresAt: { gt: new Date("2026-08-01T12:00:00.000Z") },
+      },
+      data: {
+        refreshTokenHash: "refresh-token-hash-test",
+        expiresAt: new Date("2026-08-02T12:00:00.000Z"),
+        lastUsedAt: new Date("2026-08-01T12:00:00.000Z"),
+      },
+    });
+    expect(result.refreshTokenExpiresAt).toEqual(
+      prismaMock.authSession.updateMany.mock.calls[0][0].data.expiresAt,
+    );
+  });
+
+  it.each(["2026-05-03T12:00:00.000Z", "2026-05-03T11:59:59.999Z"])(
+    "rejects refresh at or after absolute expiration (createdAt %s)",
+    async (createdAt) => {
+      prismaMock.authSession.findUnique.mockResolvedValue({
+        id: sessionId,
+        userId,
+        createdAt: new Date(createdAt),
+        expiresAt: new Date("2026-08-15T12:00:00.000Z"),
+        revokedAt: null,
+        user: {
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+          roles: [{ role: Role.CUSTOMER }],
+        },
+      });
+
+      await expect(authService.refreshWithSession({
+        refreshToken: validRefreshToken,
+      })).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+      expect(authTokensServiceMock.createTokens).not.toHaveBeenCalled();
+      expect(prismaMock.authSession.updateMany).not.toHaveBeenCalled();
+    },
+  );
+
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],
     categorySlugs?: string[],
