@@ -18,6 +18,7 @@ import {
 import { PrismaService } from "../../database/prisma.service";
 import { UserResponseDto } from "../users/dto/user-response.dto";
 import { UsersService } from "../users/users.service";
+import { InvalidCredentialsException } from "./errors/invalid-credentials.exception";
 import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthService } from "./auth.service";
 import { AuthTokensService } from "./auth-tokens.service";
@@ -168,7 +169,11 @@ describe("AuthService", () => {
     transactionClientMock = {
       user: {
         create: jest.fn(),
-        update: jest.fn().mockResolvedValue({ id: userId }),
+        update: jest.fn().mockResolvedValue({
+          passwordHash: "hashed-password",
+          status: UserStatus.ACTIVE,
+          deletedAt: null,
+        }),
       },
       authSession: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -769,6 +774,7 @@ describe("AuthService", () => {
         data: {
           lastLoginAt: expect.any(Date),
         },
+        select: { passwordHash: true, status: true, deletedAt: true },
       });
       expect(
         usersServiceMock.findSafeById,
@@ -1232,6 +1238,81 @@ describe("AuthService", () => {
     },
   );
 
+  describe("revalidação do usuário após o lock do login", () => {
+    beforeEach(() => {
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: userId,
+        passwordHash: "hashed-password",
+        status: UserStatus.ACTIVE,
+        roles: [{ role: Role.CUSTOMER }],
+      });
+      usersServiceMock.findSafeById.mockResolvedValue(createCustomerResponse());
+    });
+
+    it.each([
+      ["hash alterado pelo reset", { passwordHash: "new-password-hash" }, InvalidCredentialsException],
+      ["usuário excluído", { deletedAt: new Date("2026-08-01T11:00:00.000Z") }, InvalidCredentialsException],
+      ["status bloqueado", { status: UserStatus.BLOCKED }, ForbiddenException],
+    ] as const)("rejeita %s antes de consultar ou modificar sessões", async (_case, changed, error) => {
+      transactionClientMock.user.update.mockResolvedValue({
+        passwordHash: "hashed-password",
+        status: UserStatus.ACTIVE,
+        deletedAt: null,
+        ...changed,
+      });
+
+      await expect(authService.loginWithSession(createLoginInput()))
+        .rejects.toBeInstanceOf(error);
+
+      expect(verifyPasswordMock).toHaveBeenCalledWith("hashed-password", "SenhaSegura123");
+      expect(verifyPasswordMock.mock.invocationCallOrder[0]).toBeLessThan(
+        prismaMock.$transaction.mock.invocationCallOrder[0],
+      );
+      expect(transactionClientMock.user.update).toHaveBeenCalledTimes(1);
+      // A rejeição sai do callback: o Prisma aborta a transação, incluindo lastLoginAt.
+      await expect(prismaMock.$transaction.mock.results[0].value)
+        .rejects.toBeInstanceOf(error);
+      expect(transactionClientMock.authSession.findMany).not.toHaveBeenCalled();
+      expect(transactionClientMock.authSession.updateMany).not.toHaveBeenCalled();
+      expect(transactionClientMock.authSession.create).not.toHaveBeenCalled();
+      expect(usersServiceMock.findSafeById).not.toHaveBeenCalled();
+    });
+
+    it("permite login quando o hash permanece igual e valida antes de consultar sessões", async () => {
+      const readSnapshot = jest.fn();
+      transactionClientMock.user.update.mockResolvedValue({
+        get passwordHash() {
+          readSnapshot("passwordHash");
+          return "hashed-password";
+        },
+        get deletedAt() {
+          readSnapshot("deletedAt");
+          return null;
+        },
+        get status() {
+          readSnapshot("status");
+          return UserStatus.ACTIVE;
+        },
+      });
+
+      const result = await authService.loginWithSession(createLoginInput());
+
+      expect(result.response.data.accessToken).toBe("access-token-test");
+      expect(transactionClientMock.authSession.findMany).toHaveBeenCalledTimes(1);
+      expect(transactionClientMock.authSession.create).toHaveBeenCalledTimes(1);
+      expect(readSnapshot.mock.calls).toEqual([
+        ["passwordHash"], ["deletedAt"], ["status"],
+      ]);
+      expect(transactionClientMock.user.update.mock.invocationCallOrder[0]).toBeLessThan(
+        readSnapshot.mock.invocationCallOrder[0],
+      );
+      for (const order of readSnapshot.mock.invocationCallOrder) {
+        expect(order).toBeLessThan(transactionClientMock.authSession.findMany.mock.invocationCallOrder[0]);
+        expect(order).toBeLessThan(transactionClientMock.authSession.create.mock.invocationCallOrder[0]);
+      }
+    });
+  });
+
   describe("limite de sessões simultâneas no login", () => {
     const now = new Date("2026-08-01T12:00:00.000Z");
 
@@ -1315,6 +1396,7 @@ describe("AuthService", () => {
       expect(transactionClientMock.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: { lastLoginAt: now },
+        select: { passwordHash: true, status: true, deletedAt: true },
       });
       expect(transactionClientMock.authSession.findMany).toHaveBeenCalledWith({
         where: { userId, revokedAt: null, expiresAt: { gt: now } },

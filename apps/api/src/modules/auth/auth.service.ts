@@ -286,10 +286,20 @@ export class AuthService {
 
     await this.prisma.$transaction(async (transaction) => {
       // A atualização real do usuário serializa os logins da mesma conta.
-      await transaction.user.update({
+      const lockedUser = await transaction.user.update({
         where: { id: user.id },
         data: { lastLoginAt: createdAt },
+        select: { passwordHash: true, status: true, deletedAt: true },
       });
+
+      if (
+        lockedUser.passwordHash !== user.passwordHash ||
+        lockedUser.deletedAt !== null
+      ) {
+        throw new InvalidCredentialsException();
+      }
+
+      this.ensureLoginAllowed(lockedUser.status);
 
       const sessions = await transaction.authSession.findMany({
         where: {
