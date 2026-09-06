@@ -53,6 +53,8 @@ const PUBLIC_REGISTRATION_ROLES: readonly Role[] = [
   Role.PROFESSIONAL,
 ];
 
+const MAX_ACTIVE_AUTH_SESSIONS = 5;
+
 const LOGIN_ALLOWED_STATUSES: readonly UserStatus[] = [
   UserStatus.PENDING,
   UserStatus.ACTIVE,
@@ -282,8 +284,39 @@ export class AuthService {
       getAuthSessionAbsoluteExpiresAt(createdAt),
     );
 
-    await this.prisma.$transaction([
-      this.prisma.authSession.create({
+    await this.prisma.$transaction(async (transaction) => {
+      // A atualização real do usuário serializa os logins da mesma conta.
+      await transaction.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: createdAt },
+      });
+
+      const sessions = await transaction.authSession.findMany({
+        where: {
+          userId: user.id,
+          revokedAt: null,
+          expiresAt: { gt: createdAt },
+        },
+        select: { id: true, createdAt: true },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      const activeSessions = sessions.filter(
+        (session) => getAuthSessionAbsoluteExpiresAt(session.createdAt) > createdAt,
+      );
+      const revokeCount = activeSessions.length - (MAX_ACTIVE_AUTH_SESSIONS - 1);
+
+      if (revokeCount > 0) {
+        await transaction.authSession.updateMany({
+          where: {
+            id: { in: activeSessions.slice(0, revokeCount).map((session) => session.id) },
+            userId: user.id,
+            revokedAt: null,
+          },
+          data: { revokedAt: createdAt },
+        });
+      }
+
+      await transaction.authSession.create({
         data: {
           id: sessionId,
           userId: user.id,
@@ -291,16 +324,8 @@ export class AuthService {
           createdAt,
           expiresAt,
         },
-      }),
-      this.prisma.user.update({
-        where: {
-          id: user.id,
-        },
-        data: {
-          lastLoginAt: new Date(),
-        },
-      }),
-    ]);
+      });
+    });
 
     const safeUser =
       await this.usersService.findSafeById(user.id);

@@ -33,6 +33,12 @@ jest.mock("argon2", () => ({
 interface TransactionClientMock {
   user: {
     create: jest.Mock;
+    update: jest.Mock;
+  };
+  authSession: {
+    findMany: jest.Mock;
+    updateMany: jest.Mock;
+    create: jest.Mock;
   };
   customerProfile: {
     create: jest.Mock;
@@ -162,6 +168,12 @@ describe("AuthService", () => {
     transactionClientMock = {
       user: {
         create: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: userId }),
+      },
+      authSession: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: jest.fn().mockResolvedValue({ id: "session-id-test" }),
       },
       customerProfile: {
         create: jest.fn(),
@@ -750,7 +762,7 @@ describe("AuthService", () => {
           },
         },
       });
-      expect(prismaMock.user.update).toHaveBeenCalledWith({
+      expect(transactionClientMock.user.update).toHaveBeenCalledWith({
         where: {
           id: userId,
         },
@@ -1146,7 +1158,7 @@ describe("AuthService", () => {
 
     const result = await authService.loginWithSession(createLoginInput());
 
-    expect(prismaMock.authSession.create).toHaveBeenCalledWith({
+    expect(transactionClientMock.authSession.create).toHaveBeenCalledWith({
       data: {
         id: expect.any(String),
         userId,
@@ -1156,7 +1168,7 @@ describe("AuthService", () => {
       },
     });
     expect(result.refreshTokenExpiresAt).toEqual(
-      prismaMock.authSession.create.mock.calls[0][0].data.expiresAt,
+      transactionClientMock.authSession.create.mock.calls[0][0].data.expiresAt,
     );
   });
 
@@ -1219,6 +1231,134 @@ describe("AuthService", () => {
       expect(prismaMock.authSession.updateMany).not.toHaveBeenCalled();
     },
   );
+
+  describe("limite de sessões simultâneas no login", () => {
+    const now = new Date("2026-08-01T12:00:00.000Z");
+
+    beforeEach(() => {
+      prismaMock.user.findFirst.mockResolvedValue({
+        id: userId,
+        passwordHash: "hashed-password",
+        status: UserStatus.ACTIVE,
+        roles: [{ role: Role.CUSTOMER }],
+      });
+      usersServiceMock.findSafeById.mockResolvedValue(createCustomerResponse());
+    });
+
+    function sessions(count: number) {
+      return Array.from({ length: count }, (_, index) => ({
+        id: `session-${index}`,
+        createdAt: new Date(Date.UTC(2026, 6, index + 1)),
+      }));
+    }
+
+    it.each([0, 4, 5, 7])(
+      "permite novo login com %i sessões ativas e mantém no máximo cinco",
+      async (count) => {
+        const existing = sessions(count);
+        transactionClientMock.authSession.findMany.mockResolvedValue(existing);
+
+        const result = await authService.loginWithSession(createLoginInput());
+
+        const revokeCount = Math.max(0, count - 4);
+        if (revokeCount === 0) {
+          expect(transactionClientMock.authSession.updateMany).not.toHaveBeenCalled();
+        } else {
+          expect(transactionClientMock.authSession.updateMany).toHaveBeenCalledTimes(1);
+          expect(transactionClientMock.authSession.updateMany).toHaveBeenCalledWith({
+            where: {
+              id: { in: existing.slice(0, revokeCount).map((session) => session.id) },
+              userId,
+              revokedAt: null,
+            },
+            data: { revokedAt: now },
+          });
+          expect(transactionClientMock.authSession.updateMany.mock.invocationCallOrder[0])
+            .toBeLessThan(transactionClientMock.authSession.create.mock.invocationCallOrder[0]);
+        }
+        expect(count - revokeCount + 1).toBeLessThanOrEqual(5);
+        expect(transactionClientMock.authSession.create).toHaveBeenCalledTimes(1);
+        expect(transactionClientMock.authSession.create).toHaveBeenCalledWith({
+          data: {
+            id: expect.any(String),
+            userId,
+            refreshTokenHash: "refresh-token-hash-test",
+            createdAt: now,
+            expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+          },
+        });
+        expect(result.refreshTokenExpiresAt).toEqual(
+          transactionClientMock.authSession.create.mock.calls[0][0].data.expiresAt,
+        );
+      },
+    );
+
+    it.each(["2026-05-03T12:00:00.000Z", "2026-05-03T11:59:59.999Z"])(
+      "não conta sessão com lifetime encerrado desde %s e expiresAt futuro",
+      async (createdAt) => {
+        transactionClientMock.authSession.findMany.mockResolvedValue([
+          { id: "absolute-expired", createdAt: new Date(createdAt), expiresAt: new Date("2026-08-15T12:00:00.000Z") },
+          ...sessions(4),
+        ]);
+
+        await authService.loginWithSession(createLoginInput());
+
+        expect(transactionClientMock.authSession.updateMany).not.toHaveBeenCalled();
+        expect(transactionClientMock.authSession.create).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("consulta sessões elegíveis em ordem determinística após atualizar o usuário", async () => {
+      await authService.loginWithSession(createLoginInput());
+
+      expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function));
+      expect(transactionClientMock.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { lastLoginAt: now },
+      });
+      expect(transactionClientMock.authSession.findMany).toHaveBeenCalledWith({
+        where: { userId, revokedAt: null, expiresAt: { gt: now } },
+        select: { id: true, createdAt: true },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      });
+      const userUpdateOrder = transactionClientMock.user.update.mock.invocationCallOrder[0];
+      expect(userUpdateOrder).toBeLessThan(
+        transactionClientMock.authSession.findMany.mock.invocationCallOrder[0],
+      );
+      expect(userUpdateOrder).toBeLessThan(
+        transactionClientMock.authSession.create.mock.invocationCallOrder[0],
+      );
+      expect(verifyPasswordMock.mock.invocationCallOrder[0]).toBeLessThan(
+        prismaMock.$transaction.mock.invocationCallOrder[0],
+      );
+      expect(authTokensServiceMock.createTokens.mock.invocationCallOrder[0]).toBeLessThan(
+        prismaMock.$transaction.mock.invocationCallOrder[0],
+      );
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+      expect(prismaMock.authSession.create).not.toHaveBeenCalled();
+    });
+
+    it.each([Role.CUSTOMER, Role.PROFESSIONAL, Role.ADMIN])(
+      "aplica o mesmo limite ao papel %s",
+      async (role) => {
+        prismaMock.user.findFirst.mockResolvedValue({
+          id: userId,
+          passwordHash: "hashed-password",
+          status: UserStatus.ACTIVE,
+          roles: [{ role }],
+        });
+        transactionClientMock.authSession.findMany.mockResolvedValue(sessions(5));
+
+        await authService.loginWithSession(createLoginInput());
+
+        expect(transactionClientMock.authSession.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: ["session-0"] }, userId, revokedAt: null },
+          data: { revokedAt: now },
+        });
+        expect(transactionClientMock.authSession.create).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
 
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],
