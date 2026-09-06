@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { apiBaseUrl } from "../../lib/api";
+import { runWithAuthRefreshLock } from "./auth-refresh-lock";
 
 export interface AuthUser {
   id: string;
@@ -175,7 +176,7 @@ async function requestRefreshSession(): Promise<RefreshSessionResult | null> {
     return refreshSessionInFlight;
   }
 
-  refreshSessionInFlight = (async () => {
+  refreshSessionInFlight = runWithAuthRefreshLock(async () => {
     const response = await fetch(buildApiUrl("/api/v1/auth/refresh"), {
       method: "POST",
       credentials: "include",
@@ -207,7 +208,7 @@ async function requestRefreshSession(): Promise<RefreshSessionResult | null> {
       accessToken: nextAccessToken,
       user: nextUser,
     };
-  })();
+  });
 
   try {
     return await refreshSessionInFlight;
