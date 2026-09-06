@@ -152,3 +152,7 @@ inclusive por elementos internos do Next.js/Next Image. Portanto,
 `'unsafe-inline'` permanece temporariamente restrito a atributos, sem wildcard
 ou `https:` genérico. Continuam pendentes sua remoção futura, a avaliação de
 CSP bloqueante, sessões/tokens, cookies/refresh, rate limits e OWASP ASVS.
+
+## Hardening de sessão concluído
+
+Os commits `e4210b9` (cookie de refresh) e `e3000fd` (lifetime absoluto de sessão de 90 × 24 horas) estão concluídos, sem afirmar deploy em produção. A [política implementada](ARCHITECTURE.md#13-autenticação-e-sessões) centraliza os detalhes e o [changelog](../CHANGELOG.md) registra as validações. As revisões de sessão ainda pendentes referem-se aos controles adicionais do [backlog pré-beta](07-backlog.md#hardening-de-sessão-pré-beta); os demais hardenings registrados permanecem pendentes.

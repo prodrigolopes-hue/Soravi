@@ -52,3 +52,7 @@ funcionalidades críticas do MVP em prioridade.
 - publicar JSON-LD `Organization` e `WebSite`, associando redes oficiais com `sameAs`;
 - solicitar a indexação das principais páginas públicas;
 - monitorar buscas por Soravi e Soravi Brasil e possível confusão com outras entidades chamadas Soravi.
+
+## Hardening de sessão concluído
+
+Os commits `e4210b9` (cookie de refresh) e `e3000fd` (lifetime absoluto de sessão de 90 × 24 horas) estão concluídos, sem afirmar deploy em produção. A [política implementada](ARCHITECTURE.md#13-autenticação-e-sessões) centraliza os detalhes e o [changelog](../CHANGELOG.md) registra as validações. As revisões de sessão ainda pendentes referem-se aos controles adicionais do [backlog pré-beta](07-backlog.md#hardening-de-sessão-pré-beta); os demais hardenings registrados permanecem pendentes.

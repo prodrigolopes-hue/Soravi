@@ -1,6 +1,23 @@
 # Changelog
 
+## 2026-09-05
+
+### Lifetime absoluto da sessão
+
+- concluído o commit `e3000fd fix(auth): limita lifetime absoluto da sessao`: lifetime absoluto da `AuthSession` de 90 × 24 horas desde `createdAt`, calculado por timestamp/milissegundos, sem cálculo por calendário;
+- mantidos os padrões já existentes: access token de 15 minutos e refresh idle/sliding timeout de 30 dias. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e `createdAt + 90 dias`; nenhuma renovação ultrapassa esse limite;
+- refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes; após 90 dias desde `createdAt`, novo login é obrigatório;
+- `AuthSession.createdAt` já existia: não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido. A proteção concorrente de rotação por `id` + `refreshTokenHash` + `revokedAt` + `expiresAt` foi preservada;
+- validações registradas na conclusão: 43 testes passaram em 2 suítes, TypeScript da aplicação e dos testes passou e `git diff --check` passou. Este registro não afirma deploy em produção.
+
 ## 2026-09-04
+
+### Hardening do cookie de refresh
+
+- concluído o commit `e4210b9 fix(auth): endurece cookie de refresh`: `soravi_refresh_token` mantém `HttpOnly: true`, `SameSite: lax` e `Secure` somente quando `NODE_ENV === "production"`; o `Path` mudou de `/` para `/api/v1/auth`, reduzindo o envio do refresh cookie para outras rotas da API;
+- opções comuns de set e clear centralizadas para evitar divergência; `expires` permanece somente na criação do cookie;
+- percent-encoding inválido no cookie não gera `URIError`/500. Refresh com cookie malformado continua resultando em `UnauthorizedException`; logout com cookie ausente ou malformado não tenta revogar sessão, mas ainda limpa o cookie;
+- criado teste específico do `AuthController`: os 7 testes novos do controller passaram, assim como regressões de autenticação, TypeScript e `git diff --check`. Este registro não afirma deploy em produção.
 
 ### CSP com nonce dinâmico no frontend
 

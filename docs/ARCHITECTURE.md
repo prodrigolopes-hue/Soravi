@@ -24,7 +24,7 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 - `script-src` não usa mais `'unsafe-inline'`: usa nonce e `'strict-dynamic'`. A CSP de production não permite `'unsafe-eval'`; posteriormente, o modo Report-Only detectou uma tentativa de geração dinâmica de código/JIT pelo Zod 4.4.3. O commit técnico `c755262 feat(web): configura Zod sem JIT para CSP` criou `apps/web/lib/zod.ts`, configurou `z.config({ jitless: true })` antes da criação dos schemas e centralizou nele os imports diretos de Zod do frontend, sem alterar schemas, mensagens ou regras de negócio. A violação anteriormente observada deixou de aparecer em `/solicitacoes/nova` no teste local em production, sem adicionar `'unsafe-eval'` à política.
 - A política continua permitindo explicitamente API, WebSocket equivalente, ViaCEP, Google Analytics e a origin específica do R2 `https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com`, sem wildcard ou `https:` genérico. HSTS permanece condicionado a production. O nonce no header CSP, sua mudança entre requisições, sua presença no HTML, a entrega exclusiva de Report-Only e o HSTS local em production foram validados, assim como TypeScript, ESLint direcionado, build do frontend e `git diff --check`.
 - O commit técnico `83b25bf feat(web): restringe estilos inline no CSP` substituiu `style-src 'self' 'unsafe-inline'` por `style-src 'self'`, `style-src-elem 'self'` e `style-src-attr 'unsafe-inline'`, sem alterar `script-src` ou nonce. O diagnóstico encontrou zero tags `<style>` no HTML inicial e no DOM observado; atributos `style=""` ainda são gerados em runtime, inclusive por elementos internos do Next.js/Next Image, por isso `'unsafe-inline'` permanece temporariamente restrito a atributos.
-- A CSP permanece exclusivamente Report-Only, sem enforcement ativo, wildcard ou `https:` genérico. O nonce por requisição tornou as páginas server-rendered dinamicamente e esse trade-off de cache/performance deve ser monitorado. Não houve afirmação de deploy em produção. `style-src-attr 'unsafe-inline'`, proteção de sessões/tokens, cookies/refresh, rate limits, revisão OWASP ASVS e a avaliação futura de CSP bloqueante continuam pendentes.
+- A CSP permanece exclusivamente Report-Only, sem enforcement ativo, wildcard ou `https:` genérico. O nonce por requisição tornou as páginas server-rendered dinamicamente e esse trade-off de cache/performance deve ser monitorado. Não houve afirmação de deploy em produção. `style-src-attr 'unsafe-inline'`, revisão adicional de sessões/tokens e cookies/refresh conforme o [backlog pré-beta](07-backlog.md#hardening-de-sessão-pré-beta), rate limits, revisão OWASP ASVS e a avaliação futura de CSP bloqueante continuam pendentes.
 
 A arquitetura deve permitir:
 
@@ -678,7 +678,7 @@ A API não deverá expor:
 
 ## 13. Autenticação e sessões
 
-A autenticação será baseada em:
+A autenticação implementada é baseada em:
 
 * access token de curta duração;
 * refresh token com rotação;
@@ -686,12 +686,34 @@ A autenticação será baseada em:
 * revogação de sessão;
 * recuperação de senha com token temporário.
 
+### Política de sessão implementada
+
+Os commits `e4210b9` e `e3000fd` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção.
+
+| Prazo | Política |
+| --- | --- |
+| Access token | 15 minutos por padrão, comportamento já existente. |
+| Refresh idle/sliding timeout | 30 dias por padrão, comportamento já existente. |
+| Lifetime absoluto da `AuthSession` | 90 × 24 horas desde `AuthSession.createdAt`. |
+
+O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1000`, por timestamp/milissegundos, sem cálculo por calendário. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e esse limite. Nenhuma renovação pode ultrapassar `createdAt + 90 dias`; ao atingir 90 dias desde a criação, novo login é obrigatório. Refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes. `AuthSession.createdAt` já existia, portanto não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido.
+
+O refresh token é gerado criptograficamente e somente seu hash SHA-256 é persistido. A rotação invalida o token antigo e preserva a proteção concorrente por `id` + `refreshTokenHash` + `revokedAt` + `expiresAt`. O logout revoga a `AuthSession` no banco. O access token contém `sessionId`, e a sessão é consultada no PostgreSQL durante a autenticação; sessões revogadas ou expiradas são rejeitadas. A reutilização simples do token antigo é rejeitada, mas ainda não existe mecanismo de família de tokens ou detecção avançada de roubo/replay com reação automática.
+
+### Cookie de refresh
+
+O cookie `soravi_refresh_token` usa `HttpOnly: true`, `SameSite: lax` e `Secure` somente quando `NODE_ENV === "production"`. Seu `Path` passou de `/` para `/api/v1/auth`, reduzindo o envio para outras rotas da API. As opções comuns de set e clear são centralizadas para evitar divergência; `expires` é informado somente na criação do cookie.
+
+Percent-encoding inválido no cookie não gera `URIError`/500. Refresh com cookie malformado continua resultando em `UnauthorizedException`. Logout com cookie ausente ou malformado não tenta revogar sessão, mas ainda limpa o cookie.
+
+As pendências pré-beta de sessão estão no [backlog](07-backlog.md#hardening-de-sessão-pré-beta).
+
 ### Regras recomendadas
 
 * senhas armazenadas com Argon2id;
 * refresh tokens armazenados como hash;
 * tokens sensíveis não devem ser armazenados em texto puro;
-* cookies devem utilizar `HttpOnly`, `Secure` e `SameSite`;
+* cookies seguem a política de `HttpOnly`, `SameSite` e `Secure` por ambiente descrita acima;
 * logout deve revogar a sessão;
 * usuário poderá revogar todas as sessões;
 * login e recuperação de senha deverão possuir rate limiting;

@@ -187,3 +187,7 @@ Os dados estruturados deverão ser usados apenas quando corresponderem ao
 conteúdo real, como Organization, WebSite, BreadcrumbList, Article,
 Review, Person, ProfilePage, LocalBusiness, ProfessionalService e
 FAQPage quando houver FAQ visível e aplicável.
+
+## Hardening de sessão concluído
+
+Os commits `e4210b9` (cookie de refresh) e `e3000fd` (lifetime absoluto de sessão de 90 × 24 horas) estão concluídos, sem afirmar deploy em produção. A [política implementada](ARCHITECTURE.md#13-autenticação-e-sessões) centraliza os detalhes e o [changelog](../CHANGELOG.md) registra as validações. As revisões de sessão ainda pendentes referem-se aos controles adicionais do [backlog pré-beta](07-backlog.md#hardening-de-sessão-pré-beta); os demais hardenings registrados permanecem pendentes.
