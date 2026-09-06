@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
-import { UnauthorizedException } from "@nestjs/common";
+import { HttpStatus, UnauthorizedException } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
 import { type Request, type Response } from "express";
 
 import { AuthController } from "./auth.controller";
@@ -27,6 +28,24 @@ describe("AuthController sessions", () => {
     } else {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  });
+
+  it.each([
+    ["login", HttpStatus.OK, 10],
+    ["refresh", HttpStatus.OK, 60],
+  ] as const)("configura status, guard e rate limit em %s", (method, status, limit) => {
+    const handler = AuthController.prototype[method];
+    const throttleValues = Reflect.getMetadataKeys(handler)
+      .filter((key) => String(key).toLowerCase().includes("throttler"))
+      .map((key) => Reflect.getMetadata(key, handler));
+
+    expect(Reflect.getMetadata("__httpCode__", handler)).toBe(status);
+    expect(Reflect.getMetadata("__guards__", handler)).toEqual([
+      ThrottlerGuard,
+    ]);
+    expect(throttleValues).toEqual(
+      expect.arrayContaining([limit, 900_000]),
+    );
   });
 
   it("login delega, configura cookie seguro e retorna somente a resposta", async () => {

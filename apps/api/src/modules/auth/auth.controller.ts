@@ -73,6 +73,8 @@ export class AuthController {
 
   @Post("login")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 900_000 } })
   async login(
     @Body() input: LoginUserDto,
     @Res({ passthrough: true }) response: Response,
@@ -91,6 +93,8 @@ export class AuthController {
 
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 60, ttl: 900_000 } })
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
