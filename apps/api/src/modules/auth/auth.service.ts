@@ -29,6 +29,7 @@ import { InvalidCredentialsException } from "./errors/invalid-credentials.except
 import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
 import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthTokensService } from "./auth-tokens.service";
+import { isWithinAuthRefreshReplayGracePeriod } from "./auth-refresh-replay";
 import {
   capAuthSessionExpiresAt,
   getAuthSessionAbsoluteExpiresAt,
@@ -372,6 +373,8 @@ export class AuthService {
         refreshToken,
       );
 
+    const now = new Date();
+
     const session =
       await this.prisma.authSession.findUnique({
         where: {
@@ -397,10 +400,16 @@ export class AuthService {
         },
       });
 
-    const now = new Date();
+    if (!session) {
+      await this.detectAndHandleRefreshTokenReplay(
+        refreshTokenHash,
+        now,
+      );
+
+      throw new InvalidRefreshTokenException();
+    }
 
     if (
-      !session ||
       session.revokedAt !== null ||
       session.expiresAt <= now ||
       session.user.deletedAt !== null
@@ -432,25 +441,51 @@ export class AuthService {
       absoluteExpiresAt,
     );
 
-    const rotationResult =
-      await this.prisma.authSession.updateMany({
-        where: {
-          id: session.id,
-          refreshTokenHash,
-          revokedAt: null,
-          expiresAt: {
-            gt: now,
-          },
-        },
-        data: {
-          refreshTokenHash:
-            tokens.refreshTokenHash,
-          expiresAt,
-          lastUsedAt: now,
-        },
-      });
+    const rotated = await this.prisma.$transaction(
+      async (transaction) => {
+        const rotationResult =
+          await transaction.authSession.updateMany({
+            where: {
+              id: session.id,
+              refreshTokenHash,
+              revokedAt: null,
+              expiresAt: {
+                gt: now,
+              },
+            },
+            data: {
+              refreshTokenHash:
+                tokens.refreshTokenHash,
+              expiresAt,
+              lastUsedAt: now,
+            },
+          });
 
-    if (rotationResult.count !== 1) {
+        if (rotationResult.count !== 1) {
+          return false;
+        }
+
+        await transaction.authRefreshTokenHistory.create(
+          {
+            data: {
+              sessionId: session.id,
+              tokenHash: refreshTokenHash,
+              rotatedAt: now,
+              expiresAt: session.expiresAt,
+            },
+          },
+        );
+
+        return true;
+      },
+    );
+
+    if (!rotated) {
+      await this.detectAndHandleRefreshTokenReplay(
+        refreshTokenHash,
+        now,
+      );
+
       throw new InvalidRefreshTokenException();
     }
 
@@ -463,6 +498,91 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
       refreshTokenExpiresAt: expiresAt,
     };
+  }
+
+  private async detectAndHandleRefreshTokenReplay(
+    tokenHash: string,
+    now: Date,
+  ): Promise<void> {
+    const history =
+      await this.prisma.authRefreshTokenHistory.findUnique(
+        {
+          where: {
+            tokenHash,
+          },
+          select: {
+            id: true,
+            sessionId: true,
+            rotatedAt: true,
+            expiresAt: true,
+            replayedAt: true,
+            session: {
+              select: {
+                id: true,
+                createdAt: true,
+                expiresAt: true,
+                revokedAt: true,
+              },
+            },
+          },
+        },
+      );
+
+    if (!history) {
+      return;
+    }
+
+    if (history.expiresAt <= now) {
+      return;
+    }
+
+    if (
+      isWithinAuthRefreshReplayGracePeriod(
+        history.rotatedAt,
+        now,
+      )
+    ) {
+      return;
+    }
+
+    const session = history.session;
+    const absoluteExpiresAt =
+      getAuthSessionAbsoluteExpiresAt(session.createdAt);
+
+    if (
+      session.revokedAt !== null ||
+      session.expiresAt <= now ||
+      absoluteExpiresAt <= now
+    ) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.authRefreshTokenHistory.updateMany(
+        {
+          where: {
+            id: history.id,
+            replayedAt: null,
+          },
+          data: {
+            replayedAt: now,
+          },
+        },
+      );
+
+      await transaction.authSession.updateMany({
+        where: {
+          id: session.id,
+          revokedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          revokedAt: now,
+        },
+      });
+    });
   }
 
   async logout(

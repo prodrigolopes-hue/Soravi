@@ -41,6 +41,10 @@ interface TransactionClientMock {
     updateMany: jest.Mock;
     create: jest.Mock;
   };
+  authRefreshTokenHistory: {
+    create: jest.Mock;
+    updateMany: jest.Mock;
+  };
   customerProfile: {
     create: jest.Mock;
   };
@@ -84,6 +88,9 @@ describe("AuthService", () => {
       findUnique: jest.Mock;
       updateMany: jest.Mock;
     };
+    authRefreshTokenHistory: {
+      findUnique: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -110,6 +117,9 @@ describe("AuthService", () => {
         findUnique: jest.fn(),
         updateMany: jest.fn(),
       },
+      authRefreshTokenHistory: {
+        findUnique: jest.fn(),
+      },
       $transaction: jest.fn(),
     };
 
@@ -126,6 +136,10 @@ describe("AuthService", () => {
     prismaMock.authSession.updateMany.mockResolvedValue({
       count: 1,
     });
+
+    prismaMock.authRefreshTokenHistory.findUnique.mockResolvedValue(
+      null,
+    );
 
     prismaMock.$transaction.mockImplementation(
       async (
@@ -179,6 +193,10 @@ describe("AuthService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue({ id: "session-id-test" }),
+      },
+      authRefreshTokenHistory: {
+        create: jest.fn().mockResolvedValue({ id: "history-id-test" }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       customerProfile: {
         create: jest.fn(),
@@ -966,8 +984,10 @@ describe("AuthService", () => {
       roles: [Role.CUSTOMER],
     });
 
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+
     expect(
-      prismaMock.authSession.updateMany,
+      transactionClientMock.authSession.updateMany,
     ).toHaveBeenCalledWith({
       where: {
         id: sessionId,
@@ -988,8 +1008,29 @@ describe("AuthService", () => {
       },
     });
 
+    expect(
+      transactionClientMock.authRefreshTokenHistory.create,
+    ).toHaveBeenCalledWith({
+      data: {
+        sessionId,
+        tokenHash: "current-refresh-token-hash",
+        rotatedAt: expect.any(Date),
+        expiresAt,
+      },
+    });
+
+    // A rotação CAS precisa ocorrer antes da criação do histórico.
+    expect(
+      transactionClientMock.authSession.updateMany.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      transactionClientMock.authRefreshTokenHistory.create
+        .mock.invocationCallOrder[0],
+    );
+
     expect(result.refreshTokenExpiresAt).toEqual(
-      prismaMock.authSession.updateMany.mock.calls[0][0].data.expiresAt,
+      transactionClientMock.authSession.updateMany.mock
+        .calls[0][0].data.expiresAt,
     );
     expect(result.response.data).toEqual({
       accessToken: "access-token-test",
@@ -997,7 +1038,7 @@ describe("AuthService", () => {
     });
   });
 
-  it("deve rejeitar refresh token inexistente", async () => {
+  it("deve rejeitar refresh token inexistente e não encontrado no histórico", async () => {
     prismaMock.authSession.findUnique.mockResolvedValue(
       null,
     );
@@ -1013,8 +1054,18 @@ describe("AuthService", () => {
     ).not.toHaveBeenCalled();
 
     expect(
-      prismaMock.authSession.updateMany,
+      prismaMock.authRefreshTokenHistory.findUnique,
+    ).toHaveBeenCalledWith({
+      where: {
+        tokenHash: "current-refresh-token-hash",
+      },
+      select: expect.any(Object),
+    });
+
+    expect(
+      transactionClientMock.authSession.updateMany,
     ).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it("deve rejeitar sessão revogada", async () => {
@@ -1079,7 +1130,7 @@ describe("AuthService", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("deve rejeitar reutilização do refresh token", async () => {
+  it("deve rejeitar reutilização do refresh token quando a rotação concorrente vence o CAS", async () => {
     prismaMock.authSession.findUnique.mockResolvedValue({
       id: sessionId,
       userId,
@@ -1099,15 +1150,39 @@ describe("AuthService", () => {
       },
     });
 
-    prismaMock.authSession.updateMany.mockResolvedValue({
+    transactionClientMock.authSession.updateMany.mockResolvedValueOnce({
       count: 0,
+    });
+
+    prismaMock.authRefreshTokenHistory.findUnique.mockResolvedValue({
+      id: "history-id-test",
+      sessionId,
+      rotatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      replayedAt: null,
+      session: {
+        id: sessionId,
+        createdAt: new Date("2026-08-01T12:00:00.000Z"),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        revokedAt: null,
+      },
     });
 
     await expect(
       authService.refresh({
         refreshToken: validRefreshToken,
       }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+    expect(
+      transactionClientMock.authRefreshTokenHistory.create,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClientMock.authRefreshTokenHistory.updateMany,
+    ).not.toHaveBeenCalled();
+    expect(
+      transactionClientMock.authSession.updateMany,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it("deve revogar a sessão no logout", async () => {
@@ -1196,7 +1271,7 @@ describe("AuthService", () => {
       refreshToken: validRefreshToken,
     });
 
-    expect(prismaMock.authSession.updateMany).toHaveBeenCalledWith({
+    expect(transactionClientMock.authSession.updateMany).toHaveBeenCalledWith({
       where: {
         id: sessionId,
         refreshTokenHash: "current-refresh-token-hash",
@@ -1210,7 +1285,8 @@ describe("AuthService", () => {
       },
     });
     expect(result.refreshTokenExpiresAt).toEqual(
-      prismaMock.authSession.updateMany.mock.calls[0][0].data.expiresAt,
+      transactionClientMock.authSession.updateMany.mock.calls[0][0].data
+        .expiresAt,
     );
   });
 
@@ -1237,6 +1313,155 @@ describe("AuthService", () => {
       expect(prismaMock.authSession.updateMany).not.toHaveBeenCalled();
     },
   );
+
+  describe("detecção de replay de refresh token via histórico", () => {
+    const historySessionId = sessionId;
+    const historyActiveSession = {
+      id: historySessionId,
+      createdAt: new Date("2026-08-01T12:00:00.000Z"),
+      expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+      revokedAt: null as Date | null,
+    };
+
+    function mockHistoryFound(overrides: {
+      rotatedAt: Date;
+      expiresAt?: Date;
+      replayedAt?: Date | null;
+      session?: typeof historyActiveSession;
+    }) {
+      prismaMock.authRefreshTokenHistory.findUnique.mockResolvedValue({
+        id: "history-id-test",
+        sessionId: historySessionId,
+        rotatedAt: overrides.rotatedAt,
+        expiresAt: overrides.expiresAt ?? new Date("2026-08-31T12:00:00.000Z"),
+        replayedAt: overrides.replayedAt ?? null,
+        session: overrides.session ?? historyActiveSession,
+      });
+    }
+
+    it("responde 401 sem revogar quando o histórico está dentro do grace period (imediatamente após rotação)", async () => {
+      mockHistoryFound({ rotatedAt: new Date("2026-08-01T12:00:00.000Z") });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("responde 401 sem revogar quando o histórico está a exatos 60 segundos da rotação", async () => {
+      mockHistoryFound({ rotatedAt: new Date("2026-08-01T11:59:00.000Z") });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("marca replayedAt e revoga somente a sessão quando o histórico está a 60 segundos + 1 ms da rotação", async () => {
+      mockHistoryFound({
+        rotatedAt: new Date("2026-08-01T11:58:59.999Z"),
+      });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(
+        transactionClientMock.authRefreshTokenHistory.updateMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          id: "history-id-test",
+          replayedAt: null,
+        },
+        data: {
+          replayedAt: expect.any(Date),
+        },
+      });
+      expect(
+        transactionClientMock.authSession.updateMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          id: historySessionId,
+          revokedAt: null,
+          expiresAt: { gt: expect.any(Date) },
+        },
+        data: {
+          revokedAt: expect.any(Date),
+        },
+      });
+
+      // A revogação deve mirar apenas a sessão do histórico, nunca por userId.
+      const revokeCall =
+        transactionClientMock.authSession.updateMany.mock.calls[0][0];
+      expect(revokeCall.where).not.toHaveProperty("userId");
+    });
+
+    it("responde 401 sem revogar quando o registro histórico já expirou", async () => {
+      mockHistoryFound({
+        rotatedAt: new Date("2026-08-01T11:58:00.000Z"),
+        expiresAt: new Date("2026-08-01T11:59:00.000Z"),
+      });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("responde 401 sem revogar quando a sessão do histórico já está revogada", async () => {
+      mockHistoryFound({
+        rotatedAt: new Date("2026-08-01T11:58:00.000Z"),
+        session: {
+          ...historyActiveSession,
+          revokedAt: new Date("2026-08-01T11:30:00.000Z"),
+        },
+      });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("responde 401 sem revogar quando a sessão do histórico já expirou", async () => {
+      mockHistoryFound({
+        rotatedAt: new Date("2026-08-01T11:58:00.000Z"),
+        session: {
+          ...historyActiveSession,
+          expiresAt: new Date("2026-08-01T11:59:00.000Z"),
+        },
+      });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("responde 401 sem revogar quando o lifetime absoluto de 90 dias da sessão terminou", async () => {
+      mockHistoryFound({
+        rotatedAt: new Date("2026-08-01T11:58:00.000Z"),
+        session: {
+          id: historySessionId,
+          createdAt: new Date("2026-05-01T11:00:00.000Z"),
+          expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+          revokedAt: null,
+        },
+      });
+
+      await expect(
+        authService.refresh({ refreshToken: validRefreshToken }),
+      ).rejects.toBeInstanceOf(InvalidRefreshTokenException);
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+  });
 
   describe("revalidação do usuário após o lock do login", () => {
     beforeEach(() => {
