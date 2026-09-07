@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07
+
+### Política segura de senha
+
+- concluído o commit `5d204a0 fix(auth): centraliza politica segura de senha`: o backend passou a ser a autoridade única da política, aceitando senhas de 12 a 128 caracteres sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo; qualquer composição nesse intervalo é permitida;
+- a senha original nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação. O hashing permanece com Argon2id, e o login de contas existentes não aplica retroativamente a nova política;
+- senhas comuns são bloqueadas somente no backend por uma blocklist versionada com exatamente 3000 entradas derivadas do SecLists. O lookup para detecção é case-insensitive e não modifica a senha original. A atribuição e o snapshot estão documentados em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md`; as 3000 entradas não são copiadas para a documentação;
+- concluído o commit `ce06e44 fix(web): alinha formularios a politica de senha`: o frontend valida apenas a estrutura 12 a 128 caracteres, não contém a blocklist e trata o erro `PASSWORD_TOO_COMMON` retornado pelo backend;
+- ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) ficam registrados como tratados por esses commits, sem declarar conformidade ASVS geral. V6.2.2 e V6.2.3 permanecem pendentes.
+
 ## 2026-09-06
 
 ### Rate limit em login e refresh

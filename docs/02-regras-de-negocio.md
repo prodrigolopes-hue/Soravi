@@ -152,7 +152,9 @@ de produto.
 - a solicitação pública nunca revela se o e-mail existe ou se a conta é elegível;
 - somente contas `PENDING` e `ACTIVE`, não excluídas, podem receber reset;
 - o token expira em 30 minutos, é de uso único e nunca é persistido em claro;
-- a nova senha deve ter de 12 a 128 caracteres, com pelo menos uma letra e um número;
+- a nova senha deve ter de 12 a 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo;
+- qualquer composição entre 12 e 128 caracteres é permitida, exceto senhas comuns bloqueadas pelo backend;
+- a senha nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação;
 - a redefinição válida revoga todas as sessões e invalida os demais tokens pendentes;
 - a redefinição não autentica o usuário automaticamente; o acesso exige novo login;
 - uma troca administrativa de senha também invalida tokens de reset pendentes.
@@ -163,7 +165,8 @@ de produto.
 - os papéis `MODERATOR` e `ADMIN` não podem ser escolhidos no cadastro público;
 - o e-mail deve ser normalizado antes de consultas e validações de duplicidade;
 - o telefone, quando informado, deve ser normalizado antes de ser armazenado;
-- a senha deve ser armazenada somente como hash seguro;
+- a senha deve ser armazenada somente como hash Argon2id;
+- o backend é a autoridade da política de senha e bloqueia senhas comuns; o frontend valida apenas 12 a 128 caracteres e trata `PASSWORD_TOO_COMMON`;
 - usuários com status `PENDING` ou `ACTIVE` podem realizar login;
 - usuários com status `SUSPENDED`, `BLOCKED` ou `DEACTIVATED` não podem realizar login;
 - o login gera um access token e um refresh token;

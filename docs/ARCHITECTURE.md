@@ -4,7 +4,7 @@
 
 Este documento define a arquitetura técnica oficial da Soravi para o desenvolvimento do MVP.
 
-## Estado de segurança implementado — 2026-09-04
+## Estado de segurança implementado — 2026-09-07
 
 - O access token é curto e cada request autenticado valida também a sessão no PostgreSQL.
 - `phoneVerifiedAt` é obtido do banco durante a autenticação do request; não existe claim de verificação de telefone no JWT.
@@ -17,6 +17,11 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 - A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome o token utilizado, invalida os demais tokens ativos e revoga todas as sessões.
 - O frontend recebe o token em `/redefinir-senha#token=<token>`, lê e remove o fragmento somente no client e mantém o token apenas em memória. O fluxo não persiste credenciais ou tokens e retorna ao login sem auto-login.
 - A troca administrativa de senha também invalida tokens de reset pendentes dentro de sua transação.
+- A política oficial de senha foi centralizada no backend no commit `5d204a0 fix(auth): centraliza politica segura de senha` e alinhada no frontend no commit `ce06e44 fix(web): alinha formularios a politica de senha`: mínimo de 12 e máximo de 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo; qualquer composição nesse intervalo é permitida.
+- A senha original nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação. O hashing permanece com Argon2id, senhas comuns são bloqueadas no backend e o login de contas existentes não aplica retroativamente a nova política.
+- A blocklist versionada contém exatamente 3000 entradas derivadas do SecLists, é mantida somente no backend, usa lookup case-insensitive apenas para detecção e não modifica a senha original. A atribuição e o snapshot estão documentados em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md`; a documentação não copia as 3000 senhas.
+- O frontend não contém a blocklist, valida somente estrutura 12 a 128 caracteres e trata `PASSWORD_TOO_COMMON` retornado pelo backend.
+- ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados por esses commits, sem declarar conformidade ASVS geral. V6.2.2 (usuário autenticado alterar a própria senha) e V6.2.3 (troca de senha exigir senha atual + nova) permanecem pendentes.
 - O hardening de dependências reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades por atualizações compatíveis: Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0. O Prisma 7.10.0 também removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
 - As 6 vulnerabilidades residuais são risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, dependência interna de `@prisma/config`; `mysql2` 3.15.3, dependência interna do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25. Não foram usados `npm audit fix --force` ou overrides internos sem validação de compatibilidade.
 - Em 2026-09-03, o frontend passou a remover `X-Powered-By` e a enviar `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`; `Strict-Transport-Security` é enviado somente em produção.
@@ -688,7 +693,7 @@ A autenticação implementada é baseada em:
 
 ### Política de sessão implementada
 
-Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa63449` e `0e2b376` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção.
+Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa63449`, `0e2b376`, `5d204a0` e `ce06e44` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção nem conformidade ASVS geral.
 
 | Prazo | Política |
 | --- | --- |
@@ -698,6 +703,7 @@ Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa
 | Sessões simultâneas | máximo de 5 `AuthSession` ativas por conta (CUSTOMER, PROFESSIONAL e ADMIN). |
 | Rate limit de login | 10 requisições / 15 minutos via `ThrottlerGuard`. |
 | Rate limit de refresh | 60 requisições / 15 minutos via `ThrottlerGuard`. |
+| Senhas | 12 a 128 caracteres, sem composição obrigatória; senhas comuns bloqueadas pelo backend. |
 
 O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1000`, por timestamp/milissegundos, sem cálculo por calendário. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e esse limite. Nenhuma renovação pode ultrapassar `createdAt + 90 dias`; ao atingir 90 dias desde a criação, novo login é obrigatório. Refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes. `AuthSession.createdAt` já existia, portanto não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido.
 
@@ -710,6 +716,16 @@ No login, no máximo 5 `AuthSession` ativas são mantidas por conta: ao ultrapas
 No frontend, o refresh mantém single-flight por Promise dentro da mesma aba; entre abas, quando disponível, é usado o Web Lock nomeado `soravi-auth-refresh`. Nenhuma credencial é armazenada em `localStorage`/`sessionStorage` e nenhum token é transmitido por `BroadcastChannel`. Sem suporte a Web Locks, o fallback preserva o comportamento anterior, sem afirmar suporte universal da API pelos navegadores.
 
 A tabela `auth_refresh_token_history` (migration `20260906000100_create_auth_refresh_token_history`, aplicada e validada somente no PostgreSQL local; produção não foi alterada) registra cada rotação de refresh token vinculada à `AuthSession`, guardando apenas o hash do token (nunca o token bruto), `rotatedAt`, `expiresAt` e `replayedAt`. O CAS da `AuthSession` e a criação desse histórico ocorrem na mesma transação interativa, de forma atômica; um token já rotacionado nunca volta a ser válido e sua reutilização sempre responde `401`. Até exatamente 60 segundos desde `rotatedAt`, a reutilização responde `401` sem revogar a sessão. Após esse grace period, se o token ainda estaria dentro de sua validade original e a sessão segue ativa, a reutilização é tratada como replay suspeito: o histórico é marcado com `replayedAt` e somente aquela `AuthSession` é revogada — nunca todas as sessões da conta. Token aleatório/não encontrado, histórico expirado ou sessão já revogada/expirada/além do lifetime absoluto respondem `401` sem revogação adicional; a resposta pública não diferencia replay de token inválido.
+
+### Política de senha implementada
+
+O backend é a autoridade da política de senha. A regra oficial aceita senhas com mínimo de 12 e máximo de 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo. Qualquer composição entre 12 e 128 caracteres é permitida, desde que não esteja na lista de senhas comuns bloqueadas pelo backend. Senhas nunca devem ser trimadas, normalizadas ou truncadas antes de hashing ou verificação; o hash permanece Argon2id. Login de contas existentes não aplica retroativamente a nova política.
+
+A blocklist possui exatamente 3000 entradas derivadas do SecLists, é versionada e mantida somente no backend. O lookup é case-insensitive apenas para detecção e não altera a senha original. A atribuição e o snapshot estão documentados em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md`; as entradas da lista não devem ser copiadas para a documentação.
+
+O frontend não contém a blocklist. Ele valida somente a estrutura 12 a 128 caracteres e trata o erro `PASSWORD_TOO_COMMON` quando retornado pelo backend.
+
+ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados pelos commits `5d204a0` e `ce06e44`, sem declarar conformidade ASVS geral. V6.2.2 e V6.2.3 permanecem pendentes no backlog.
 
 ### Cookie de refresh
 

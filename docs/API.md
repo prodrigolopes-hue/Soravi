@@ -53,7 +53,7 @@ Esta seção registra os contratos atualmente implementados e substitui, para es
 - Sucesso: `204 No Content`.
 - Rate limit: 10 requisições por 15 minutos.
 - Erros principais: `400 PASSWORD_RESET_INVALID_OR_EXPIRED`, `400` para senha fora da política e `429`.
-- Política da nova senha: de 12 a 128 caracteres, com pelo menos uma letra e um número.
+- Política da nova senha: de 12 a 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo; qualquer composição nesse intervalo é permitida, exceto senhas comuns bloqueadas pelo backend.
 - Segurança: o fluxo bloqueia `User` antes de `PasswordResetToken`, valida hash em tempo constante e executa transacionalmente a troca por Argon2id, o consumo do token utilizado, a invalidação dos demais tokens ativos e a revogação de todas as `AuthSession` do usuário.
 - Frontend: o link usa `/redefinir-senha#token=<token>`. O fragmento é lido somente no client, validado, removido imediatamente da URL e mantido apenas em memória, sem `localStorage`, `sessionStorage` ou cookie. Após `204`, a navegação usa `router.replace("/entrar")`, sem auto-login.
 
@@ -812,7 +812,8 @@ Sim, com token.
 
 - token válido e não expirado, com erro público sanitizado caso contrário;
 - token de uso único;
-- senha de 12 a 128 caracteres, com pelo menos uma letra e um número;
+- senha de 12 a 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo;
+- senhas comuns são bloqueadas pelo backend, com erro público `PASSWORD_TOO_COMMON`;
 - nova senha armazenada com Argon2id;
 - invalidação dos demais tokens ativos e revogação de todas as sessões;
 - retorno ao login sem autenticação automática.

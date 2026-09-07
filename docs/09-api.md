@@ -33,9 +33,11 @@ elegibilidade da conta. A entrega atual usa Resend por meio de
 `PasswordResetDeliveryPort`.
 
 A confirmação recebe somente `token` e `newPassword`, retorna `204 No Content`
-e exige senha de 12 a 128 caracteres com pelo menos uma letra e um número. Uma
-confirmação válida consome o token, invalida os demais tokens ativos, revoga
-todas as sessões e não realiza auto-login.
+e exige senha de 12 a 128 caracteres. Não há exigência obrigatória de letra,
+número, maiúscula, minúscula ou símbolo; qualquer composição nesse intervalo é
+permitida, exceto senhas comuns bloqueadas pelo backend. Uma confirmação válida
+consome o token, invalida os demais tokens ativos, revoga todas as sessões e não
+realiza auto-login.
 
 ## Registro de conta
 
