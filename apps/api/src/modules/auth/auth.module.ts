@@ -8,6 +8,7 @@ import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AuthTokensService } from "./auth-tokens.service";
+import { AuthRefreshTokenHistoryCleanupService } from "./auth-refresh-token-history-cleanup.service";
 import {
   PASSWORD_RESET_DELIVERY_PORT,
   PasswordResetDeliveryPort,
@@ -47,6 +48,7 @@ export function createPasswordResetDeliveryPort(
     AuthService,
     AuthTokensService,
     PasswordResetService,
+    AuthRefreshTokenHistoryCleanupService,
     {
       provide: PASSWORD_RESET_DELIVERY_PORT,
       inject: [ConfigService],
