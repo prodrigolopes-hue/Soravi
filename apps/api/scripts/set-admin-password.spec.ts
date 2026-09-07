@@ -125,11 +125,18 @@ describe("set-admin-password", () => {
   it.each([
     ["Curta123", "pelo menos 12"],
     [`A1${"x".repeat(127)}`, "no máximo 128"],
-    ["123456789012", "pelo menos uma letra"],
-    ["abcdefghijkl", "pelo menos um número"],
+    ["123456789012", "menos comum"],
+    ["abcdefghijkl", "menos comum"],
   ])("rejeita senha fora da política", (password, expectedMessage) => {
     expect(() => validateAdminPassword(password)).toThrow(expectedMessage);
   });
+
+  it.each([["zqxjkvbnmwpl"], ["581047293618"]])(
+    "aceita senha somente letras ou somente números quando não é comum",
+    (password) => {
+      expect(() => validateAdminPassword(password)).not.toThrow();
+    },
+  );
 
   it("rejeita confirmação diferente", () => {
     expect(() =>

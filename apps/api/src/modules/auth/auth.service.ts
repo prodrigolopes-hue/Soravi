@@ -29,6 +29,7 @@ import { InvalidCredentialsException } from "./errors/invalid-credentials.except
 import { PhoneAlreadyInUseException } from "./errors/phone-already-in-use.exception";
 import { InvalidRefreshTokenException } from "./errors/invalid-refresh-token.exception";
 import { AuthTokensService } from "./auth-tokens.service";
+import { ensurePasswordIsAllowed } from "./password-policy/password-policy";
 import { isWithinAuthRefreshReplayGracePeriod } from "./auth-refresh-replay";
 import {
   capAuthSessionExpiresAt,
@@ -126,6 +127,8 @@ export class AuthService {
     ) {
       throw new PhoneAlreadyInUseException();
     }
+
+    ensurePasswordIsAllowed(input.password);
 
     const passwordHash = await hashPassword(input.password, {
       type: argon2id,

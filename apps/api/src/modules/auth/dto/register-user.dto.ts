@@ -6,13 +6,16 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   MinLength,
 } from "class-validator";
 
 import { IsBrazilianPhone } from "../../../common/phone/is-brazilian-phone.decorator";
 import { Role } from "../../../generated/prisma/client";
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from "../password-policy/password-policy";
 
 const INITIAL_REGISTRATION_ROLES = [
   Role.CUSTOMER,
@@ -66,17 +69,11 @@ export class RegisterUserDto {
   @IsString({
     message: "A senha deve ser um texto.",
   })
-  @MinLength(12, {
+  @MinLength(PASSWORD_MIN_LENGTH, {
     message: "A senha deve possuir pelo menos 12 caracteres.",
   })
-  @MaxLength(128, {
+  @MaxLength(PASSWORD_MAX_LENGTH, {
     message: "A senha deve possuir no máximo 128 caracteres.",
-  })
-  @Matches(/[A-Za-zÀ-ÿ]/, {
-    message: "A senha deve possuir pelo menos uma letra.",
-  })
-  @Matches(/[0-9]/, {
-    message: "A senha deve possuir pelo menos um número.",
   })
   password!: string;
 

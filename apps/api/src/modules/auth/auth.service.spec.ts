@@ -24,6 +24,8 @@ import { AuthService } from "./auth.service";
 import { AuthTokensService } from "./auth-tokens.service";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
+import { SORAVI_COMMON_PASSWORDS_BLOCKLIST } from "./password-policy/common-passwords";
+import { PasswordTooCommonException } from "./password-policy/password-too-common.exception";
 
 jest.mock("argon2", () => ({
   argon2id: 2,
@@ -339,6 +341,19 @@ describe("AuthService", () => {
       BadRequestException,
     );
     expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
+    expect(hashPasswordMock).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("não cria usuário quando a senha é comum", async () => {
+    const input = createRegistrationInput(Role.CUSTOMER);
+    input.password = SORAVI_COMMON_PASSWORDS_BLOCKLIST[0];
+
+    prismaMock.user.findFirst.mockResolvedValue(null);
+
+    await expect(authService.register(input)).rejects.toBeInstanceOf(
+      PasswordTooCommonException,
+    );
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });

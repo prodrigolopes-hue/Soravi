@@ -13,6 +13,7 @@ import {
   UserStatus,
 } from "../../generated/prisma/client";
 import { PasswordResetInvalidOrExpiredException } from "./errors/password-reset-invalid-or-expired.exception";
+import { ensurePasswordIsAllowed } from "./password-policy/password-policy";
 import {
   PASSWORD_RESET_DELIVERY_PORT,
   PasswordResetDeliveryPort,
@@ -158,6 +159,8 @@ export class PasswordResetService {
       ) {
         throw new PasswordResetInvalidOrExpiredException();
       }
+
+      ensurePasswordIsAllowed(newPassword);
 
       const passwordHash = await hashPassword(newPassword, {
         type: argon2id,

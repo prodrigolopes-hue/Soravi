@@ -8,6 +8,8 @@ import { UserStatus } from "../../generated/prisma/client";
 import { PasswordResetInvalidOrExpiredException } from "./errors/password-reset-invalid-or-expired.exception";
 import { PASSWORD_RESET_DELIVERY_PORT } from "./password-reset-delivery.port";
 import { PasswordResetService } from "./password-reset.service";
+import { SORAVI_COMMON_PASSWORDS_BLOCKLIST } from "./password-policy/common-passwords";
+import { PasswordTooCommonException } from "./password-policy/password-too-common.exception";
 
 type LockedUserFixture = {
   id: string;
@@ -253,6 +255,22 @@ describe("PasswordResetService", () => {
       where: { userId, revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+  });
+
+  it("token válido com senha comum retorna PASSWORD_TOO_COMMON sem alterar nada", async () => {
+    prepareConfirmation();
+
+    await expect(
+      service.confirmReset(rawToken, SORAVI_COMMON_PASSWORDS_BLOCKLIST[0]),
+    ).rejects.toBeInstanceOf(PasswordTooCommonException);
+
+    expect(hashPasswordMock).not.toHaveBeenCalled();
+    expect(transactionMock.user.update).not.toHaveBeenCalled();
+    expect(transactionMock.passwordResetToken.update).not.toHaveBeenCalled();
+    expect(
+      transactionMock.passwordResetToken.updateMany,
+    ).not.toHaveBeenCalled();
+    expect(transactionMock.authSession.updateMany).not.toHaveBeenCalled();
   });
 
   it("token inexistente retorna o erro público genérico sem transação", async () => {

@@ -7,9 +7,11 @@ import {
   PrismaClient,
   Role,
 } from "../src/generated/prisma/client";
-
-const MIN_PASSWORD_LENGTH = 12;
-const MAX_PASSWORD_LENGTH = 128;
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  isCommonPassword,
+} from "../src/modules/auth/password-policy/password-policy";
 
 export class AdminPasswordOperationError extends Error {
   constructor(message: string) {
@@ -89,27 +91,21 @@ export function validateDatabaseUrl(value: string | undefined): string {
 }
 
 export function validateAdminPassword(password: string): void {
-  if (password.length < MIN_PASSWORD_LENGTH) {
+  if (password.length < PASSWORD_MIN_LENGTH) {
     throw new AdminPasswordOperationError(
       "A nova senha deve ter pelo menos 12 caracteres.",
     );
   }
 
-  if (password.length > MAX_PASSWORD_LENGTH) {
+  if (password.length > PASSWORD_MAX_LENGTH) {
     throw new AdminPasswordOperationError(
       "A nova senha deve ter no máximo 128 caracteres.",
     );
   }
 
-  if (!/[A-Za-zÀ-ÿ]/u.test(password)) {
+  if (isCommonPassword(password)) {
     throw new AdminPasswordOperationError(
-      "A nova senha deve possuir pelo menos uma letra.",
-    );
-  }
-
-  if (!/[0-9]/u.test(password)) {
-    throw new AdminPasswordOperationError(
-      "A nova senha deve possuir pelo menos um número.",
+      "Escolha uma senha menos comum e difícil de adivinhar.",
     );
   }
 }

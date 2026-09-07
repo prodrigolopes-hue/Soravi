@@ -35,7 +35,10 @@ describe("Password reset DTOs", () => {
   it.each([
     "SenhaSegura1",
     `${"a".repeat(127)}1`,
-  ])("aceita nova senha da política vigente", async (newPassword) => {
+    "somenteletrasminusculas",
+    "123456789012",
+    "!@#$%^&*()_+",
+  ])("aceita nova senha de 12–128 caracteres independentemente da composição", async (newPassword) => {
     await expect(
       validate(createConfirmDto(newPassword)),
     ).resolves.toHaveLength(0);
@@ -43,10 +46,8 @@ describe("Password reset DTOs", () => {
 
   it.each([
     "Curta1",
-    "somenteletras",
-    "123456789012",
     `${"a".repeat(128)}1`,
-  ])("rejeita nova senha fora da política: %s", async (newPassword) => {
+  ])("rejeita nova senha fora do comprimento permitido: %s", async (newPassword) => {
     expect(await validate(createConfirmDto(newPassword))).not.toHaveLength(0);
   });
 

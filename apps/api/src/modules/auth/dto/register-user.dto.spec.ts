@@ -43,6 +43,34 @@ describe("RegisterUserDto phone", () => {
   });
 });
 
+describe("RegisterUserDto password", () => {
+  it.each([
+    "SenhaSegura123",
+    "somenteletrasminusculas",
+    "123456789012",
+    "!@#$%^&*()_+",
+    `${"a".repeat(127)}1`,
+  ])(
+    "aceita senha de 12–128 caracteres independentemente da composição: %s",
+    async (password) => {
+      const dto = createDto(undefined);
+      dto.password = password;
+
+      await expect(validate(dto)).resolves.toHaveLength(0);
+    },
+  );
+
+  it.each(["Curta1", `${"a".repeat(128)}1`])(
+    "rejeita senha fora do comprimento permitido: %s",
+    async (password) => {
+      const dto = createDto(undefined);
+      dto.password = password;
+
+      expect(await validate(dto)).not.toHaveLength(0);
+    },
+  );
+});
+
 function createDto(phone: string | null | undefined): RegisterUserDto {
   return plainToInstance(RegisterUserDto, {
     name: "Maria da Silva",
