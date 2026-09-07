@@ -191,10 +191,17 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 ### Hardening de sessão pré-beta
 
 - [x] Hardening do cookie de refresh (`e4210b9`) e lifetime absoluto de sessão de 90 × 24 horas (`e3000fd`), sem afirmar deploy em produção. Detalhes na [política de sessão](ARCHITECTURE.md#13-autenticação-e-sessões) e validações no [changelog](../CHANGELOG.md).
-- [ ] Avaliar detecção avançada de replay de refresh token, com família de tokens e reação automática.
-- [ ] Definir política de sessões simultâneas.
-- [ ] Implementar rate limit de login e refresh.
-- [ ] Avaliar uso de `userAgent`/IP para auditoria, considerando LGPD e minimização de dados.
+- [x] Rate limit de login (10/15min) e refresh (60/15min) via `ThrottlerGuard` (`14734d3`); storage do contador em memória do processo, sem Redis/storage compartilhado.
+- [x] Limite de 5 `AuthSession` ativas por conta, para CUSTOMER, PROFESSIONAL e ADMIN, com revogação das mais antigas em ordem determinística (`eecb5d6`).
+- [x] Bloqueio de login com credencial desatualizada após lock transacional, evitando corrida com reset de senha concorrente (`e70392e`).
+- [x] Serialização de refresh entre abas no frontend, com single-flight por Promise e Web Lock `soravi-auth-refresh` quando disponível (`96abdd6`).
+- [x] Histórico de refresh tokens em `auth_refresh_token_history`, somente com hash, aplicado e validado apenas no PostgreSQL local (`fa63449`).
+- [x] Detecção de replay de refresh token com grace period de 60 segundos e revogação isolada da sessão comprometida (`0e2b376`).
+- [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
+- [ ] Validar o comportamento real de concorrência (limite de sessões e corrida login/reset) em PostgreSQL integrado, além da simulação de ordem usada nos testes atuais.
+- [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.
+- [ ] Avaliar uso de `userAgent`/IP para auditoria, somente após avaliação de necessidade e LGPD.
+- [ ] Definir política futura de tela/dispositivos/sessões (visão e revogação individual pelo usuário).
 - [ ] Realizar revisão OWASP ASVS de autenticação/sessão.
 
 Os demais hardenings de segurança já registrados acima permanecem pendentes.
@@ -249,7 +256,7 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Emissão de refresh token.
 - [x] Criação de sessão no PostgreSQL.
 - [x] Rotação segura do refresh token.
-- [x] Bloqueio de reutilização simples do refresh token antigo após rotação; ainda não há família de tokens ou detecção avançada de roubo/replay com reação automática.
+- [x] Bloqueio de reutilização do refresh token antigo após rotação, com histórico de rotações (`auth_refresh_token_history`) e detecção de replay: grace period de 60 segundos sem revogação e, após esse período, revogação isolada apenas da `AuthSession` comprometida quando o replay é suspeito; ainda não há família de tokens com reação automática mais ampla.
 - [x] Logout com revogação de sessão.
 - [x] Manutenção de sessão persistente com refresh seguro em cookie HttpOnly e access token em memória.
 - [x] Rota protegida `GET /api/v1/users/me`.

@@ -1,6 +1,45 @@
 # Changelog
 
+## 2026-09-06
+
+### Rate limit em login e refresh
+
+- concluído o commit `14734d3 fix(auth): adiciona rate limit em login e refresh`: `POST /auth/login` limitado a 10 requisições / 15 minutos e `POST /auth/refresh` a 60 requisições / 15 minutos, usando o `ThrottlerGuard` já existente no projeto (`@nestjs/throttler`);
+- o armazenamento do contador de rate limit permanece em memória do processo; não há Redis nem storage compartilhado entre instâncias. Ao escalar horizontalmente, o limite não é coordenado entre processos — isso fica registrado como pendência de revisão, não como limitação resolvida.
+
+### Limite de sessões simultâneas por conta
+
+- concluído o commit `eecb5d6 fix(auth): limita sessoes simultaneas por conta`: no login, no máximo 5 `AuthSession` ativas por conta; a 6ª sessão válida é permitida e as sessões ativas mais antigas são revogadas para manter o total em 5;
+- a regra vale igualmente para CUSTOMER, PROFESSIONAL e ADMIN. Sessões já revogadas, expiradas ou além do lifetime absoluto de 90 dias não entram na contagem; a ordenação usada para decidir quais revogar é determinística, por `createdAt` e depois `id`;
+- o login usa transação interativa e a atualização real do `User` (`lastLoginAt`) como ponto de serialização antes de contar e revogar sessões. Os testes automatizados simulam a ordem de execução esperada; não comprovam concorrência real do PostgreSQL sob carga.
+
+### Bloqueio de login com credencial desatualizada
+
+- concluído o commit `e70392e fix(auth): bloqueia login com credencial desatualizada`: após obter o lock transacional do login, o `passwordHash`, o `status` e o `deletedAt` do usuário são revalidados; se o `passwordHash` mudou em relação à validação inicial (por exemplo, um reset de senha concorrente), o login é rejeitado;
+- isso evita criar uma sessão nova baseada em uma senha anterior a um reset concluído entre a validação inicial e o lock. O Argon2 continua sendo executado fora da transação, como já ocorria;
+- a recuperação de senha já usava `SELECT ... FOR UPDATE` e já revogava as sessões do usuário; este commit fecha a corrida do lado do login. Os testes simulam a ordem de eventos, não concorrência real do PostgreSQL.
+
+### Serialização do refresh entre abas
+
+- concluído o commit `96abdd6 fix(auth): serializa refresh entre abas`, no frontend: dentro da mesma aba, o refresh mantém single-flight por Promise; entre abas, quando o navegador expõe Web Locks, é usado o lock nomeado `soravi-auth-refresh`;
+- nenhuma credencial ou token passou a ser armazenado em `localStorage`/`sessionStorage`, e nenhum token é transmitido por `BroadcastChannel`. Quando Web Locks não está disponível, o fallback preserva o comportamento anterior (executa o refresh diretamente), sem afirmar suporte universal da API de Web Locks em todos os navegadores.
+
+### Histórico de refresh tokens
+
+- concluído o commit `fa63449 feat(auth): cria historico de refresh tokens`: criada a tabela `auth_refresh_token_history`, vinculada a `AuthSession`, migration `20260906000100_create_auth_refresh_token_history`;
+- somente o hash do token é persistido (nunca o token bruto); cada registro guarda `rotatedAt`, `expiresAt` (a expiração que o token antigo tinha antes de ser rotacionado) e `replayedAt` (preenchido apenas quando uma reutilização suspeita é detectada);
+- a migration foi aplicada e validada somente no PostgreSQL local deste ambiente de desenvolvimento; produção não foi alterada.
+
+### Detecção de replay de refresh token
+
+- concluído o commit `0e2b376 fix(auth): detecta replay de refresh token`: o refresh continua rotacionando o token a cada uso; a proteção concorrente (CAS) da `AuthSession` e a criação do registro no histórico passaram a ocorrer na mesma transação interativa, de forma atômica. Um token já rotacionado nunca volta a ser válido, e sua reutilização sempre responde `401` via `InvalidRefreshTokenException`;
+- grace period de até exatamente 60 segundos desde `rotatedAt`: reutilização nesse intervalo responde `401` sem revogar a sessão e sem marcar `replayedAt`, cobrindo o caso de duas requisições concorrentes terem lido o mesmo token antes da primeira rotação vencer o CAS;
+- após 60 segundos, se o token ainda estaria dentro de sua validade original e a sessão correspondente segue ativa, a reutilização é classificada como replay suspeito: o histórico é marcado com `replayedAt` e **somente aquela `AuthSession`** é revogada — o mecanismo nunca revoga todas as sessões da conta;
+- token aleatório ou não encontrado (nem como atual, nem no histórico), histórico já expirado, ou sessão associada já revogada/expirada/além do lifetime absoluto de 90 dias: todos esses casos respondem `401` sem qualquer revogação adicional. A resposta pública não diferencia replay de token simplesmente inválido;
+- validações registradas na conclusão: suítes de `auth-refresh-replay.spec.ts` e `auth.service.spec.ts` (61 testes) e suítes adjacentes de auth passaram, TypeScript da aplicação e dos testes passou, build passou e `git diff --check` passou. Este registro não afirma deploy em produção nem execução de migration fora do ambiente local.
+
 ## 2026-09-05
+
 
 ### Lifetime absoluto da sessão
 

@@ -688,17 +688,28 @@ A autenticação implementada é baseada em:
 
 ### Política de sessão implementada
 
-Os commits `e4210b9` e `e3000fd` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção.
+Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa63449` e `0e2b376` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção.
 
 | Prazo | Política |
 | --- | --- |
 | Access token | 15 minutos por padrão, comportamento já existente. |
 | Refresh idle/sliding timeout | 30 dias por padrão, comportamento já existente. |
 | Lifetime absoluto da `AuthSession` | 90 × 24 horas desde `AuthSession.createdAt`. |
+| Sessões simultâneas | máximo de 5 `AuthSession` ativas por conta (CUSTOMER, PROFESSIONAL e ADMIN). |
+| Rate limit de login | 10 requisições / 15 minutos via `ThrottlerGuard`. |
+| Rate limit de refresh | 60 requisições / 15 minutos via `ThrottlerGuard`. |
 
 O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1000`, por timestamp/milissegundos, sem cálculo por calendário. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e esse limite. Nenhuma renovação pode ultrapassar `createdAt + 90 dias`; ao atingir 90 dias desde a criação, novo login é obrigatório. Refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes. `AuthSession.createdAt` já existia, portanto não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido.
 
-O refresh token é gerado criptograficamente e somente seu hash SHA-256 é persistido. A rotação invalida o token antigo e preserva a proteção concorrente por `id` + `refreshTokenHash` + `revokedAt` + `expiresAt`. O logout revoga a `AuthSession` no banco. O access token contém `sessionId`, e a sessão é consultada no PostgreSQL durante a autenticação; sessões revogadas ou expiradas são rejeitadas. A reutilização simples do token antigo é rejeitada, mas ainda não existe mecanismo de família de tokens ou detecção avançada de roubo/replay com reação automática.
+O refresh token é gerado criptograficamente e somente seu hash SHA-256 é persistido. A rotação invalida o token antigo e preserva a proteção concorrente por `id` + `refreshTokenHash` + `revokedAt` + `expiresAt`. O logout revoga a `AuthSession` no banco. O access token contém `sessionId`, e a sessão é consultada no PostgreSQL durante a autenticação; sessões revogadas ou expiradas são rejeitadas.
+
+No login, no máximo 5 `AuthSession` ativas são mantidas por conta: ao ultrapassar o limite, as sessões ativas mais antigas são revogadas, em ordem determinística por `createdAt` e depois `id`. Sessões já revogadas, expiradas ou além do lifetime absoluto não contam para o limite. O login usa transação interativa e a atualização real do `User` como ponto de serialização; após obter esse lock, `passwordHash`, `status` e `deletedAt` são revalidados, e o login é rejeitado se o `passwordHash` mudou desde a validação inicial (por exemplo, reset de senha concorrente). O Argon2 continua fora da transação. A recuperação de senha já usa `SELECT ... FOR UPDATE` e revoga as sessões do usuário. Os testes automatizados simulam a ordem de eventos esperada; não comprovam concorrência real do PostgreSQL sob carga.
+
+`POST /auth/login` e `POST /auth/refresh` possuem rate limit via `ThrottlerGuard` (10 e 60 requisições / 15 minutos, respectivamente). O armazenamento do contador é em memória do processo, sem Redis nem storage compartilhado entre instâncias; a coordenação do limite ao escalar horizontalmente permanece como pendência de revisão.
+
+No frontend, o refresh mantém single-flight por Promise dentro da mesma aba; entre abas, quando disponível, é usado o Web Lock nomeado `soravi-auth-refresh`. Nenhuma credencial é armazenada em `localStorage`/`sessionStorage` e nenhum token é transmitido por `BroadcastChannel`. Sem suporte a Web Locks, o fallback preserva o comportamento anterior, sem afirmar suporte universal da API pelos navegadores.
+
+A tabela `auth_refresh_token_history` (migration `20260906000100_create_auth_refresh_token_history`, aplicada e validada somente no PostgreSQL local; produção não foi alterada) registra cada rotação de refresh token vinculada à `AuthSession`, guardando apenas o hash do token (nunca o token bruto), `rotatedAt`, `expiresAt` e `replayedAt`. O CAS da `AuthSession` e a criação desse histórico ocorrem na mesma transação interativa, de forma atômica; um token já rotacionado nunca volta a ser válido e sua reutilização sempre responde `401`. Até exatamente 60 segundos desde `rotatedAt`, a reutilização responde `401` sem revogar a sessão. Após esse grace period, se o token ainda estaria dentro de sua validade original e a sessão segue ativa, a reutilização é tratada como replay suspeito: o histórico é marcado com `replayedAt` e somente aquela `AuthSession` é revogada — nunca todas as sessões da conta. Token aleatório/não encontrado, histórico expirado ou sessão já revogada/expirada/além do lifetime absoluto respondem `401` sem revogação adicional; a resposta pública não diferencia replay de token inválido.
 
 ### Cookie de refresh
 
@@ -716,7 +727,7 @@ As pendências pré-beta de sessão estão no [backlog](07-backlog.md#hardening-
 * cookies seguem a política de `HttpOnly`, `SameSite` e `Secure` por ambiente descrita acima;
 * logout deve revogar a sessão;
 * usuário poderá revogar todas as sessões;
-* login e recuperação de senha deverão possuir rate limiting;
+* login e refresh já possuem rate limiting via `ThrottlerGuard` (10 e 60 requisições / 15 minutos); recuperação de senha também já é limitada;
 * mensagens não devem revelar se um e-mail existe ou não;
 * tokens de recuperação deverão expirar e ser utilizados uma única vez.
 
