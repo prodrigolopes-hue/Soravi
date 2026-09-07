@@ -68,7 +68,7 @@ export function ResetPasswordForm() {
 
   return <form className="mt-8 space-y-5" onSubmit={handleSubmit(submit, () => setFormError(null))} noValidate>
     <PasswordField id="password" label="Nova senha" placeholder="Crie uma nova senha" show={showPassword} setShow={setShowPassword} error={errors.password?.message} describedBy="password-help" registration={register("password")} />
-    <p id="password-help" className="-mt-3 text-xs leading-5 text-slate-500">Use de 12 a 128 caracteres, com pelo menos uma letra e um número.</p>
+    <p id="password-help" className="-mt-3 text-xs leading-5 text-slate-500">Use de 12 a 128 caracteres. Evite senhas comuns ou fáceis de adivinhar.</p>
     <PasswordField id="passwordConfirmation" label="Confirmar nova senha" placeholder="Digite a nova senha novamente" show={showConfirmation} setShow={setShowConfirmation} error={errors.passwordConfirmation?.message} registration={register("passwordConfirmation")} />
     {formError ? <div ref={errorRef} role="alert" aria-live="assertive" tabIndex={-1} className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700 outline-none focus:ring-2 focus:ring-red-600">{formError}</div> : null}
     <button type="submit" disabled={isSubmitting} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400">{isSubmitting ? "Redefinindo..." : "Redefinir senha"}</button>

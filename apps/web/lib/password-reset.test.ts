@@ -47,7 +47,14 @@ test("mapeia HTTP 429", async () => {
 test("mapeia HTTP 400 por senha inválida para a política pública", async () => {
   installFetch(Response.json({ message: "detalhe interno" }, { status: 400 }));
   await assert.rejects(confirmPasswordReset(token, "curta1"), {
-    message: "A nova senha deve ter de 12 a 128 caracteres, com pelo menos uma letra e um número.",
+    message: "A nova senha deve ter de 12 a 128 caracteres.",
+  });
+});
+
+test("mapeia PASSWORD_TOO_COMMON sem expor detalhes internos", async () => {
+  installFetch(Response.json({ code: "PASSWORD_TOO_COMMON", message: "detalhe interno" }, { status: 400 }));
+  await assert.rejects(confirmPasswordReset(token, "123456789012"), {
+    message: "Escolha uma senha menos comum e difícil de adivinhar.",
   });
 });
 
@@ -57,11 +64,11 @@ test("sanitiza erro genérico", async () => {
   assert.equal(passwordResetErrorMessage(500).includes(token), false);
 });
 
-test("política exige 12–128, letra e número", () => {
-  assert.notEqual(passwordValidationMessage("abc123"), null);
+test("política aceita 12–128 caracteres independentemente da composição", () => {
+  assert.equal(passwordValidationMessage("abc123456789"), null);
   assert.notEqual(passwordValidationMessage("a".repeat(129) + "1"), null);
-  assert.notEqual(passwordValidationMessage("123456789012"), null);
-  assert.notEqual(passwordValidationMessage("abcdefghijkl"), null);
+  assert.equal(passwordValidationMessage("123456789012"), null);
+  assert.equal(passwordValidationMessage("abcdefghijkl"), null);
   assert.equal(passwordValidationMessage("senhasegura123"), null);
 });
 

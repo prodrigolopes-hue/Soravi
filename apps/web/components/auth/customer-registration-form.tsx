@@ -17,6 +17,10 @@ import { z } from "../../lib/zod";
 
 import { apiBaseUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
+import {
+  PASSWORD_HELP_TEXT,
+  passwordValidationMessage,
+} from "../../lib/password-policy";
 
 const phonePattern = /^\d{10,11}$/;
 
@@ -43,11 +47,13 @@ const customerRegistrationSchema = z
       ),
     password: z
       .string()
-      .min(1, "Crie uma senha.")
-      .min(12, "A senha deve ter pelo menos 12 caracteres.")
-      .max(128, "A senha deve ter no máximo 128 caracteres.")
-      .regex(/[A-Za-zÀ-ÿ]/, "A senha deve possuir pelo menos uma letra.")
-      .regex(/\d/, "A senha deve possuir pelo menos um número."),
+      .superRefine((value, context) => {
+        const message = passwordValidationMessage(value);
+
+        if (message) {
+          context.addIssue({ code: "custom", message });
+        }
+      }),
     passwordConfirmation: z
       .string()
       .min(1, "Confirme sua senha."),
@@ -102,6 +108,7 @@ export function CustomerRegistrationForm() {
     register,
     handleSubmit,
     setValue,
+    setError,
     reset,
     formState: { errors },
   } = useForm<CustomerRegistrationFormData>({
@@ -142,6 +149,18 @@ export function CustomerRegistrationForm() {
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
+        const errorCode = extractErrorCode(payload);
+
+        if (errorCode === "PASSWORD_TOO_COMMON") {
+          setError("password", {
+            type: "manual",
+            message:
+              "Escolha uma senha menos comum e difícil de adivinhar.",
+          });
+          setSubmissionState("error");
+          return;
+        }
+
         const errorMessage = extractErrorMessage(payload);
 
         if (response.status === 409 || errorMessage?.toLowerCase().includes("e-mail") || errorMessage?.toLowerCase().includes("email")) {
@@ -199,6 +218,16 @@ export function CustomerRegistrationForm() {
     }
 
     return null;
+  }
+
+  function extractErrorCode(payload: unknown): string | null {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    const candidate = payload as { code?: unknown };
+
+    return typeof candidate.code === "string" ? candidate.code : null;
   }
 
   const phoneField = register("phone");
@@ -377,7 +406,7 @@ export function CustomerRegistrationForm() {
         </div>
 
         <p id="password-help" className="mt-2 text-xs leading-5 text-slate-500">
-          Use pelo menos 12 caracteres, com pelo menos uma letra e um número.
+          {PASSWORD_HELP_TEXT}
         </p>
 
         {errors.password ? (

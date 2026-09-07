@@ -1,5 +1,7 @@
 import { apiBaseUrl } from "./api";
 
+export { passwordValidationMessage } from "./password-policy";
+
 const confirmUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/password-reset/confirm`;
 const requestUrl = `${apiBaseUrl.replace(/\/+$/u, "")}/api/v1/auth/password-reset/request`;
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/u;
@@ -36,21 +38,13 @@ export function extractPasswordResetToken(fragment: string): string | null {
   return token && tokenPattern.test(token) ? token : null;
 }
 
-export function passwordValidationMessage(password: string): string | null {
-  if (!password) return "Crie uma nova senha.";
-  if (password.length < 12) return "A senha deve ter pelo menos 12 caracteres.";
-  if (password.length > 128) return "A senha deve ter no máximo 128 caracteres.";
-  if (!/\p{L}/u.test(password)) return "A senha deve possuir pelo menos uma letra.";
-  if (!/\d/u.test(password)) return "A senha deve possuir pelo menos um número.";
-  return null;
-}
-
 export function passwordConfirmationMessage(password: string, confirmation: string): string | null { return password === confirmation ? null : "As senhas não são iguais."; }
 
 export function passwordResetErrorMessage(status: number, code?: string): string {
   if (code === "PASSWORD_RESET_INVALID_OR_EXPIRED") return "O link de redefinição é inválido ou expirou. Solicite um novo link.";
+  if (code === "PASSWORD_TOO_COMMON") return "Escolha uma senha menos comum e difícil de adivinhar.";
   if (status === 429) return "Muitas tentativas. Aguarde um pouco e tente novamente.";
-  if (status === 400) return "A nova senha deve ter de 12 a 128 caracteres, com pelo menos uma letra e um número.";
+  if (status === 400) return "A nova senha deve ter de 12 a 128 caracteres.";
   return "Não foi possível redefinir sua senha agora. Tente novamente em instantes.";
 }
 

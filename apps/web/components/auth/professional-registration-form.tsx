@@ -20,6 +20,10 @@ import { z } from "../../lib/zod";
 
 import { apiBaseUrl, categoriesUrl, categorySuggestionsUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
+import {
+  PASSWORD_HELP_TEXT,
+  passwordValidationMessage,
+} from "../../lib/password-policy";
 
 interface ServiceCategory {
   id: string;
@@ -98,11 +102,13 @@ const professionalRegistrationSchema = z
       .max(3, "Selecione no máximo três categorias."),
     password: z
       .string()
-      .min(1, "Crie uma senha.")
-      .min(12, "A senha deve ter pelo menos 12 caracteres.")
-      .regex(/[a-z]/, "A senha deve possuir uma letra minúscula.")
-      .regex(/[A-Z]/, "A senha deve possuir uma letra maiúscula.")
-      .regex(/\d/, "A senha deve possuir pelo menos um número."),
+      .superRefine((value, context) => {
+        const message = passwordValidationMessage(value);
+
+        if (message) {
+          context.addIssue({ code: "custom", message });
+        }
+      }),
     passwordConfirmation: z.string().min(1, "Confirme sua senha."),
     acceptedTerms: z.boolean().refine((value) => value, {
       message:
@@ -297,6 +303,22 @@ export function ProfessionalRegistrationForm() {
       );
 
       if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        const code =
+          payload && typeof payload === "object" && "code" in payload
+            ? (payload as { code?: unknown }).code
+            : null;
+
+        if (code === "PASSWORD_TOO_COMMON") {
+          setError("password", {
+            type: "manual",
+            message:
+              "Escolha uma senha menos comum e difícil de adivinhar.",
+          });
+          setFormMessage(null);
+          return;
+        }
+
         setFormMessage(
           "Não foi possível concluir seu cadastro profissional no momento.",
         );
@@ -854,7 +876,7 @@ export function ProfessionalRegistrationForm() {
         </div>
 
         <p id="password-help" className="mt-2 text-xs leading-5 text-slate-500">
-          Use pelo menos 12 caracteres, com letra maiúscula, minúscula e número.
+          {PASSWORD_HELP_TEXT}
         </p>
 
         {errors.password ? (
