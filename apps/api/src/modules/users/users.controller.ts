@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Patch,
   Query,
   UseGuards,
@@ -19,7 +21,9 @@ import { UsersAdminCustomersQueryDto } from "./dto/users-admin-customers-query.d
 import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-professionals-list-response.dto";
 import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
+import { UpdateCurrentUserPasswordDto } from "./dto/update-current-user-password.dto";
 import { UpdateCurrentUserPhoneDto } from "./dto/update-current-user-phone.dto";
+import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
 
@@ -28,6 +32,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly usersPhoneService: UsersPhoneService,
+    private readonly usersPasswordService: UsersPasswordService,
   ) {}
 
   @Get("me")
@@ -53,6 +58,26 @@ export class UsersController {
     @Body() input: UpdateCurrentUserPhoneDto,
   ): Promise<UserResponseDto> {
     return this.usersPhoneService.updateCurrentUserPhone(
+      currentUser.id,
+      currentUser.sessionId,
+      input,
+    );
+  }
+
+  @Patch("me/password")
+  @UseGuards(AccessTokenGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  updateCurrentUserPassword(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: UpdateCurrentUserPasswordDto,
+  ): Promise<void> {
+    return this.usersPasswordService.updateCurrentUserPassword(
       currentUser.id,
       currentUser.sessionId,
       input,

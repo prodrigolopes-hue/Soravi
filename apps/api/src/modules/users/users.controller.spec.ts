@@ -1,3 +1,4 @@
+import { HttpStatus } from "@nestjs/common";
 import { ProfessionalVerificationStatus, Role, UserStatus, } from "../../generated/prisma/client";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -9,6 +10,7 @@ import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-profes
 import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UsersController } from "./users.controller";
+import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
 
@@ -29,6 +31,9 @@ describe("UsersController", () => {
     let usersPhoneServiceMock: {
         updateCurrentUserPhone: jest.Mock;
     };
+    let usersPasswordServiceMock: {
+        updateCurrentUserPassword: jest.Mock;
+    };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -39,10 +44,14 @@ describe("UsersController", () => {
         usersPhoneServiceMock = {
             updateCurrentUserPhone: jest.fn(),
         };
+        usersPasswordServiceMock = {
+            updateCurrentUserPassword: jest.fn(),
+        };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
             usersPhoneServiceMock as unknown as UsersPhoneService,
+            usersPasswordServiceMock as unknown as UsersPasswordService,
         );
     });
 
@@ -138,6 +147,61 @@ describe("UsersController", () => {
             ));
 
         expect(values).toEqual(expect.arrayContaining([3, 3_600_000]));
+    });
+
+    it.each([Role.CUSTOMER, Role.PROFESSIONAL])(
+        "permite que usuário autenticado %s altere a própria senha",
+        async (role) => {
+            const currentUser: AuthenticatedUser = {
+                id: userId,
+                sessionId,
+                roles: [role],
+                phoneVerifiedAt: null,
+            };
+            const input = {
+                currentPassword: "senha atual",
+                newPassword: "nova senha ok",
+            };
+            usersPasswordServiceMock.updateCurrentUserPassword.mockResolvedValue(
+                undefined,
+            );
+
+            await expect(
+                controller.updateCurrentUserPassword(currentUser, input),
+            ).resolves.toBeUndefined();
+            expect(
+                usersPasswordServiceMock.updateCurrentUserPassword,
+            ).toHaveBeenCalledWith(userId, sessionId, input);
+        },
+    );
+
+    it("protege a alteração de senha com autenticação e throttle, sem PhoneVerifiedGuard", () => {
+        const guards = Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.updateCurrentUserPassword,
+        );
+
+        expect(guards).toEqual([AccessTokenGuard, ThrottlerGuard]);
+    });
+
+    it("limita a alteração de senha a três tentativas por hora", () => {
+        const values = Reflect.getMetadataKeys(
+            UsersController.prototype.updateCurrentUserPassword,
+        )
+            .filter((key) => String(key).toLowerCase().includes("throttler"))
+            .map((key) => Reflect.getMetadata(
+                key,
+                UsersController.prototype.updateCurrentUserPassword,
+            ));
+
+        expect(values).toEqual(expect.arrayContaining([3, 3_600_000]));
+    });
+
+    it("retorna 204 na alteração de senha", () => {
+        expect(Reflect.getMetadata(
+            "__httpCode__",
+            UsersController.prototype.updateCurrentUserPassword,
+        )).toBe(HttpStatus.NO_CONTENT);
     });
 
     it("encaminha a listagem administrativa de clientes", async () => {
