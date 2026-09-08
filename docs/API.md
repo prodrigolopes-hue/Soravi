@@ -4,7 +4,7 @@
 
 Este documento define os contratos, padrões e endpoints oficiais da API do MVP da Soravi.
 
-## Estado implementado — telefone e recuperação de senha (2026-09-01)
+## Estado implementado — telefone, senhas e recuperação de senha (2026-09-07)
 
 Esta seção registra os contratos atualmente implementados e substitui, para estas operações, exemplos antigos ou planejados existentes mais adiante neste documento.
 
@@ -34,6 +34,16 @@ Esta seção registra os contratos atualmente implementados e substitui, para es
 - Rate limit: 3 alterações por hora.
 - Erros principais: `400 INVALID_BRAZILIAN_PHONE`, `403 INVALID_CURRENT_PASSWORD`, `404 USER_NOT_FOUND`, `409 PHONE_ALREADY_IN_USE`, além de `401` e `429`.
 - Segurança: aceita somente telefone brasileiro com DDD, normaliza para E.164 no backend e nunca recebe `userId` ou `phoneNormalized`. O mesmo número normalizado é no-op seguro. Mudança real zera `phoneVerifiedAt`, invalida challenges pendentes, preserva a sessão atual e revoga as demais. Nenhum OTP é solicitado automaticamente.
+
+### `PATCH /api/v1/users/me/password`
+
+- Autenticação: Bearer access token e sessão válida; não exige `PhoneVerifiedGuard`.
+- Body: `{ "currentPassword": "senha-atual", "newPassword": "nova-senha-segura" }`.
+- Sucesso: `204 No Content`.
+- Rate limit: 3 tentativas por hora.
+- Erros principais: `400 NEW_PASSWORD_MUST_DIFFER`, `400 PASSWORD_TOO_COMMON`, `403 INVALID_CURRENT_PASSWORD`, além de `401` e `429`.
+- Segurança: `userId` e `sessionId` vêm somente do contexto autenticado, nunca do cliente. A senha atual deve estar correta antes de aplicar a política da nova senha. A nova senha deve ser diferente da atual, seguir a política central 12 a 128 com bloqueio de senhas comuns e nunca é trimada, normalizada ou truncada antes do hashing/verificação. O usuário é bloqueado com `SELECT ... FOR UPDATE`; o novo hash usa Argon2id; tokens pendentes de password reset são invalidados; todas as outras `AuthSession` ativas são revogadas; a sessão atual permanece ativa; tudo ocorre na mesma transação. Nenhuma migration ou alteração de schema foi necessária.
+- Frontend: `/conta/seguranca` é rota autenticada acessível por CUSTOMER, PROFESSIONAL e ADMIN, inclusive com `phoneVerified=false`. O header autenticado exibe `Conta` no desktop e mobile. O formulário possui senha atual, nova senha e confirmação da nova senha; a confirmação existe somente no frontend e não é enviada à API. A blocklist continua somente no backend. `INVALID_CURRENT_PASSWORD`, `NEW_PASSWORD_MUST_DIFFER`, `PASSWORD_TOO_COMMON`, `401` e `429` têm mensagens sanitizadas; mensagens arbitrárias do backend não são exibidas. Em `401`, os campos de senha são apagados antes do refresh da sessão e não há retry automático da alteração. No sucesso, a mensagem informa que as demais sessões foram encerradas.
 
 ### `POST /api/v1/auth/password-reset/request`
 
@@ -973,6 +983,43 @@ PATCH /api/v1/users/me
 - troca de e-mail exigirá fluxo próprio;
 - avatar deverá pertencer ao usuário;
 - telefone poderá exigir nova verificação.
+
+---
+
+## 15.2.1 Alterar senha do usuário autenticado
+
+```text
+PATCH /api/v1/users/me/password
+```
+
+### Entrada
+
+```json
+{
+  "currentPassword": "senha-atual",
+  "newPassword": "nova-senha-segura"
+}
+```
+
+### Resposta
+
+```text
+204 No Content
+```
+
+### Regras
+
+- autenticação obrigatória por access token e sessão válida;
+- `userId` e `sessionId` vêm do contexto autenticado, nunca do body, query ou params;
+- exige senha atual correta e nova senha diferente da atual;
+- nova senha deve seguir a política central 12 a 128, sem composição obrigatória e com bloqueio de senhas comuns no backend;
+- senhas não são trimadas, normalizadas ou truncadas antes de verificação ou hashing;
+- usuário bloqueado com `SELECT ... FOR UPDATE` durante a operação;
+- novo hash armazenado com Argon2id;
+- tokens pendentes de password reset são invalidados;
+- todas as outras `AuthSession` ativas são revogadas e a sessão atual permanece ativa;
+- operação transacional e limitada a 3 tentativas por hora;
+- não exige telefone verificado e não exigiu migration ou alteração de schema.
 
 ---
 

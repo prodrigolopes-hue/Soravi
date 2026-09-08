@@ -167,6 +167,10 @@ de produto.
 - o telefone, quando informado, deve ser normalizado antes de ser armazenado;
 - a senha deve ser armazenada somente como hash Argon2id;
 - o backend é a autoridade da política de senha e bloqueia senhas comuns; o frontend valida apenas 12 a 128 caracteres e trata `PASSWORD_TOO_COMMON`;
+- usuários autenticados podem alterar a própria senha em `/api/v1/users/me/password`, informando senha atual e nova senha;
+- a alteração de senha usa `userId` e `sessionId` do contexto autenticado, nunca do cliente, não exige telefone verificado e é permitida para `CUSTOMER`, `PROFESSIONAL` e `ADMIN`;
+- a nova senha deve ser diferente da atual, seguir a política central 12 a 128 com bloqueio de senhas comuns e nunca ser trimada, normalizada ou truncada antes do hashing;
+- a troca autenticada preserva a sessão atual, revoga as demais sessões ativas e invalida tokens pendentes de recuperação de senha;
 - usuários com status `PENDING` ou `ACTIVE` podem realizar login;
 - usuários com status `SUSPENDED`, `BLOCKED` ou `DEACTIVATED` não podem realizar login;
 - o login gera um access token e um refresh token;

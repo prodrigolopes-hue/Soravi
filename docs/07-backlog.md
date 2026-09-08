@@ -197,10 +197,10 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [x] Serialização de refresh entre abas no frontend, com single-flight por Promise e Web Lock `soravi-auth-refresh` quando disponível (`96abdd6`).
 - [x] Histórico de refresh tokens em `auth_refresh_token_history`, somente com hash, aplicado e validado apenas no PostgreSQL local (`fa63449`).
 - [x] Detecção de replay de refresh token com grace period de 60 segundos e revogação isolada da sessão comprometida (`0e2b376`).
+- [x] ASVS 5.0.0 V6.2.2: usuário autenticado pode alterar a própria senha por `PATCH /api/v1/users/me/password`, com rota frontend `/conta/seguranca`, sem exigir telefone verificado e sem migration/schema (`f8ea104`, `777732b`).
+- [x] ASVS 5.0.0 V6.2.3: troca de senha autenticada exige senha atual correta e nova senha, usa `userId`/`sessionId` do contexto autenticado, preserva a sessão atual, revoga as demais e invalida tokens pendentes de reset (`f8ea104`, `777732b`).
 - [x] ASVS 5.0.0 V6.2.4: rejeição de senhas comuns tratada no backend por blocklist versionada de 3000 entradas derivadas do SecLists, mantida somente no backend, com lookup case-insensitive apenas para detecção e atribuição em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md` (`5d204a0`).
 - [x] ASVS 5.0.0 V6.2.5: regras obrigatórias de composição removidas; política oficial aceita 12 a 128 caracteres sem exigir letra, número, maiúscula, minúscula ou símbolo, com frontend validando somente estrutura e tratando `PASSWORD_TOO_COMMON` (`5d204a0`, `ce06e44`).
-- [ ] ASVS 5.0.0 V6.2.2: permitir que usuário autenticado altere a própria senha.
-- [ ] ASVS 5.0.0 V6.2.3: troca de senha do usuário autenticado deve exigir senha atual + nova.
 - [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
 - [ ] Validar o comportamento real de concorrência (limite de sessões e corrida login/reset) em PostgreSQL integrado, além da simulação de ordem usada nos testes atuais.
 - [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.

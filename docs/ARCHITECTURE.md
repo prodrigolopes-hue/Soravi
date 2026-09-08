@@ -17,11 +17,13 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 - A confirmação do reset bloqueia `User` antes de `PasswordResetToken` e, na mesma transação, atualiza o hash Argon2id, consome o token utilizado, invalida os demais tokens ativos e revoga todas as sessões.
 - O frontend recebe o token em `/redefinir-senha#token=<token>`, lê e remove o fragmento somente no client e mantém o token apenas em memória. O fluxo não persiste credenciais ou tokens e retorna ao login sem auto-login.
 - A troca administrativa de senha também invalida tokens de reset pendentes dentro de sua transação.
+- A troca de senha autenticada foi concluída de ponta a ponta nos commits `f8ea104 feat(users): permite alterar a propria senha` e `777732b feat(web): adiciona seguranca da conta`. O backend expõe `PATCH /api/v1/users/me/password`, usa `userId` e `sessionId` do contexto autenticado, exige senha atual correta e nova senha diferente, aplica a política central 12 a 128 com bloqueio de senhas comuns, não trima/normaliza/trunca senhas, bloqueia o usuário com `SELECT ... FOR UPDATE`, gera hash Argon2id, invalida tokens pendentes de password reset, revoga somente as outras sessões e preserva a sessão atual, tudo na mesma transação e sem migration/schema.
+- A rota frontend `/conta/seguranca` é autenticada, está disponível para CUSTOMER, PROFESSIONAL e ADMIN, inclusive quando `phoneVerified=false`, e tem link `Conta` no header autenticado desktop/mobile. O formulário envia apenas senha atual e nova senha; a confirmação fica somente no frontend. Códigos públicos de erro são tratados explicitamente, mensagens arbitrárias do backend não são exibidas, e em `401` os campos de senha são apagados antes do refresh da sessão, sem retry automático.
 - A política oficial de senha foi centralizada no backend no commit `5d204a0 fix(auth): centraliza politica segura de senha` e alinhada no frontend no commit `ce06e44 fix(web): alinha formularios a politica de senha`: mínimo de 12 e máximo de 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo; qualquer composição nesse intervalo é permitida.
 - A senha original nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação. O hashing permanece com Argon2id, senhas comuns são bloqueadas no backend e o login de contas existentes não aplica retroativamente a nova política.
 - A blocklist versionada contém exatamente 3000 entradas derivadas do SecLists, é mantida somente no backend, usa lookup case-insensitive apenas para detecção e não modifica a senha original. A atribuição e o snapshot estão documentados em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md`; a documentação não copia as 3000 senhas.
 - O frontend não contém a blocklist, valida somente estrutura 12 a 128 caracteres e trata `PASSWORD_TOO_COMMON` retornado pelo backend.
-- ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados por esses commits, sem declarar conformidade ASVS geral. V6.2.2 (usuário autenticado alterar a própria senha) e V6.2.3 (troca de senha exigir senha atual + nova) permanecem pendentes.
+- ASVS 5.0.0 V6.2.2 (usuário autenticado alterar a própria senha), V6.2.3 (troca de senha exigir senha atual + nova), V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados por esses commits, sem declarar conformidade ASVS geral.
 - O hardening de dependências reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades por atualizações compatíveis: Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0. O Prisma 7.10.0 também removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
 - As 6 vulnerabilidades residuais são risco conhecido e monitorado, concentrado em `deepmerge-ts` 7.1.5, dependência interna de `@prisma/config`; `mysql2` 3.15.3, dependência interna do Prisma/tooling embora a Soravi use PostgreSQL; e `postcss` 8.4.31, fixado internamente pelo Next.js 15.5.25. Não foram usados `npm audit fix --force` ou overrides internos sem validação de compatibilidade.
 - Em 2026-09-03, o frontend passou a remover `X-Powered-By` e a enviar `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`; `Strict-Transport-Security` é enviado somente em produção.
@@ -693,7 +695,7 @@ A autenticação implementada é baseada em:
 
 ### Política de sessão implementada
 
-Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa63449`, `0e2b376`, `5d204a0` e `ce06e44` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção nem conformidade ASVS geral.
+Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa63449`, `0e2b376`, `5d204a0`, `ce06e44`, `f8ea104` e `777732b` concluíram os hardenings abaixo. As validações de conclusão estão no [changelog](../CHANGELOG.md); este estado não afirma deploy em produção nem conformidade ASVS geral.
 
 | Prazo | Política |
 | --- | --- |
@@ -704,6 +706,7 @@ Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa
 | Rate limit de login | 10 requisições / 15 minutos via `ThrottlerGuard`. |
 | Rate limit de refresh | 60 requisições / 15 minutos via `ThrottlerGuard`. |
 | Senhas | 12 a 128 caracteres, sem composição obrigatória; senhas comuns bloqueadas pelo backend. |
+| Troca de senha autenticada | `PATCH /api/v1/users/me/password`, 3 tentativas por hora, sessão atual preservada e demais sessões revogadas. |
 
 O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1000`, por timestamp/milissegundos, sem cálculo por calendário. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e esse limite. Nenhuma renovação pode ultrapassar `createdAt + 90 dias`; ao atingir 90 dias desde a criação, novo login é obrigatório. Refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes. `AuthSession.createdAt` já existia, portanto não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido.
 
@@ -725,7 +728,21 @@ A blocklist possui exatamente 3000 entradas derivadas do SecLists, é versionada
 
 O frontend não contém a blocklist. Ele valida somente a estrutura 12 a 128 caracteres e trata o erro `PASSWORD_TOO_COMMON` quando retornado pelo backend.
 
-ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados pelos commits `5d204a0` e `ce06e44`, sem declarar conformidade ASVS geral. V6.2.2 e V6.2.3 permanecem pendentes no backlog.
+ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) estão tratados pelos commits `5d204a0` e `ce06e44`, sem declarar conformidade ASVS geral.
+
+### Troca de senha autenticada implementada
+
+`PATCH /api/v1/users/me/password` permite que o usuário autenticado altere a própria senha com body estrito contendo somente `currentPassword` e `newPassword`. O endpoint retorna `204 No Content`, usa `AccessTokenGuard` e `ThrottlerGuard` com limite de 3 tentativas por hora, e não usa `PhoneVerifiedGuard`.
+
+O controller passa ao service apenas `currentUser.id`, `currentUser.sessionId` e o DTO validado; `userId` e `sessionId` nunca são aceitos do body, query ou params. Dentro de uma transação interativa, o usuário é bloqueado com `SELECT ... FOR UPDATE`; depois do lock, a senha atual é verificada. Se a senha atual estiver incorreta, a política da nova senha, o hash e os updates não são executados. A nova senha deve ser diferente da atual, passa pela política central 12 a 128 com bloqueio de senhas comuns, e não é trimada, normalizada ou truncada antes do Argon2id.
+
+Na mesma transação, o `passwordHash` é atualizado, todos os `PasswordResetToken` pendentes são marcados como usados e todas as outras `AuthSession` ativas do usuário são revogadas com o mesmo timestamp. A sessão que realizou a alteração não é revogada nem atualizada. Nenhuma migration ou alteração de schema foi necessária.
+
+No frontend, `/conta/seguranca` é rota autenticada para CUSTOMER, PROFESSIONAL e ADMIN. O link `Conta` aparece no header autenticado desktop/mobile antes de `Sair`. O formulário contém senha atual, nova senha e confirmação da nova senha; a confirmação existe somente no frontend e não é enviada à API. A validação estrutural reutiliza 12 a 128 sem composição obrigatória, e a blocklist permanece somente no backend.
+
+Os códigos públicos `INVALID_CURRENT_PASSWORD`, `NEW_PASSWORD_MUST_DIFFER`, `PASSWORD_TOO_COMMON`, `401` e `429` são tratados explicitamente com mensagens sanitizadas, sem exibir mensagens arbitrárias do backend. Em `401`, os campos de senha são apagados antes de chamar `refreshSession()`, sem retry automático da alteração e sem redirecionamento automático. No sucesso, a sessão atual é preservada e a mensagem informa que as demais sessões foram encerradas. `/conta/seguranca` pode ser acessada por usuário autenticado mesmo com `phoneVerified=false`; o `PhoneVerificationGuard` não precisou ser modificado e recebeu teste para fixar esse comportamento.
+
+ASVS 5.0.0 V6.2.2 e V6.2.3 estão tratados pelos commits `f8ea104` e `777732b`, preservando V6.2.4 e V6.2.5 como já tratados e sem declarar conformidade ASVS geral.
 
 ### Cookie de refresh
 

@@ -27,6 +27,8 @@ POST /api/v1/auth/password-reset/request - Solicitar recuperação de senha
 
 POST /api/v1/auth/password-reset/confirm - Redefinir senha
 
+PATCH /api/v1/users/me/password - Alterar a própria senha autenticada
+
 Os dois endpoints são públicos. A solicitação recebe somente `email`, retorna
 `202 Accepted` de forma neutra e possui rate limit, sem revelar existência ou
 elegibilidade da conta. A entrega atual usa Resend por meio de
@@ -38,6 +40,15 @@ número, maiúscula, minúscula ou símbolo; qualquer composição nesse interva
 permitida, exceto senhas comuns bloqueadas pelo backend. Uma confirmação válida
 consome o token, invalida os demais tokens ativos, revoga todas as sessões e não
 realiza auto-login.
+
+A alteração autenticada de senha recebe somente `currentPassword` e
+`newPassword`, retorna `204 No Content`, usa `userId` e `sessionId` do contexto
+autenticado, exige senha atual correta, nova senha diferente e política central
+12 a 128 com bloqueio de senhas comuns. A senha não é trimada, normalizada ou
+truncada; o hash novo usa Argon2id; tokens pendentes de recuperação são
+invalidados; as outras sessões são revogadas; a sessão atual permanece ativa.
+O endpoint tem throttle de 3 tentativas por hora e não exige telefone
+verificado.
 
 ## Registro de conta
 

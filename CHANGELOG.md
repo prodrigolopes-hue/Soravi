@@ -8,7 +8,18 @@
 - a senha original nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação. O hashing permanece com Argon2id, e o login de contas existentes não aplica retroativamente a nova política;
 - senhas comuns são bloqueadas somente no backend por uma blocklist versionada com exatamente 3000 entradas derivadas do SecLists. O lookup para detecção é case-insensitive e não modifica a senha original. A atribuição e o snapshot estão documentados em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md`; as 3000 entradas não são copiadas para a documentação;
 - concluído o commit `ce06e44 fix(web): alinha formularios a politica de senha`: o frontend valida apenas a estrutura 12 a 128 caracteres, não contém a blocklist e trata o erro `PASSWORD_TOO_COMMON` retornado pelo backend;
-- ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) ficam registrados como tratados por esses commits, sem declarar conformidade ASVS geral. V6.2.2 e V6.2.3 permanecem pendentes.
+- ASVS 5.0.0 V6.2.4 (rejeição de senhas comuns) e V6.2.5 (remoção das regras obrigatórias de composição) ficam registrados como tratados por esses commits, sem declarar conformidade ASVS geral. V6.2.2 e V6.2.3 foram tratados posteriormente pela troca de senha autenticada registrada abaixo.
+
+### Troca de senha autenticada
+
+- concluído o commit `f8ea104 feat(users): permite alterar a propria senha`: criado `PATCH /api/v1/users/me/password`, autenticado por Bearer access token e sessão válida, com body estrito `{ "currentPassword": string, "newPassword": string }` e resposta `204 No Content`;
+- o backend obtém `userId` e `sessionId` somente do contexto autenticado, nunca do body, query ou params. A operação exige senha atual correta, exige que a nova senha seja diferente da atual, aplica a política central 12 a 128 com bloqueio de senhas comuns somente após validar a senha atual, nunca trima, normaliza ou trunca senhas, gera novo hash Argon2id e usa throttle de 3 tentativas por hora;
+- a troca bloqueia o usuário com `SELECT ... FOR UPDATE` e executa na mesma transação: atualização do `passwordHash`, invalidação de `PasswordResetToken` pendentes e revogação de todas as outras `AuthSession` ativas. A sessão que realizou a alteração permanece ativa. Nenhuma migration ou alteração de schema foi necessária;
+- concluído o commit `777732b feat(web): adiciona seguranca da conta`: criada a rota autenticada `/conta/seguranca`, com link `Conta` no header autenticado desktop/mobile, disponível para CUSTOMER, PROFESSIONAL e ADMIN sem restrição de papel;
+- o formulário possui senha atual, nova senha e confirmação da nova senha. A confirmação existe somente no frontend e não é enviada à API; a validação estrutural reutiliza 12 a 128 sem composição obrigatória, a blocklist continua somente no backend, e os códigos `INVALID_CURRENT_PASSWORD`, `NEW_PASSWORD_MUST_DIFFER`, `PASSWORD_TOO_COMMON`, `401` e `429` são tratados com mensagens sanitizadas, sem exibir mensagens arbitrárias do backend;
+- em `401`, os campos de senha são apagados antes do refresh da sessão, sem retry automático da alteração e sem redirecionamento automático. No sucesso, a sessão atual é preservada e a mensagem informa que as demais sessões foram encerradas;
+- `/conta/seguranca` pode ser acessada por usuário autenticado com `phoneVerified=false`. O `PhoneVerificationGuard` não precisou ser modificado; foi adicionado teste para fixar esse comportamento;
+- ASVS 5.0.0 V6.2.2 (usuário autenticado pode alterar a própria senha) e V6.2.3 (alteração exige senha atual + nova senha) ficam registrados como tratados por esses commits, preservando V6.2.4 e V6.2.5 como já tratados e sem declarar conformidade ASVS geral.
 
 ## 2026-09-06
 
