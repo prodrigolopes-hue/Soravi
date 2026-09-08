@@ -110,6 +110,17 @@ test("rotas publicas e subrotas de cadastro ficam liberadas", () => {
   }
 });
 
+test("segurança da conta fica acessível sem telefone verificado", () => {
+  assert.deepEqual(
+    phoneVerificationGuardDecision({
+      isLoading: false,
+      pathname: "/conta/seguranca",
+      user: { ...customer, phoneVerified: false },
+    }),
+    { type: "allow" },
+  );
+});
+
 test("verificado permanece em rota protegida", () => {
   assert.deepEqual(
     phoneVerificationGuardDecision({
