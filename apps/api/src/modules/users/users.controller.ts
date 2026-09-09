@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   Patch,
+  Param,
+  ParseUUIDPipe,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -23,6 +25,8 @@ import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UpdateCurrentUserPasswordDto } from "./dto/update-current-user-password.dto";
 import { UpdateCurrentUserPhoneDto } from "./dto/update-current-user-phone.dto";
+import { UpdateUserAdminStatusDto } from "./dto/update-user-admin-status.dto";
+import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
@@ -33,6 +37,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly usersPhoneService: UsersPhoneService,
     private readonly usersPasswordService: UsersPasswordService,
+    private readonly usersAdminStatusService: UsersAdminStatusService,
   ) {}
 
   @Get("me")
@@ -126,5 +131,21 @@ export class UsersController {
     @Query() query: UsersAdminProfessionalsQueryDto,
   ): Promise<UsersAdminProfessionalsListResponseDto> {
     return this.usersService.findAllAdminProfessionals(query);
+  }
+
+  @Patch("admin/:userId/status")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  updateAdminUserStatus(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("userId", new ParseUUIDPipe()) userId: string,
+    @Body() input: UpdateUserAdminStatusDto,
+  ): Promise<void> {
+    return this.usersAdminStatusService.updateStatus(
+      currentUser.id,
+      userId,
+      input,
+    );
   }
 }

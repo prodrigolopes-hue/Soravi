@@ -10,6 +10,7 @@ import { UsersAdminProfessionalsListResponseDto } from "./dto/users-admin-profes
 import { UsersAdminProfessionalsQueryDto } from "./dto/users-admin-professionals-query.dto";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { UsersController } from "./users.controller";
+import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { UsersService } from "./users.service";
@@ -34,6 +35,7 @@ describe("UsersController", () => {
     let usersPasswordServiceMock: {
         updateCurrentUserPassword: jest.Mock;
     };
+    let usersAdminStatusServiceMock: { updateStatus: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -47,11 +49,13 @@ describe("UsersController", () => {
         usersPasswordServiceMock = {
             updateCurrentUserPassword: jest.fn(),
         };
+        usersAdminStatusServiceMock = { updateStatus: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
             usersPhoneServiceMock as unknown as UsersPhoneService,
             usersPasswordServiceMock as unknown as UsersPasswordService,
+            usersAdminStatusServiceMock as unknown as UsersAdminStatusService,
         );
     });
 
@@ -312,6 +316,28 @@ describe("UsersController", () => {
         );
 
         expect(roles).toEqual([Role.ADMIN]);
+    });
+
+    it("encaminha a alteração administrativa de status", async () => {
+        const targetUserId = "825afb87-2b81-4de7-9606-8f382fff3341";
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.ADMIN],
+            phoneVerifiedAt: null,
+        };
+        const input = { status: UserStatus.BLOCKED } as const;
+        usersAdminStatusServiceMock.updateStatus.mockResolvedValue(undefined);
+
+        await expect(controller.updateAdminUserStatus(currentUser, targetUserId, input)).resolves.toBeUndefined();
+        expect(usersAdminStatusServiceMock.updateStatus).toHaveBeenCalledWith(userId, targetUserId, input);
+    });
+
+    it("exige autenticação e role ADMIN para alterar status", () => {
+        const method = UsersController.prototype.updateAdminUserStatus;
+        expect(Reflect.getMetadata("__guards__", method)).toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", method)).toEqual([Role.ADMIN]);
+        expect(Reflect.getMetadata("__httpCode__", method)).toBe(HttpStatus.NO_CONTENT);
     });
 
     function createUserResponse(role: Role): UserResponseDto {
