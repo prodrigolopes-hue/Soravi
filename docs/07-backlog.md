@@ -201,6 +201,11 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [x] ASVS 5.0.0 V6.2.3: troca de senha autenticada exige senha atual correta e nova senha, usa `userId`/`sessionId` do contexto autenticado, preserva a sessão atual, revoga as demais e invalida tokens pendentes de reset (`f8ea104`, `777732b`).
 - [x] ASVS 5.0.0 V6.2.4: rejeição de senhas comuns tratada no backend por blocklist versionada de 3000 entradas derivadas do SecLists, mantida somente no backend, com lookup case-insensitive apenas para detecção e atribuição em `apps/api/src/modules/auth/password-policy/ATTRIBUTION.md` (`5d204a0`).
 - [x] ASVS 5.0.0 V6.2.5: regras obrigatórias de composição removidas; política oficial aceita 12 a 128 caracteres sem exigir letra, número, maiúscula, minúscula ou símbolo, com frontend validando somente estrutura e tratando `PASSWORD_TOO_COMMON` (`5d204a0`, `ce06e44`).
+- [x] Bloqueio administrativo seguro e reativação administrativa de CUSTOMER/PROFESSIONAL, com frontend de moderação `ACTIVE`/`BLOCKED` e revogação explícita de sessões no bloqueio (`fce91dc`, `7f7b5dd`).
+- [ ] ASVS 5.0.0 V7.4.2 parcialmente tratado: `BLOCKED` revoga explicitamente todas as sessões; não considerar o requisito integralmente concluído.
+- [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de suspensão (`SUSPENDED`).
+- [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de desativação (`DEACTIVATED`).
+- [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de exclusão/soft-delete.
 - [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
 - [ ] Validar o comportamento real de concorrência (limite de sessões e corrida login/reset) em PostgreSQL integrado, além da simulação de ordem usada nos testes atuais.
 - [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.
@@ -277,11 +282,14 @@ Cada tarefa somente será considerada concluída quando:
 ### Concluído
 
 - [x] Listagem administrativa read-only de profissionais.
+- [x] Bloqueio e reativação administrativa de contas CUSTOMER/PROFESSIONAL.
+- [x] Frontend de moderação `ACTIVE`/`BLOCKED` para clientes e profissionais.
+- [x] Revogação de todas as sessões ainda ativas durante o bloqueio.
 
 ### Pendente
 
 - [ ] Edição de profissional.
-- [ ] Suspensão/bloqueio de profissional.
+- [ ] Suspensão de profissional em fluxo próprio.
 - [ ] Moderação de profissional.
 - [ ] Curadoria de profissional.
 

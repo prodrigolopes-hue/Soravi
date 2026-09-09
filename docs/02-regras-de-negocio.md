@@ -121,6 +121,18 @@ A plataforma poderá bloquear usuários que:
 -   utilizem linguagem ofensiva;
 -   violem os termos de uso.
 
+## Bloqueio e reativação administrativa no MVP
+
+- somente `ADMIN` pode usar o fluxo, exclusivamente sobre contas `CUSTOMER` e `PROFESSIONAL`;
+- o administrador não pode alterar a própria conta nem qualquer outra conta com papel `ADMIN` por esse endpoint;
+- somente `ACTIVE` e `BLOCKED` participam do fluxo; `PENDING`, `SUSPENDED`, `DEACTIVATED` e contas soft-deleted não podem ser alteradas;
+- `ACTIVE -> BLOCKED` altera o status e revoga todas as sessões ainda ativas;
+- `BLOCKED -> BLOCKED` é idempotente e continua revogando sessões residuais;
+- `BLOCKED -> ACTIVE` não restaura sessões anteriores, portanto o usuário precisa entrar novamente;
+- `ACTIVE -> ACTIVE` é no-op;
+- bloquear e reativar exigem confirmação inline no painel. Após sucesso, somente o status do item afetado é atualizado localmente, sem reload ou novo fetch obrigatório;
+- erros públicos são apresentados por mensagens sanitizadas derivadas do código; mensagens arbitrárias do backend nunca são exibidas.
+
 ------------------------------------------------------------------------
 
 # Segurança

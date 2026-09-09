@@ -88,6 +88,22 @@ Transação de criação no registro profissional:
 
 # Usuários
 
+## Moderação administrativa de status
+
+`PATCH /api/v1/users/admin/:userId/status`
+
+Body permitido:
+
+```json
+{ "status": "ACTIVE" }
+```
+
+O valor também pode ser `BLOCKED`. Qualquer outro campo é rejeitado. O sucesso retorna `204 No Content`.
+
+O endpoint exige `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida `userId` como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Ele permite bloquear ou reativar somente CUSTOMER e PROFESSIONAL; rejeita self-target, qualquer alvo ADMIN, conta soft-deleted e estado atual `PENDING`, `SUSPENDED` ou `DEACTIVATED`.
+
+Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma transação, com `SELECT ... FOR UPDATE` sobre `User`. Repetir `BLOCKED` ainda revoga sessões residuais. Reativar não restaura sessões; repetir `ACTIVE` é no-op.
+
 GET /api/v1/users/me - Dados do usuário autenticado
 
 PUT /api/v1/users/me - Atualizar perfil

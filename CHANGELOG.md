@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-08
+
+### Moderação administrativa de status de contas
+
+- concluído o commit `fce91dc feat(admin): adiciona bloqueio seguro de contas`: criado `PATCH /api/v1/users/admin/:userId/status`, com body estrito `{ "status": "ACTIVE" | "BLOCKED" }` e resposta `204 No Content`;
+- o endpoint usa `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida o `userId` alvo como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Atua somente sobre contas CUSTOMER e PROFESSIONAL: impede alteração da própria conta ADMIN e de qualquer outra conta ADMIN, rejeita contas soft-deleted e mantém `PENDING`, `SUSPENDED` e `DEACTIVATED` fora deste fluxo;
+- `ACTIVE -> BLOCKED` atualiza o status e revoga todas as `AuthSession` ainda ativas na mesma transação Prisma, após `SELECT ... FOR UPDATE` da linha de `User`. `BLOCKED -> BLOCKED` é idempotente e ainda revoga sessões residuais; `BLOCKED -> ACTIVE` não restaura sessões; `ACTIVE -> ACTIVE` é no-op. O `AccessTokenAuthService` continua rejeitando contas `BLOCKED`, e `revokedAt` registra explicitamente a revogação causada pelo bloqueio;
+- a proteção contra alvo ADMIN é verificada no mesmo fluxo transacional. O lock atual protege a linha de `User`, mas não `user_roles`; uma futura promoção ou rebaixamento concorrente de ADMIN exigirá revisão específica;
+- concluído o commit `7f7b5dd feat(admin): adiciona moderacao de contas no painel`: clientes e profissionais passaram a exibir Bloquear/Reativar no mobile e desktop somente para `ACTIVE`/`BLOCKED`; os demais status exibem "Sem ação disponível". Há confirmação inline obrigatória, mensagens sobre encerramento/não restauração das sessões, atualização local apenas do item afetado sem reload ou novo fetch obrigatório e tratamento sanitizado de erros por código público;
+- ASVS 5.0.0 V7.4.2 fica **parcialmente tratado**: o bloqueio `BLOCKED` revoga explicitamente todas as sessões, mas fluxos próprios de `SUSPENDED`, `DEACTIVATED` e exclusão/soft-delete ainda não existem e deverão revogar sessões explicitamente antes de se avaliar o requisito como integralmente tratado. Isso não afirma deploy nem conformidade ASVS geral.
+
 ## 2026-09-07
 
 ### Política segura de senha

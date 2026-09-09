@@ -2637,6 +2637,24 @@ O usuário não receberá informações internas da análise.
 
 # 29. Administração
 
+## Moderação de status implementada no MVP
+
+```text
+PATCH /api/v1/users/admin/:userId/status
+```
+
+O body aceita somente `{ "status": "ACTIVE" | "BLOCKED" }` e o sucesso retorna `204 No Content`. A rota usa `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida o alvo como UUID, recebe o ator exclusivamente do contexto autenticado e não exige telefone verificado.
+
+Somente contas CUSTOMER e PROFESSIONAL em `ACTIVE` ou `BLOCKED` participam do fluxo. A própria conta do ator, qualquer conta ADMIN, contas soft-deleted e estados `PENDING`, `SUSPENDED` ou `DEACTIVATED` são rejeitados. Os códigos públicos incluem `ADMIN_SELF_STATUS_CHANGE_FORBIDDEN`, `ADMIN_TARGET_STATUS_CHANGE_FORBIDDEN` e `USER_STATUS_TRANSITION_NOT_ALLOWED`.
+
+`ACTIVE -> BLOCKED` atualiza o usuário e revoga todas as `AuthSession` com `revokedAt = null`, usando o mesmo instante e a mesma transação Prisma após `SELECT ... FOR UPDATE` da linha de `User`. `BLOCKED -> BLOCKED` não atualiza o usuário, mas revoga sessões residuais. `BLOCKED -> ACTIVE` não restaura nem cria sessões; `ACTIVE -> ACTIVE` é no-op. O `AccessTokenAuthService` também continua rejeitando contas `BLOCKED`.
+
+A verificação de papel ADMIN do alvo ocorre no mesmo fluxo transacional. O lock protege a linha de `User`, não `user_roles`; uma futura promoção ou rebaixamento concorrente de ADMIN deverá revisar essa concorrência.
+
+No painel, clientes e profissionais têm Bloquear/Reativar no mobile e desktop apenas para `ACTIVE`/`BLOCKED`; outros estados mostram "Sem ação disponível". Uma confirmação inline é obrigatória e explica a revogação ou não restauração das sessões. Após sucesso, somente o item afetado é atualizado localmente, sem reload ou novo fetch obrigatório. Erros são mapeados por código/status para mensagens sanitizadas; mensagens arbitrárias do backend não são exibidas.
+
+As subseções históricas de suspensão, bloqueio com motivo, auditoria e notificação abaixo descrevem evolução futura; não substituem o fluxo MVP implementado nesta seção.
+
 Todos os endpoints administrativos utilizarão:
 
 ```text

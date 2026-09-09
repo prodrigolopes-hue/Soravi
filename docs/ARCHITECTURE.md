@@ -720,6 +720,20 @@ No frontend, o refresh mantém single-flight por Promise dentro da mesma aba; en
 
 A tabela `auth_refresh_token_history` (migration `20260906000100_create_auth_refresh_token_history`, aplicada e validada somente no PostgreSQL local; produção não foi alterada) registra cada rotação de refresh token vinculada à `AuthSession`, guardando apenas o hash do token (nunca o token bruto), `rotatedAt`, `expiresAt` e `replayedAt`. O CAS da `AuthSession` e a criação desse histórico ocorrem na mesma transação interativa, de forma atômica; um token já rotacionado nunca volta a ser válido e sua reutilização sempre responde `401`. Até exatamente 60 segundos desde `rotatedAt`, a reutilização responde `401` sem revogar a sessão. Após esse grace period, se o token ainda estaria dentro de sua validade original e a sessão segue ativa, a reutilização é tratada como replay suspeito: o histórico é marcado com `replayedAt` e somente aquela `AuthSession` é revogada — nunca todas as sessões da conta. Token aleatório/não encontrado, histórico expirado ou sessão já revogada/expirada/além do lifetime absoluto respondem `401` sem revogação adicional; a resposta pública não diferencia replay de token inválido.
 
+### Moderação administrativa de status implementada
+
+Os commits `fce91dc feat(admin): adiciona bloqueio seguro de contas` e `7f7b5dd feat(admin): adiciona moderacao de contas no painel` implementaram a moderação `ACTIVE`/`BLOCKED`, sem afirmar deploy. `PATCH /api/v1/users/admin/:userId/status` aceita somente esses dois status e retorna `204 No Content`. O controller usa `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida o alvo como UUID, obtém o ator do contexto autenticado e não exige telefone verificado.
+
+O fluxo atua apenas sobre CUSTOMER e PROFESSIONAL. Self-target e qualquer alvo ADMIN retornam `403`; conta inexistente ou soft-deleted retorna `404`; `PENDING`, `SUSPENDED` e `DEACTIVATED` não participam. O service também valida o status solicitado, independentemente do DTO.
+
+A linha de `User` é carregada com `SELECT ... FOR UPDATE`. Na mesma transação Prisma, `ACTIVE -> BLOCKED` atualiza o status e preenche `revokedAt` de todas as sessões ainda ativas; `BLOCKED -> BLOCKED` preserva o usuário e revoga sessões residuais. `BLOCKED -> ACTIVE` não restaura nem cria sessões, e `ACTIVE -> ACTIVE` é no-op. Em defesa em profundidade, o `AccessTokenAuthService` continua rejeitando usuário `BLOCKED`.
+
+A existência de `Role.ADMIN` no alvo é verificada no mesmo fluxo transacional. O lock atual protege a linha de `User`, mas não `user_roles`; caso promoção ou rebaixamento concorrente de ADMIN seja implementado no futuro, essa concorrência deverá ser revisada.
+
+O frontend reutiliza uma ação compartilhada nas listagens de clientes e profissionais, em mobile e desktop. A ação existe somente para `ACTIVE`/`BLOCKED`, exige confirmação inline e atualiza apenas `item.status` após sucesso, sem reload nem novo fetch obrigatório. Mensagens arbitrárias do backend não são exibidas; códigos públicos e status HTTP são convertidos em mensagens sanitizadas.
+
+ASVS 5.0.0 V7.4.2 está **parcialmente tratado**. A cobertura atual é a revogação explícita de todas as sessões ao entrar ou permanecer em `BLOCKED`. Permanecem pendentes fluxos próprios de `SUSPENDED`, `DEACTIVATED` e exclusão/soft-delete com revogação explícita; somente depois deles será possível avaliar V7.4.2 como integralmente tratado.
+
 ### Política de senha implementada
 
 O backend é a autoridade da política de senha. A regra oficial aceita senhas com mínimo de 12 e máximo de 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo. Qualquer composição entre 12 e 128 caracteres é permitida, desde que não esteja na lista de senhas comuns bloqueadas pelo backend. Senhas nunca devem ser trimadas, normalizadas ou truncadas antes de hashing ou verificação; o hash permanece Argon2id. Login de contas existentes não aplica retroativamente a nova política.
