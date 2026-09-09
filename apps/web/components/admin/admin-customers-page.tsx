@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { adminCustomersUrl } from "../../lib/api";
+import { ManageableAdminUserStatus } from "../../lib/admin-user-status";
 import { useAuth } from "../auth/auth-provider";
+import { AdminUserStatusAction } from "./admin-user-status-action";
 
 const PAGE_SIZE = 20;
 
@@ -199,6 +201,22 @@ export function AdminCustomersPage() {
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<AdminCustomersApiResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+
+  const handleStatusChanged = useCallback(
+    (userId: string, status: ManageableAdminUserStatus) => {
+      setResponse((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((item) =>
+                item.id === userId ? { ...item, status } : item,
+              ),
+            }
+          : current,
+      );
+    },
+    [],
+  );
 
   const isAdmin = useMemo(() => {
     if (!user) {
@@ -436,6 +454,15 @@ export function AdminCustomersPage() {
                         <span className="font-medium text-slate-900">Cadastro:</span> {formatRegistrationDate(item.createdAt)}
                       </p>
                     </div>
+                    <div className="mt-4 border-t border-slate-200 pt-4">
+                      <AdminUserStatusAction
+                        userId={item.id}
+                        userName={item.name}
+                        status={item.status}
+                        accessToken={accessToken ?? ""}
+                        onStatusChanged={handleStatusChanged}
+                      />
+                    </div>
                   </article>
                 ))}
               </div>
@@ -459,6 +486,9 @@ export function AdminCustomersPage() {
                       </th>
                       <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
                         Cadastro
+                      </th>
+                      <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
+                        Ações
                       </th>
                     </tr>
                   </thead>
@@ -486,6 +516,15 @@ export function AdminCustomersPage() {
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {formatRegistrationDate(item.createdAt)}
+                        </td>
+                        <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
+                          <AdminUserStatusAction
+                            userId={item.id}
+                            userName={item.name}
+                            status={item.status}
+                            accessToken={accessToken ?? ""}
+                            onStatusChanged={handleStatusChanged}
+                          />
                         </td>
                       </tr>
                     ))}
