@@ -2,8 +2,7 @@
 module.exports = {
   rootDir: ".",
   testEnvironment: "node",
-  testRegex: ".*\\.spec\\.ts$",
-  testPathIgnorePatterns: ["\\.integration\\.spec\\.ts$"],
+  testRegex: ".*\\.integration\\.spec\\.ts$",
   moduleFileExtensions: ["js", "json", "ts"],
   transform: {
     "^.+\\.ts$": [
@@ -13,14 +12,7 @@ module.exports = {
       },
     ],
   },
-  collectCoverageFrom: [
-    "src/**/*.ts",
-    "!src/generated/**",
-    "!src/main.ts",
-    "!src/**/*.module.ts",
-    "!src/**/*.dto.ts",
-  ],
-  coverageDirectory: "coverage",
   clearMocks: true,
   restoreMocks: true,
+  testTimeout: 30000,
 };

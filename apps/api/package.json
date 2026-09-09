@@ -17,6 +17,7 @@
     "prebuild": "npm run prisma:generate",
     "prisma:studio": "prisma studio --config prisma.config.ts",
     "test": "jest --config jest.config.cjs",
+    "test:integration": "jest --config jest.integration.config.cjs --runInBand",
     "test:watch": "jest --config jest.config.cjs --watch",
     "test:cov": "jest --config jest.config.cjs --coverage"
   },
