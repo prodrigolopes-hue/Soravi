@@ -712,7 +712,7 @@ O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1
 
 O refresh token é gerado criptograficamente e somente seu hash SHA-256 é persistido. A rotação invalida o token antigo e preserva a proteção concorrente por `id` + `refreshTokenHash` + `revokedAt` + `expiresAt`. O logout revoga a `AuthSession` no banco. O access token contém `sessionId`, e a sessão é consultada no PostgreSQL durante a autenticação; sessões revogadas ou expiradas são rejeitadas.
 
-No login, no máximo 5 `AuthSession` ativas são mantidas por conta: ao ultrapassar o limite, as sessões ativas mais antigas são revogadas, em ordem determinística por `createdAt` e depois `id`. Sessões já revogadas, expiradas ou além do lifetime absoluto não contam para o limite. O login usa transação interativa e a atualização real do `User` como ponto de serialização; após obter esse lock, `passwordHash`, `status` e `deletedAt` são revalidados, e o login é rejeitado se o `passwordHash` mudou desde a validação inicial (por exemplo, reset de senha concorrente). O Argon2 continua fora da transação. A recuperação de senha já usa `SELECT ... FOR UPDATE` e revoga as sessões do usuário. Os testes automatizados simulam a ordem de eventos esperada; não comprovam concorrência real do PostgreSQL sob carga.
+No login, no máximo 5 `AuthSession` ativas são mantidas por conta: ao ultrapassar o limite, as sessões ativas mais antigas são revogadas, em ordem determinística por `createdAt` e depois `id`. Sessões já revogadas, expiradas ou além do lifetime absoluto não contam para o limite. O login usa transação interativa e a atualização real do `User` como ponto de serialização; após obter esse lock, `passwordHash`, `status` e `deletedAt` são revalidados, e o login é rejeitado se o `passwordHash` mudou desde a validação inicial (por exemplo, reset de senha concorrente). O Argon2 continua fora da transação. A recuperação de senha já usa `SELECT ... FOR UPDATE` e revoga as sessões do usuário. A concorrência real entre login e bloqueio administrativo é coberta pela suíte PostgreSQL integrada; limite de sessões, login versus password reset e login versus troca de senha ainda dependem dos testes existentes e permanecem pendentes de cobertura concorrente integrada.
 
 `POST /auth/login` e `POST /auth/refresh` possuem rate limit via `ThrottlerGuard` (10 e 60 requisições / 15 minutos, respectivamente). O armazenamento do contador é em memória do processo, sem Redis nem storage compartilhado entre instâncias; a coordenação do limite ao escalar horizontalmente permanece como pendência de revisão.
 
@@ -1110,6 +1110,14 @@ Prioridade para:
 * Prisma;
 * módulos integrados;
 * autenticação e sessões.
+
+A primeira infraestrutura de integração PostgreSQL real foi concluída no commit `020fd3b test(auth): adiciona testes reais de concorrencia`. Ela usa `apps/api/jest.integration.config.cjs`, separado da configuração unitária, e é executada pelo script `test:integration`.
+
+A suíte aceita exclusivamente o banco local `soravi_integration_test`: protocolo PostgreSQL, host `localhost` ou `127.0.0.1`, porta `5432` e nome exato do database. A URL é validada antes da criação dos clientes Prisma e `current_database()` é conferido antes de qualquer fixture. Nenhuma URL ou credencial é registrada, nenhuma migration é executada automaticamente e o banco local normal `soravi` não recebe fixtures.
+
+O teste de login versus bloqueio administrativo usa três clientes Prisma independentes, operações e locks reais. Quando o login vence, seu `user.update` mantém o lock, o bloqueio espera de fato, a sessão é criada e depois revogada pelo status final `BLOCKED`. Quando o bloqueio vence, o login pré-lê `ACTIVE`, espera no `user.update`, revalida `BLOCKED` após adquirir o lock e reverte: nenhuma `AuthSession` persiste e `lastLoginAt` permanece `null`. Nos dois casos, `pg_backend_pid()` identifica a transação perdedora e `pg_blocking_pids()` confirma a contenção antes da liberação da vencedora.
+
+A coordenação de teste usa Promises/barreiras e `setImmediate` somente para ceder o event loop no polling, sem `sleep`, `setTimeout` ou mocks de `$transaction`, `user.update` e `$queryRaw`. A base será reutilizada em testes futuros de login versus password reset, login versus troca de senha e outros fluxos críticos; esses casos ainda permanecem pendentes.
 
 ### Testes E2E
 

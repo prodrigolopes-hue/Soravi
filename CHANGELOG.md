@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-09
+
+### Testes reais de concorrência de autenticação
+
+- concluído o commit `020fd3b test(auth): adiciona testes reais de concorrencia`: a API passou a ter uma configuração Jest exclusiva para integração em `apps/api/jest.integration.config.cjs` e o script `test:integration`, sem misturar essa suíte aos testes unitários;
+- a suíte usa exclusivamente o PostgreSQL local `soravi_integration_test`, com três clientes Prisma independentes. A conexão aceita somente protocolo PostgreSQL, host `localhost` ou `127.0.0.1`, porta `5432` e database exatamente `soravi_integration_test`; antes das fixtures, `current_database()` confirma novamente o banco. Nenhuma URL ou credencial é registrada, migrations não são executadas automaticamente e o banco local normal `soravi` não recebe fixtures;
+- no cenário em que o login adquire primeiro o lock real de `User`, o bloqueio administrativo espera no PostgreSQL; após o login criar a sessão, o bloqueio prossegue, grava `BLOCKED` e revoga a única sessão criada;
+- no cenário em que o bloqueio administrativo adquire primeiro o lock, o login pré-lê `ACTIVE`, tenta o `user.update` real e espera no PostgreSQL; após o bloqueio gravar `BLOCKED`, o login adquire o lock, revalida o status e falha com `AccountUnavailableException`. Nenhuma `AuthSession` persiste e `lastLoginAt` permanece `null` pela reversão transacional;
+- nos dois cenários, a contenção real é confirmada com `pg_backend_pid()` e `pg_blocking_pids()`. A coordenação usa Promises/barreiras e `setImmediate` apenas para ceder o event loop durante o polling, sem `sleep` ou `setTimeout`. `$transaction`, `user.update`, `$queryRaw` e os locks não são simulados;
+- essa infraestrutura será reutilizada para futuros testes concorrentes, especialmente login versus password reset, login versus troca de senha e outros fluxos críticos. Esses cenários futuros ainda não estão marcados como concluídos.
+
 ## 2026-09-08
 
 ### Moderação administrativa de status de contas
