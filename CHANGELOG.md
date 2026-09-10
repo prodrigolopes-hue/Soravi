@@ -9,7 +9,7 @@
 - no cenário em que o login adquire primeiro o lock real de `User`, o bloqueio administrativo espera no PostgreSQL; após o login criar a sessão, o bloqueio prossegue, grava `BLOCKED` e revoga a única sessão criada;
 - no cenário em que o bloqueio administrativo adquire primeiro o lock, o login pré-lê `ACTIVE`, tenta o `user.update` real e espera no PostgreSQL; após o bloqueio gravar `BLOCKED`, o login adquire o lock, revalida o status e falha com `AccountUnavailableException`. Nenhuma `AuthSession` persiste e `lastLoginAt` permanece `null` pela reversão transacional;
 - nos dois cenários, a contenção real é confirmada com `pg_backend_pid()` e `pg_blocking_pids()`. A coordenação usa Promises/barreiras e `setImmediate` apenas para ceder o event loop durante o polling, sem `sleep` ou `setTimeout`. `$transaction`, `user.update`, `$queryRaw` e os locks não são simulados;
-- essa infraestrutura foi preparada para reutilização em outros testes concorrentes. Login versus password reset foi coberto posteriormente pelo commit registrado abaixo; login versus troca de senha, limite máximo de sessões e outros fluxos críticos continuam pendentes.
+- essa infraestrutura foi preparada para reutilização em outros testes concorrentes. Login versus password reset e o limite máximo de sessões foram cobertos posteriormente pelos commits registrados abaixo; login versus troca de senha autenticada e outros fluxos críticos continuam pendentes.
 
 ### Concorrência entre login e confirmação de password reset
 
@@ -17,7 +17,15 @@
 - quando o login vence, o `user.update` real adquire o lock de `User`, a transação do reset fica realmente bloqueada no PostgreSQL e a contenção é confirmada por `pg_backend_pid()` e `pg_blocking_pids()`. O login cria uma `AuthSession`; depois, o reset altera o `passwordHash`, consome o `PasswordResetToken` e revoga essa sessão recém-criada;
 - quando o reset vence, seu `SELECT ... FOR UPDATE` real adquire o lock de `User`; o login pré-lê `ACTIVE` e o hash antigo, tenta o `user.update` e fica realmente bloqueado. Após o reset trocar o hash e efetivar o commit, o login adquire o lock, detecta que o `passwordHash` difere do valor validado antes da transação e falha com `InvalidCredentialsException`; nenhuma nova `AuthSession` persiste e `lastLoginAt` permanece `null` pelo rollback;
 - as operações Prisma permanecem reais: `$transaction`, `user.update`, `$queryRaw`, queries de `PasswordResetToken` e `AuthSession` não são simuladas. Promises/barreiras coordenam a ordem, e `setImmediate` é usado apenas para ceder o event loop durante o polling, sem `sleep` ou `setTimeout`;
-- continuam pendentes os testes integrados de login versus troca de senha autenticada, concorrência do limite máximo de sessões e demais cenários ainda não implementados. Este registro não afirma deploy nem altera o estado documentado de ASVS ou declara conformidade ASVS geral.
+- continuam pendentes os testes integrados de login versus troca de senha autenticada e demais cenários ainda não implementados. Este registro não afirma deploy nem altera o estado documentado de ASVS ou declara conformidade ASVS geral.
+
+### Limite de sessões sob logins concorrentes
+
+- concluído o commit `50b0277 test(auth): cobre limite de sessoes sob logins concorrentes`: a suíte PostgreSQL real passou a cobrir um usuário com cinco `AuthSession` ativas recebendo dois `loginWithSession` concorrentes;
+- o login A adquire primeiro o lock real de `User`. O login B tenta o mesmo `user.update` e fica realmente bloqueado no PostgreSQL; seu `pg_backend_pid()` é capturado e `pg_blocking_pids()` confirma a contenção antes de A ser liberado. A aplica a regra de limite, revoga a sessão mais antiga, cria sua nova sessão e efetiva o commit; B então adquire o lock, consulta o estado atualizado, aplica novamente a regra e cria sua sessão. Ambos os logins terminam com sucesso e o `User` permanece `ACTIVE`;
+- o estado final comprovado contém sete sessões no total, exatamente cinco ativas e duas revogadas. S1, S2 e S3 compartilham o mesmo `createdAt`; a ordenação `createdAt ASC` seguida de `id ASC` revoga S1 e S2, que têm os menores IDs, enquanto S3, S4, S5 e as duas novas sessões permanecem ativas;
+- o teste considera ativa a sessão com `revokedAt === null`, `expiresAt` futuro e lifetime absoluto de 90 dias ainda válido. Ele usa exclusivamente `soravi_integration_test` e três clientes Prisma independentes (`controlPrisma`, `loginAPrisma` e `loginBPrisma`), sem usar ou alterar dados do banco local normal `soravi` e sem executar migrations;
+- nenhuma operação Prisma relevante é simulada: `$transaction`, `user.update` e queries de `AuthSession` são reais. A coordenação usa Promises/barreiras e `setImmediate` apenas no polling, sem `sleep` ou `setTimeout`. Login versus troca de senha autenticada e demais cenários concorrentes ainda não implementados permanecem pendentes; não se afirma deploy, conformidade ASVS geral ou mudança no estado de V7.4.2.
 
 ## 2026-09-08
 
