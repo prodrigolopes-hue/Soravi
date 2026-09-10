@@ -205,12 +205,13 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [x] Teste integrado real de concorrência PostgreSQL entre login e bloqueio administrativo, com três clientes Prisma independentes e contenção comprovada por `pg_blocking_pids()` (`020fd3b`).
 - [x] Teste integrado PostgreSQL real entre login e confirmação de password reset, nas duas ordens de aquisição do lock e com contenção comprovada por `pg_backend_pid()` e `pg_blocking_pids()` (`9443580`).
 - [x] Teste integrado PostgreSQL real do limite máximo de cinco sessões sob dois logins concorrentes, com contenção real, reaplicação da regra após o primeiro commit e desempate `createdAt ASC` + `id ASC` comprovados (`50b0277`).
+- [x] Teste integrado PostgreSQL real de login versus troca autenticada da própria senha, nas duas ordens de aquisição do lock, preservando a `currentSession` e impedindo sessão baseada em hash obsoleto (`a36a8a1`). A bateria concorrente totaliza sete testes reais.
 - [ ] ASVS 5.0.0 V7.4.2 parcialmente tratado: `BLOCKED` revoga explicitamente todas as sessões; não considerar o requisito integralmente concluído.
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de suspensão (`SUSPENDED`).
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de desativação (`DEACTIVATED`).
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de exclusão/soft-delete.
 - [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
-- [ ] Reutilizar a infraestrutura PostgreSQL integrada para validar concorrência ainda pendente: login versus troca de senha autenticada e outros fluxos críticos ainda não implementados.
+- [ ] Reutilizar a infraestrutura PostgreSQL integrada para validar outros fluxos críticos concorrentes ainda não implementados.
 - [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.
 - [ ] Avaliar uso de `userAgent`/IP para auditoria, somente após avaliação de necessidade e LGPD.
 - [ ] Definir política futura de tela/dispositivos/sessões (visão e revogação individual pelo usuário).
