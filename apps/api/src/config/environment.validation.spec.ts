@@ -5,10 +5,60 @@ import { validateEnvironment } from "./environment.validation";
 describe("validateEnvironment", () => {
   const requiredEnvironment = {
     DATABASE_URL: "postgresql://soravi:soravi@localhost:5432/soravi",
+    REDIS_URL: "redis://localhost:6379",
     JWT_ACCESS_SECRET: "a-secret-with-at-least-thirty-two-characters",
     PHONE_VERIFICATION_HMAC_SECRET:
       "a-distinct-phone-verification-secret-with-safe-length",
   };
+
+  it.each([
+    "redis://localhost:6379",
+    "rediss://redis.example.com:6380",
+  ])("aceita REDIS_URL válida: %s", (redisUrl) => {
+    const environment = validateEnvironment({
+      ...requiredEnvironment,
+      REDIS_URL: redisUrl,
+    });
+
+    expect(environment.REDIS_URL).toBe(redisUrl);
+  });
+
+  it("rejeita REDIS_URL ausente", () => {
+    const { REDIS_URL: _redisUrl, ...environment } = requiredEnvironment;
+
+    expect(() => validateEnvironment(environment)).toThrow(
+      "Variáveis de ambiente inválidas",
+    );
+  });
+
+  it("rejeita protocolo inválido em REDIS_URL", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        REDIS_URL: "http://localhost:6379",
+      }),
+    ).toThrow("Variáveis de ambiente inválidas");
+  });
+
+  it("não expõe credenciais de REDIS_URL em mensagens de erro", () => {
+    const password = "redis-password-that-must-stay-private";
+
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        REDIS_URL: `http://user:${password}@localhost:6379`,
+      }),
+    ).toThrow("Variáveis de ambiente inválidas");
+
+    try {
+      validateEnvironment({
+        ...requiredEnvironment,
+        REDIS_URL: `http://user:${password}@localhost:6379`,
+      });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(password);
+    }
+  });
   const completeMetaEnvironment = {
     ...requiredEnvironment,
     PHONE_VERIFICATION_DELIVERY_PROVIDER: "meta",

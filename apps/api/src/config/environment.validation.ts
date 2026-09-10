@@ -197,6 +197,15 @@ class EnvironmentVariables {
   DATABASE_URL!: string;
 
   @IsString()
+  @IsUrl({
+    protocols: ["redis", "rediss"],
+    require_protocol: true,
+    require_tld: false,
+  })
+  @Matches(/^rediss?:\/\//u)
+  REDIS_URL!: string;
+
+  @IsString()
   @MinLength(1)
   @IsOptional()
   STORAGE_S3_ENDPOINT?: string;
@@ -240,7 +249,13 @@ export function validateEnvironment(
   if (errors.length > 0) {
     throw new Error(
       `Variáveis de ambiente inválidas: ${errors
-        .map((error) => error.toString())
+        .map((error) => {
+          const constraints = Object.values(error.constraints ?? {});
+
+          return constraints.length > 0
+            ? `${error.property}: ${constraints.join(", ")}`
+            : error.property;
+        })
         .join("; ")}`,
     );
   }

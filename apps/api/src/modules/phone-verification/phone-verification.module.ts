@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ThrottlerModule } from "@nestjs/throttler";
 
 import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenModule } from "../auth/access-token.module";
@@ -37,7 +36,6 @@ export function createPhoneVerificationDeliveryPort(
   imports: [
     PrismaModule,
     AccessTokenModule,
-    ThrottlerModule.forRoot([{ ttl: 600_000, limit: 10 }]),
   ],
   controllers: [PhoneVerificationController],
   providers: [

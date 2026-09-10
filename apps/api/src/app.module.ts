@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 
+import { RateLimitModule } from "./common/rate-limit/rate-limit.module";
 import { validateEnvironment } from "./config/environment.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { HealthController } from "./health.controller";
@@ -24,6 +25,7 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
       envFilePath: [".env", "../../.env"],
       validate: validateEnvironment,
     }),
+    RateLimitModule,
     ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,

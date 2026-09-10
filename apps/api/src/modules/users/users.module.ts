@@ -1,5 +1,4 @@
 import { Module } from "@nestjs/common";
-import { ThrottlerModule } from "@nestjs/throttler";
 
 import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenModule } from "../auth/access-token.module";
@@ -13,12 +12,6 @@ import { UsersService } from "./users.service";
   imports: [
     PrismaModule,
     AccessTokenModule,
-    ThrottlerModule.forRoot([
-      {
-        ttl: 3_600_000,
-        limit: 3,
-      },
-    ]),
   ],
   controllers: [UsersController],
   providers: [

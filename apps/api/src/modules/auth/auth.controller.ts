@@ -65,6 +65,8 @@ export class AuthController {
   }
 
   @Post("register")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
   register(
     @Body() input: RegisterUserDto,
   ): Promise<RegisterResponseDto> {
