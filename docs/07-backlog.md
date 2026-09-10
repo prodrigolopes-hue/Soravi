@@ -203,12 +203,13 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [x] ASVS 5.0.0 V6.2.5: regras obrigatórias de composição removidas; política oficial aceita 12 a 128 caracteres sem exigir letra, número, maiúscula, minúscula ou símbolo, com frontend validando somente estrutura e tratando `PASSWORD_TOO_COMMON` (`5d204a0`, `ce06e44`).
 - [x] Bloqueio administrativo seguro e reativação administrativa de CUSTOMER/PROFESSIONAL, com frontend de moderação `ACTIVE`/`BLOCKED` e revogação explícita de sessões no bloqueio (`fce91dc`, `7f7b5dd`).
 - [x] Teste integrado real de concorrência PostgreSQL entre login e bloqueio administrativo, com três clientes Prisma independentes e contenção comprovada por `pg_blocking_pids()` (`020fd3b`).
+- [x] Teste integrado PostgreSQL real entre login e confirmação de password reset, nas duas ordens de aquisição do lock e com contenção comprovada por `pg_backend_pid()` e `pg_blocking_pids()` (`9443580`).
 - [ ] ASVS 5.0.0 V7.4.2 parcialmente tratado: `BLOCKED` revoga explicitamente todas as sessões; não considerar o requisito integralmente concluído.
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de suspensão (`SUSPENDED`).
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de desativação (`DEACTIVATED`).
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de exclusão/soft-delete.
 - [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
-- [ ] Reutilizar a infraestrutura PostgreSQL integrada para validar concorrência ainda pendente: limite de sessões, login versus password reset, login versus troca de senha e outros fluxos críticos.
+- [ ] Reutilizar a infraestrutura PostgreSQL integrada para validar concorrência ainda pendente: limite máximo de sessões, login versus troca de senha autenticada e outros fluxos críticos ainda não implementados.
 - [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.
 - [ ] Avaliar uso de `userAgent`/IP para auditoria, somente após avaliação de necessidade e LGPD.
 - [ ] Definir política futura de tela/dispositivos/sessões (visão e revogação individual pelo usuário).
