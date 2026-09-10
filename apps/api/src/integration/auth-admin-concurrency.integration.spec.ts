@@ -10,112 +10,12 @@ import { AuthTokensService } from "../modules/auth/auth-tokens.service";
 import { AccountUnavailableException } from "../modules/auth/errors/account-unavailable.exception";
 import { UsersAdminStatusService } from "../modules/users/users-admin-status.service";
 import { UsersService } from "../modules/users/users.service";
+import {
+  deferred,
+  waitUntilPostgresConfirmsBlocking,
+  wrapPrisma,
+} from "./integration-concurrency";
 import { createIntegrationPrismaService } from "./integration-database";
-
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve(value: T): void;
-}
-
-interface PrismaGates {
-  transactionStarted?: (backendPid: number) => void;
-  afterUserUpdate?: () => Promise<void>;
-  beforeUserUpdate?: () => void;
-  afterUserFindFirst?: (result: unknown) => void;
-  beforeQueryRaw?: () => void;
-  afterQueryRaw?: () => Promise<void>;
-}
-
-interface BackendPidRow {
-  backendPid: number;
-}
-
-interface BlockingPidsRow {
-  blockingPids: number[];
-}
-
-function deferred<T>(): Deferred<T> {
-  let resolvePromise!: (value: T) => void;
-  const promise = new Promise<T>((resolve) => { resolvePromise = resolve; });
-  return { promise, resolve: resolvePromise };
-}
-
-function wrapDelegate(
-  delegate: object,
-  operation: "findFirst" | "update",
-  gates: PrismaGates,
-): object {
-  return new Proxy(delegate, {
-    get(target, property, receiver) {
-      const original = Reflect.get(target, property, receiver);
-      if (property !== operation || typeof original !== "function") {
-        return typeof original === "function" ? original.bind(target) : original;
-      }
-      return async (...args: unknown[]) => {
-        if (operation === "update") gates.beforeUserUpdate?.();
-        const result: unknown = await Reflect.apply(original, target, args);
-        if (operation === "findFirst") gates.afterUserFindFirst?.(result);
-        else await gates.afterUserUpdate?.();
-        return result;
-      };
-    },
-  });
-}
-
-function wrapTransaction(
-  transaction: Prisma.TransactionClient,
-  gates: PrismaGates,
-): Prisma.TransactionClient {
-  return new Proxy(transaction, {
-    get(target, property, receiver) {
-      if (property === "user") return wrapDelegate(target.user, "update", gates);
-      if (property === "$queryRaw") {
-        return async (...args: unknown[]) => {
-          gates.beforeQueryRaw?.();
-          const original = Reflect.get(target, property, receiver);
-          const result: unknown = await Reflect.apply(original, target, args);
-          await gates.afterQueryRaw?.();
-          return result;
-        };
-      }
-      const original = Reflect.get(target, property, receiver);
-      return typeof original === "function" ? original.bind(target) : original;
-    },
-  }) as Prisma.TransactionClient;
-}
-
-function wrapPrisma(prisma: PrismaService, gates: PrismaGates): PrismaService {
-  return new Proxy(prisma, {
-    get(target, property, receiver) {
-      if (property === "user" && gates.afterUserFindFirst) {
-        return wrapDelegate(target.user, "findFirst", gates);
-      }
-      if (property === "$transaction") {
-        return async (
-          callback: (transaction: Prisma.TransactionClient) => Promise<unknown>,
-          options?: {
-            maxWait?: number;
-            timeout?: number;
-            isolationLevel?: Prisma.TransactionIsolationLevel;
-          },
-        ) => target.$transaction(async (transaction) => {
-          if (gates.transactionStarted) {
-            const [row] = await transaction.$queryRaw<BackendPidRow[]>(
-              Prisma.sql`SELECT pg_backend_pid() AS "backendPid"`,
-            );
-            if (!row) {
-              throw new Error("Não foi possível identificar a transação concorrente.");
-            }
-            gates.transactionStarted(row.backendPid);
-          }
-          return callback(wrapTransaction(transaction, gates));
-        }, options);
-      }
-      const original = Reflect.get(target, property, receiver);
-      return typeof original === "function" ? original.bind(target) : original;
-    },
-  });
-}
 
 describe("AuthService e bloqueio administrativo concorrentes", () => {
   const controlPrisma = createIntegrationPrismaService();
@@ -148,27 +48,6 @@ describe("AuthService e bloqueio administrativo concorrentes", () => {
     });
     createdUserIds.add(id);
     return { id, email };
-  }
-
-  async function waitUntilPostgresConfirmsBlocking(
-    blockedBackendPid: number,
-  ): Promise<void> {
-    const maximumChecks = 10_000;
-
-    for (let check = 0; check < maximumChecks; check += 1) {
-      const [row] = await controlPrisma.$queryRaw<BlockingPidsRow[]>(
-        Prisma.sql`
-          SELECT pg_blocking_pids(${blockedBackendPid}) AS "blockingPids"
-        `,
-      );
-      if (row && row.blockingPids.length > 0) return;
-
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
-
-    throw new Error(
-      "PostgreSQL não confirmou a contenção esperada via pg_blocking_pids.",
-    );
   }
 
   beforeAll(async () => {
@@ -219,7 +98,10 @@ describe("AuthService e bloqueio administrativo concorrentes", () => {
       status: UserStatus.BLOCKED,
     });
     await blockLockAttempted.promise;
-    await waitUntilPostgresConfirmsBlocking(await adminBackendPid.promise);
+    await waitUntilPostgresConfirmsBlocking(
+      controlPrisma,
+      await adminBackendPid.promise,
+    );
     releaseLogin.resolve();
 
     await expect(login).resolves.toBeDefined();
@@ -263,7 +145,10 @@ describe("AuthService e bloqueio administrativo concorrentes", () => {
     const login = authService.loginWithSession({ email: target.email, password });
     await loginPreReadCompleted.promise;
     await loginLockAttempted.promise;
-    await waitUntilPostgresConfirmsBlocking(await loginBackendPid.promise);
+    await waitUntilPostgresConfirmsBlocking(
+      controlPrisma,
+      await loginBackendPid.promise,
+    );
     releaseBlock.resolve();
 
     await expect(block).resolves.toBeUndefined();
