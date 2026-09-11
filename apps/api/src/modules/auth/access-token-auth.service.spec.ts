@@ -110,6 +110,40 @@ describe("AccessTokenAuthService", () => {
     ).rejects.toBeInstanceOf(InvalidAccessTokenException);
   });
 
+  it.each([
+    UserStatus.BLOCKED,
+    UserStatus.SUSPENDED,
+    UserStatus.DEACTIVATED,
+  ])("rejeita usuario com status %s", async (status) => {
+    const session = createSession(verifiedAt);
+    authSessionFindUnique.mockResolvedValue({
+      ...session,
+      user: {
+        ...session.user,
+        status,
+      },
+    });
+
+    await expect(
+      service.authenticateAccessToken("access-token"),
+    ).rejects.toBeInstanceOf(InvalidAccessTokenException);
+  });
+
+  it("rejeita usuario excluido logicamente", async () => {
+    const session = createSession(verifiedAt);
+    authSessionFindUnique.mockResolvedValue({
+      ...session,
+      user: {
+        ...session.user,
+        deletedAt: new Date(),
+      },
+    });
+
+    await expect(
+      service.authenticateAccessToken("access-token"),
+    ).rejects.toBeInstanceOf(InvalidAccessTokenException);
+  });
+
   it.each(["2026-05-03T12:00:00.000Z", "2026-05-03T11:59:59.999Z"])(
     "rejects access at or after 90 days despite future expiresAt (createdAt %s)",
     async (createdAt) => {
