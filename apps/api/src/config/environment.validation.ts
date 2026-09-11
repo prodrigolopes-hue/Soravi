@@ -207,23 +207,19 @@ class EnvironmentVariables {
 
   @IsString()
   @MinLength(1)
-  @IsOptional()
-  STORAGE_S3_ENDPOINT?: string;
+  STORAGE_S3_ENDPOINT!: string;
 
   @IsString()
   @MinLength(1)
-  @IsOptional()
-  STORAGE_S3_ACCESS_KEY_ID?: string;
+  STORAGE_S3_ACCESS_KEY_ID!: string;
 
   @IsString()
   @MinLength(1)
-  @IsOptional()
-  STORAGE_S3_SECRET_ACCESS_KEY?: string;
+  STORAGE_S3_SECRET_ACCESS_KEY!: string;
 
   @IsString()
   @MinLength(1)
-  @IsOptional()
-  STORAGE_S3_BUCKET?: string;
+  STORAGE_S3_BUCKET!: string;
 
   @IsString()
   @MinLength(1)

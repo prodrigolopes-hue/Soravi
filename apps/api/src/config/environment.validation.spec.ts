@@ -9,7 +9,27 @@ describe("validateEnvironment", () => {
     JWT_ACCESS_SECRET: "a-secret-with-at-least-thirty-two-characters",
     PHONE_VERIFICATION_HMAC_SECRET:
       "a-distinct-phone-verification-secret-with-safe-length",
+    STORAGE_S3_ENDPOINT: "https://example.r2.cloudflarestorage.com",
+    STORAGE_S3_ACCESS_KEY_ID: "test-storage-access-key",
+    STORAGE_S3_SECRET_ACCESS_KEY: "test-storage-secret-key",
+    STORAGE_S3_BUCKET: "soravi-service-requests",
   };
+
+  it.each([
+    "STORAGE_S3_ENDPOINT",
+    "STORAGE_S3_ACCESS_KEY_ID",
+    "STORAGE_S3_SECRET_ACCESS_KEY",
+    "STORAGE_S3_BUCKET",
+  ])("rejeita configuração obrigatória de storage ausente: %s", (key) => {
+    const environment = {
+      ...requiredEnvironment,
+    } as Record<string, unknown>;
+    delete environment[key];
+
+    expect(() => validateEnvironment(environment)).toThrow(
+      "Variáveis de ambiente inválidas",
+    );
+  });
 
   it.each([
     "redis://localhost:6379",
