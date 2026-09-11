@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, Role, UserStatus } from "../../generated/prisma/client";
+import { revokeAllUserSessions } from "../auth/auth-session-revocation";
 import { UpdateUserAdminStatusDto } from "./dto/update-user-admin-status.dto";
 import { AdminSelfStatusChangeForbiddenException } from "./errors/admin-self-status-change-forbidden.exception";
 import { AdminTargetStatusChangeForbiddenException } from "./errors/admin-target-status-change-forbidden.exception";
@@ -60,11 +61,11 @@ export class UsersAdminStatusService {
       }
 
       if (input.status === UserStatus.BLOCKED) {
-        const now = new Date();
-        await transaction.authSession.updateMany({
-          where: { userId: targetUserId, revokedAt: null },
-          data: { revokedAt: now },
-        });
+        await revokeAllUserSessions(
+          transaction,
+          targetUserId,
+          new Date(),
+        );
       }
     });
   }
