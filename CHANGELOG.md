@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-11
+
+### Desconexão em tempo real após bloqueio administrativo
+
+- concluído o commit `01db8f7 feat(auth): desconecta sockets apos revogacao de sessoes`: o bloqueio administrativo continua revogando todas as sessões ativas na transação e, somente após seu commit, um notifier local informa o `ConversationsGateway` sobre o usuário bloqueado;
+- o gateway desconecta os sockets locais desse usuário sem afetar conexões de outros usuários; o listener do notifier é removido no lifecycle do gateway;
+- os testes passaram com `--detectOpenHandles`;
+- limitação conhecida: a propagação é local à instância. Realtime multi-instância com Redis/Socket.IO adapter permanece trabalho futuro.
+
 ## 2026-09-10
 
 ### Rate limit distribuído com Redis

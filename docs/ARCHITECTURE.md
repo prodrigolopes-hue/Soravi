@@ -8,6 +8,7 @@ Este documento define a arquitetura técnica oficial da Soravi para o desenvolvi
 
 - O commit `d3f2183 feat(api): centraliza rate limit com Redis` concluiu o storage compartilhado/multi-instância do rate limit. A configuração do Throttler é central, `REDIS_URL` é obrigatória e restrita a `redis://`/`rediss://`, não existe fallback silencioso para memória e os guards continuam explícitos nos endpoints protegidos. Duas aplicações Nest independentes compartilharam o mesmo contador real (`200, 200, 200, 200, 200, 429`), e Redis indisponível apresentou comportamento fail-closed. Isso não afirma deploy em produção.
 - O access token é curto e cada request autenticado valida também a sessão no PostgreSQL.
+- O commit `01db8f7 feat(auth): desconecta sockets apos revogacao de sessoes` conecta a revogação de sessões por bloqueio administrativo ao realtime local: após o commit da transação, um notifier local informa o `ConversationsGateway`, que desconecta somente os sockets locais do usuário bloqueado; os demais usuários permanecem conectados e o listener é removido no lifecycle. Os testes passaram com `--detectOpenHandles`. A propagação ainda é local à instância; Redis/Socket.IO adapter para realtime multi-instância permanece futuro.
 - `phoneVerifiedAt` é obtido do banco durante a autenticação do request; não existe claim de verificação de telefone no JWT.
 - `PhoneVerifiedGuard` é declarado explicitamente apenas nos handlers sensíveis. Leituras privadas continuam autenticadas sem essa exigência, e `ADMIN` permanece temporariamente dispensado.
 - A verificação de telefone mantém challenges com código protegido por HMAC, expiração, tentativas e invalidação. `PhoneVerificationDeliveryPort` desacopla a entrega; há adapter Meta selecionável por configuração, ainda não operacional em produção.
@@ -730,6 +731,8 @@ O fluxo atua apenas sobre CUSTOMER e PROFESSIONAL. Self-target e qualquer alvo A
 
 A linha de `User` é carregada com `SELECT ... FOR UPDATE`. Na mesma transação Prisma, `ACTIVE -> BLOCKED` atualiza o status e preenche `revokedAt` de todas as sessões ainda ativas; `BLOCKED -> BLOCKED` preserva o usuário e revoga sessões residuais. `BLOCKED -> ACTIVE` não restaura nem cria sessões, e `ACTIVE -> ACTIVE` é no-op. Em defesa em profundidade, o `AccessTokenAuthService` continua rejeitando usuário `BLOCKED`.
 
+Após a transação de bloqueio concluir, um notifier local informa o `ConversationsGateway` para desconectar somente os sockets locais do usuário bloqueado; conexões de outros usuários não são afetadas. O listener é removido no lifecycle do gateway. Essa propagação ainda não alcança outras instâncias: realtime multi-instância com Redis/Socket.IO adapter permanece pendente.
+
 A existência de `Role.ADMIN` no alvo é verificada no mesmo fluxo transacional. O lock atual protege a linha de `User`, mas não `user_roles`; caso promoção ou rebaixamento concorrente de ADMIN seja implementado no futuro, essa concorrência deverá ser revisada.
 
 O frontend reutiliza uma ação compartilhada nas listagens de clientes e profissionais, em mobile e desktop. A ação existe somente para `ACTIVE`/`BLOCKED`, exige confirmação inline e atualiza apenas `item.status` após sucesso, sem reload nem novo fetch obrigatório. Mensagens arbitrárias do backend não são exibidas; códigos públicos e status HTTP são convertidos em mensagens sanitizadas.
@@ -832,6 +835,7 @@ WebSockets serão utilizados para comunicação em tempo real.
 * cliente não poderá definir livremente o remetente;
 * acesso à conversa deverá ser validado em cada operação;
 * Redis será utilizado para WebSockets apenas quando houver múltiplas instâncias ou necessidade comprovada;
+* a desconexão disparada por bloqueio administrativo alcança somente sockets locais da instância atual até a adoção de Redis/Socket.IO adapter;
 * mensagens devem possuir identificador e data gerados pelo servidor.
 
 ---

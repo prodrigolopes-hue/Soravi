@@ -1060,6 +1060,8 @@ Impedir perda de mensagens e preservar histórico.
 
 Redis poderá ser utilizado futuramente para distribuir eventos entre instâncias, mas não armazenará o histórico oficial.
 
+O commit `01db8f7 feat(auth): desconecta sockets apos revogacao de sessoes` aplica essa diretriz ao bloqueio administrativo: após a transação que revoga sessões concluir, um notifier local comunica o `ConversationsGateway`, que desconecta apenas os sockets locais do usuário bloqueado e preserva os dos demais usuários. O listener é removido no lifecycle. A propagação permanece limitada à instância atual; realtime multi-instância com Redis/Socket.IO adapter continua futuro.
+
 ---
 
 ## DEC-022 — API REST versionada
