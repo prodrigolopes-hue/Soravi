@@ -9,6 +9,7 @@ import { AuthService } from "../modules/auth/auth.service";
 import { AuthTokensService } from "../modules/auth/auth-tokens.service";
 import { AccountUnavailableException } from "../modules/auth/errors/account-unavailable.exception";
 import { UsersAdminStatusService } from "../modules/users/users-admin-status.service";
+import { AuthSessionsRevokedNotifier } from "../modules/auth/auth-sessions-revoked.notifier";
 import { UsersService } from "../modules/users/users.service";
 import {
   deferred,
@@ -90,7 +91,7 @@ describe("AuthService e bloqueio administrativo concorrentes", () => {
     const adminService = new UsersAdminStatusService(wrapPrisma(adminPrisma, {
       transactionStarted: (pid) => adminBackendPid.resolve(pid),
       beforeQueryRaw: () => blockLockAttempted.resolve(),
-    }));
+    }), new AuthSessionsRevokedNotifier());
 
     const login = authService.loginWithSession({ email: target.email, password });
     await loginLockAcquired.promise;
@@ -126,7 +127,7 @@ describe("AuthService e bloqueio administrativo concorrentes", () => {
         blockLockAcquired.resolve();
         await releaseBlock.promise;
       },
-    }));
+    }), new AuthSessionsRevokedNotifier());
     const authService = createAuthService(wrapPrisma(loginPrisma, {
       transactionStarted: (pid) => loginBackendPid.resolve(pid),
       afterUserFindFirst: (result) => {

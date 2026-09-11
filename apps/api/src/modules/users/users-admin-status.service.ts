@@ -3,6 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, Role, UserStatus } from "../../generated/prisma/client";
 import { revokeAllUserSessions } from "../auth/auth-session-revocation";
+import { AuthSessionsRevokedNotifier } from "../auth/auth-sessions-revoked.notifier";
 import { UpdateUserAdminStatusDto } from "./dto/update-user-admin-status.dto";
 import { AdminSelfStatusChangeForbiddenException } from "./errors/admin-self-status-change-forbidden.exception";
 import { AdminTargetStatusChangeForbiddenException } from "./errors/admin-target-status-change-forbidden.exception";
@@ -23,7 +24,10 @@ const ADMIN_MANAGEABLE_STATUSES: readonly UserStatus[] = [
 
 @Injectable()
 export class UsersAdminStatusService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionsRevokedNotifier: AuthSessionsRevokedNotifier,
+  ) {}
 
   async updateStatus(
     actorUserId: string,
@@ -68,6 +72,10 @@ export class UsersAdminStatusService {
         );
       }
     });
+
+    if (input.status === UserStatus.BLOCKED) {
+      this.sessionsRevokedNotifier.publish(targetUserId);
+    }
   }
 
   private async lockUser(

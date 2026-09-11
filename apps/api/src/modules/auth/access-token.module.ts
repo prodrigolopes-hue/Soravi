@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenAuthService } from "./access-token-auth.service";
+import { AuthSessionsRevokedNotifier } from "./auth-sessions-revoked.notifier";
 import { AccessTokenGuard } from "./guards/access-token.guard";
 import { PhoneVerifiedGuard } from "./guards/phone-verified.guard";
 import { RolesGuard } from "./guards/roles.guard";
@@ -16,6 +17,7 @@ import { RolesGuard } from "./guards/roles.guard";
   ],
   providers: [
     AccessTokenAuthService,
+    AuthSessionsRevokedNotifier,
     AccessTokenGuard,
     PhoneVerifiedGuard,
     RolesGuard,
@@ -23,6 +25,7 @@ import { RolesGuard } from "./guards/roles.guard";
   exports: [
     JwtModule,
     AccessTokenAuthService,
+    AuthSessionsRevokedNotifier,
     AccessTokenGuard,
     PhoneVerifiedGuard,
     RolesGuard,

@@ -1,3 +1,4 @@
+import { OnModuleDestroy } from "@nestjs/common";
 import {
   Ack,
   ConnectedSocket,
@@ -11,6 +12,7 @@ import { isUUID } from "class-validator";
 import { Namespace, Socket } from "socket.io";
 
 import { AccessTokenAuthService } from "../auth/access-token-auth.service";
+import { AuthSessionsRevokedNotifier } from "../auth/auth-sessions-revoked.notifier";
 import { InvalidAccessTokenException } from "../auth/errors/invalid-access-token.exception";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { MessageResponseDto } from "./dto/message-response.dto";
@@ -40,16 +42,28 @@ type AuthenticatedSocket = Socket & {
 @WebSocketGateway({
   namespace: "/conversations",
 })
-export class ConversationsGateway implements OnGatewayInit {
+export class ConversationsGateway
+  implements OnGatewayInit, OnModuleDestroy
+{
   @WebSocketServer()
   private server?: Namespace;
+
+  private unsubscribeSessionsRevoked?: () => void;
 
   constructor(
     private readonly accessTokenAuthService: AccessTokenAuthService,
     private readonly conversationsService: ConversationsService,
+    private readonly sessionsRevokedNotifier: AuthSessionsRevokedNotifier,
   ) {}
 
   afterInit(server: Namespace): void {
+    this.unsubscribeSessionsRevoked?.();
+
+    this.unsubscribeSessionsRevoked =
+      this.sessionsRevokedNotifier.subscribe((userId) => {
+        this.disconnectUserSockets(server, userId);
+      });
+
     server.use(async (client: Socket, next): Promise<void> => {
       const accessToken = this.readAccessToken(client);
 
@@ -63,6 +77,7 @@ export class ConversationsGateway implements OnGatewayInit {
           await this.accessTokenAuthService.authenticateAccessToken(
             accessToken,
           );
+
         next();
       } catch (error: unknown) {
         if (error instanceof InvalidAccessTokenException) {
@@ -75,6 +90,11 @@ export class ConversationsGateway implements OnGatewayInit {
     });
   }
 
+  onModuleDestroy(): void {
+    this.unsubscribeSessionsRevoked?.();
+    this.unsubscribeSessionsRevoked = undefined;
+  }
+
   @SubscribeMessage("conversation.join")
   async joinConversation(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -84,19 +104,28 @@ export class ConversationsGateway implements OnGatewayInit {
     const currentUser = client.data.user;
 
     if (!currentUser) {
-      acknowledge?.({ ok: false, code: "INVALID_ACCESS_TOKEN" });
-        return;
-      }
+      acknowledge?.({
+        ok: false,
+        code: "INVALID_ACCESS_TOKEN",
+      });
+      return;
+    }
 
     if (!input || typeof input.conversationId !== "string") {
-      acknowledge?.({ ok: false, code: "INVALID_CONVERSATION_ID" });
+      acknowledge?.({
+        ok: false,
+        code: "INVALID_CONVERSATION_ID",
+      });
       return;
     }
 
     const conversationId = input.conversationId.trim();
 
     if (!conversationId || !isUUID(conversationId, "4")) {
-      acknowledge?.({ ok: false, code: "INVALID_CONVERSATION_ID" });
+      acknowledge?.({
+        ok: false,
+        code: "INVALID_CONVERSATION_ID",
+      });
       return;
     }
 
@@ -107,16 +136,24 @@ export class ConversationsGateway implements OnGatewayInit {
       );
     } catch (error: unknown) {
       if (error instanceof ConversationNotFoundException) {
-        acknowledge?.({ ok: false, code: "CONVERSATION_NOT_FOUND" });
+        acknowledge?.({
+          ok: false,
+          code: "CONVERSATION_NOT_FOUND",
+        });
         return;
       }
 
       throw error;
     }
 
-    client.join(ConversationsGateway.buildRoomName(conversationId));
+    client.join(
+      ConversationsGateway.buildRoomName(conversationId),
+    );
 
-    acknowledge?.({ ok: true, conversationId });
+    acknowledge?.({
+      ok: true,
+      conversationId,
+    });
   }
 
   emitMessageCreated(
@@ -124,7 +161,11 @@ export class ConversationsGateway implements OnGatewayInit {
     message: MessageResponseDto,
   ): void {
     this.server
-      ?.to(ConversationsGateway.buildRoomName(conversationId))
+      ?.to(
+        ConversationsGateway.buildRoomName(
+          conversationId,
+        ),
+      )
       .emit("conversation.message.created", {
         conversationId,
         message: {
@@ -139,14 +180,37 @@ export class ConversationsGateway implements OnGatewayInit {
       });
   }
 
-  static buildRoomName(conversationId: string): string {
+  static buildRoomName(
+    conversationId: string,
+  ): string {
     return `conversation:${conversationId}`;
   }
 
-  private readAccessToken(client: Socket): string | undefined {
-    const authAccessToken = client.handshake.auth?.accessToken;
+  private disconnectUserSockets(
+    server: Namespace,
+    userId: string,
+  ): void {
+    for (const socket of server.sockets.values()) {
+      const currentUser = (
+        socket as AuthenticatedSocket
+      ).data.user;
 
-    if (typeof authAccessToken === "string" && authAccessToken.trim()) {
+      if (currentUser?.id === userId) {
+        socket.disconnect(true);
+      }
+    }
+  }
+
+  private readAccessToken(
+    client: Socket,
+  ): string | undefined {
+    const authAccessToken =
+      client.handshake.auth?.accessToken;
+
+    if (
+      typeof authAccessToken === "string" &&
+      authAccessToken.trim()
+    ) {
       return authAccessToken.trim();
     }
 
@@ -157,8 +221,11 @@ export class ConversationsGateway implements OnGatewayInit {
     );
   }
 
-  private readAuthorizationHeader(client: Socket): string | undefined {
-    const authorizationHeader = client.handshake.headers.authorization;
+  private readAuthorizationHeader(
+    client: Socket,
+  ): string | undefined {
+    const authorizationHeader =
+      client.handshake.headers.authorization;
 
     if (typeof authorizationHeader === "string") {
       return authorizationHeader;

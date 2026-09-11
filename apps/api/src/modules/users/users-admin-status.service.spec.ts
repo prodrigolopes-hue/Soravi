@@ -1,5 +1,6 @@
 import { PrismaService } from "../../database/prisma.service";
 import { UserStatus } from "../../generated/prisma/client";
+import { AuthSessionsRevokedNotifier } from "../auth/auth-sessions-revoked.notifier";
 import { AdminSelfStatusChangeForbiddenException } from "./errors/admin-self-status-change-forbidden.exception";
 import { AdminTargetStatusChangeForbiddenException } from "./errors/admin-target-status-change-forbidden.exception";
 import { UserNotFoundException } from "./errors/user-not-found.exception";
@@ -12,6 +13,7 @@ describe("UsersAdminStatusService.updateStatus", () => {
   let service: UsersAdminStatusService;
   let transaction: { $queryRaw: jest.Mock; user: { update: jest.Mock }; authSession: { updateMany: jest.Mock } };
   let prisma: { $transaction: jest.Mock };
+  let sessionsRevokedNotifier: { publish: jest.Mock };
 
   beforeEach(() => {
     transaction = {
@@ -20,7 +22,11 @@ describe("UsersAdminStatusService.updateStatus", () => {
       authSession: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
     };
     prisma = { $transaction: jest.fn((callback) => callback(transaction)) };
-    service = new UsersAdminStatusService(prisma as unknown as PrismaService);
+    sessionsRevokedNotifier = { publish: jest.fn() };
+    service = new UsersAdminStatusService(
+      prisma as unknown as PrismaService,
+      sessionsRevokedNotifier as unknown as AuthSessionsRevokedNotifier,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -32,6 +38,10 @@ describe("UsersAdminStatusService.updateStatus", () => {
       where: { userId: targetUserId, revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+    expect(sessionsRevokedNotifier.publish).toHaveBeenCalledWith(targetUserId);
+    expect(
+      transaction.authSession.updateMany.mock.invocationCallOrder[0],
+    ).toBeLessThan(sessionsRevokedNotifier.publish.mock.invocationCallOrder[0]);
   });
 
   it("executa BLOCKED -> ACTIVE sem restaurar sessões", async () => {
@@ -39,6 +49,7 @@ describe("UsersAdminStatusService.updateStatus", () => {
     await service.updateStatus(actorUserId, targetUserId, { status: UserStatus.ACTIVE });
     expect(transaction.user.update).toHaveBeenCalledWith({ where: { id: targetUserId }, data: { status: UserStatus.ACTIVE } });
     expect(transaction.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionsRevokedNotifier.publish).not.toHaveBeenCalled();
   });
 
   it("faz no-op em ACTIVE -> ACTIVE", async () => {
@@ -52,6 +63,7 @@ describe("UsersAdminStatusService.updateStatus", () => {
     await service.updateStatus(actorUserId, targetUserId, { status: UserStatus.BLOCKED });
     expect(transaction.user.update).not.toHaveBeenCalled();
     expect(transaction.authSession.updateMany).toHaveBeenCalledTimes(1);
+    expect(sessionsRevokedNotifier.publish).toHaveBeenCalledWith(targetUserId);
   });
 
   it("proíbe self-target antes da transação", async () => {
@@ -116,11 +128,13 @@ describe("UsersAdminStatusService.updateStatus", () => {
     transaction.user.update.mockRejectedValue(new Error("update failed"));
     await expect(service.updateStatus(actorUserId, targetUserId, { status: UserStatus.BLOCKED })).rejects.toThrow("update failed");
     expect(transaction.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionsRevokedNotifier.publish).not.toHaveBeenCalled();
   });
 
   it("rejeita a transação se a revogação falhar", async () => {
     transaction.authSession.updateMany.mockRejectedValue(new Error("revoke failed"));
     await expect(service.updateStatus(actorUserId, targetUserId, { status: UserStatus.BLOCKED })).rejects.toThrow("revoke failed");
+    expect(sessionsRevokedNotifier.publish).not.toHaveBeenCalled();
   });
 
   it("faz SELECT FOR UPDATE antes dos efeitos", async () => {
@@ -133,6 +147,54 @@ describe("UsersAdminStatusService.updateStatus", () => {
     expect(query.values).toContain(targetUserId);
     expect(transaction.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(transaction.user.update.mock.invocationCallOrder[0]);
     expect(transaction.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(transaction.authSession.updateMany.mock.invocationCallOrder[0]);
+  });
+
+  it("publica revogacao somente depois da transacao concluir", async () => {
+    let signalTransactionReached!: () => void;
+    let releaseTransaction!: () => void;
+
+    const transactionReached = new Promise<void>((resolve) => {
+      signalTransactionReached = resolve;
+    });
+
+    const transactionRelease = new Promise<void>((resolve) => {
+      releaseTransaction = resolve;
+    });
+
+    prisma.$transaction.mockImplementation(
+      async (callback) => {
+        await callback(transaction);
+
+        signalTransactionReached();
+        await transactionRelease;
+      },
+    );
+
+    const updateStatusPromise = service.updateStatus(
+      actorUserId,
+      targetUserId,
+      {
+        status: UserStatus.BLOCKED,
+      },
+    );
+
+    await transactionReached;
+
+    expect(
+      transaction.authSession.updateMany,
+    ).toHaveBeenCalledTimes(1);
+
+    expect(
+      sessionsRevokedNotifier.publish,
+    ).not.toHaveBeenCalled();
+
+    releaseTransaction();
+
+    await updateStatusPromise;
+
+    expect(
+      sessionsRevokedNotifier.publish,
+    ).toHaveBeenCalledWith(targetUserId);
   });
 
   function locked(
