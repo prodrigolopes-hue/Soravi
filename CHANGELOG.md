@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-10
+
+### Rate limit distribuído com Redis
+
+- concluído o commit `d3f2183 feat(api): centraliza rate limit com Redis`: a configuração do `ThrottlerModule` foi centralizada e o contador passou a usar storage Redis compartilhado com `@nest-lab/throttler-storage-redis` 1.2.0 e `ioredis` 5.11.1;
+- `REDIS_URL` tornou-se obrigatória, aceita somente `redis://` e `rediss://` e não possui valor padrão no código. Falhas de Redis não usam fallback silencioso para storage em memória;
+- o `ThrottlerGuard` permanece explícito somente nos endpoints protegidos. Os limites anteriores foram preservados e `POST /api/v1/auth/register` passou a aceitar 5 requisições por 15 minutos;
+- um teste com duas aplicações Nest independentes e o mesmo Redis comprovou o contador compartilhado pela sequência HTTP `200, 200, 200, 200, 200, 429`. Outro cenário comprovou comportamento fail-closed com Redis indisponível, sem contador local;
+- o lifecycle das conexões foi validado e `--detectOpenHandles` não encontrou handles Redis abertos. Build e testes passaram. Um warning de teardown do Jest ainda aparece em algumas execuções normais, sem evidência de vazamento Redis e sem uso de `--forceExit`; sua causa permanece como ponto técnico separado a investigar;
+- este registro não afirma deploy ou uso em produção e não expõe URL ou credenciais Redis.
+
 ## 2026-09-09
 
 ### Testes reais de concorrência de autenticação
