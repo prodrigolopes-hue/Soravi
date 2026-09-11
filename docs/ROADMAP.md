@@ -34,7 +34,7 @@
 - dependência externa/pré-beta da Meta: concluir Business Verification quando houver estrutura jurídica adequada e obter permissão para criar o template de autenticação pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a tentativa atual foi recusada pela Meta por falta de permissão da WABA;
 - validar o envio real de OTP, configurar e assinar o webhook e somente então ativar o provider Meta em produção; a integração não está operacional para OTP;
 - revisar antes do beta e a cada atualização compatível upstream o risco residual conhecido das 6 vulnerabilidades, concentrado em `deepmerge-ts` 7.1.5 (`@prisma/config`), `mysql2` 3.15.3 (Prisma/tooling; a Soravi usa PostgreSQL) e `postcss` 8.4.31 (interno do Next.js 15.5.25), sem aplicar overrides internos apenas para zerar o `npm audit` sem validação de compatibilidade;
-- hardening obrigatório pré-beta ainda pendente: remover futuramente `style-src-attr 'unsafe-inline'`, monitorar o impacto de cache/performance da renderização dinâmica e avaliar CSP bloqueante; revisar XSS, proteção de sessões/tokens, cookies/refresh, rate limits e OWASP ASVS;
+- hardening obrigatório pré-beta ainda pendente: remover futuramente `style-src-attr 'unsafe-inline'`, monitorar o impacto de cache/performance da renderização dinâmica e avaliar CSP bloqueante; revisar XSS, proteção de sessões/tokens, cookies/refresh, os demais controles de rate limit e OWASP ASVS;
 - favoritos, avaliações e demais etapas ainda não implementadas.
 
 O bloqueio externo da Meta não interrompe o restante do desenvolvimento do MVP.
@@ -54,6 +54,8 @@ funcionalidades críticas do MVP em prioridade.
 - monitorar buscas por Soravi e Soravi Brasil e possível confusão com outras entidades chamadas Soravi.
 
 ## Hardening de sessão concluído
+
+O commit `d3f2183 feat(api): centraliza rate limit com Redis` concluiu o storage compartilhado/multi-instância do rate limit. A configuração foi centralizada, `REDIS_URL` tornou-se obrigatória e restrita a `redis://`/`rediss://`, os limites existentes foram preservados e o cadastro público passou a 5 requisições / 15 minutos. Duas aplicações Nest independentes comprovaram o contador compartilhado (`200, 200, 200, 200, 200, 429`); Redis indisponível falhou de forma fechada, sem fallback local. O lifecycle foi validado e `--detectOpenHandles` não encontrou handles Redis. O warning de teardown observado em algumas execuções normais permanece como investigação separada, sem evidência de vazamento Redis e sem uso de `--forceExit`. Não se afirma deploy em produção.
 
 O bloco de moderação administrativa dos commits `fce91dc` e `7f7b5dd` concluiu bloqueio seguro, reativação, frontend `ACTIVE`/`BLOCKED` e revogação de sessões durante o bloqueio, sem afirmar deploy. O commit `020fd3b` concluiu o teste integrado real de concorrência PostgreSQL entre login e bloqueio administrativo, nas duas ordens de aquisição do lock e com contenção confirmada por `pg_blocking_pids()`. ASVS 5.0.0 V7.4.2 permanece **parcialmente tratado**: ainda são necessários fluxos próprios de suspensão, desativação e exclusão/soft-delete que revoguem sessões explicitamente.
 

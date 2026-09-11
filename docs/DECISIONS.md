@@ -534,6 +534,10 @@ Redis não será fonte oficial de:
 - contratações;
 - estados de negócio.
 
+### Implementação comprovada
+
+O uso concreto para rate limiting distribuído foi concluído no commit `d3f2183 feat(api): centraliza rate limit com Redis`. O Throttler usa storage Redis compartilhado entre instâncias, `REDIS_URL` obrigatória e restrita aos protocolos `redis://` e `rediss://`, sem fallback silencioso para memória. Duas aplicações Nest independentes compartilharam o mesmo contador em teste real, e a indisponibilidade do Redis produziu comportamento fail-closed. A decisão não torna o Redis fonte oficial de dados de negócio nem afirma deploy em produção.
+
 ---
 
 ## DEC-011 — Usuário com múltiplos papéis

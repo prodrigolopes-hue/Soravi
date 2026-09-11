@@ -186,12 +186,12 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [ ] Revisar antes do beta e sempre que houver atualização compatível upstream o risco residual conhecido e monitorado em `deepmerge-ts` 7.1.5 (`@prisma/config`), `mysql2` 3.15.3 (Prisma/tooling; a Soravi usa PostgreSQL) e `postcss` 8.4.31 (Next.js 15.5.25), sem overrides internos apenas para zerar o `npm audit` sem validação de compatibilidade.
 - [ ] Remover futuramente o `'unsafe-inline'` temporário de `style-src-attr` sem quebrar os atributos `style=""` gerados em runtime.
 - [ ] Avaliar futuramente a ativação de CSP bloqueante, somente após concluir e observar o hardening em Report-Only.
-- [ ] Revisar XSS, proteção de sessão e token, cookies/refresh, sessões, rate limits e OWASP ASVS pré-beta.
+- [ ] Revisar XSS, proteção de sessão e token, cookies/refresh, sessões, os demais controles de rate limit e OWASP ASVS pré-beta.
 
 ### Hardening de sessão pré-beta
 
 - [x] Hardening do cookie de refresh (`e4210b9`) e lifetime absoluto de sessão de 90 × 24 horas (`e3000fd`), sem afirmar deploy em produção. Detalhes na [política de sessão](ARCHITECTURE.md#13-autenticação-e-sessões) e validações no [changelog](../CHANGELOG.md).
-- [x] Rate limit de login (10/15min) e refresh (60/15min) via `ThrottlerGuard` (`14734d3`); storage do contador em memória do processo, sem Redis/storage compartilhado.
+- [x] Rate limit de login (10/15min) e refresh (60/15min) via `ThrottlerGuard` (`14734d3`), com configuração central e storage Redis compartilhado entre instâncias, sem fallback para memória (`d3f2183`).
 - [x] Limite de 5 `AuthSession` ativas por conta, para CUSTOMER, PROFESSIONAL e ADMIN, com revogação das mais antigas em ordem determinística (`eecb5d6`).
 - [x] Bloqueio de login com credencial desatualizada após lock transacional, evitando corrida com reset de senha concorrente (`e70392e`).
 - [x] Serialização de refresh entre abas no frontend, com single-flight por Promise e Web Lock `soravi-auth-refresh` quando disponível (`96abdd6`).
@@ -212,7 +212,7 @@ trabalho prioridade superior às funcionalidades críticas do MVP.
 - [ ] Completar V7.4.2 com revogação explícita de sessões no futuro fluxo de exclusão/soft-delete.
 - [ ] Implementar limpeza periódica de registros expirados em `auth_refresh_token_history`.
 - [ ] Reutilizar a infraestrutura PostgreSQL integrada para validar outros fluxos críticos concorrentes ainda não implementados.
-- [ ] Avaliar storage compartilhado (ex.: Redis) para o rate limit de auth ao escalar horizontalmente.
+- [x] Concluir storage Redis compartilhado/multi-instância para rate limit, com teste real entre duas aplicações Nest, comportamento fail-closed e lifecycle validado (`d3f2183`).
 - [ ] Avaliar uso de `userAgent`/IP para auditoria, somente após avaliação de necessidade e LGPD.
 - [ ] Definir política futura de tela/dispositivos/sessões (visão e revogação individual pelo usuário).
 - [ ] Continuar revisão OWASP ASVS de autenticação/sessão sem declarar conformidade geral.

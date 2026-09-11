@@ -56,6 +56,8 @@ verificado.
 
 POST `/api/v1/auth/register`
 
+Rate limit: 5 requisições por 15 minutos, com `ThrottlerGuard` e contador Redis compartilhado entre instâncias (`d3f2183`).
+
 Campos principais:
 
 - `name`;

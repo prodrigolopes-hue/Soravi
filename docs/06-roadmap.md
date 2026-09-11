@@ -151,9 +151,11 @@ inicial e no DOM observado, mas atributos `style=""` são gerados em runtime,
 inclusive por elementos internos do Next.js/Next Image. Portanto,
 `'unsafe-inline'` permanece temporariamente restrito a atributos, sem wildcard
 ou `https:` genérico. Continuam pendentes sua remoção futura, a avaliação de
-CSP bloqueante, sessões/tokens, cookies/refresh, rate limits e OWASP ASVS.
+CSP bloqueante, sessões/tokens, cookies/refresh, os demais controles de rate limit e OWASP ASVS.
 
 ## Hardening de sessão concluído
+
+O commit `d3f2183 feat(api): centraliza rate limit com Redis` concluiu o storage compartilhado/multi-instância do rate limit. A configuração foi centralizada, `REDIS_URL` tornou-se obrigatória e restrita a `redis://`/`rediss://`, sem fallback para memória. Os limites anteriores foram preservados e o cadastro público passou a 5 requisições / 15 minutos. Duas aplicações Nest independentes comprovaram o mesmo contador pela sequência `200, 200, 200, 200, 200, 429`; Redis indisponível apresentou comportamento fail-closed. O lifecycle foi validado e `--detectOpenHandles` não encontrou handles Redis. O warning de teardown do Jest segue como ponto separado a investigar, sem evidência de vazamento Redis e sem `--forceExit`. Não se afirma deploy em produção.
 
 O bloco de moderação administrativa dos commits `fce91dc` e `7f7b5dd` concluiu bloqueio seguro, reativação, frontend `ACTIVE`/`BLOCKED` e revogação de sessões durante o bloqueio, sem afirmar deploy. O commit `020fd3b` concluiu o teste integrado real de concorrência PostgreSQL entre login e bloqueio administrativo, nas duas ordens de aquisição do lock e com contenção confirmada por `pg_blocking_pids()`. ASVS 5.0.0 V7.4.2 permanece **parcialmente tratado**: ainda são necessários fluxos próprios de suspensão, desativação e exclusão/soft-delete que revoguem sessões explicitamente.
 

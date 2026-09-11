@@ -102,6 +102,7 @@ Prisma será o ORM oficial.
 
 Redis será utilizado para:
 
+-   rate limiting distribuído;
 -   cache;
 -   notificações;
 -   filas;
@@ -117,6 +118,7 @@ Redis será utilizado para:
 -   Validação de entradas.
 -   Controle de permissões por perfil.
 -   Variáveis de ambiente para segredos.
+-   O commit `d3f2183 feat(api): centraliza rate limit com Redis` concluiu a configuração central com storage Redis compartilhado entre instâncias. `REDIS_URL` é obrigatória e aceita somente `redis://`/`rediss://`; não existe fallback silencioso para memória. Duas aplicações Nest independentes compartilharam o mesmo contador (`200, 200, 200, 200, 200, 429`), Redis indisponível falhou de forma fechada e o lifecycle foi validado sem handles Redis detectados. O warning de teardown do Jest permanece como investigação separada, sem evidência de vazamento Redis e sem uso de `--forceExit`. Isso não afirma deploy em produção.
 -   Em 2026-09-02, o hardening compatível reduziu o baseline de `npm audit --omit=dev` de 14 para 6 vulnerabilidades. Foram atualizados Next.js 15.5.25, `qs` 6.16.0, `sharp` 0.35.4, `fast-uri` 3.1.7, `nanoid` 3.3.18 e Prisma/`@prisma/client` 7.10.0; o Prisma removeu Hono e `@hono/node-server` da árvore vulnerável e atualizou `valibot` para 1.4.2.
 -   O baseline residual é risco conhecido e monitorado: `deepmerge-ts` 7.1.5 em `@prisma/config`, `mysql2` 3.15.3 no Prisma/tooling apesar do uso de PostgreSQL pela Soravi e `postcss` 8.4.31 interno do Next.js 15.5.25. Não foram usados `npm audit fix --force` nem overrides internos sem validação de compatibilidade.
 -   Em 2026-09-03, o frontend passou a remover `X-Powered-By` e a enviar `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`, com `Strict-Transport-Security` somente em produção.
@@ -130,7 +132,7 @@ Redis será utilizado para:
 -   O commit `50b0277 test(auth): cobre limite de sessoes sob logins concorrentes` comprovou com PostgreSQL real que dois logins para a mesma conta respeitam o máximo de cinco sessões: B espera pelo lock de A, lê o estado após o primeiro commit e reaplica a regra. Das sete sessões finais, somente as duas mais antigas por `createdAt ASC` + `id ASC` ficam revogadas; S3 vence o desempate de IDs e permanece ativa com S4, S5 e as duas novas.
 -   O commit `a36a8a1 test(auth): cobre concorrencia entre login e troca de senha` completou a cobertura das duas ordens entre login e troca autenticada: login vencedor cria uma sessão depois revogada pela troca, que preserva a `currentSession`; troca vencedora altera o hash e faz o login pré-validado com o hash antigo reverter sem nova sessão ou `lastLoginAt`. A bateria totaliza sete testes PostgreSQL reais; demais concorrências ainda não implementadas permanecem pendentes.
 -   ASVS 5.0.0 V6.2.2, V6.2.3, V6.2.4 e V6.2.5 estão tratados, sem declarar conformidade ASVS geral.
--   A CSP continua exclusivamente Report-Only, sem enforcement, wildcard ou `https:` genérico. O nonce mantém as páginas server-rendered dinamicamente e seu impacto de cache/performance será monitorado. Isso não afirma deploy em produção. Permanecem pendentes `style-src-attr 'unsafe-inline'`, revisão de sessões/tokens, cookies/refresh, rate limits, OWASP ASVS e avaliação futura de CSP bloqueante.
+-   A CSP continua exclusivamente Report-Only, sem enforcement, wildcard ou `https:` genérico. O nonce mantém as páginas server-rendered dinamicamente e seu impacto de cache/performance será monitorado. Isso não afirma deploy em produção. Permanecem pendentes `style-src-attr 'unsafe-inline'`, revisão de sessões/tokens, cookies/refresh, os demais controles de rate limit, OWASP ASVS e avaliação futura de CSP bloqueante.
 
 ------------------------------------------------------------------------
 

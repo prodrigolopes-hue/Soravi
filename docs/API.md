@@ -2941,19 +2941,24 @@ Redis somente será verificado quando for uma dependência ativa.
 
 # 31. Rate limiting
 
-Rate limiting deverá ser aplicado principalmente em:
+O rate limiting implementado usa configuração central e storage Redis compartilhado entre instâncias, concluído no commit `d3f2183 feat(api): centraliza rate limit com Redis`. `REDIS_URL` é obrigatória, aceita somente `redis://` e `rediss://` e não há fallback silencioso para memória. O `ThrottlerGuard` continua explícito somente nos endpoints protegidos.
+
+Os endpoints atualmente protegidos incluem:
 
 ```text
+POST /auth/register                         5 / 15 minutos
 POST /auth/login
+POST /auth/refresh
 POST /auth/password-reset/request
 POST /auth/password-reset/confirm
-POST /auth/resend-email-verification
-POST /reports
-POST /uploads/presign
-POST /conversations/{id}/messages
+POST /phone-verification/request
+POST /phone-verification/confirm
+PATCH /users/me/phone
+PATCH /users/me/password
+POST /category-suggestions
 ```
 
-Os limites definitivos serão configurados por ambiente.
+Os limites anteriores foram preservados. O teste real com duas aplicações Nest independentes comprovou o contador compartilhado pela sequência `200, 200, 200, 200, 200, 429`; com Redis indisponível, a requisição protegida falha sem usar contador local. Isso não afirma deploy em produção.
 
 ### Resposta
 
