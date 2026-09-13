@@ -1,3 +1,4 @@
+// A URL pública da API é definida separadamente por ambiente de deploy.
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
