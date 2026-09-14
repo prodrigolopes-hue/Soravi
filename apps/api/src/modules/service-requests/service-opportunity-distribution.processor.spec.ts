@@ -74,6 +74,7 @@ describe("ServiceOpportunityDistributionProcessor", () => {
     expect(prismaMock.serviceRequest.findMany).toHaveBeenCalledWith({
       where: {
         status: ServiceRequestStatus.OPEN,
+        publishedAt: { not: null },
         editableUntil: { lte: expect.any(Date) },
         opportunitiesDispatchedAt: null,
         deletedAt: null,
@@ -166,6 +167,8 @@ describe("ServiceOpportunityDistributionProcessor", () => {
 
   it("registra o intervalo padrão no SchedulerRegistry", () => {
     processor.onApplicationBootstrap();
+
+    expect(prismaMock.serviceRequest.findMany).toHaveBeenCalledTimes(1);
 
     expect(setIntervalSpy).toHaveBeenCalledWith(
       expect.any(Function),

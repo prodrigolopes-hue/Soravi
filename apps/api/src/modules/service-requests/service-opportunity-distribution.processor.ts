@@ -44,6 +44,8 @@ export class ServiceOpportunityDistributionProcessor
   }
 
   onApplicationBootstrap(): void {
+    void this.processEligibleServiceRequests();
+
     const interval = setInterval(
       () => void this.processEligibleServiceRequests(),
       this.intervalMs,
@@ -69,6 +71,7 @@ export class ServiceOpportunityDistributionProcessor
       const serviceRequests = await this.prisma.serviceRequest.findMany({
         where: {
           status: ServiceRequestStatus.OPEN,
+          publishedAt: { not: null },
           editableUntil: { lte: new Date() },
           opportunitiesDispatchedAt: null,
           deletedAt: null,

@@ -121,6 +121,7 @@ describe("ServiceOpportunityDistributionService", () => {
       where: {
         id: serviceRequestId,
         status: ServiceRequestStatus.OPEN,
+        publishedAt: { not: null },
         editableUntil: { lte: expect.any(Date) },
         opportunitiesDispatchedAt: null,
         deletedAt: null,
