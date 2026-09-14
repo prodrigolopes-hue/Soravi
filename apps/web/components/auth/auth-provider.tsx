@@ -12,6 +12,10 @@ import {
 } from "react";
 
 import { apiBaseUrl } from "../../lib/api";
+import {
+  createAuthenticatedFetch,
+  type RefreshedSession,
+} from "./auth-fetch-retry";
 import { runWithAuthRefreshLock } from "./auth-refresh-lock";
 
 export interface AuthUser {
@@ -135,8 +139,11 @@ function extractErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-async function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
-  const response = await fetch(buildApiUrl("/api/v1/users/me"), {
+async function fetchCurrentUser(
+  accessToken: string,
+  fetchImplementation: typeof fetch = fetch,
+): Promise<AuthUser> {
+  const response = await fetchImplementation(buildApiUrl("/api/v1/users/me"), {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -171,13 +178,15 @@ async function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
   throw new Error("Resposta inválida do servidor.");
 }
 
-async function requestRefreshSession(): Promise<RefreshSessionResult | null> {
+async function requestRefreshSession(
+  fetchImplementation: typeof fetch = fetch,
+): Promise<RefreshSessionResult | null> {
   if (refreshSessionInFlight) {
     return refreshSessionInFlight;
   }
 
   refreshSessionInFlight = runWithAuthRefreshLock(async () => {
-    const response = await fetch(buildApiUrl("/api/v1/auth/refresh"), {
+    const response = await fetchImplementation(buildApiUrl("/api/v1/auth/refresh"), {
       method: "POST",
       credentials: "include",
     });
@@ -202,7 +211,7 @@ async function requestRefreshSession(): Promise<RefreshSessionResult | null> {
       throw new Error("Não foi possível renovar sua sessão.");
     }
 
-    const nextUser = await fetchCurrentUser(nextAccessToken);
+    const nextUser = await fetchCurrentUser(nextAccessToken, fetchImplementation);
 
     return {
       accessToken: nextAccessToken,
@@ -242,6 +251,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     setAccessToken(null);
   }, []);
+
+  useEffect(() => {
+    const nativeFetch = window.fetch.bind(window);
+    const authenticatedFetch = createAuthenticatedFetch(
+      nativeFetch,
+      apiBaseUrl,
+      async (): Promise<RefreshedSession | null> => {
+        const refreshResult = await requestRefreshSession(nativeFetch);
+
+        if (!refreshResult) {
+          clearSession();
+          return null;
+        }
+
+        setAccessToken(refreshResult.accessToken);
+        setUser(refreshResult.user);
+
+        return refreshResult;
+      },
+    );
+
+    window.fetch = authenticatedFetch;
+
+    return () => {
+      window.fetch = nativeFetch;
+    };
+  }, [clearSession]);
 
   const refreshSession = useCallback(async (): Promise<void> => {
     const operationVersion = authOperationVersionRef.current;
