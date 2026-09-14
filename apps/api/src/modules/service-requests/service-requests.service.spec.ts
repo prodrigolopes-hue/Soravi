@@ -125,6 +125,7 @@ describe("ServiceRequestsService", () => {
         description: input.description,
         status: ServiceRequestStatus.OPEN,
         ...input.location,
+        publishedAt: expect.any(Date),
         opportunitiesDispatchedAt: null,
       }),
       select: expect.any(Object),

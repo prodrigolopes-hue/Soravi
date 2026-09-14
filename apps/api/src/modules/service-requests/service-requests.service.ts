@@ -142,6 +142,8 @@ export class ServiceRequestsService {
       throw new InvalidServiceRequestCategoryException();
     }
 
+    const publishedAt = new Date();
+
     const serviceRequest = await this.prisma.serviceRequest.create({
       data: {
         customerProfileId: customerProfile.id,
@@ -157,7 +159,10 @@ export class ServiceRequestsService {
         addressLine: input.location.addressLine,
         addressNumber: input.location.addressNumber,
         addressComplement: input.location.addressComplement?.trim() || null,
-        editableUntil: new Date(Date.now() + SERVICE_REQUEST_EDIT_WINDOW_MS),
+        publishedAt,
+        editableUntil: new Date(
+          publishedAt.getTime() + SERVICE_REQUEST_EDIT_WINDOW_MS,
+        ),
         opportunitiesDispatchedAt: null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
