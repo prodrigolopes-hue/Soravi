@@ -13,6 +13,7 @@ import { UsersModule } from "./modules/users/users.module";
 import { LaunchInterestsModule } from "./modules/launch-interests/launch-interests.module";
 import { CategorySuggestionsModule } from "./modules/category-suggestions/category-suggestions.module";
 import { ConversationsModule } from "./modules/conversations/conversations.module";
+import { ContractsModule } from "./modules/contracts/contracts.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { PhoneVerificationModule } from "./modules/phone-verification/phone-verification.module";
 import { ServiceRequestsModule } from "./modules/service-requests/service-requests.module";
@@ -35,6 +36,7 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
     LaunchInterestsModule,
     CategorySuggestionsModule,
     ConversationsModule,
+    ContractsModule,
     NotificationsModule,
     PhoneVerificationModule,
     ServiceRequestsModule,

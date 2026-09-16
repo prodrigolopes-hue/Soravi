@@ -238,6 +238,14 @@ export function proposalAcceptUrl(proposalId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/proposals/${encodeURIComponent(proposalId)}/accept`;
 }
 
+export function contractStartUrl(contractId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/start`;
+}
+
+export function contractCompleteUrl(contractId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/complete`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }

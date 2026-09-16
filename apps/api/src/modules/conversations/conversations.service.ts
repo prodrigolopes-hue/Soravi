@@ -41,8 +41,10 @@ const CONVERSATION_SELECT = {
       status: true,
       agreedAmountInCents: true,
       agreedDurationValue: true,
-      agreedDurationUnit: true,
-      acceptedAt: true,
+            agreedDurationUnit: true,
+            acceptedAt: true,
+            startedAt: true,
+            completedAt: true,
       customerProfile: {
         select: {
           userId: true,
@@ -231,6 +233,8 @@ export class ConversationsService {
         agreedDurationValue: contract.agreedDurationValue,
         agreedDurationUnit: contract.agreedDurationUnit,
         acceptedAt: contract.acceptedAt,
+        startedAt: contract.startedAt,
+        completedAt: contract.completedAt,
       },
       serviceRequest: {
         id: contract.serviceRequest.id,

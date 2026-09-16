@@ -18,6 +18,8 @@ export interface ConversationResponseDtoProperties {
     agreedDurationValue: number;
     agreedDurationUnit: EstimatedDurationUnit;
     acceptedAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
   };
   serviceRequest: {
     id: string;
@@ -41,6 +43,8 @@ export class ConversationResponseDto {
     agreedDurationValue: number;
     agreedDurationUnit: EstimatedDurationUnit;
     acceptedAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
   };
   readonly serviceRequest: {
     id: string;

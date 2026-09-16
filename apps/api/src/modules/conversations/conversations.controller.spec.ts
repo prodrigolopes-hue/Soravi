@@ -50,6 +50,8 @@ describe("ConversationsController", () => {
         agreedDurationValue: 2,
         agreedDurationUnit: "HOUR" as any,
         acceptedAt: new Date("2026-08-19T08:00:00.000Z"),
+        startedAt: null,
+        completedAt: null,
       },
       serviceRequest: {
         id: "request-id",

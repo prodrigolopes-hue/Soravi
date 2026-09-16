@@ -17,6 +17,8 @@ import {
   conversationByIdUrl,
   conversationMessagesUrl,
   conversationReadUrl,
+  contractCompleteUrl,
+  contractStartUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 
@@ -50,6 +52,8 @@ interface ConversationDetails {
     agreedDurationValue: number;
     agreedDurationUnit: string;
     acceptedAt: string;
+    startedAt: string | null;
+    completedAt: string | null;
   };
   serviceRequest: {
     id: string;
@@ -122,6 +126,8 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     typeof root.contract.agreedDurationValue !== "number" ||
     typeof root.contract.agreedDurationUnit !== "string" ||
     typeof root.contract.acceptedAt !== "string" ||
+    !isNullableString(root.contract.startedAt) ||
+    !isNullableString(root.contract.completedAt) ||
     !isRecord(root.serviceRequest) ||
     typeof root.serviceRequest.id !== "string" ||
     typeof root.serviceRequest.title !== "string" ||
@@ -145,6 +151,8 @@ function parseConversation(payload: unknown): ConversationDetails | null {
       agreedDurationValue: root.contract.agreedDurationValue,
       agreedDurationUnit: root.contract.agreedDurationUnit,
       acceptedAt: root.contract.acceptedAt,
+      startedAt: root.contract.startedAt,
+      completedAt: root.contract.completedAt,
     },
     serviceRequest: {
       id: root.serviceRequest.id,
@@ -291,6 +299,7 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
   const [messageText, setMessageText] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [contractActionState, setContractActionState] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   const canSend = conversation?.status === "ACTIVE";
   const trimmedMessage = messageText.trim();
@@ -682,6 +691,24 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
               {conversation.status}
             </span>
           </div>
+          <p className="mt-3 text-sm font-semibold text-slate-700">Status do serviço: {conversation.contract.status === "IN_PROGRESS" ? "Em andamento" : conversation.contract.status === "COMPLETED" ? "Concluído" : "Aceito"}</p>
+          {((conversation.participantRole === "PROFESSIONAL" && conversation.contract.status === "ACCEPTED") || (conversation.participantRole === "CUSTOMER" && conversation.contract.status === "IN_PROGRESS")) ? (
+            <button type="button" disabled={contractActionState === "loading"} onClick={() => void (async () => {
+              const start = conversation.participantRole === "PROFESSIONAL";
+              if (!accessToken || !window.confirm(start ? "Deseja iniciar este serviço?" : "Deseja confirmar a conclusão deste serviço?")) return;
+              setContractActionState("loading");
+              try {
+                const response = await fetch(start ? contractStartUrl(conversation.contract.id) : contractCompleteUrl(conversation.contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+                if (!response.ok) throw new Error("contract update failed");
+                await loadConversation(); setContractActionState("success");
+              } catch { setContractActionState("error"); }
+            })()} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white disabled:opacity-60">
+              {contractActionState === "loading" ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
+              {conversation.participantRole === "PROFESSIONAL" ? "Iniciar serviço" : "Confirmar conclusão"}
+            </button>
+          ) : null}
+          {contractActionState === "success" ? <p className="mt-3 text-sm text-emerald-700" role="status">Contratação atualizada com sucesso.</p> : null}
+          {contractActionState === "error" ? <p className="mt-3 text-sm text-red-600" role="alert">Não foi possível atualizar a contratação.</p> : null}
           {readonlyMessage ? (
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
               {readonlyMessage}

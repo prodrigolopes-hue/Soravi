@@ -1,0 +1,30 @@
+import { Controller, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
+
+import { Role } from "../../generated/prisma/client";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { AccessTokenGuard } from "../auth/guards/access-token.guard";
+import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
+import { ContractResponseDto } from "./dto/contract-response.dto";
+import { ContractsService } from "./contracts.service";
+
+@Controller("contracts")
+export class ContractsController {
+  constructor(private readonly contractsService: ContractsService) {}
+
+  @Post(":contractId/start")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
+  start(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string): Promise<ContractResponseDto> {
+    return this.contractsService.start(currentUser.id, contractId);
+  }
+
+  @Post(":contractId/complete")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
+  complete(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string): Promise<ContractResponseDto> {
+    return this.contractsService.complete(currentUser.id, contractId);
+  }
+}
