@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
+import { categoriesUrl, contractCompleteUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
@@ -71,6 +71,7 @@ interface ServiceRequestDetails {
   editableUntil: string;
   createdAt: string;
   conversationId: string | null;
+  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } | null;
   photos: ServiceRequestPhoto[];
 }
 
@@ -275,7 +276,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
 
   const root = isRecord(payload.data) ? payload.data : payload;
 
-  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string" || !isNullableString(root.conversationId)) {
+  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string" || !isNullableString(root.conversationId) || !(root.contract === null || (isRecord(root.contract) && typeof root.contract.id === "string" && typeof root.contract.status === "string"))) {
     return null;
   }
 
@@ -321,6 +322,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
     editableUntil: root.editableUntil,
     createdAt: root.createdAt,
     conversationId: root.conversationId,
+    contract: root.contract as ServiceRequestDetails["contract"],
     photos: [...photos].sort((first, second) => first.position - second.position),
   };
 }
@@ -361,6 +363,8 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [editMessageTone, setEditMessageTone] = useState<EditMessageTone>("success");
   const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCompletingContract, setIsCompletingContract] = useState(false);
+  const [contractActionMessage, setContractActionMessage] = useState<string | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancelBlockedByServer, setCancelBlockedByServer] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
@@ -599,6 +603,18 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
     setProposalAcceptanceResult(null);
     setProposalAcceptanceError(null);
     setProposalAcceptanceState("confirming");
+  }
+
+  async function completeContract(): Promise<void> {
+    if (!accessToken || !request?.contract || isCompletingContract || !window.confirm("Deseja confirmar a conclusão deste serviço?")) return;
+    setIsCompletingContract(true); setContractActionMessage(null);
+    try {
+      const response = await fetch(contractCompleteUrl(request.contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      if (!response.ok) throw new Error("contract completion failed");
+      setRequest((current) => current ? { ...current, status: "COMPLETED", contract: { ...current.contract!, status: "COMPLETED" } } : current);
+      setContractActionMessage("Serviço concluído com sucesso.");
+    } catch { setContractActionMessage("Não foi possível confirmar a conclusão. Tente novamente."); }
+    finally { setIsCompletingContract(false); }
   }
 
   function closeProposalAcceptance(): void {
@@ -1201,6 +1217,14 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                 <MessageCircle aria-hidden="true" className="size-4" />
                 Ir para conversa
               </Link>
+            ) : null}
+
+            {request.contract ? (
+              <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" aria-live="polite">
+                <p className="font-semibold text-blue-950">{request.contract.status === "ACCEPTED" ? "Aguardando início do serviço pelo profissional" : request.contract.status === "IN_PROGRESS" ? "Serviço em andamento" : request.contract.status === "COMPLETED" ? "Serviço concluído" : "Contratação cancelada"}</p>
+                {request.contract.status === "IN_PROGRESS" ? <button type="button" onClick={() => void completeContract()} disabled={isCompletingContract} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isCompletingContract ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{isCompletingContract ? "Confirmando..." : "Confirmar conclusão"}</button> : null}
+                {contractActionMessage ? <p className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço concluído com sucesso." ? "text-emerald-700" : "text-red-700"}`} role={contractActionMessage === "Serviço concluído com sucesso." ? "status" : "alert"}>{contractActionMessage}</p> : null}
+              </section>
             ) : null}
 
             {proposalAcceptanceState === "confirming" || proposalAcceptanceState === "submitting" ? (

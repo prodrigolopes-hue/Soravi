@@ -1,4 +1,4 @@
-import { ServiceRequestStatus } from "../../../generated/prisma/client";
+import { ContractStatus, ServiceRequestStatus } from "../../../generated/prisma/client";
 
 export interface OpportunityPhotoDetailResponseDtoProperties {
   id: string;
@@ -33,6 +33,7 @@ export interface OpportunityDetailResponseProperties {
   viewedAt: Date | null;
   conversationId: string | null;
   customerFirstName: string | null;
+  contract: { id: string; status: ContractStatus } | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -55,6 +56,7 @@ export class OpportunityDetailResponseDto {
   viewedAt!: Date | null;
   conversationId!: string | null;
   customerFirstName!: string | null;
+  contract!: { id: string; status: ContractStatus } | null;
   serviceRequest!: {
     id: string;
     title: string;
@@ -78,6 +80,7 @@ export class OpportunityDetailResponseDto {
     this.viewedAt = properties.viewedAt;
     this.conversationId = properties.conversationId;
     this.customerFirstName = properties.customerFirstName;
+    this.contract = properties.contract;
     this.serviceRequest = {
       id: properties.serviceRequest.id,
       title: properties.serviceRequest.title,

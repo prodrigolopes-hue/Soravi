@@ -213,6 +213,8 @@ export class ServiceRequestsService {
         },
         contract: {
           select: {
+            id: true,
+            status: true,
             conversation: {
               select: {
                 id: true,
@@ -511,7 +513,9 @@ function toServiceRequestResponseProperties(
   serviceRequest: Prisma.ServiceRequestGetPayload<{
     select: typeof SERVICE_REQUEST_RESPONSE_SELECT;
   }> & {
-    contract?: {
+  contract?: {
+      id: string;
+      status: import("../../generated/prisma/client").ContractStatus;
       conversation: { id: string } | null;
     } | null;
   },
@@ -535,5 +539,6 @@ function toServiceRequestResponseProperties(
     editableUntil: serviceRequest.editableUntil,
     createdAt: serviceRequest.createdAt,
     conversationId: serviceRequest.contract?.conversation?.id ?? null,
+    contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status } : null,
   };
 }

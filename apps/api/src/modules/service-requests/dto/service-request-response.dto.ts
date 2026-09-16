@@ -1,4 +1,4 @@
-import { ServiceRequestStatus } from "../../../generated/prisma/client";
+import { ContractStatus, ServiceRequestStatus } from "../../../generated/prisma/client";
 
 export interface ServiceRequestLocationResponseDto {
   country: string;
@@ -48,6 +48,7 @@ export interface ServiceRequestResponseDtoProperties {
   editableUntil: Date;
   createdAt: Date;
   conversationId?: string | null;
+  contract?: { id: string; status: ContractStatus } | null;
   photos?: ServiceRequestPhotoDetailResponseDto[];
 }
 
@@ -61,6 +62,7 @@ export class ServiceRequestResponseDto {
   readonly editableUntil: Date;
   readonly createdAt: Date;
   readonly conversationId: string | null;
+  readonly contract: { id: string; status: ContractStatus } | null;
   readonly photos: ServiceRequestPhotoDetailResponseDto[];
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
@@ -73,6 +75,7 @@ export class ServiceRequestResponseDto {
     this.editableUntil = properties.editableUntil;
     this.createdAt = properties.createdAt;
     this.conversationId = properties.conversationId ?? null;
+    this.contract = properties.contract ?? null;
     this.photos = properties.photos ?? [];
   }
 }

@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { opportunityByIdUrl, opportunityViewedUrl } from "../../lib/api";
+import { contractStartUrl, opportunityByIdUrl, opportunityViewedUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
 import {
@@ -49,6 +49,7 @@ interface OpportunityDetails {
   viewedAt: string | null;
   conversationId: string | null;
   customerFirstName: string | null;
+  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -98,6 +99,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     !isNullableString(root.viewedAt) ||
     !isNullableString(root.conversationId) ||
     !isNullableString(root.customerFirstName) ||
+    !(root.contract === null || (isRecord(root.contract) && typeof root.contract.id === "string" && typeof root.contract.status === "string")) ||
     typeof serviceRequest.id !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
@@ -138,6 +140,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     viewedAt: root.viewedAt,
     conversationId: root.conversationId,
     customerFirstName: root.customerFirstName,
+    contract: root.contract as OpportunityDetails["contract"],
     serviceRequest: {
       id: serviceRequest.id,
       title: serviceRequest.title,
@@ -167,6 +170,8 @@ export function ProfessionalOpportunityDetailsPage({
   const [opportunityState, setOpportunityState] =
     useState<OpportunityState>("idle");
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [isStartingContract, setIsStartingContract] = useState(false);
+  const [contractActionMessage, setContractActionMessage] = useState<string | null>(null);
   const viewedOpportunityIdRef = useRef<string | null>(null);
 
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
@@ -374,6 +379,18 @@ export function ProfessionalOpportunityDetailsPage({
       ? "Esta solicitação já foi contratada e não aceita novas propostas."
       : "Esta solicitação não aceita mais propostas no momento.";
 
+  async function startContract(): Promise<void> {
+    if (!accessToken || !opportunity.contract || isStartingContract || !window.confirm("Deseja iniciar este serviço?")) return;
+    setIsStartingContract(true); setContractActionMessage(null);
+    try {
+      const response = await fetch(contractStartUrl(opportunity.contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      if (!response.ok) throw new Error("contract start failed");
+      setOpportunity((current) => current ? { ...current, contract: { ...current.contract!, status: "IN_PROGRESS" } } : current);
+      setContractActionMessage("Serviço iniciado com sucesso.");
+    } catch { setContractActionMessage("Não foi possível iniciar o serviço. Tente novamente."); }
+    finally { setIsStartingContract(false); }
+  }
+
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -416,6 +433,13 @@ export function ProfessionalOpportunityDetailsPage({
               <MessageCircle aria-hidden="true" className="size-4" />
               Ir para conversa
             </Link>
+          ) : null}
+          {opportunity.contract ? (
+            <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" aria-live="polite">
+              <p className="font-semibold text-blue-950">{opportunity.contract.status === "ACCEPTED" ? "Contratação aceita" : opportunity.contract.status === "IN_PROGRESS" ? "Serviço em andamento" : opportunity.contract.status === "COMPLETED" ? "Serviço concluído" : "Contratação cancelada"}</p>
+              {opportunity.contract.status === "ACCEPTED" ? <button type="button" onClick={() => void startContract()} disabled={isStartingContract} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isStartingContract ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{isStartingContract ? "Iniciando..." : "Iniciar serviço"}</button> : null}
+              {contractActionMessage ? <p className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço iniciado com sucesso." ? "text-emerald-700" : "text-red-700"}`} role={contractActionMessage === "Serviço iniciado com sucesso." ? "status" : "alert"}>{contractActionMessage}</p> : null}
+            </section>
           ) : null}
         </header>
 
