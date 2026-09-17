@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 
@@ -152,6 +153,7 @@ function FieldError({ id, message }: FieldErrorProps) {
 
 export function NewServiceRequestPage() {
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesState, setCategoriesState] =
     useState<CategoriesState>("loading");
@@ -162,12 +164,14 @@ export function NewServiceRequestPage() {
   const [submissionProgress, setSubmissionProgress] = useState<string | null>(
     null,
   );
+  const [isPublishing, setIsPublishing] = useState(false);
   const [reviewData, setReviewData] = useState<ServiceRequestFormData | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [postalCodeLookupState, setPostalCodeLookupState] =
     useState<PostalCodeLookupState>("idle");
   const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
+  const isPublishingRef = useRef(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const lastLookedUpPostalCodeRef = useRef<string | null>(null);
   const postalCodeAbortControllerRef = useRef<AbortController | null>(null);
@@ -434,7 +438,7 @@ export function NewServiceRequestPage() {
   }
 
   async function submitServiceRequest(data: ServiceRequestFormData): Promise<void> {
-    if (!accessToken || isSubmitting) {
+    if (!accessToken || isSubmitting || isPublishingRef.current) {
       return;
     }
 
@@ -453,6 +457,8 @@ export function NewServiceRequestPage() {
     setSubmissionState("idle");
     setFormMessage(null);
     setSubmissionProgress("Salvando solicitação...");
+    isPublishingRef.current = true;
+    setIsPublishing(true);
 
     const description = data.description.trim();
     const addressComplement = data.location.addressComplement.trim();
@@ -501,11 +507,15 @@ export function NewServiceRequestPage() {
       }
 
       const serviceRequestId = extractServiceRequestId(payload);
+      if (!serviceRequestId) {
+        setSubmissionState("error");
+        setFormMessage("A solicitação foi publicada, mas não foi possível abrir os detalhes.");
+        setSubmissionProgress(null);
+        return;
+      }
       let failedUploads = 0;
 
-      if (photosToUpload.length > 0 && !serviceRequestId) {
-        failedUploads = photosToUpload.length;
-      } else if (serviceRequestId) {
+      if (photosToUpload.length > 0) {
         failedUploads = await uploadServiceRequestPhotos(
           photosToUpload,
           async (photo) => {
@@ -540,10 +550,8 @@ export function NewServiceRequestPage() {
           "A solicitação foi publicada, mas algumas fotos não puderam ser enviadas.",
         );
       } else {
-        setSubmissionState("success");
-        setFormMessage(
-          "Solicitação publicada com sucesso.",
-        );
+        router.push(`/solicitacoes/${encodeURIComponent(serviceRequestId)}`);
+        return;
       }
 
       setSubmissionProgress(null);
@@ -558,6 +566,9 @@ export function NewServiceRequestPage() {
       setFormMessage(
         "Não foi possível conectar à Soravi. Tente novamente em instantes.",
       );
+    } finally {
+      isPublishingRef.current = false;
+      setIsPublishing(false);
     }
   }
 
@@ -848,8 +859,8 @@ export function NewServiceRequestPage() {
             {formMessage ? <div role={submissionState === "success" ? "status" : "alert"} className={`rounded-xl border p-4 font-medium ${submissionState === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : submissionState === "partial" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-800"}`}>{formMessage}</div> : null}
             {submissionProgress ? <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm font-medium text-slate-700"><Loader2 aria-hidden="true" className="size-4 animate-spin" />{submissionProgress}</p> : null}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" disabled={isSubmitting} onClick={() => setReviewData(null)} className="inline-flex min-h-12 items-center justify-center px-5 py-3 font-semibold text-slate-700 hover:text-slate-950 disabled:opacity-50">Voltar e editar</button>
-              <button type="button" disabled={isSubmitting} onClick={() => void submitServiceRequest(reviewData)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400">{isSubmitting ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}{isSubmitting ? "Enviando..." : "Enviar solicitação"}</button>
+              <button type="button" disabled={isSubmitting || isPublishing} onClick={() => setReviewData(null)} className="inline-flex min-h-12 items-center justify-center px-5 py-3 font-semibold text-slate-700 hover:text-slate-950 disabled:opacity-50">Voltar e editar</button>
+              <button type="button" disabled={isSubmitting || isPublishing} onClick={() => void submitServiceRequest(reviewData)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400">{isSubmitting || isPublishing ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}{isSubmitting || isPublishing ? "Enviando..." : "Enviar solicitação"}</button>
             </div>
           </section>
         )}
