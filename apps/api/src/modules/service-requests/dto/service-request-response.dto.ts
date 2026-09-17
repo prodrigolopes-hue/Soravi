@@ -48,7 +48,7 @@ export interface ServiceRequestResponseDtoProperties {
   editableUntil: Date;
   createdAt: Date;
   conversationId?: string | null;
-  contract?: { id: string; status: ContractStatus } | null;
+  contract?: { id: string; status: ContractStatus; review?: { id: string; rating: number; comment: string | null } | null } | null;
   photos?: ServiceRequestPhotoDetailResponseDto[];
 }
 
@@ -62,7 +62,7 @@ export class ServiceRequestResponseDto {
   readonly editableUntil: Date;
   readonly createdAt: Date;
   readonly conversationId: string | null;
-  readonly contract: { id: string; status: ContractStatus } | null;
+  readonly contract: { id: string; status: ContractStatus; review?: { id: string; rating: number; comment: string | null } | null } | null;
   readonly photos: ServiceRequestPhotoDetailResponseDto[];
 
   constructor(properties: ServiceRequestResponseDtoProperties) {

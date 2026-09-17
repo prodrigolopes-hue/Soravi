@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, contractCompleteUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
+import { categoriesUrl, contractCompleteUrl, contractReviewUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
@@ -71,7 +71,7 @@ interface ServiceRequestDetails {
   editableUntil: string;
   createdAt: string;
   conversationId: string | null;
-  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } | null;
+  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"; review?: { id: string; rating: number; comment: string | null } | null } | null;
   photos: ServiceRequestPhoto[];
 }
 
@@ -364,6 +364,10 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCompletingContract, setIsCompletingContract] = useState(false);
   const [contractActionMessage, setContractActionMessage] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancelBlockedByServer, setCancelBlockedByServer] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
@@ -599,6 +603,19 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
       setContractActionMessage("Serviço concluído com sucesso.");
     } catch { setContractActionMessage("Não foi possível confirmar a conclusão. Tente novamente."); }
     finally { setIsCompletingContract(false); }
+  }
+
+  async function submitReview(): Promise<void> {
+    if (!accessToken || !request?.contract || isSubmittingReview) return;
+    setIsSubmittingReview(true); setReviewError(null);
+    try {
+      const response = await fetch(contractReviewUrl(request.contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ rating: reviewRating, ...(reviewComment.trim() ? { comment: reviewComment.trim() } : {}) }) });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok || typeof payload !== "object" || payload === null || !("review" in payload)) throw new Error("review failed");
+      const review = (payload as { review: { id: string; rating: number; comment: string | null } }).review;
+      setRequest((current) => current?.contract ? { ...current, contract: { ...current.contract, review } } : current);
+    } catch { setReviewError("Não foi possível enviar sua avaliação. Tente novamente."); }
+    finally { setIsSubmittingReview(false); }
   }
 
   function closeProposalAcceptance(): void {
@@ -1160,6 +1177,8 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                 <p className="font-semibold text-blue-950">{request.contract.status === "ACCEPTED" ? "Aguardando início do serviço pelo profissional" : request.contract.status === "IN_PROGRESS" ? "Serviço em andamento" : request.contract.status === "COMPLETED" ? "Serviço concluído" : "Contratação cancelada"}</p>
                 {request.contract.status === "IN_PROGRESS" ? <button type="button" onClick={() => void completeContract()} disabled={isCompletingContract} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isCompletingContract ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{isCompletingContract ? "Confirmando..." : "Confirmar conclusão"}</button> : null}
                 {contractActionMessage ? <p className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço concluído com sucesso." ? "text-emerald-700" : "text-red-700"}`} role={contractActionMessage === "Serviço concluído com sucesso." ? "status" : "alert"}>{contractActionMessage}</p> : null}
+                {request.contract.status === "COMPLETED" && !request.contract.review ? <div className="mt-5 border-t border-blue-200 pt-4"><h3 className="font-semibold text-blue-950">Avaliar profissional</h3><label className="mt-3 block text-sm font-medium text-slate-800" htmlFor="review-rating">Nota</label><select id="review-rating" value={reviewRating} onChange={(event) => setReviewRating(Number(event.target.value))} disabled={isSubmittingReview} className="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3"><option value={5}>5 - Excelente</option><option value={4}>4 - Muito bom</option><option value={3}>3 - Bom</option><option value={2}>2 - Regular</option><option value={1}>1 - Ruim</option></select><label className="mt-3 block text-sm font-medium text-slate-800" htmlFor="review-comment">Comentário (opcional)</label><textarea id="review-comment" value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} maxLength={1000} disabled={isSubmittingReview} className="mt-1 w-full rounded-lg border border-slate-300 p-3" rows={3} /><button type="button" onClick={() => void submitReview()} disabled={isSubmittingReview} className="mt-3 inline-flex min-h-11 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-60">{isSubmittingReview ? "Enviando..." : "Enviar avaliação"}</button>{reviewError ? <p role="alert" className="mt-2 text-sm text-red-700">{reviewError}</p> : null}</div> : null}
+                {request.contract.status === "COMPLETED" && request.contract.review ? <div className="mt-5 border-t border-blue-200 pt-4" role="status"><h3 className="font-semibold text-blue-950">Avaliação enviada</h3><p className="mt-2 text-sm">Nota: {request.contract.review.rating} de 5</p>{request.contract.review.comment ? <p className="mt-1 text-sm">{request.contract.review.comment}</p> : null}</div> : null}
               </section>
             ) : null}
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Avaliações de contratos concluídos
+
+- Implementada review única por contrato, com nota de 1 a 5, comentário opcional e atualização transacional da reputação profissional.
+
 ## 2026-09-11
 
 ### Desconexão em tempo real após bloqueio administrativo

@@ -188,6 +188,7 @@ model CustomerProfile {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceRequests ServiceRequest[]
   contracts       Contract[]
+  reviews         Review[]
 
   @@map("customer_profiles")
 }
@@ -213,6 +214,7 @@ model ProfessionalProfile {
   serviceOpportunities   ServiceOpportunity[]
   proposals              Proposal[]
   contracts              Contract[]
+  reviews                Review[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
@@ -466,10 +468,29 @@ model Contract {
   customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
   conversation        Conversation?
+  review              Review?
 
   @@index([customerProfileId, status, createdAt], map: "contracts_customer_profile_status_created_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "contracts_professional_profile_status_created_at_idx")
   @@map("contracts")
+}
+
+model Review {
+  id                    String   @id @default(uuid()) @db.Uuid
+  contractId            String   @unique(map: "reviews_contract_id_key") @map("contract_id") @db.Uuid
+  customerProfileId     String   @map("customer_profile_id") @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  rating                Int
+  comment               String?  @db.VarChar(1000)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  contract            Contract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@index([professionalProfileId, createdAt], map: "reviews_professional_created_at_idx")
+  @@map("reviews")
 }
 
 model Conversation {

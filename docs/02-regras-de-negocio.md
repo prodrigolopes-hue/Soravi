@@ -2,6 +2,8 @@
 
 # Objetivo
 
+Avaliações estão implementadas: somente o cliente proprietário pode avaliar uma contratação `COMPLETED`, uma vez por contrato, com nota inteira de 1 a 5 e comentário opcional. A reputação do profissional é atualizada transacionalmente.
+
 ## Estado atual do MVP
 
 Solicitações são preenchidas e revisadas no frontend antes do envio. A confirmação cria a solicitação em `OPEN`, preenche `publishedAt` e inicia o despacho imediato de oportunidades. Não há janela operacional de edição após a publicação.

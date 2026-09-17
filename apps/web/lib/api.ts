@@ -246,6 +246,10 @@ export function contractCompleteUrl(contractId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/complete`;
 }
 
+export function contractReviewUrl(contractId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/review`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }

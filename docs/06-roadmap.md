@@ -2,6 +2,8 @@
 
 # Objetivo
 
+Avaliações de contratos concluídos estão implementadas no MVP.
+
 ## Estado validado em Staging
 
 Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat e notificações. Parcial: painéis, administração, moderação e verificação profissional. Não iniciado: favoritos e avaliações.

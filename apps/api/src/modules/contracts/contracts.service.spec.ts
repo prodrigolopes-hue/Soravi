@@ -15,7 +15,7 @@ function contract(status: ContractStatus) {
 }
 
 describe("ContractsService", () => {
-  const transaction = { $queryRaw: jest.fn(), contract: { findUnique: jest.fn(), update: jest.fn() }, serviceRequest: { update: jest.fn() } };
+  const transaction = { $queryRaw: jest.fn(), contract: { findUnique: jest.fn(), update: jest.fn() }, serviceRequest: { update: jest.fn() }, review: { findUnique: jest.fn(), create: jest.fn(), aggregate: jest.fn() }, professionalProfile: { update: jest.fn() } };
   const prisma = { $transaction: jest.fn((callback: (value: typeof transaction) => unknown) => callback(transaction)) };
   const service = new ContractsService(prisma as unknown as PrismaService);
 
@@ -24,6 +24,10 @@ describe("ContractsService", () => {
     transaction.$queryRaw.mockResolvedValue([{ id: contractId }]);
     transaction.contract.findUnique.mockResolvedValue(contract(ContractStatus.ACCEPTED));
     transaction.contract.update.mockImplementation(async ({ data }: { data: { status: ContractStatus; startedAt?: Date; completedAt?: Date } }) => ({ id: contractId, status: data.status, startedAt: data.startedAt ?? null, completedAt: data.completedAt ?? null }));
+    transaction.review.findUnique.mockResolvedValue(null);
+    transaction.review.create.mockResolvedValue({ id: "review", rating: 5, comment: null });
+    transaction.review.aggregate.mockResolvedValue({ _avg: { rating: 4.5 }, _count: { id: 2 } });
+    transaction.professionalProfile.update.mockResolvedValue({ averageRating: "4.5", reviewCount: 2 });
   });
 
   it("profissional proprietário inicia ACCEPTED e preenche startedAt", async () => {
@@ -77,5 +81,25 @@ describe("ContractsService", () => {
   it("retorna CONTRACT_NOT_FOUND quando o lock não encontra contrato", async () => {
     transaction.$queryRaw.mockResolvedValue([]);
     await expect(service.start("professional", contractId)).rejects.toBeInstanceOf(ContractNotFoundException);
+  });
+  it("cria review de contrato COMPLETED e recalcula reputação na mesma transação", async () => {
+    transaction.contract.findUnique.mockResolvedValue({ ...contract(ContractStatus.COMPLETED), customerProfileId: "customer-profile", professionalProfileId: "professional-profile" });
+    const result = await service.review("customer", contractId, { rating: 5, comment: "Ótimo" });
+    expect(result.reputation).toMatchObject({ averageRating: "4.5", reviewCount: 2 });
+    expect(transaction.review.create).toHaveBeenCalled();
+    expect(transaction.review.aggregate).toHaveBeenCalledWith(expect.objectContaining({ where: { professionalProfileId: "professional-profile" } }));
+    expect(transaction.professionalProfile.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reviewCount: 2 }) }));
+  });
+
+  it.each([ContractStatus.ACCEPTED, ContractStatus.IN_PROGRESS])("rejeita review em %s", async (status) => {
+    transaction.contract.findUnique.mockResolvedValue({ ...contract(status), customerProfileId: "customer-profile", professionalProfileId: "professional-profile" });
+    await expect(service.review("customer", contractId, { rating: 5 })).rejects.toThrow();
+  });
+
+  it("rejeita cliente diferente e segunda review", async () => {
+    transaction.contract.findUnique.mockResolvedValue({ ...contract(ContractStatus.COMPLETED), customerProfileId: "customer-profile", professionalProfileId: "professional-profile" });
+    await expect(service.review("other", contractId, { rating: 5 })).rejects.toThrow();
+    transaction.review.findUnique.mockResolvedValue({ id: "review" });
+    await expect(service.review("customer", contractId, { rating: 5 })).rejects.toThrow();
   });
 });

@@ -222,6 +222,7 @@ export class ServiceRequestsService {
                 id: true,
               },
             },
+            review: { select: { id: true, rating: true, comment: true } },
           },
         },
       },
@@ -511,6 +512,7 @@ function toServiceRequestResponseProperties(
       id: string;
       status: import("../../generated/prisma/client").ContractStatus;
       conversation: { id: string } | null;
+      review?: { id: string; rating: number; comment: string | null } | null;
     } | null;
   },
 ) {
@@ -533,6 +535,6 @@ function toServiceRequestResponseProperties(
     editableUntil: serviceRequest.editableUntil,
     createdAt: serviceRequest.createdAt,
     conversationId: serviceRequest.contract?.conversation?.id ?? null,
-    contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status } : null,
+    contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, review: serviceRequest.contract.review ?? null } : null,
   };
 }

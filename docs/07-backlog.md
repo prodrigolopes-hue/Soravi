@@ -2,6 +2,8 @@
 
 # Objetivo
 
+- [x] Avaliações: uma review por contrato `COMPLETED`, com reputação profissional recalculada transacionalmente.
+
 ## Estado atual corrigido
 
 - [x] Revisão antes de publicar; voltar preserva os dados e o sucesso redireciona ao detalhe.

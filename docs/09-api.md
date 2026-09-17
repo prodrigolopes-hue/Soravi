@@ -2,6 +2,8 @@
 
 # Objetivo
 
+Avaliações: `POST /api/v1/contracts/:contractId/review` aceita `rating` de 1 a 5 e `comment` opcional para o cliente proprietário após `COMPLETED`.
+
 ## Estado atual dos contratos
 
 Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado.

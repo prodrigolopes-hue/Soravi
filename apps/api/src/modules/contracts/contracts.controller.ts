@@ -1,4 +1,4 @@
-import { Controller, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
 
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -8,6 +8,7 @@ import { PhoneVerifiedGuard } from "../auth/guards/phone-verified.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { ContractResponseDto } from "./dto/contract-response.dto";
+import { CreateReviewDto } from "./dto/create-review.dto";
 import { ContractsService } from "./contracts.service";
 
 @Controller("contracts")
@@ -26,5 +27,10 @@ export class ContractsController {
   @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
   complete(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string): Promise<ContractResponseDto> {
     return this.contractsService.complete(currentUser.id, contractId);
+  }
+
+  @Post(":contractId/review") @Roles(Role.CUSTOMER) @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
+  review(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string, @Body() input: CreateReviewDto) {
+    return this.contractsService.review(currentUser.id, contractId, input);
   }
 }
