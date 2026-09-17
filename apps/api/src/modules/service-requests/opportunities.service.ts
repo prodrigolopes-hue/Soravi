@@ -164,6 +164,7 @@ export class OpportunitiesService {
                 professionalProfileId: true,
                 id: true,
                 status: true,
+                review: { select: { rating: true, comment: true } },
                 conversation: {
                   select: {
                     id: true,
@@ -225,7 +226,7 @@ export class OpportunitiesService {
       viewedAt: opportunity.viewedAt,
       conversationId,
       customerFirstName,
-      contract: serviceRequest.contract?.professionalProfileId === professionalProfileId ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status } : null,
+      contract: serviceRequest.contract?.professionalProfileId === professionalProfileId ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, review: serviceRequest.contract.review } : null,
       serviceRequest: {
         id: serviceRequest.id,
         title: serviceRequest.title,

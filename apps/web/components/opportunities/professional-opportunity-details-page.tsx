@@ -49,7 +49,7 @@ interface OpportunityDetails {
   viewedAt: string | null;
   conversationId: string | null;
   customerFirstName: string | null;
-  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" } | null;
+  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"; review: { rating: number; comment: string | null } | null } | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -440,6 +440,13 @@ export function ProfessionalOpportunityDetailsPage({
               <p className="font-semibold text-blue-950">{opportunity.contract.status === "ACCEPTED" ? "Contratação aceita" : opportunity.contract.status === "IN_PROGRESS" ? "Serviço em andamento" : opportunity.contract.status === "COMPLETED" ? "Serviço concluído" : "Contratação cancelada"}</p>
               {opportunity.contract.status === "ACCEPTED" ? <button type="button" onClick={() => void startContract()} disabled={isStartingContract} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isStartingContract ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{isStartingContract ? "Iniciando..." : "Iniciar serviço"}</button> : null}
               {contractActionMessage ? <p className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço iniciado com sucesso." ? "text-emerald-700" : "text-red-700"}`} role={contractActionMessage === "Serviço iniciado com sucesso." ? "status" : "alert"}>{contractActionMessage}</p> : null}
+            </section>
+          ) : null}
+          {opportunity.contract?.status === "COMPLETED" && opportunity.contract.review ? (
+            <section className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-labelledby="customer-review-title">
+              <h2 id="customer-review-title" className="font-semibold text-emerald-950">Avaliação do cliente</h2>
+              <p className="mt-2 text-sm font-medium text-emerald-900">Nota: {opportunity.contract.review.rating} de 5</p>
+              {opportunity.contract.review.comment ? <p className="mt-2 text-sm leading-6 text-emerald-900">“{opportunity.contract.review.comment}”</p> : null}
             </section>
           ) : null}
         </header>

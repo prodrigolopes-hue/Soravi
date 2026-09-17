@@ -33,7 +33,7 @@ export interface OpportunityDetailResponseProperties {
   viewedAt: Date | null;
   conversationId: string | null;
   customerFirstName: string | null;
-  contract: { id: string; status: ContractStatus } | null;
+  contract: { id: string; status: ContractStatus; review: { rating: number; comment: string | null } | null } | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -56,7 +56,7 @@ export class OpportunityDetailResponseDto {
   viewedAt!: Date | null;
   conversationId!: string | null;
   customerFirstName!: string | null;
-  contract!: { id: string; status: ContractStatus } | null;
+  contract!: { id: string; status: ContractStatus; review: { rating: number; comment: string | null } | null } | null;
   serviceRequest!: {
     id: string;
     title: string;
