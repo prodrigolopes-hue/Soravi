@@ -380,12 +380,13 @@ export function ProfessionalOpportunityDetailsPage({
       : "Esta solicitação não aceita mais propostas no momento.";
 
   async function startContract(): Promise<void> {
-    if (!accessToken || !opportunity.contract || isStartingContract || !window.confirm("Deseja iniciar este serviço?")) return;
+    const contract = opportunity?.contract;
+    if (!accessToken || !contract || isStartingContract || !window.confirm("Deseja iniciar este serviço?")) return;
     setIsStartingContract(true); setContractActionMessage(null);
     try {
-      const response = await fetch(contractStartUrl(opportunity.contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      const response = await fetch(contractStartUrl(contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
       if (!response.ok) throw new Error("contract start failed");
-      setOpportunity((current) => current ? { ...current, contract: { ...current.contract!, status: "IN_PROGRESS" } } : current);
+      setOpportunity((current) => current?.contract ? { ...current, contract: { ...current.contract, status: "IN_PROGRESS" } } : current);
       setContractActionMessage("Serviço iniciado com sucesso.");
     } catch { setContractActionMessage("Não foi possível iniciar o serviço. Tente novamente."); }
     finally { setIsStartingContract(false); }
