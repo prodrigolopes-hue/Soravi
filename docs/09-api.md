@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Estado atual dos contratos
+
+Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado.
+
+Também estão implementados `POST /api/v1/contracts/:contractId/start`, `POST /api/v1/contracts/:contractId/complete`, `POST /api/v1/phone-verification/request`, `POST /api/v1/phone-verification/confirm` e os recursos de conversa para listagem, detalhe, mensagens e leitura. Endpoints de avaliações e favoritos são futuros e não devem ser tratados como entregues.
+
 Definir o padrão oficial das APIs da Soravi.
 
 ------------------------------------------------------------------------

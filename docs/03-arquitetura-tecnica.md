@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Estado atual do MVP
+
+Soravi permanece um monólito modular com Next.js, NestJS, Prisma e PostgreSQL como fonte principal; Redis é usado quando necessário e os arquivos ficam em storage em nuvem. Vercel hospeda o frontend, Render o backend e Staging usa branch e subdomínio próprio de API, separados de Production.
+
+O dispatcher executa varredura no bootstrap e em intervalo periódico. A elegibilidade é `OPEN`, `publishedAt` preenchido, `opportunitiesDispatchedAt` nulo e `deletedAt` nulo; `editableUntil` não participa mais do despacho.
+
 Definir a arquitetura oficial da Soravi para garantir escalabilidade,
 organização e facilidade de manutenção.
 

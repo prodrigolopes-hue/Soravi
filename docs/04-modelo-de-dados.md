@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Estado atual de ServiceRequest
+
+`ServiceRequest` é publicada em `OPEN` após a revisão no frontend e recebe `publishedAt`. `editableUntil` permanece no schema apenas como campo legado: não governa UX, edição ou despacho. `opportunitiesDispatchedAt` continua como marcador de distribuição idempotente. O enum contém `DRAFT`, mas o fluxo atual não persiste rascunhos.
+
+Não existe `Review` funcional nem favoritos no MVP atual; `averageRating` e `reviewCount` não comprovam uma funcionalidade de avaliações entregue.
+
 Definir as principais entidades da plataforma Soravi e seus
 relacionamentos.
 

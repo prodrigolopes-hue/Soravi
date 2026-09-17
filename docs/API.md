@@ -1341,6 +1341,8 @@ GET /api/v1/categories/{categoryId}
 
 ## Estado implementado
 
+> Atualização vigente: as regras de janela de 10 minutos descritas historicamente nesta seção foram substituídas. O cliente revisa antes de enviar; `POST /api/v1/service-requests` publica em `OPEN`, preenche `publishedAt` e dispara oportunidades imediatamente. `editableUntil` permanece somente como campo legado, sem controlar UX, edição ou dispatcher.
+
 O fluxo de criação em `DRAFT` com publicação manual está **SUPERADO**. Uma solicitação válida nasce diretamente em `OPEN`.
 
 No estado atual:

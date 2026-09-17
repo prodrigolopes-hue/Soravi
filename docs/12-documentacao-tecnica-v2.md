@@ -2,6 +2,12 @@
 
 ## Objetivo
 
+## Estado operacional validado
+
+Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `publishedAt`, depois despacha oportunidades para profissionais aprovados, disponíveis e da categoria compatível. Bootstrap e processor periódico recuperam itens elegíveis sem depender de `editableUntil`; lock, idempotência e `skipDuplicates` são preservados.
+
+Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. Avaliações são planejadas, não implementadas.
+
 Consolidar as diretrizes técnicas da Soravi para que qualquer
 desenvolvedor consiga compreender, evoluir e manter o sistema.
 

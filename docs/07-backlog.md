@@ -2,6 +2,16 @@
 
 # Objetivo
 
+## Estado atual corrigido
+
+- [x] Revisão antes de publicar; voltar preserva os dados e o sucesso redireciona ao detalhe.
+- [x] Publicação em `OPEN` com `publishedAt` e despacho imediato, idempotente, de oportunidades.
+- [x] Oportunidades, propostas, contratação, chat e notificações.
+- [ ] Favoritos e avaliações.
+- [~] Painéis, administração, moderação e verificação profissional.
+
+`editableUntil` é legado e não controla mais UX, edição ou dispatcher.
+
 Organizar todas as funcionalidades da Soravi em uma lista priorizada
 para orientar o desenvolvimento.
 

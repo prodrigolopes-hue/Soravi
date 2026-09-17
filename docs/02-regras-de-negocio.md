@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Estado atual do MVP
+
+Solicitações são preenchidas e revisadas no frontend antes do envio. A confirmação cria a solicitação em `OPEN`, preenche `publishedAt` e inicia o despacho imediato de oportunidades. Não há janela operacional de edição após a publicação.
+
+O dispatcher seleciona solicitações `OPEN` publicadas, não excluídas e ainda não despachadas; mantém lock, idempotência e `skipDuplicates`, alcançando somente profissionais aprovados, disponíveis e compatíveis com a categoria. Avaliações e favoritos não estão implementados; avaliações dependem de contrato `COMPLETED` em trabalho futuro.
+
 Este documento define as regras oficiais de funcionamento da plataforma
 Soravi.
 

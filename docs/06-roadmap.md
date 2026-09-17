@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Estado validado em Staging
+
+Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat e notificações. Parcial: painéis, administração, moderação e verificação profissional. Não iniciado: favoritos e avaliações.
+
+Próximas prioridades: avaliações, favoritos, painéis consolidados, administração/moderação, verificação profissional, regressão final e preparação para produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
+
 Definir a evolução da Soravi em fases, garantindo entregas incrementais
 e foco no MVP.
 
