@@ -66,27 +66,19 @@ describe("ServiceOpportunityDistributionProcessor", () => {
   });
 
   it("busca somente solicitações elegíveis, ordenadas e dentro do batch", async () => {
-    const beforeQuery = Date.now();
-
     await processor.processEligibleServiceRequests();
-    const afterQuery = Date.now();
 
     expect(prismaMock.serviceRequest.findMany).toHaveBeenCalledWith({
       where: {
         status: ServiceRequestStatus.OPEN,
         publishedAt: { not: null },
-        editableUntil: { lte: expect.any(Date) },
         opportunitiesDispatchedAt: null,
         deletedAt: null,
       },
-      orderBy: { editableUntil: "asc" },
+      orderBy: { publishedAt: "asc" },
       take: OPPORTUNITY_DISTRIBUTION_BATCH_SIZE_DEFAULT,
       select: { id: true },
     });
-    const queryDate = prismaMock.serviceRequest.findMany.mock.calls[0]?.[0]
-      .where.editableUntil.lte as Date;
-    expect(queryDate.getTime()).toBeGreaterThanOrEqual(beforeQuery);
-    expect(queryDate.getTime()).toBeLessThanOrEqual(afterQuery);
   });
 
   it("chama distribute para cada ID elegível", async () => {

@@ -22,6 +22,7 @@ import { ServiceRequestPhotoLimitException } from "./errors/service-request-phot
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
 import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
 import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
+import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
 import {
   detectServiceRequestPhotoMimeType,
   SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
@@ -52,7 +53,6 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
   createdAt: true,
 } satisfies Prisma.ServiceRequestSelect;
 
-const SERVICE_REQUEST_EDIT_WINDOW_MS = 10 * 60 * 1000;
 const SERVICE_REQUEST_PHOTO_SIGNED_URL_TTL_SECONDS = 300;
 
 @Injectable()
@@ -61,6 +61,7 @@ export class ServiceRequestsService {
     private readonly prisma: PrismaService,
     @Inject(STORAGE_SERVICE)
     private readonly storage: StorageService,
+    private readonly distributionService: ServiceOpportunityDistributionService,
   ) {}
 
   async findMine(
@@ -160,13 +161,14 @@ export class ServiceRequestsService {
         addressNumber: input.location.addressNumber,
         addressComplement: input.location.addressComplement?.trim() || null,
         publishedAt,
-        editableUntil: new Date(
-          publishedAt.getTime() + SERVICE_REQUEST_EDIT_WINDOW_MS,
-        ),
+        // Campo legado mantido até a remoção em migration; não controla publicação nem despacho.
+        editableUntil: publishedAt,
         opportunitiesDispatchedAt: null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
     });
+
+    await this.distributionService.distribute(serviceRequest.id).catch(() => undefined);
 
     return new ServiceRequestResponseDto(
       toServiceRequestResponseProperties(serviceRequest),
@@ -275,8 +277,6 @@ export class ServiceRequestsService {
       },
       select: {
         status: true,
-        editableUntil: true,
-        opportunitiesDispatchedAt: true,
       },
     });
 
@@ -285,9 +285,7 @@ export class ServiceRequestsService {
     }
 
     if (
-      existingServiceRequest.status !== ServiceRequestStatus.OPEN ||
-      Date.now() > existingServiceRequest.editableUntil.getTime() ||
-      existingServiceRequest.opportunitiesDispatchedAt !== null
+      existingServiceRequest.status !== ServiceRequestStatus.DRAFT
     ) {
       throw new ServiceRequestUpdateUnavailableException();
     }
@@ -412,8 +410,6 @@ export class ServiceRequestsService {
       },
       select: {
         status: true,
-        editableUntil: true,
-        opportunitiesDispatchedAt: true,
         _count: { select: { files: true } },
         files: {
           orderBy: { position: "desc" },
@@ -428,9 +424,7 @@ export class ServiceRequestsService {
     }
 
     if (
-      serviceRequest.status !== ServiceRequestStatus.OPEN ||
-      Date.now() > serviceRequest.editableUntil.getTime() ||
-      serviceRequest.opportunitiesDispatchedAt !== null
+      serviceRequest.status !== ServiceRequestStatus.OPEN
     ) {
       throw new ServiceRequestPhotoUploadUnavailableException();
     }

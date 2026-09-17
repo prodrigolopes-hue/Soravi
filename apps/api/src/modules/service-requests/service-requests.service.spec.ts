@@ -18,6 +18,7 @@ import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-
 import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
+import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
 
 describe("ServiceRequestsService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
@@ -45,6 +46,7 @@ describe("ServiceRequestsService", () => {
     delete: jest.Mock;
     createTemporaryReadUrl: jest.Mock;
   };
+  let distributionServiceMock: { distribute: jest.Mock };
 
   beforeEach(() => {
     prismaMock = {
@@ -65,9 +67,11 @@ describe("ServiceRequestsService", () => {
       delete: jest.fn().mockResolvedValue(undefined),
       createTemporaryReadUrl: jest.fn(),
     };
+    distributionServiceMock = { distribute: jest.fn().mockResolvedValue({ dispatched: true, opportunitiesCreated: 1 }) };
     service = new ServiceRequestsService(
       prismaMock as unknown as PrismaService,
       storageMock as unknown as StorageService,
+      distributionServiceMock as unknown as ServiceOpportunityDistributionService,
     );
     prismaMock.customerProfile.findUnique.mockResolvedValue({
       id: customerProfileId,
@@ -85,13 +89,12 @@ describe("ServiceRequestsService", () => {
     jest.clearAllMocks();
   });
 
-  it("cria uma solicitação em OPEN com janela de edição de 10 minutos", async () => {
+  it("publica uma solicitação em OPEN e inicia o despacho imediatamente", async () => {
     const input = Object.assign(createInput(), {
       status: ServiceRequestStatus.DRAFT,
       editableUntil: new Date("2030-01-01T00:00:00.000Z"),
       opportunitiesDispatchedAt: new Date("2030-01-01T00:00:00.000Z"),
     });
-    const beforeCreation = Date.now();
     prismaMock.serviceRequest.create.mockResolvedValue({
       id: serviceRequestId,
       categoryId: input.categoryId,
@@ -104,7 +107,6 @@ describe("ServiceRequestsService", () => {
     });
 
     const result = await service.createServiceRequest(userId, input);
-    const afterCreation = Date.now();
 
     expect(prismaMock.customerProfile.findUnique).toHaveBeenCalledWith({
       where: { userId },
@@ -131,14 +133,9 @@ describe("ServiceRequestsService", () => {
       select: expect.any(Object),
     });
     const createData = prismaMock.serviceRequest.create.mock.calls[0]?.[0]
-      ?.data as { editableUntil: Date };
-    expect(createData.editableUntil.getTime()).toBeGreaterThanOrEqual(
-      beforeCreation + 10 * 60 * 1000,
-    );
-    expect(createData.editableUntil.getTime()).toBeLessThanOrEqual(
-      afterCreation + 10 * 60 * 1000,
-    );
-    expect(createData.editableUntil).not.toEqual(input.editableUntil);
+      ?.data as { editableUntil: Date; publishedAt: Date };
+    expect(createData.editableUntil).toEqual(createData.publishedAt);
+    expect(distributionServiceMock.distribute).toHaveBeenCalledWith(serviceRequestId);
     expect(result.status).toBe(ServiceRequestStatus.OPEN);
     expect(result.editableUntil).toEqual(editableUntil);
     expect(result.location).toEqual(input.location);
@@ -411,8 +408,6 @@ describe("ServiceRequestsService", () => {
       },
       select: {
         status: true,
-        editableUntil: true,
-        opportunitiesDispatchedAt: true,
       },
     });
     expect(prismaMock.category.findFirst).toHaveBeenCalledWith({
@@ -453,8 +448,9 @@ describe("ServiceRequestsService", () => {
     expect(prismaMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
-  it("bloqueia edição após editableUntil", async () => {
+  it("bloqueia edição de solicitação já publicada independentemente de editableUntil", async () => {
     mockEditableServiceRequest({
+      status: ServiceRequestStatus.OPEN,
       editableUntil: new Date(Date.now() - 1),
     });
 
@@ -467,6 +463,7 @@ describe("ServiceRequestsService", () => {
 
   it("bloqueia edição após a distribuição de oportunidades", async () => {
     mockEditableServiceRequest({
+      status: ServiceRequestStatus.OPEN,
       opportunitiesDispatchedAt: new Date(),
     });
 
@@ -773,38 +770,6 @@ describe("ServiceRequestsService", () => {
     expect(storageMock.upload).not.toHaveBeenCalled();
   });
 
-  it("rejeita upload após editableUntil", async () => {
-    mockUploadableServiceRequest(0, undefined, {
-      editableUntil: new Date(Date.now() - 1),
-    });
-
-    await expect(
-      service.uploadPhoto(
-        userId,
-        serviceRequestId,
-        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
-      ),
-    ).rejects.toBeInstanceOf(ServiceRequestPhotoUploadUnavailableException);
-
-    expect(storageMock.upload).not.toHaveBeenCalled();
-  });
-
-  it("rejeita upload após distribuição de oportunidades", async () => {
-    mockUploadableServiceRequest(0, undefined, {
-      opportunitiesDispatchedAt: new Date(),
-    });
-
-    await expect(
-      service.uploadPhoto(
-        userId,
-        serviceRequestId,
-        createPhoto("image/jpeg", [0xff, 0xd8, 0xff]),
-      ),
-    ).rejects.toBeInstanceOf(ServiceRequestPhotoUploadUnavailableException);
-
-    expect(storageMock.upload).not.toHaveBeenCalled();
-  });
-
   it("retorna not found neutro para solicitação de outro cliente", async () => {
     prismaMock.serviceRequest.findFirst.mockResolvedValue(null);
 
@@ -885,7 +850,7 @@ describe("ServiceRequestsService", () => {
     } = {},
   ) {
     prismaMock.serviceRequest.findFirst.mockResolvedValue({
-      status: overrides.status ?? ServiceRequestStatus.OPEN,
+      status: overrides.status ?? ServiceRequestStatus.DRAFT,
       editableUntil: overrides.editableUntil ?? new Date(Date.now() + 60_000),
       opportunitiesDispatchedAt: overrides.opportunitiesDispatchedAt ?? null,
     });

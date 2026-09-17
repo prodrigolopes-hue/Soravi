@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, CheckCircle2, ChevronLeft, CircleX, ClipboardCheck, Clock3, FileText, Loader2, MessageCircle, MapPin, Pencil, Save, ShieldAlert, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, CircleX, FileText, Loader2, MessageCircle, MapPin, Save, ShieldAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -346,9 +346,8 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
   const [request, setRequest] = useState<ServiceRequestDetails | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
-  const [now, setNow] = useState(() => Date.now());
   const [isEditing, setIsEditing] = useState(false);
-  const [editBlockedByServer, setEditBlockedByServer] = useState(false);
+  const [, setEditBlockedByServer] = useState(false);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesState, setCategoriesState] = useState<CategoriesState>("idle");
   const [categoriesReloadKey, setCategoriesReloadKey] = useState(0);
@@ -370,11 +369,8 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
 
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
-  const editableUntilTimestamp = request ? Date.parse(request.editableUntil) : Number.NaN;
-  const hasOpenEditWindow = Boolean(request?.status === "OPEN" && Number.isFinite(editableUntilTimestamp) && now <= editableUntilTimestamp);
-  const canEdit = hasOpenEditWindow && !editBlockedByServer;
+  const canEdit = false;
   const canCancel = request?.status === "OPEN" && !cancelBlockedByServer;
-  const remainingMinutes = Math.max(0, Math.ceil((editableUntilTimestamp - now) / 60_000));
   const proposalsTotalPages = Math.max(1, proposals?.pagination.totalPages ?? 1);
   const proposalsIsFirstPage = proposalsPage <= 1;
   const proposalsIsLastPage = proposalsPage >= proposalsTotalPages;
@@ -383,7 +379,6 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
   const {
     register,
     handleSubmit,
-    reset,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ServiceRequestFormData>({
@@ -462,17 +457,6 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
     void loadServiceRequest();
   }, [accessToken, isAuthenticated, isCustomer, isLoading, loadServiceRequest]);
-
-  useEffect(() => {
-    if (!request || request.status !== "OPEN") {
-      return;
-    }
-
-    setNow(Date.now());
-    const intervalId = window.setInterval(() => setNow(Date.now()), 1_000);
-
-    return () => window.clearInterval(intervalId);
-  }, [request]);
 
   useEffect(() => {
     if (!isEditing || canEdit) {
@@ -692,25 +676,6 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
     }
   }
 
-  function startEditing(): void {
-    if (!request || !canEdit) {
-      return;
-    }
-
-    reset({
-      categoryId: request.categoryId,
-      title: request.title,
-      description: request.description ?? "",
-      location: {
-        ...request.location,
-        addressComplement: request.location.addressComplement ?? "",
-      },
-    });
-    setEditMessage(null);
-    setCategoriesState("idle");
-    setIsEditing(true);
-  }
-
   function openCancelConfirmation(): void {
     if (!request || !canCancel) {
       return;
@@ -918,22 +883,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
             Criada em {formatServiceRequestDate(request.createdAt)}
           </div>
 
-          {canEdit ? (
-            <div className="mt-6 flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="flex items-center gap-2 text-sm font-medium text-slate-700" aria-live="polite">
-                <Clock3 aria-hidden="true" className="size-4 text-blue-600" />
-                Você pode editar esta solicitação pelos próximos {remainingMinutes} {remainingMinutes === 1 ? "minuto" : "minutos"}.
-              </p>
-              {!isEditing && !isCancelConfirmationOpen ? (
-                <button type="button" onClick={startEditing} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
-                  <Pencil aria-hidden="true" className="size-4" />
-                  Editar solicitação
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">Esta solicitação não pode mais ser alterada diretamente. Alterações posteriores precisarão de análise da Soravi.</p>
-          )}
+          <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">Esta solicitação já foi publicada e não pode ser alterada diretamente.</p>
 
           {canCancel && !isEditing && !isCancelConfirmationOpen ? (
             <div className="mt-5 border-t border-slate-200 pt-5">
@@ -1147,20 +1097,6 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
               </button>
             </div>
           </form>
-        ) : null}
-
-        {!isEditing && request.status === "DRAFT" ? (
-          <section aria-labelledby="draft-information-title" className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">
-            <div className="flex items-start gap-3">
-              <ClipboardCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" />
-              <div>
-                <h2 id="draft-information-title" className="font-bold text-blue-950">
-                  Informações do rascunho
-                </h2>
-                <p className="mt-2 leading-7 text-blue-900/80">Esta solicitação está salva como rascunho e ainda não foi publicada.</p>
-              </div>
-            </div>
-          </section>
         ) : null}
 
         {!isEditing && request.description ? (

@@ -72,11 +72,10 @@ export class ServiceOpportunityDistributionProcessor
         where: {
           status: ServiceRequestStatus.OPEN,
           publishedAt: { not: null },
-          editableUntil: { lte: new Date() },
           opportunitiesDispatchedAt: null,
           deletedAt: null,
         },
-        orderBy: { editableUntil: "asc" },
+        orderBy: { publishedAt: "asc" },
         take: this.batchSize,
         select: { id: true },
       });

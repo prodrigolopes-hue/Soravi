@@ -109,11 +109,9 @@ describe("ServiceOpportunityDistributionService", () => {
     jest.clearAllMocks();
   });
 
-  it("distribui solicitação OPEN com janela encerrada e ainda não distribuída", async () => {
-    const beforeDistribution = Date.now();
+  it("distribui solicitação OPEN publicada mesmo com editableUntil futuro", async () => {
 
     const result = await service.distribute(serviceRequestId);
-    const afterDistribution = Date.now();
 
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(transactionMock.$queryRaw).toHaveBeenCalledTimes(1);
@@ -122,18 +120,11 @@ describe("ServiceOpportunityDistributionService", () => {
         id: serviceRequestId,
         status: ServiceRequestStatus.OPEN,
         publishedAt: { not: null },
-        editableUntil: { lte: expect.any(Date) },
         opportunitiesDispatchedAt: null,
         deletedAt: null,
       },
       select: { categoryId: true },
     });
-    const eligibilityDate = transactionMock.serviceRequest.findFirst.mock
-      .calls[0]?.[0].where.editableUntil.lte as Date;
-    expect(eligibilityDate.getTime()).toBeGreaterThanOrEqual(
-      beforeDistribution,
-    );
-    expect(eligibilityDate.getTime()).toBeLessThanOrEqual(afterDistribution);
     expect(result).toEqual({
       dispatched: true,
       opportunitiesCreated: 2,
@@ -141,7 +132,7 @@ describe("ServiceOpportunityDistributionService", () => {
   });
 
   it.each([
-    "a janela ainda está aberta",
+    "editableUntil ainda está no futuro",
     "o status é diferente de OPEN",
     "opportunitiesDispatchedAt está preenchido",
     "deletedAt está preenchido",

@@ -162,6 +162,7 @@ export function NewServiceRequestPage() {
   const [submissionProgress, setSubmissionProgress] = useState<string | null>(
     null,
   );
+  const [reviewData, setReviewData] = useState<ServiceRequestFormData | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [postalCodeLookupState, setPostalCodeLookupState] =
@@ -415,6 +416,23 @@ export function NewServiceRequestPage() {
     }
   }
 
+  function openReview(data: ServiceRequestFormData): void {
+    const selectedCategoryIsAvailable = categories.some(
+      (category) => category.id === data.categoryId,
+    );
+
+    if (!selectedCategoryIsAvailable) {
+      setError("categoryId", {
+        type: "manual",
+        message: "Selecione uma categoria disponível.",
+      });
+      return;
+    }
+
+    setFormMessage(null);
+    setReviewData(data);
+  }
+
   async function submitServiceRequest(data: ServiceRequestFormData): Promise<void> {
     if (!accessToken || isSubmitting) {
       return;
@@ -519,17 +537,18 @@ export function NewServiceRequestPage() {
       if (failedUploads > 0) {
         setSubmissionState("partial");
         setFormMessage(
-          "A solicitação foi salva como rascunho, mas algumas fotos não puderam ser enviadas.",
+          "A solicitação foi publicada, mas algumas fotos não puderam ser enviadas.",
         );
       } else {
         setSubmissionState("success");
         setFormMessage(
-          "Solicitação criada e salva como rascunho. Ela ainda não foi publicada.",
+          "Solicitação publicada com sucesso.",
         );
       }
 
       setSubmissionProgress(null);
       reset();
+      setReviewData(null);
       clearSelectedPhotos();
       setPostalCodeLookupState("idle");
       lastLookedUpPostalCodeRef.current = null;
@@ -613,11 +632,11 @@ export function NewServiceRequestPage() {
             Nova solicitação
           </h1>
           <p className="mt-3 max-w-2xl leading-7 text-slate-600">
-            Descreva o que você precisa. Sua solicitação será salva como rascunho para você revisar antes de publicar.
+            Descreva o que você precisa, revise os dados e publique quando estiver pronto.
           </p>
         </header>
 
-        <form onSubmit={handleSubmit(submitServiceRequest)} noValidate className="mt-8 space-y-8">
+        {!reviewData ? <form onSubmit={handleSubmit(openReview)} noValidate className="mt-8 space-y-8">
           <section aria-labelledby="request-details-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             <h2 id="request-details-title" className="text-xl font-bold text-slate-950">O que você precisa?</h2>
 
@@ -810,9 +829,30 @@ export function NewServiceRequestPage() {
 
           <button type="submit" disabled={isSubmitting || categoriesState !== "success"} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
             {isSubmitting ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}
-            {isSubmitting ? "Processando..." : "Salvar como rascunho"}
+            {isSubmitting ? "Processando..." : "Revisar solicitação"}
           </button>
-        </form>
+        </form> : (
+          <section className="mt-8 space-y-6" aria-labelledby="review-service-request-title">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+              <p className="font-semibold text-blue-600">Revise antes de publicar</p>
+              <h2 id="review-service-request-title" className="mt-2 text-2xl font-bold text-slate-950">Confira sua solicitação</h2>
+              <dl className="mt-6 space-y-5 text-slate-700">
+                <div><dt className="text-sm font-semibold text-slate-500">Categoria</dt><dd className="mt-1 font-medium text-slate-950">{categories.find((category) => category.id === reviewData.categoryId)?.name ?? "Categoria selecionada"}</dd></div>
+                <div><dt className="text-sm font-semibold text-slate-500">Título</dt><dd className="mt-1 font-medium text-slate-950">{reviewData.title}</dd></div>
+                {reviewData.description.trim() ? <div><dt className="text-sm font-semibold text-slate-500">Descrição</dt><dd className="mt-1 whitespace-pre-wrap">{reviewData.description}</dd></div> : null}
+                <div><dt className="text-sm font-semibold text-slate-500">Localização</dt><dd className="mt-1">{reviewData.location.addressLine}, {reviewData.location.addressNumber}{reviewData.location.addressComplement ? ` - ${reviewData.location.addressComplement}` : ""}<br />{reviewData.location.neighborhood}, {reviewData.location.city} - {reviewData.location.state}<br />CEP {reviewData.location.postalCode}</dd></div>
+                <div><dt className="text-sm font-semibold text-slate-500">Fotos</dt><dd className="mt-1">{selectedPhotos.length === 0 ? "Nenhuma foto adicionada" : `${selectedPhotos.length} ${selectedPhotos.length === 1 ? "foto adicionada" : "fotos adicionadas"}`}</dd></div>
+              </dl>
+              {selectedPhotos.length > 0 ? <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">{selectedPhotos.map((photo) => <div key={photo.previewUrl} className="relative aspect-[4/3] overflow-hidden rounded-lg border border-slate-200"><Image src={photo.previewUrl} alt={`Prévia de ${photo.file.name}`} fill unoptimized className="object-cover" /></div>)}</div> : null}
+            </div>
+            {formMessage ? <div role={submissionState === "success" ? "status" : "alert"} className={`rounded-xl border p-4 font-medium ${submissionState === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : submissionState === "partial" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-800"}`}>{formMessage}</div> : null}
+            {submissionProgress ? <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm font-medium text-slate-700"><Loader2 aria-hidden="true" className="size-4 animate-spin" />{submissionProgress}</p> : null}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" disabled={isSubmitting} onClick={() => setReviewData(null)} className="inline-flex min-h-12 items-center justify-center px-5 py-3 font-semibold text-slate-700 hover:text-slate-950 disabled:opacity-50">Voltar e editar</button>
+              <button type="button" disabled={isSubmitting} onClick={() => void submitServiceRequest(reviewData)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400">{isSubmitting ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}{isSubmitting ? "Enviando..." : "Enviar solicitação"}</button>
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );

@@ -51,7 +51,6 @@ export class ServiceOpportunityDistributionService {
           id: serviceRequestId,
           status: ServiceRequestStatus.OPEN,
           publishedAt: { not: null },
-          editableUntil: { lte: now },
           opportunitiesDispatchedAt: null,
           deletedAt: null,
         },
