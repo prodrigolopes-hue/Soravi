@@ -277,7 +277,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
 
   const root = isRecord(payload.data) ? payload.data : payload;
 
-  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string" || !isNullableString(root.conversationId) || !(root.contract === null || (isRecord(root.contract) && typeof root.contract.id === "string" && typeof root.contract.status === "string"))) {
+  if (typeof root.id !== "string" || typeof root.categoryId !== "string" || typeof root.title !== "string" || !isNullableString(root.description) || !isServiceRequestStatus(root.status) || typeof root.visibleProposalLimit !== "number" || !isRecord(root.location) || typeof root.location.country !== "string" || typeof root.location.state !== "string" || typeof root.location.city !== "string" || typeof root.location.neighborhood !== "string" || typeof root.location.postalCode !== "string" || typeof root.location.addressLine !== "string" || typeof root.location.addressNumber !== "string" || !isNullableString(root.location.addressComplement) || typeof root.editableUntil !== "string" || typeof root.createdAt !== "string" || !isNullableString(root.conversationId) || !(root.contract === null || (isRecord(root.contract) && typeof root.contract.id === "string" && typeof root.contract.status === "string"))) {
     return null;
   }
 
@@ -310,6 +310,7 @@ function parseServiceRequestDetails(payload: unknown): ServiceRequestDetails | n
     title: root.title,
     description: root.description,
     status: root.status,
+    visibleProposalLimit: root.visibleProposalLimit,
     location: {
       country: root.location.country,
       state: root.location.state,
@@ -1212,7 +1213,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
             {proposalsState === "success" && proposals ? (
               <>
-                <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void applyProposalPolicy(serviceRequestNextProposalUrl(serviceRequest.id), "POST")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Pedir nova proposta</button>{([5, 10] as const).filter((limit) => limit > serviceRequest.visibleProposalLimit).map((limit) => <button key={limit} type="button" onClick={() => void applyProposalPolicy(serviceRequestVisibleProposalLimitUrl(serviceRequest.id), "PATCH", { limit })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Ver até {limit}</button>)}</div>
+                <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void applyProposalPolicy(serviceRequestNextProposalUrl(request.id), "POST")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Pedir nova proposta</button>{([5, 10] as const).filter((limit) => limit > request.visibleProposalLimit).map((limit) => <button key={limit} type="button" onClick={() => void applyProposalPolicy(serviceRequestVisibleProposalLimitUrl(request.id), "PATCH", { limit })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Ver até {limit}</button>)}</div>
                 <div className="mt-5 grid gap-4">
                   {proposals.items.map((proposal) => (
                     <article key={proposal.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
