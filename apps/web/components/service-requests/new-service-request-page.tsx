@@ -189,6 +189,7 @@ export function NewServiceRequestPage() {
   } = useForm<ServiceRequestFormData>({
     resolver: zodResolver(serviceRequestSchema),
     defaultValues: {
+      visibleProposalLimit: 3,
       categoryId: "",
       title: "",
       description: "",
@@ -473,6 +474,7 @@ export function NewServiceRequestPage() {
         },
         credentials: "include",
         body: JSON.stringify({
+          visibleProposalLimit: data.visibleProposalLimit,
           categoryId: data.categoryId,
           title: data.title,
           ...(description ? { description } : {}),
@@ -662,6 +664,13 @@ export function NewServiceRequestPage() {
                 ))}
               </select>
               <FieldError id="categoryId-error" message={errors.categoryId?.message} />
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold text-slate-800">Quantas propostas você deseja receber?</legend>
+                <p className="mt-1 text-sm text-slate-600">Escolha quantas propostas deseja comparar para esta solicitação.</p>
+                <div className="mt-3 flex gap-3">
+                  {[3, 5, 10].map((limit) => <label key={limit} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium"><input type="radio" value={limit} {...register("visibleProposalLimit", { valueAsNumber: true })} />{limit} propostas</label>)}
+                </div>
+              </fieldset>
               {categoriesState === "error" ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3" role="alert">
                   <p className="text-sm font-medium text-red-600">Não foi possível carregar as categorias.</p>

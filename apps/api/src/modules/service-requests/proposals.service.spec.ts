@@ -34,8 +34,9 @@ describe("ProposalsService", () => {
     professionalProfile: { findFirst: jest.Mock };
     serviceRequest: { findFirst: jest.Mock; update: jest.Mock };
     serviceOpportunity: { findUnique: jest.Mock };
-    proposal: { findUnique: jest.Mock; create: jest.Mock };
+    proposal: { findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
     notification: { upsert: jest.Mock };
+    $queryRaw: jest.Mock;
   };
   let prismaMock: {
     customerProfile: { findUnique: jest.Mock };
@@ -54,7 +55,9 @@ describe("ProposalsService", () => {
         findFirst: jest
           .fn()
           .mockResolvedValue({
+            id: serviceRequestId,
             status: ServiceRequestStatus.OPEN,
+            visibleProposalLimit: 3,
             customerProfile: { userId: customerUserId },
           }),
         update: jest.fn().mockResolvedValue({}),
@@ -65,10 +68,12 @@ describe("ProposalsService", () => {
       proposal: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(createProposal()),
+        count: jest.fn().mockResolvedValue(0),
       },
       notification: {
         upsert: jest.fn().mockResolvedValue({ id: notificationId }),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: serviceRequestId }]),
     };
     outboundNotificationsServiceMock = {
       createPending: jest.fn().mockResolvedValue({ id: "outbound-id" }),
@@ -130,6 +135,7 @@ describe("ProposalsService", () => {
     });
     const where = {
       serviceRequestId,
+      isVisible: true,
       status: ProposalStatus.ACTIVE,
     };
     expect(prismaMock.proposal.count).toHaveBeenCalledWith({ where });
@@ -266,7 +272,9 @@ describe("ProposalsService", () => {
     expect(transactionMock.serviceRequest.findFirst).toHaveBeenCalledWith({
       where: { id: serviceRequestId, deletedAt: null },
       select: {
+        id: true,
         status: true,
+        visibleProposalLimit: true,
         customerProfile: {
           select: { userId: true },
         },
@@ -281,6 +289,7 @@ describe("ProposalsService", () => {
         estimatedDurationUnit: EstimatedDurationUnit.HOUR,
         message: "Posso realizar amanhã.",
         status: ProposalStatus.ACTIVE,
+        isVisible: true,
         acceptedAt: null,
         rejectedAt: null,
         withdrawnAt: null,

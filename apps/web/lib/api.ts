@@ -237,6 +237,9 @@ export function serviceRequestProposalsUrl(serviceRequestId: string): string {
 export function proposalAcceptUrl(proposalId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/proposals/${encodeURIComponent(proposalId)}/accept`;
 }
+export function proposalRejectUrl(proposalId: string): string { return `${normalizedApiBaseUrl}/api/v1/proposals/${encodeURIComponent(proposalId)}/reject`; }
+export function serviceRequestNextProposalUrl(id: string): string { return `${serviceRequestByIdUrl(id)}/proposals/next`; }
+export function serviceRequestVisibleProposalLimitUrl(id: string): string { return `${serviceRequestByIdUrl(id)}/proposals/visible-limit`; }
 
 export function contractStartUrl(contractId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/start`;

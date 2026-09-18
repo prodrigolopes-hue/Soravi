@@ -8,6 +8,7 @@ import {
   MaxLength,
   MinLength,
   ValidateNested,
+  IsIn,
 } from "class-validator";
 
 export class CreateServiceRequestLocationDto {
@@ -75,6 +76,9 @@ export class CreateServiceRequestLocationDto {
 }
 
 export class CreateServiceRequestDto {
+  @IsOptional()
+  @IsIn([3, 5, 10], { message: "Escolha 3, 5 ou 10 propostas visíveis." })
+  visibleProposalLimit?: number;
   @IsUUID("4", { message: "A categoria deve possuir um identificador válido." })
   categoryId!: string;
 

@@ -352,6 +352,7 @@ model ServiceRequest {
   title                     String               @db.VarChar(160)
   description               String?              @db.VarChar(2000)
   status                    ServiceRequestStatus @default(OPEN)
+  visibleProposalLimit      Int                  @default(3) @map("visible_proposal_limit")
   country                   String               @db.VarChar(2)
   state                     String               @db.VarChar(2)
   city                      String               @db.VarChar(120)
@@ -426,6 +427,7 @@ model Proposal {
   estimatedDurationUnit  EstimatedDurationUnit @map("estimated_duration_unit")
   message                String                @db.VarChar(2000)
   status                 ProposalStatus        @default(ACTIVE)
+  isVisible              Boolean               @default(true) @map("is_visible")
   submittedAt            DateTime              @default(now()) @map("submitted_at") @db.Timestamptz(3)
   acceptedAt             DateTime?             @map("accepted_at") @db.Timestamptz(3)
   rejectedAt             DateTime?             @map("rejected_at") @db.Timestamptz(3)
@@ -440,6 +442,7 @@ model Proposal {
 
   @@unique([serviceRequestId, professionalProfileId], map: "proposals_service_request_professional_key")
   @@index([serviceRequestId, status, createdAt], map: "proposals_service_request_status_created_at_idx")
+  @@index([serviceRequestId, isVisible, submittedAt], map: "proposals_service_request_visible_submitted_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "proposals_professional_profile_status_created_at_idx")
   @@map("proposals")
 }

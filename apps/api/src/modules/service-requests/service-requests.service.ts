@@ -41,6 +41,7 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
   title: true,
   description: true,
   status: true,
+  visibleProposalLimit: true,
   country: true,
   state: true,
   city: true,
@@ -152,6 +153,7 @@ export class ServiceRequestsService {
         title: input.title.trim(),
         description: input.description?.trim() || null,
         status: ServiceRequestStatus.OPEN,
+        visibleProposalLimit: input.visibleProposalLimit ?? 3,
         country: input.location.country,
         state: input.location.state,
         city: input.location.city,
@@ -278,6 +280,7 @@ export class ServiceRequestsService {
       },
       select: {
         status: true,
+        visibleProposalLimit: true,
       },
     });
 
@@ -522,6 +525,7 @@ function toServiceRequestResponseProperties(
     title: serviceRequest.title,
     description: serviceRequest.description,
     status: serviceRequest.status,
+    visibleProposalLimit: serviceRequest.visibleProposalLimit,
     location: {
       country: serviceRequest.country,
       state: serviceRequest.state,

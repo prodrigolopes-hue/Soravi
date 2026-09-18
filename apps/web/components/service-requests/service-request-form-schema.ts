@@ -1,6 +1,7 @@
 import { z } from "../../lib/zod";
 
 export const serviceRequestSchema = z.object({
+  visibleProposalLimit: z.union([z.literal(3), z.literal(5), z.literal(10)]),
   categoryId: z.uuidv4("Selecione uma categoria válida."),
   title: z
     .string()

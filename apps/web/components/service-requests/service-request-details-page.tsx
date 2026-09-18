@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, contractCompleteUrl, contractReviewUrl, proposalAcceptUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestProposalsUrl } from "../../lib/api";
+import { categoriesUrl, contractCompleteUrl, contractReviewUrl, proposalAcceptUrl, proposalRejectUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestNextProposalUrl, serviceRequestProposalsUrl, serviceRequestVisibleProposalLimitUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
@@ -58,6 +58,7 @@ interface ServiceRequestDetails {
   title: string;
   description: string | null;
   status: ServiceRequestStatus;
+  visibleProposalLimit: number;
   location: {
     country: string;
     state: string;
@@ -591,6 +592,12 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
     setProposalAcceptanceResult(null);
     setProposalAcceptanceError(null);
     setProposalAcceptanceState("confirming");
+  }
+
+  async function applyProposalPolicy(url: string, method: "POST" | "PATCH", body?: object): Promise<void> {
+    if (!accessToken) return;
+    const response = await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}`, ...(body ? { "Content-Type": "application/json" } : {}) }, credentials: "include", ...(body ? { body: JSON.stringify(body) } : {}) });
+    if (response.ok) void loadProposals(1);
   }
 
   async function completeContract(): Promise<void> {
@@ -1205,6 +1212,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
 
             {proposalsState === "success" && proposals ? (
               <>
+                <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void applyProposalPolicy(serviceRequestNextProposalUrl(serviceRequest.id), "POST")} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Pedir nova proposta</button>{([5, 10] as const).filter((limit) => limit > serviceRequest.visibleProposalLimit).map((limit) => <button key={limit} type="button" onClick={() => void applyProposalPolicy(serviceRequestVisibleProposalLimitUrl(serviceRequest.id), "PATCH", { limit })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Ver até {limit}</button>)}</div>
                 <div className="mt-5 grid gap-4">
                   {proposals.items.map((proposal) => (
                     <article key={proposal.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -1228,9 +1236,7 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                         <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700">{proposal.message}</p>
                       </div>
                       {proposal.status === "ACTIVE" && proposalAcceptanceState !== "success" ? (
-                        <button type="button" onClick={() => openProposalAcceptance(proposal.id)} disabled={isAcceptingProposal || proposalAcceptanceState === "confirming"} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
-                          Aceitar proposta
-                        </button>
+                        <div className="mt-4 flex gap-3"><button type="button" onClick={() => openProposalAcceptance(proposal.id)} disabled={isAcceptingProposal || proposalAcceptanceState === "confirming"} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Aceitar proposta</button><button type="button" onClick={() => void applyProposalPolicy(proposalRejectUrl(proposal.id), "POST")} className="rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700">Rejeitar</button></div>
                       ) : null}
                     </article>
                   ))}

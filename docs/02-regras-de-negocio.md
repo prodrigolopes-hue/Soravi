@@ -94,6 +94,13 @@ editá-la enquanto a solicitação estiver aberta.
 
 O cliente escolhe uma proposta.
 
+### Política de visibilidade de propostas
+
+- O cliente escolhe 3, 5 ou 10 propostas visíveis ao criar a solicitação; o padrão é 3.
+- A solicitação aceita no máximo 12 propostas. As primeiras dentro do limite escolhido ficam visíveis e as demais permanecem em reserva, por ordem de chegada, sem expor sua posição.
+- Rejeitar uma proposta não promove reserva automaticamente. O cliente pode pedir uma nova proposta, ou aumentar o limite de 3 para 5 e de 5 para 10, para promover reservas na ordem recebida.
+- A retirada de uma proposta visível pelo profissional promove automaticamente a próxima reserva. O aceite encerra o fluxo e rejeita as demais propostas ativas.
+
 Após a confirmação:
 
 -   a solicitação é encerrada para novos interessados;

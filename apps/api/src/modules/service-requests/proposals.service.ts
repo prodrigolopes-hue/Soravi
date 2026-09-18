@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConflictException } from "@nestjs/common";
 
 import {
   CommunicationChannel,
@@ -65,6 +66,8 @@ const PROPOSAL_RECEIVED_SELECT = {
   },
 } satisfies Prisma.ProposalSelect;
 
+const MAX_PROPOSALS_PER_REQUEST = 12;
+
 @Injectable()
 export class ProposalsService {
   constructor(
@@ -104,6 +107,7 @@ export class ProposalsService {
     const sort = query.sort ?? "desc";
     const where: Prisma.ProposalWhereInput = {
       serviceRequestId: serviceRequest.id,
+      isVisible: true,
       ...(query.status ? { status: query.status } : {}),
     };
     const [total, proposals] = await this.prisma.$transaction([
@@ -164,7 +168,9 @@ export class ProposalsService {
         const serviceRequest = await transaction.serviceRequest.findFirst({
           where: { id: serviceRequestId, deletedAt: null },
           select: {
+            id: true,
             status: true,
+            visibleProposalLimit: true,
             customerProfile: {
               select: { userId: true },
             },
@@ -172,6 +178,19 @@ export class ProposalsService {
         });
 
         if (!serviceRequest) {
+          throw new ProposalCreationUnavailableException();
+        }
+
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT "id" FROM "service_requests" WHERE "id" = ${serviceRequest.id}::uuid FOR UPDATE
+        `);
+
+        const lockedServiceRequest = await transaction.serviceRequest.findFirst({
+          where: { id: serviceRequestId, deletedAt: null },
+          select: { status: true, visibleProposalLimit: true, customerProfile: { select: { userId: true } } },
+        });
+
+        if (!lockedServiceRequest) {
           throw new ProposalCreationUnavailableException();
         }
 
@@ -190,8 +209,8 @@ export class ProposalsService {
         }
 
         if (
-          serviceRequest.status !== ServiceRequestStatus.OPEN &&
-          serviceRequest.status !== ServiceRequestStatus.RECEIVING_PROPOSALS
+          lockedServiceRequest.status !== ServiceRequestStatus.OPEN &&
+          lockedServiceRequest.status !== ServiceRequestStatus.RECEIVING_PROPOSALS
         ) {
           throw new ServiceRequestNotAcceptingProposalsException();
         }
@@ -210,6 +229,17 @@ export class ProposalsService {
           throw new ProposalAlreadyExistsException();
         }
 
+        const total = await transaction.proposal.count({
+          where: { serviceRequestId },
+        });
+        if (total >= MAX_PROPOSALS_PER_REQUEST) {
+          throw new ConflictException("Esta solicitação já atingiu o limite de 12 propostas.");
+        }
+
+        const visibleActiveCount = await transaction.proposal.count({
+          where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: true },
+        });
+
         const createdProposal = await transaction.proposal.create({
           data: {
             serviceRequestId,
@@ -219,6 +249,7 @@ export class ProposalsService {
             estimatedDurationUnit: dto.estimatedDurationUnit,
             message: dto.message,
             status: ProposalStatus.ACTIVE,
+            isVisible: visibleActiveCount < lockedServiceRequest.visibleProposalLimit,
             acceptedAt: null,
             rejectedAt: null,
             withdrawnAt: null,
@@ -230,7 +261,7 @@ export class ProposalsService {
         const notification = await transaction.notification.upsert({
           where: {
             userId_type_resourceType_resourceId: {
-              userId: serviceRequest.customerProfile.userId,
+              userId: lockedServiceRequest.customerProfile.userId,
               type: NotificationType.PROPOSAL_CREATED,
               resourceType: "PROPOSAL",
               resourceId: createdProposal.id,
@@ -238,7 +269,7 @@ export class ProposalsService {
           },
           update: {},
           create: {
-            userId: serviceRequest.customerProfile.userId,
+            userId: lockedServiceRequest.customerProfile.userId,
             type: NotificationType.PROPOSAL_CREATED,
             title: "Nova proposta recebida",
             message: "Você recebeu uma nova proposta para sua solicitação.",
@@ -251,12 +282,12 @@ export class ProposalsService {
         await this.outboundNotificationsService.createPending({
           transaction,
           notificationId: notification.id,
-          userId: serviceRequest.customerProfile.userId,
+          userId: lockedServiceRequest.customerProfile.userId,
           channel: CommunicationChannel.WHATSAPP,
           eventType: NotificationType.PROPOSAL_CREATED,
         });
 
-        if (serviceRequest.status === ServiceRequestStatus.OPEN) {
+        if (lockedServiceRequest.status === ServiceRequestStatus.OPEN) {
           await transaction.serviceRequest.update({
             where: { id: serviceRequestId },
             data: { status: ServiceRequestStatus.RECEIVING_PROPOSALS },
@@ -444,5 +475,66 @@ export class ProposalsService {
 
       throw error;
     }
+  }
+
+  async reject(userId: string, proposalId: string): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const proposal = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { id: true, serviceRequestId: true } });
+      if (!proposal) throw new ProposalNotFoundException();
+      await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "service_requests" WHERE "id" = ${proposal.serviceRequestId}::uuid FOR UPDATE`);
+      const customer = await transaction.customerProfile.findUnique({ where: { userId }, select: { id: true } });
+      const request = customer && await transaction.serviceRequest.findFirst({ where: { id: proposal.serviceRequestId, customerProfileId: customer.id, deletedAt: null, status: { in: [ServiceRequestStatus.OPEN, ServiceRequestStatus.RECEIVING_PROPOSALS, ServiceRequestStatus.IN_NEGOTIATION] } }, select: { id: true } });
+      if (!request) throw new ProposalNotFoundException();
+      const result = await transaction.proposal.updateMany({ where: { id: proposalId, serviceRequestId: request.id, status: ProposalStatus.ACTIVE, isVisible: true }, data: { status: ProposalStatus.REJECTED, rejectedAt: new Date() } });
+      if (result.count !== 1) throw new ProposalNotActiveException();
+    });
+  }
+
+  async requestNext(userId: string, serviceRequestId: string): Promise<void> {
+    await this.withCustomerRequestLock(userId, serviceRequestId, async (transaction, request) => {
+      const visible = await transaction.proposal.count({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: true } });
+      if (visible >= request.visibleProposalLimit) throw new ConflictException("Ainda há propostas visíveis para avaliar.");
+      const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
+      if (reserve) await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+    });
+  }
+
+  async increaseVisibleLimit(userId: string, serviceRequestId: string, limit: number): Promise<void> {
+    await this.withCustomerRequestLock(userId, serviceRequestId, async (transaction, request) => {
+      if (![3, 5, 10].includes(limit) || limit <= request.visibleProposalLimit) throw new ConflictException("O limite só pode aumentar para 5 ou 10 propostas.");
+      await transaction.serviceRequest.update({ where: { id: serviceRequestId }, data: { visibleProposalLimit: limit } });
+      const visible = await transaction.proposal.count({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: true } });
+      for (let slot = visible; slot < limit; slot += 1) {
+        const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
+        if (!reserve) break;
+        await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+      }
+    });
+  }
+
+  async withdraw(userId: string, proposalId: string): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const proposal = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { id: true, serviceRequestId: true, professionalProfile: { select: { userId: true } } } });
+      if (!proposal || proposal.professionalProfile.userId !== userId) throw new ProposalNotFoundException();
+      await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "service_requests" WHERE "id" = ${proposal.serviceRequestId}::uuid FOR UPDATE`);
+      const current = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { status: true, isVisible: true } });
+      if (!current || current.status !== ProposalStatus.ACTIVE) throw new ProposalNotActiveException();
+      await transaction.proposal.update({ where: { id: proposalId }, data: { status: ProposalStatus.WITHDRAWN, withdrawnAt: new Date() } });
+      if (current.isVisible) {
+        const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId: proposal.serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
+        if (reserve) await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+      }
+    });
+  }
+
+  private async withCustomerRequestLock(userId: string, serviceRequestId: string, callback: (transaction: Prisma.TransactionClient, request: { visibleProposalLimit: number }) => Promise<void>): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const customer = await transaction.customerProfile.findUnique({ where: { userId }, select: { id: true } });
+      if (!customer) throw new ServiceRequestNotFoundException();
+      await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "service_requests" WHERE "id" = ${serviceRequestId}::uuid FOR UPDATE`);
+      const request = await transaction.serviceRequest.findFirst({ where: { id: serviceRequestId, customerProfileId: customer.id, deletedAt: null, status: { in: [ServiceRequestStatus.OPEN, ServiceRequestStatus.RECEIVING_PROPOSALS, ServiceRequestStatus.IN_NEGOTIATION] } }, select: { visibleProposalLimit: true } });
+      if (!request) throw new ServiceRequestNotFoundException();
+      await callback(transaction, request);
+    });
   }
 }
