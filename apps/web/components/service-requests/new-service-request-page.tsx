@@ -15,7 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 
 import {
   categoriesUrl,
@@ -180,6 +180,7 @@ export function NewServiceRequestPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -667,9 +668,28 @@ export function NewServiceRequestPage() {
               <fieldset className="mt-6">
                 <legend className="text-sm font-semibold text-slate-800">Quantas propostas você deseja receber?</legend>
                 <p className="mt-1 text-sm text-slate-600">Escolha quantas propostas deseja comparar para esta solicitação.</p>
-                <div className="mt-3 flex gap-3">
-                  {[3, 5, 10].map((limit) => <label key={limit} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium"><input type="radio" value={limit} {...register("visibleProposalLimit", { valueAsNumber: true })} />{limit} propostas</label>)}
-                </div>
+                <Controller
+                  control={control}
+                  name="visibleProposalLimit"
+                  render={({ field }) => (
+                    <div className="mt-3 flex gap-3">
+                      {[3, 5, 10].map((limit) => (
+                        <label key={limit} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium">
+                          <input
+                            type="radio"
+                            value={limit}
+                            checked={field.value === limit}
+                            onChange={() => field.onChange(limit)}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                          {limit} propostas
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                />
               </fieldset>
               {categoriesState === "error" ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3" role="alert">
@@ -858,6 +878,7 @@ export function NewServiceRequestPage() {
               <h2 id="review-service-request-title" className="mt-2 text-2xl font-bold text-slate-950">Confira sua solicitação</h2>
               <dl className="mt-6 space-y-5 text-slate-700">
                 <div><dt className="text-sm font-semibold text-slate-500">Categoria</dt><dd className="mt-1 font-medium text-slate-950">{categories.find((category) => category.id === reviewData.categoryId)?.name ?? "Categoria selecionada"}</dd></div>
+                <div><dt className="text-sm font-semibold text-slate-500">Quantidade de propostas</dt><dd className="mt-1 font-medium text-slate-950">Até {reviewData.visibleProposalLimit} propostas</dd></div>
                 <div><dt className="text-sm font-semibold text-slate-500">Título</dt><dd className="mt-1 font-medium text-slate-950">{reviewData.title}</dd></div>
                 {reviewData.description.trim() ? <div><dt className="text-sm font-semibold text-slate-500">Descrição</dt><dd className="mt-1 whitespace-pre-wrap">{reviewData.description}</dd></div> : null}
                 <div><dt className="text-sm font-semibold text-slate-500">Localização</dt><dd className="mt-1">{reviewData.location.addressLine}, {reviewData.location.addressNumber}{reviewData.location.addressComplement ? ` - ${reviewData.location.addressComplement}` : ""}<br />{reviewData.location.neighborhood}, {reviewData.location.city} - {reviewData.location.state}<br />CEP {reviewData.location.postalCode}</dd></div>
