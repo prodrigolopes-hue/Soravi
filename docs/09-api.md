@@ -8,11 +8,21 @@ Avaliações: `POST /api/v1/contracts/:contractId/review` aceita `rating` de 1 a
 
 Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado.
 
-Também estão implementados `POST /api/v1/contracts/:contractId/start`, `POST /api/v1/contracts/:contractId/complete`, `POST /api/v1/phone-verification/request`, `POST /api/v1/phone-verification/confirm` e os recursos de conversa para listagem, detalhe, mensagens e leitura. Endpoints de avaliações e favoritos são futuros e não devem ser tratados como entregues.
+Também estão implementados `POST /api/v1/contracts/:contractId/start`, `POST /api/v1/contracts/:contractId/complete`, `POST /api/v1/contracts/:contractId/review`, `POST /api/v1/phone-verification/request`, `POST /api/v1/phone-verification/confirm`, os endpoints de favoritos e os recursos de conversa para listagem, detalhe, mensagens e leitura.
 
 Definir o padrão oficial das APIs da Soravi.
 
 ------------------------------------------------------------------------
+
+## Favoritos
+
+Rotas autenticadas, restritas a `CUSTOMER`:
+
+- `GET /api/v1/favorites` lista os favoritos do cliente, incluindo perfil, média, quantidade de avaliações e categorias ativas;
+- `POST /api/v1/favorites/:professionalProfileId` cria favorito e retorna `409 FAVORITE_ALREADY_EXISTS` em duplicidade;
+- `DELETE /api/v1/favorites/:professionalProfileId` remove favorito do cliente de forma idempotente.
+
+O POST retorna `404 PROFESSIONAL_PROFILE_NOT_FOUND` para perfil inexistente ou excluído.
 
 # Padrões
 

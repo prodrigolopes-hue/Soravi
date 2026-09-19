@@ -8,7 +8,7 @@
 
 `ServiceRequest` é publicada em `OPEN` após a revisão no frontend e recebe `publishedAt`. `editableUntil` permanece no schema apenas como campo legado: não governa UX, edição ou despacho. `opportunitiesDispatchedAt` continua como marcador de distribuição idempotente. O enum contém `DRAFT`, mas o fluxo atual não persiste rascunhos.
 
-Não existe `Review` funcional nem favoritos no MVP atual; `averageRating` e `reviewCount` não comprovam uma funcionalidade de avaliações entregue.
+`Review` e favoritos estão implementados no MVP; `averageRating` e `reviewCount` são recalculados a partir das avaliações concluídas.
 
 Definir as principais entidades da plataforma Soravi e seus
 relacionamentos.
@@ -92,7 +92,7 @@ Relacionamentos: - cliente - profissional
 
 ## Favoritos
 
-Permite ao cliente salvar profissionais.
+`Favorite` relaciona `CustomerProfile` e `ProfessionalProfile`, com `id`, `customerProfileId`, `professionalProfileId` e `createdAt`. O par cliente-profissional é único e a listagem ignora perfis ou usuários excluídos.
 
 ------------------------------------------------------------------------
 

@@ -150,6 +150,15 @@ A plataforma poderá bloquear usuários que:
 
 ------------------------------------------------------------------------
 
+# Favoritos
+
+- Somente clientes autenticados podem criar, remover e listar seus favoritos.
+- Um favorito é único por par cliente-profissional; tentativa repetida é recusada pelo backend.
+- Não é possível favoritar perfil profissional inexistente ou excluído.
+- A remoção é idempotente e não altera propostas, contratos ou avaliações.
+
+------------------------------------------------------------------------
+
 # Segurança
 
 -   Senhas armazenadas com hash.

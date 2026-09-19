@@ -12,6 +12,12 @@ export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin
 
 export const categoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories`;
 
+export const favoritesUrl = `${normalizedApiBaseUrl}/api/v1/favorites`;
+
+export function favoriteProfessionalUrl(professionalProfileId: string): string {
+  return `${favoritesUrl}/${encodeURIComponent(professionalProfileId)}`;
+}
+
 export const serviceRequestsUrl = `${normalizedApiBaseUrl}/api/v1/service-requests`;
 
 export const myServiceRequestsUrl = `${serviceRequestsUrl}/mine`;

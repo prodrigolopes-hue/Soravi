@@ -6,7 +6,7 @@ Avaliações de contratos concluídos estão implementadas no MVP.
 
 ## Estado validado em Staging
 
-Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat e notificações. Parcial: painéis, administração, moderação e verificação profissional. Não iniciado: favoritos e avaliações.
+Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações e favoritos. Parcial: painéis, administração, moderação e verificação profissional.
 
 Próximas prioridades: avaliações, favoritos, painéis consolidados, administração/moderação, verificação profissional, regressão final e preparação para produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
 
@@ -14,6 +14,10 @@ Definir a evolução da Soravi em fases, garantindo entregas incrementais
 e foco no MVP.
 
 ------------------------------------------------------------------------
+
+# Favoritos no MVP
+
+Favoritar, remover e listar profissionais foi concluído no fluxo de propostas recebidas, sem diretório público de profissionais.
 
 # Fase 1 --- Fundação (MVP)
 

@@ -61,6 +61,7 @@ const PROPOSAL_RECEIVED_SELECT = {
   submittedAt: true,
   professionalProfile: {
     select: {
+      id: true,
       displayName: true,
     },
   },
@@ -126,6 +127,7 @@ export class ProposalsService {
 
       return {
         ...proposalProperties,
+        professionalProfileId: professionalProfile.id,
         professionalName: normalizeDisplayName(
           professionalProfile.displayName,
         ),

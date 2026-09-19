@@ -12,6 +12,7 @@ export interface ProposalReceivedProperties {
   status: ProposalStatus;
   submittedAt: Date;
   professionalName: string | null;
+  professionalProfileId: string;
 }
 
 export class ProposalReceivedResponseDto {
@@ -23,6 +24,7 @@ export class ProposalReceivedResponseDto {
   status!: ProposalStatus;
   submittedAt!: Date;
   professionalName!: string | null;
+  professionalProfileId!: string;
 
   constructor(properties: ProposalReceivedProperties) {
     this.id = properties.id;
@@ -33,6 +35,7 @@ export class ProposalReceivedResponseDto {
     this.status = properties.status;
     this.submittedAt = properties.submittedAt;
     this.professionalName = properties.professionalName;
+    this.professionalProfileId = properties.professionalProfileId;
   }
 }
 

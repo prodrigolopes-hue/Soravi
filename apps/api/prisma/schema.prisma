@@ -189,6 +189,7 @@ model CustomerProfile {
   serviceRequests ServiceRequest[]
   contracts       Contract[]
   reviews         Review[]
+  favorites       Favorite[]
 
   @@map("customer_profiles")
 }
@@ -215,11 +216,26 @@ model ProfessionalProfile {
   proposals              Proposal[]
   contracts              Contract[]
   reviews                Review[]
+  favorites              Favorite[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
   @@index([averageRating], map: "professional_profiles_average_rating_idx")
   @@map("professional_profiles")
+}
+
+model Favorite {
+  id                    String   @id @default(uuid()) @db.Uuid
+  customerProfileId     String   @map("customer_profile_id") @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([customerProfileId, professionalProfileId], map: "favorites_customer_profile_professional_profile_key")
+  @@index([customerProfileId, createdAt], map: "favorites_customer_profile_created_at_idx")
+  @@map("favorites")
 }
 
 model LegalAcceptance {

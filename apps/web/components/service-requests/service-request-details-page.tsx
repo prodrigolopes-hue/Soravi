@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 
 import { categoriesUrl, contractCompleteUrl, contractReviewUrl, proposalAcceptUrl, proposalRejectUrl, serviceRequestByIdUrl, serviceRequestCancelUrl, serviceRequestNextProposalUrl, serviceRequestProposalsUrl, serviceRequestVisibleProposalLimitUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { FavoriteProfessionalButton } from "../favorites/favorite-professional-button";
 import { ImageLightbox } from "../shared/image-lightbox";
 import { serviceRequestSchema, type ServiceRequestFormData } from "./service-request-form-schema";
 import { formatServiceRequestDate, isServiceRequestStatus, serviceRequestStatusPresentation, type ServiceRequestStatus } from "./service-request-presentation";
@@ -79,6 +80,7 @@ interface ServiceRequestDetails {
 interface ProposalReceived {
   id: string;
   professionalName: string | null;
+  professionalProfileId: string;
   amountInCents: number;
   estimatedDurationValue: number;
   estimatedDurationUnit: ProposalDurationUnit;
@@ -165,13 +167,14 @@ function parseProposalsResponse(payload: unknown): ProposalsResponse | null {
   const items: ProposalReceived[] = [];
 
   for (const item of root.items) {
-    if (!isRecord(item) || typeof item.id !== "string" || !isNullableString(item.professionalName) || typeof item.amountInCents !== "number" || !Number.isInteger(item.amountInCents) || item.amountInCents < 0 || typeof item.estimatedDurationValue !== "number" || !Number.isInteger(item.estimatedDurationValue) || item.estimatedDurationValue < 1 || !isProposalDurationUnit(item.estimatedDurationUnit) || typeof item.message !== "string" || !isProposalStatus(item.status) || typeof item.submittedAt !== "string") {
+    if (!isRecord(item) || typeof item.id !== "string" || typeof item.professionalProfileId !== "string" || !isNullableString(item.professionalName) || typeof item.amountInCents !== "number" || !Number.isInteger(item.amountInCents) || item.amountInCents < 0 || typeof item.estimatedDurationValue !== "number" || !Number.isInteger(item.estimatedDurationValue) || item.estimatedDurationValue < 1 || !isProposalDurationUnit(item.estimatedDurationUnit) || typeof item.message !== "string" || !isProposalStatus(item.status) || typeof item.submittedAt !== "string") {
       return null;
     }
 
     items.push({
       id: item.id,
       professionalName: item.professionalName,
+      professionalProfileId: item.professionalProfileId,
       amountInCents: item.amountInCents,
       estimatedDurationValue: item.estimatedDurationValue,
       estimatedDurationUnit: item.estimatedDurationUnit,
@@ -1237,8 +1240,9 @@ export function ServiceRequestDetailsPage({ serviceRequestId }: ServiceRequestDe
                         <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-700">{proposal.message}</p>
                       </div>
                       {proposal.status === "ACTIVE" && proposalAcceptanceState !== "success" ? (
-                        <div className="mt-4 flex gap-3"><button type="button" onClick={() => openProposalAcceptance(proposal.id)} disabled={isAcceptingProposal || proposalAcceptanceState === "confirming"} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Aceitar proposta</button><button type="button" onClick={() => void applyProposalPolicy(proposalRejectUrl(proposal.id), "POST")} className="rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700">Rejeitar</button></div>
+                        <div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => openProposalAcceptance(proposal.id)} disabled={isAcceptingProposal || proposalAcceptanceState === "confirming"} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Aceitar proposta</button><button type="button" onClick={() => void applyProposalPolicy(proposalRejectUrl(proposal.id), "POST")} className="rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700">Rejeitar</button></div>
                       ) : null}
+                      <div className="mt-4"><FavoriteProfessionalButton professionalProfileId={proposal.professionalProfileId} /></div>
                     </article>
                   ))}
                 </div>
