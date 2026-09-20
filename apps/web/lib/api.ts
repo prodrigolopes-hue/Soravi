@@ -24,6 +24,8 @@ export const myServiceRequestsUrl = `${serviceRequestsUrl}/mine`;
 
 export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 
+export const professionalDashboardUrl = `${opportunitiesUrl}/summary`;
+
 export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
 
 export const notificationsUrl = `${normalizedApiBaseUrl}/api/v1/notifications`;

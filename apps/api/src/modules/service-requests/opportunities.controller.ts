@@ -18,6 +18,7 @@ import { OpportunitiesListResponseDto } from "./dto/opportunities-list-response.
 import { OpportunityDetailResponseDto } from "./dto/opportunity-detail-response.dto";
 import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { OpportunitiesService } from "./opportunities.service";
+import { ProfessionalDashboardResponseDto } from "./dto/professional-dashboard-response.dto";
 
 @Controller("opportunities")
 export class OpportunitiesController {
@@ -31,6 +32,13 @@ export class OpportunitiesController {
     @Query() query: OpportunitiesQueryDto,
   ): Promise<OpportunitiesListResponseDto> {
     return this.opportunitiesService.findMine(currentUser.id, query);
+  }
+
+  @Get("summary")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  dashboard(@CurrentUser() currentUser: AuthenticatedUser): Promise<ProfessionalDashboardResponseDto> {
+    return this.opportunitiesService.dashboard(currentUser.id);
   }
 
   @Get(":opportunityId")

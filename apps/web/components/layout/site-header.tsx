@@ -80,6 +80,12 @@ export function HeaderAuthAction({
         ) : null}
 
         {isProfessional ? (
+          <Link href="/profissional" className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onClick={onAction}>
+            Meu painel
+          </Link>
+        ) : null}
+
+        {isProfessional ? (
           <Link
             href="/profissional/oportunidades"
             className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
@@ -152,6 +158,12 @@ export function HeaderAuthAction({
         {isCustomer ? (
           <Link href="/favoritos" className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
             Favoritos
+          </Link>
+        ) : null}
+
+        {isProfessional ? (
+          <Link href="/profissional" className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+            Meu painel
           </Link>
         ) : null}
 

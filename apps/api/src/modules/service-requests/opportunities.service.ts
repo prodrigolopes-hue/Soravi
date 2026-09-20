@@ -17,6 +17,8 @@ import { OpportunitiesQueryDto } from "./dto/opportunities-query.dto";
 import { ProfessionalProfileNotFoundException } from "../category-requests/errors/professional-profile-not-found.exception";
 import { OpportunityNotFoundException } from "./errors/opportunity-not-found.exception";
 import { getFirstName } from "../users/user-name.utils";
+import { ContractStatus } from "../../generated/prisma/client";
+import { ProfessionalDashboardResponseDto } from "./dto/professional-dashboard-response.dto";
 
 const OPPORTUNITY_SELECT = {
   id: true,
@@ -105,6 +107,31 @@ export class OpportunitiesService {
       limit,
       total,
     );
+  }
+
+  async dashboard(userId: string): Promise<ProfessionalDashboardResponseDto> {
+    const professionalProfile = await this.prisma.professionalProfile.findFirst({
+      where: { userId, deletedAt: null, user: { deletedAt: null, roles: { some: { role: Role.PROFESSIONAL } } } },
+      select: { id: true, averageRating: true, reviewCount: true },
+    });
+    if (!professionalProfile) throw new ProfessionalProfileNotFoundException();
+
+    const opportunityWhere: Prisma.ServiceOpportunityWhereInput = { professionalProfileId: professionalProfile.id, serviceRequest: { deletedAt: null } };
+    const [opportunitiesAvailable, proposalsSent, servicesContractedOrInProgress, servicesCompleted, recentOpportunities, recentServices] = await this.prisma.$transaction([
+      this.prisma.serviceOpportunity.count({ where: opportunityWhere }),
+      this.prisma.proposal.count({ where: { professionalProfileId: professionalProfile.id } }),
+      this.prisma.contract.count({ where: { professionalProfileId: professionalProfile.id, status: { in: [ContractStatus.ACCEPTED, ContractStatus.IN_PROGRESS] } } }),
+      this.prisma.contract.count({ where: { professionalProfileId: professionalProfile.id, status: ContractStatus.COMPLETED } }),
+      this.prisma.serviceOpportunity.findMany({ where: opportunityWhere, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, createdAt: true, serviceRequest: { select: { title: true, city: true, state: true, category: { select: { name: true } } } } } }),
+      this.prisma.contract.findMany({ where: { professionalProfileId: professionalProfile.id }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, status: true, completedAt: true, serviceRequest: { select: { title: true } } } }),
+    ]);
+
+    return new ProfessionalDashboardResponseDto({
+      opportunitiesAvailable, proposalsSent, servicesContractedOrInProgress, servicesCompleted,
+      averageRating: professionalProfile.averageRating.toNumber(), reviewCount: professionalProfile.reviewCount,
+      recentOpportunities: recentOpportunities.map((item) => ({ id: item.id, createdAt: item.createdAt, title: item.serviceRequest.title, categoryName: item.serviceRequest.category.name, city: item.serviceRequest.city, state: item.serviceRequest.state })),
+      recentServices: recentServices.map((item) => ({ id: item.id, status: item.status, title: item.serviceRequest.title, completedAt: item.completedAt })),
+    });
   }
 
   async findOneMine(
