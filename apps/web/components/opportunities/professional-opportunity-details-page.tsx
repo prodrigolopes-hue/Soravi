@@ -14,7 +14,12 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { contractStartUrl, opportunityByIdUrl, opportunityViewedUrl } from "../../lib/api";
+import {
+  contractCustomerReviewUrl,
+  contractStartUrl,
+  opportunityByIdUrl,
+  opportunityViewedUrl,
+} from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
 import {
@@ -34,6 +39,12 @@ type OpportunityState =
   | "unauthorized"
   | "forbidden";
 
+type ContractStatus =
+  | "ACCEPTED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
 interface OpportunityPhoto {
   id: string;
   originalName: string;
@@ -43,13 +54,25 @@ interface OpportunityPhoto {
   url: string;
 }
 
+interface ReviewSummary {
+  rating: number;
+  comment: string | null;
+  publishedAt: string | null;
+}
+
 interface OpportunityDetails {
   opportunityId: string;
   createdAt: string;
   viewedAt: string | null;
   conversationId: string | null;
   customerFirstName: string | null;
-  contract: { id: string; status: "ACCEPTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"; review: { rating: number; comment: string | null } | null } | null;
+  contract: {
+    id: string;
+    status: ContractStatus;
+    completedAt: string | null;
+    review: ReviewSummary | null;
+    customerReview: ReviewSummary | null;
+  } | null;
   serviceRequest: {
     id: string;
     title: string;
@@ -72,12 +95,96 @@ interface ProfessionalOpportunityDetailsPageProps {
   opportunityId: string;
 }
 
+const REVIEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
+}
+
+function isContractStatus(value: unknown): value is ContractStatus {
+  return (
+    value === "ACCEPTED" ||
+    value === "IN_PROGRESS" ||
+    value === "COMPLETED" ||
+    value === "CANCELLED"
+  );
+}
+
+function isReviewWindowOpen(completedAt: string | null): boolean {
+  if (!completedAt) {
+    return false;
+  }
+
+  const completedAtMs = new Date(completedAt).getTime();
+
+  if (Number.isNaN(completedAtMs)) {
+    return false;
+  }
+
+  return Date.now() < completedAtMs + REVIEW_WINDOW_MS;
+}
+
+function parseReviewSummary(value: unknown): ReviewSummary | null | undefined {
+  if (value === null) {
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (
+    typeof value.rating !== "number" ||
+    !isNullableString(value.comment) ||
+    !isNullableString(value.publishedAt)
+  ) {
+    return undefined;
+  }
+
+  return {
+    rating: value.rating,
+    comment: value.comment,
+    publishedAt: value.publishedAt,
+  };
+}
+
+function parseContract(
+  value: unknown,
+): OpportunityDetails["contract"] | undefined {
+  if (value === null) {
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (
+    typeof value.id !== "string" ||
+    !isContractStatus(value.status) ||
+    !isNullableString(value.completedAt)
+  ) {
+    return undefined;
+  }
+
+  const review = parseReviewSummary(value.review);
+  const customerReview = parseReviewSummary(value.customerReview);
+
+  if (review === undefined || customerReview === undefined) {
+    return undefined;
+  }
+
+  return {
+    id: value.id,
+    status: value.status,
+    completedAt: value.completedAt,
+    review,
+    customerReview,
+  };
 }
 
 function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
@@ -92,6 +199,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
   }
 
   const { serviceRequest } = root;
+  const contract = parseContract(root.contract);
 
   if (
     typeof root.opportunityId !== "string" ||
@@ -99,7 +207,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     !isNullableString(root.viewedAt) ||
     !isNullableString(root.conversationId) ||
     !isNullableString(root.customerFirstName) ||
-    !(root.contract === null || (isRecord(root.contract) && typeof root.contract.id === "string" && typeof root.contract.status === "string")) ||
+    contract === undefined ||
     typeof serviceRequest.id !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
@@ -115,12 +223,26 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     return null;
   }
 
-  const rawPhotos = Array.isArray(serviceRequest.photos) ? serviceRequest.photos : [];
+  const rawPhotos = Array.isArray(serviceRequest.photos)
+    ? serviceRequest.photos
+    : [];
 
   const photos: OpportunityPhoto[] = [];
 
   for (const photo of rawPhotos) {
-    if (!isRecord(photo) || typeof photo.id !== "string" || typeof photo.originalName !== "string" || typeof photo.mimeType !== "string" || typeof photo.sizeBytes !== "number" || !Number.isInteger(photo.sizeBytes) || photo.sizeBytes < 0 || typeof photo.position !== "number" || !Number.isInteger(photo.position) || photo.position < 0 || typeof photo.url !== "string") {
+    if (
+      !isRecord(photo) ||
+      typeof photo.id !== "string" ||
+      typeof photo.originalName !== "string" ||
+      typeof photo.mimeType !== "string" ||
+      typeof photo.sizeBytes !== "number" ||
+      !Number.isInteger(photo.sizeBytes) ||
+      photo.sizeBytes < 0 ||
+      typeof photo.position !== "number" ||
+      !Number.isInteger(photo.position) ||
+      photo.position < 0 ||
+      typeof photo.url !== "string"
+    ) {
       return null;
     }
 
@@ -140,7 +262,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     viewedAt: root.viewedAt,
     conversationId: root.conversationId,
     customerFirstName: root.customerFirstName,
-    contract: root.contract as OpportunityDetails["contract"],
+    contract,
     serviceRequest: {
       id: serviceRequest.id,
       title: serviceRequest.title,
@@ -155,7 +277,9 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
         city: serviceRequest.location.city,
         neighborhood: serviceRequest.location.neighborhood,
       },
-      photos: [...photos].sort((first, second) => first.position - second.position),
+      photos: [...photos].sort(
+        (first, second) => first.position - second.position,
+      ),
     },
   };
 }
@@ -164,14 +288,28 @@ export function ProfessionalOpportunityDetailsPage({
   opportunityId,
 }: ProfessionalOpportunityDetailsPageProps) {
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+
   const [opportunity, setOpportunity] = useState<OpportunityDetails | null>(
     null,
   );
   const [opportunityState, setOpportunityState] =
     useState<OpportunityState>("idle");
-  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
   const [isStartingContract, setIsStartingContract] = useState(false);
-  const [contractActionMessage, setContractActionMessage] = useState<string | null>(null);
+  const [contractActionMessage, setContractActionMessage] = useState<
+    string | null
+  >(null);
+  const [customerReviewRating, setCustomerReviewRating] = useState(5);
+  const [customerReviewComment, setCustomerReviewComment] = useState("");
+  const [isSubmittingCustomerReview, setIsSubmittingCustomerReview] =
+    useState(false);
+  const [customerReviewError, setCustomerReviewError] = useState<string | null>(
+    null,
+  );
+
   const viewedOpportunityIdRef = useRef<string | null>(null);
 
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
@@ -185,7 +323,9 @@ export function ProfessionalOpportunityDetailsPage({
 
     try {
       const response = await fetch(opportunityByIdUrl(opportunityId), {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         credentials: "include",
         cache: "no-store",
       });
@@ -268,14 +408,14 @@ export function ProfessionalOpportunityDetailsPage({
 
     async function markOpportunityViewed(): Promise<void> {
       try {
-        const response = await fetch(
-          opportunityViewedUrl(viewedOpportunityId),
-          {
-            method: "POST",
-            headers: { Authorization: `Bearer ${accessToken}` },
-            credentials: "include",
+        const response = await fetch(opportunityViewedUrl(viewedOpportunityId), {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
           },
-        );
+          credentials: "include",
+        });
+
         const payload: unknown = await response.json().catch(() => null);
 
         if (!response.ok) {
@@ -288,7 +428,7 @@ export function ProfessionalOpportunityDetailsPage({
           setOpportunity(markedOpportunity);
         }
       } catch {
-        // A leitura do detalhe permanece disponível quando a marcação falha.
+        // A leitura permanece disponível se a marcação de visualização falhar.
       }
     }
 
@@ -371,31 +511,119 @@ export function ProfessionalOpportunityDetailsPage({
   const { location } = serviceRequest;
   const status = serviceRequestStatusPresentation[serviceRequest.status];
   const isUnviewed = opportunity.viewedAt === null;
+
   const canSubmitProposal =
     serviceRequest.status === "OPEN" ||
     serviceRequest.status === "RECEIVING_PROPOSALS";
+
   const proposalClosedMessage =
     serviceRequest.status === "HIRED"
       ? "Esta solicitação já foi contratada e não aceita novas propostas."
       : "Esta solicitação não aceita mais propostas no momento.";
 
+  const contract = opportunity.contract;
+
+  const reviewWindowOpen =
+    contract?.status === "COMPLETED"
+      ? isReviewWindowOpen(contract.completedAt)
+      : false;
+
+  const receivedReview = contract?.review ?? null;
+  const ownCustomerReview = contract?.customerReview ?? null;
+
+  const receivedReviewIsPublished = receivedReview?.publishedAt != null;
+
   async function startContract(): Promise<void> {
-    const contract = opportunity?.contract;
-    if (!accessToken || !contract || isStartingContract || !window.confirm("Deseja iniciar este serviço?")) return;
-    setIsStartingContract(true); setContractActionMessage(null);
+    if (
+      !accessToken ||
+      !contract ||
+      isStartingContract ||
+      !window.confirm("Deseja iniciar este serviço?")
+    ) {
+      return;
+    }
+
+    setIsStartingContract(true);
+    setContractActionMessage(null);
+
     try {
-      const response = await fetch(contractStartUrl(contract.id), { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
-      if (!response.ok) throw new Error("contract start failed");
-      setOpportunity((current) => current?.contract ? { ...current, contract: { ...current.contract, status: "IN_PROGRESS" } } : current);
+      const response = await fetch(contractStartUrl(contract.id), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("contract start failed");
+      }
+
+      setOpportunity((current) =>
+        current?.contract
+          ? {
+            ...current,
+            contract: {
+              ...current.contract,
+              status: "IN_PROGRESS",
+            },
+          }
+          : current,
+      );
+
       setContractActionMessage("Serviço iniciado com sucesso.");
-    } catch { setContractActionMessage("Não foi possível iniciar o serviço. Tente novamente."); }
-    finally { setIsStartingContract(false); }
+    } catch {
+      setContractActionMessage(
+        "Não foi possível iniciar o serviço. Tente novamente.",
+      );
+    } finally {
+      setIsStartingContract(false);
+    }
+  }
+
+  async function submitCustomerReview(): Promise<void> {
+    if (!contract || !accessToken || isSubmittingCustomerReview) {
+      return;
+    }
+
+    setIsSubmittingCustomerReview(true);
+    setCustomerReviewError(null);
+
+    try {
+      const response = await fetch(contractCustomerReviewUrl(contract.id), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          rating: customerReviewRating,
+          ...(customerReviewComment.trim()
+            ? { comment: customerReviewComment.trim() }
+            : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("customer review failed");
+      }
+
+      await loadOpportunity();
+    } catch {
+      setCustomerReviewError("Não foi possível enviar a avaliação agora.");
+    } finally {
+      setIsSubmittingCustomerReview(false);
+    }
   }
 
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <Link href="/profissional/oportunidades" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+        <Link
+          href="/profissional/oportunidades"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        >
           <ChevronLeft aria-hidden="true" className="size-4" />
           Voltar para oportunidades
         </Link>
@@ -406,56 +634,256 @@ export function ProfessionalOpportunityDetailsPage({
               <p className="font-semibold text-blue-600">
                 {serviceRequest.category.name}
               </p>
+
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
                 {serviceRequest.title}
               </h1>
+
               <p className="mt-2 text-sm text-slate-500">
                 {opportunity.customerFirstName
                   ? `Cliente: ${opportunity.customerFirstName}`
                   : "Cliente"}
               </p>
             </div>
+
             <div className="flex flex-wrap gap-2">
-              <span className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${status.className}`}>
+              <span
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold ${status.className}`}
+              >
                 {status.label}
               </span>
-              <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${isUnviewed ? "border-blue-200 bg-blue-50 text-blue-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
-                {isUnviewed ? <EyeOff aria-hidden="true" className="size-4" /> : <Eye aria-hidden="true" className="size-4" />}
+
+              <span
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold ${isUnviewed
+                    ? "border-blue-200 bg-blue-50 text-blue-800"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                  }`}
+              >
+                {isUnviewed ? (
+                  <EyeOff aria-hidden="true" className="size-4" />
+                ) : (
+                  <Eye aria-hidden="true" className="size-4" />
+                )}
                 {isUnviewed ? "Não visualizada" : "Visualizada"}
               </span>
             </div>
           </div>
+
           <div className="mt-5 flex items-center gap-2 text-sm text-slate-600">
-            <CalendarDays aria-hidden="true" className="size-4 text-slate-400" />
+            <CalendarDays
+              aria-hidden="true"
+              className="size-4 text-slate-400"
+            />
             Recebida em {formatServiceRequestDate(opportunity.createdAt)}
           </div>
+
           {typeof opportunity.conversationId === "string" ? (
-            <Link href={`/conversas/${opportunity.conversationId}`} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+            <Link
+              href={`/conversas/${opportunity.conversationId}`}
+              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
               <MessageCircle aria-hidden="true" className="size-4" />
               Ir para conversa
             </Link>
           ) : null}
-          {opportunity.contract ? (
-            <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" aria-live="polite">
-              <p className="font-semibold text-blue-950">{opportunity.contract.status === "ACCEPTED" ? "Contratação aceita" : opportunity.contract.status === "IN_PROGRESS" ? "Serviço em andamento" : opportunity.contract.status === "COMPLETED" ? "Serviço concluído" : "Contratação cancelada"}</p>
-              {opportunity.contract.status === "ACCEPTED" ? <button type="button" onClick={() => void startContract()} disabled={isStartingContract} className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isStartingContract ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}{isStartingContract ? "Iniciando..." : "Iniciar serviço"}</button> : null}
-              {contractActionMessage ? <p className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço iniciado com sucesso." ? "text-emerald-700" : "text-red-700"}`} role={contractActionMessage === "Serviço iniciado com sucesso." ? "status" : "alert"}>{contractActionMessage}</p> : null}
+
+          {contract ? (
+            <section
+              className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4"
+              aria-live="polite"
+            >
+              <p className="font-semibold text-blue-950">
+                {contract.status === "ACCEPTED"
+                  ? "Contratação aceita"
+                  : contract.status === "IN_PROGRESS"
+                    ? "Serviço em andamento"
+                    : contract.status === "COMPLETED"
+                      ? "Serviço concluído"
+                      : "Contratação cancelada"}
+              </p>
+
+              {contract.status === "ACCEPTED" ? (
+                <button
+                  type="button"
+                  onClick={() => void startContract()}
+                  disabled={isStartingContract}
+                  className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {isStartingContract ? (
+                    <Loader2
+                      aria-hidden="true"
+                      className="size-4 animate-spin"
+                    />
+                  ) : null}
+
+                  {isStartingContract ? "Iniciando..." : "Iniciar serviço"}
+                </button>
+              ) : null}
+
+              {contractActionMessage ? (
+                <p
+                  className={`mt-3 text-sm font-medium ${contractActionMessage === "Serviço iniciado com sucesso."
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                    }`}
+                  role={
+                    contractActionMessage === "Serviço iniciado com sucesso."
+                      ? "status"
+                      : "alert"
+                  }
+                >
+                  {contractActionMessage}
+                </p>
+              ) : null}
             </section>
           ) : null}
-          {opportunity.contract?.status === "COMPLETED" && opportunity.contract.review ? (
-            <section className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-labelledby="customer-review-title">
-              <h2 id="customer-review-title" className="font-semibold text-emerald-950">Avaliação do cliente</h2>
-              <p className="mt-2 text-sm font-medium text-emerald-900">Nota: {opportunity.contract.review.rating} de 5</p>
-              {opportunity.contract.review.comment ? <p className="mt-2 text-sm leading-6 text-emerald-900">“{opportunity.contract.review.comment}”</p> : null}
+
+          {contract?.status === "COMPLETED" &&
+            receivedReview &&
+            !receivedReviewIsPublished ? (
+            <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <h2 className="font-semibold text-amber-950">
+                Avaliação recebida
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-amber-900">
+                Uma avaliação já foi enviada. Ela ficará visível quando você
+                também avaliar ou quando o período de avaliação terminar.
+              </p>
+            </section>
+          ) : null}
+
+          {contract?.status === "COMPLETED" &&
+            receivedReview &&
+            receivedReviewIsPublished ? (
+            <section
+              className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+              aria-labelledby="customer-review-title"
+            >
+              <h2
+                id="customer-review-title"
+                className="font-semibold text-emerald-950"
+              >
+                Avaliação recebida do cliente
+              </h2>
+              <p className="mt-2 text-sm font-medium text-emerald-900">
+                Nota: {receivedReview.rating} de 5
+              </p>
+              {receivedReview.comment ? (
+                <p className="mt-2 text-sm leading-6 text-emerald-900">
+                  “{receivedReview.comment}”
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {contract?.status === "COMPLETED" && ownCustomerReview ? (
+            <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h2 className="font-semibold text-slate-950">
+                Sua avaliação do cliente
+              </h2>
+              <p className="mt-2 text-sm text-slate-700">
+                Nota: {ownCustomerReview.rating} de 5
+              </p>
+              {ownCustomerReview.comment ? (
+                <p className="mt-1 text-sm leading-6 text-slate-700">
+                  {ownCustomerReview.comment}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {contract?.status === "COMPLETED" &&
+            !ownCustomerReview &&
+            reviewWindowOpen ? (
+            <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <h2 className="font-semibold text-blue-950">Avaliar cliente</h2>
+
+              <label
+                className="mt-3 block text-sm"
+                htmlFor="customer-review-rating"
+              >
+                Nota
+              </label>
+
+              <select
+                id="customer-review-rating"
+                value={customerReviewRating}
+                onChange={(event) =>
+                  setCustomerReviewRating(Number(event.target.value))
+                }
+                disabled={isSubmittingCustomerReview}
+                className="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3"
+              >
+                <option value={5}>5 - Excelente</option>
+                <option value={4}>4 - Muito bom</option>
+                <option value={3}>3 - Bom</option>
+                <option value={2}>2 - Regular</option>
+                <option value={1}>1 - Ruim</option>
+              </select>
+
+              <label
+                className="mt-3 block text-sm"
+                htmlFor="customer-review-comment"
+              >
+                Comentário opcional
+              </label>
+
+              <textarea
+                id="customer-review-comment"
+                value={customerReviewComment}
+                onChange={(event) =>
+                  setCustomerReviewComment(event.target.value)
+                }
+                maxLength={1000}
+                disabled={isSubmittingCustomerReview}
+                className="mt-1 block w-full rounded-lg border border-slate-300 p-3"
+                rows={3}
+              />
+
+              <button
+                type="button"
+                onClick={() => void submitCustomerReview()}
+                disabled={isSubmittingCustomerReview}
+                className="mt-3 min-h-11 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
+              >
+                {isSubmittingCustomerReview
+                  ? "Enviando..."
+                  : "Enviar avaliação"}
+              </button>
+
+              {customerReviewError ? (
+                <p role="alert" className="mt-2 text-sm text-red-700">
+                  {customerReviewError}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {contract?.status === "COMPLETED" &&
+            !ownCustomerReview &&
+            !reviewWindowOpen ? (
+            <section className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="font-medium text-slate-700">
+                O período para avaliar este serviço foi encerrado.
+              </p>
             </section>
           ) : null}
         </header>
 
         {serviceRequest.description ? (
-          <section aria-labelledby="opportunity-description-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <section
+            aria-labelledby="opportunity-description-title"
+            className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
+          >
             <div className="flex items-center gap-3">
-              <FileText aria-hidden="true" className="size-5 text-blue-600" />
-              <h2 id="opportunity-description-title" className="text-xl font-bold text-slate-950">
+              <FileText
+                aria-hidden="true"
+                className="size-5 text-blue-600"
+              />
+              <h2
+                id="opportunity-description-title"
+                className="text-xl font-bold text-slate-950"
+              >
                 Descrição do serviço
               </h2>
             </div>
@@ -466,8 +894,17 @@ export function ProfessionalOpportunityDetailsPage({
         ) : null}
 
         {serviceRequest.photos.length > 0 ? (
-          <section aria-labelledby="opportunity-photos-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 id="opportunity-photos-title" className="text-xl font-bold text-slate-950">Fotos</h2>
+          <section
+            aria-labelledby="opportunity-photos-title"
+            className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
+          >
+            <h2
+              id="opportunity-photos-title"
+              className="text-xl font-bold text-slate-950"
+            >
+              Fotos
+            </h2>
+
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {serviceRequest.photos.map((photo) => (
                 <button
@@ -475,7 +912,12 @@ export function ProfessionalOpportunityDetailsPage({
                   type="button"
                   aria-label={`Ampliar imagem ${photo.originalName}`}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 text-left shadow-sm transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-                  onClick={() => setLightboxImage({ src: photo.url, alt: photo.originalName })}
+                  onClick={() =>
+                    setLightboxImage({
+                      src: photo.url,
+                      alt: photo.originalName,
+                    })
+                  }
                 >
                   <img
                     src={photo.url}
@@ -489,15 +931,25 @@ export function ProfessionalOpportunityDetailsPage({
           </section>
         ) : null}
 
-        <ImageLightbox image={lightboxImage} onClose={() => setLightboxImage(null)} />
+        <ImageLightbox
+          image={lightboxImage}
+          onClose={() => setLightboxImage(null)}
+        />
 
-        <section aria-labelledby="opportunity-location-title" className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        <section
+          aria-labelledby="opportunity-location-title"
+          className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
+        >
           <div className="flex items-center gap-3">
             <MapPin aria-hidden="true" className="size-5 text-blue-600" />
-            <h2 id="opportunity-location-title" className="text-xl font-bold text-slate-950">
+            <h2
+              id="opportunity-location-title"
+              className="text-xl font-bold text-slate-950"
+            >
               Localização aproximada
             </h2>
           </div>
+
           <div className="mt-4 space-y-1 leading-7 text-slate-700">
             {location.neighborhood ? <p>{location.neighborhood}</p> : null}
             <p>
@@ -534,7 +986,13 @@ interface StatePageProps {
   onRetry?: () => Promise<void>;
 }
 
-function StatePage({ state, title, description, action, onRetry }: StatePageProps) {
+function StatePage({
+  state,
+  title,
+  description,
+  action,
+  onRetry,
+}: StatePageProps) {
   const toneClassName =
     state === "warning"
       ? "border-amber-200 bg-amber-50 text-amber-950"
@@ -545,15 +1003,51 @@ function StatePage({ state, title, description, action, onRetry }: StatePageProp
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <section role={state === "error" ? "alert" : undefined} aria-live={state === "loading" ? "polite" : undefined} className={`rounded-2xl border p-6 shadow-sm sm:p-8 ${toneClassName}`}>
+        <section
+          role={state === "error" ? "alert" : undefined}
+          aria-live={state === "loading" ? "polite" : undefined}
+          className={`rounded-2xl border p-6 shadow-sm sm:p-8 ${toneClassName}`}
+        >
           <div className="flex items-start gap-3">
-            {state === "loading" ? <Loader2 aria-hidden="true" className="mt-1 size-5 shrink-0 animate-spin" /> : null}
-            {state === "error" ? <ShieldAlert aria-hidden="true" className="mt-1 size-5 shrink-0" /> : null}
+            {state === "loading" ? (
+              <Loader2
+                aria-hidden="true"
+                className="mt-1 size-5 shrink-0 animate-spin"
+              />
+            ) : null}
+
+            {state === "error" ? (
+              <ShieldAlert
+                aria-hidden="true"
+                className="mt-1 size-5 shrink-0"
+              />
+            ) : null}
+
             <div>
               <h1 className="text-2xl font-bold">{title}</h1>
-              {description ? <p className="mt-3 leading-7 opacity-80">{description}</p> : null}
-              {action ? <Link href={action.href} className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">{action.label}</Link> : null}
-              {onRetry ? <button type="button" onClick={() => void onRetry()} className="mt-6 font-semibold underline underline-offset-4">Tentar novamente</button> : null}
+
+              {description ? (
+                <p className="mt-3 leading-7 opacity-80">{description}</p>
+              ) : null}
+
+              {action ? (
+                <Link
+                  href={action.href}
+                  className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                >
+                  {action.label}
+                </Link>
+              ) : null}
+
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={() => void onRetry()}
+                  className="mt-6 font-semibold underline underline-offset-4"
+                >
+                  Tentar novamente
+                </button>
+              ) : null}
             </div>
           </div>
         </section>

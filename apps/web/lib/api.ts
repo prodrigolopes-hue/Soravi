@@ -261,6 +261,10 @@ export function contractReviewUrl(contractId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/review`;
 }
 
+export function contractCustomerReviewUrl(contractId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/contracts/${encodeURIComponent(contractId)}/customer-review`;
+}
+
 export function serviceRequestPhotosUrl(serviceRequestId: string): string {
   return `${serviceRequestByIdUrl(serviceRequestId)}/photos`;
 }
