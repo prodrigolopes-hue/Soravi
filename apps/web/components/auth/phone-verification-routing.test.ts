@@ -15,10 +15,10 @@ const professional = {
 } as const;
 
 test("define destinos por papel e fallback seguro", () => {
-  assert.equal(phoneVerificationDestination(["CUSTOMER"]), "/solicitacoes");
+  assert.equal(phoneVerificationDestination(["CUSTOMER"]), "/cliente");
   assert.equal(
     phoneVerificationDestination(["PROFESSIONAL"]),
-    "/profissional/oportunidades",
+    "/profissional",
   );
   assert.equal(phoneVerificationDestination(["ADMIN"]), "/admin");
   assert.equal(phoneVerificationDestination([]), "/");
@@ -33,10 +33,10 @@ test("login exige telefone dos papeis comuns e libera ADMIN", () => {
     postLoginDestination({ phoneVerified: false, roles: ["ADMIN"] }),
     "/admin",
   );
-  assert.equal(postLoginDestination(customer), "/solicitacoes");
+  assert.equal(postLoginDestination(customer), "/cliente");
   assert.equal(
     postLoginDestination(professional),
-    "/profissional/oportunidades",
+    "/profissional",
   );
   assert.equal(
     postLoginDestination({ phoneVerified: true, roles: ["UNEXPECTED"] }),
@@ -139,7 +139,7 @@ test("verificados saem da verificacao para o destino do papel", () => {
       pathname: "/verificar-telefone",
       user: customer,
     }),
-    { type: "redirect", destination: "/solicitacoes" },
+    { type: "redirect", destination: "/cliente" },
   );
   assert.deepEqual(
     phoneVerificationGuardDecision({
@@ -147,7 +147,7 @@ test("verificados saem da verificacao para o destino do papel", () => {
       pathname: "/verificar-telefone",
       user: professional,
     }),
-    { type: "redirect", destination: "/profissional/oportunidades" },
+    { type: "redirect", destination: "/profissional" },
   );
 });
 

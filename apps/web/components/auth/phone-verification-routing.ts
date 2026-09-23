@@ -1,14 +1,16 @@
-export function phoneVerificationDestination(roles: readonly string[]): string {
+export function phoneVerificationDestination(
+  roles: readonly string[],
+): string {
   if (roles.includes("ADMIN")) {
     return "/admin";
   }
 
-  if (roles.includes("CUSTOMER")) {
-    return "/solicitacoes";
+  if (roles.includes("PROFESSIONAL")) {
+    return "/profissional";
   }
 
-  if (roles.includes("PROFESSIONAL")) {
-    return "/profissional/oportunidades";
+  if (roles.includes("CUSTOMER")) {
+    return "/cliente";
   }
 
   return "/";
@@ -19,8 +21,10 @@ interface PostLoginUser {
   roles: readonly string[];
 }
 
-export function postLoginDestination(user: PostLoginUser): string {
-  // ADMIN fica temporariamente fora da exigencia de telefone no MVP.
+export function postLoginDestination(
+  user: PostLoginUser,
+): string {
+  // ADMIN fica temporariamente fora da exigência de telefone no MVP.
   if (user.roles.includes("ADMIN")) {
     return "/admin";
   }
@@ -43,9 +47,7 @@ interface PhoneVerificationGuardInput {
   user: PostLoginUser | null;
 }
 
-const PUBLIC_ROUTE_PREFIXES = [
-  "/cadastro",
-] as const;
+const PUBLIC_ROUTE_PREFIXES = ["/cadastro"] as const;
 
 const PUBLIC_ROUTES = new Set([
   "/",
@@ -57,15 +59,22 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 const PROTECTED_ROUTE_PREFIXES = [
+  "/cliente",
   "/solicitacoes",
-  "/profissional/oportunidades",
+  "/profissional",
   "/conversas",
   "/notificacoes",
   "/admin",
 ] as const;
 
-function matchesRoutePrefix(pathname: string, prefix: string): boolean {
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+function matchesRoutePrefix(
+  pathname: string,
+  prefix: string,
+): boolean {
+  return (
+    pathname === prefix ||
+    pathname.startsWith(`${prefix}/`)
+  );
 }
 
 function isPublicRoute(pathname: string): boolean {
@@ -89,7 +98,10 @@ function redirectDecision(
 ): PhoneVerificationGuardDecision {
   return pathname === destination
     ? { type: "allow" }
-    : { type: "redirect", destination };
+    : {
+      type: "redirect",
+      destination,
+    };
 }
 
 export function phoneVerificationGuardDecision({
@@ -105,7 +117,7 @@ export function phoneVerificationGuardDecision({
     return { type: "allow" };
   }
 
-  // Excecao explicita do MVP para evitar lockout administrativo.
+  // Exceção explícita do MVP para evitar lockout administrativo.
   if (user.roles.includes("ADMIN")) {
     return pathname === "/verificar-telefone"
       ? redirectDecision(pathname, "/admin")
@@ -122,7 +134,10 @@ export function phoneVerificationGuardDecision({
     }
 
     return isProtectedRoute(pathname)
-      ? redirectDecision(pathname, "/verificar-telefone")
+      ? redirectDecision(
+        pathname,
+        "/verificar-telefone",
+      )
       : { type: "allow" };
   }
 
@@ -136,6 +151,8 @@ export function phoneVerificationGuardDecision({
   return { type: "allow" };
 }
 
-export function sanitizeVerificationCode(value: string): string {
+export function sanitizeVerificationCode(
+  value: string,
+): string {
   return value.replace(/\D/gu, "").slice(0, 6);
 }
