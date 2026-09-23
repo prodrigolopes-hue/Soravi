@@ -2,7 +2,7 @@
 
 # Objetivo
 
-Avaliações estão implementadas: somente o cliente proprietário pode avaliar uma contratação `COMPLETED`, uma vez por contrato, com nota inteira de 1 a 5 e comentário opcional. A reputação do profissional é atualizada transacionalmente.
+Avaliações estão implementadas nos dois sentidos após contrato `COMPLETED`: cliente avalia profissional e profissional vinculado avalia cliente, uma vez por contrato, com nota inteira de 1 a 5 e comentário opcional. As reputações correspondentes são atualizadas transacionalmente.
 
 ## Estado atual do MVP
 
