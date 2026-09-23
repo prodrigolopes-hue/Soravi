@@ -60,7 +60,7 @@ export class OpportunitiesService {
     private readonly prisma: PrismaService,
     @Inject(STORAGE_SERVICE)
     private readonly storage: StorageService,
-  ) {}
+  ) { }
 
   async findMine(
     userId: string,
@@ -191,7 +191,9 @@ export class OpportunitiesService {
                 professionalProfileId: true,
                 id: true,
                 status: true,
-                review: { select: { rating: true, comment: true } },
+                completedAt: true,
+                review: { select: { rating: true, comment: true, publishedAt: true } },
+                customerReview: { select: { rating: true, comment: true, publishedAt: true } },
                 conversation: {
                   select: {
                     id: true,
@@ -253,7 +255,18 @@ export class OpportunitiesService {
       viewedAt: opportunity.viewedAt,
       conversationId,
       customerFirstName,
-      contract: serviceRequest.contract?.professionalProfileId === professionalProfileId ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, review: serviceRequest.contract.review } : null,
+      contract:
+        serviceRequest.contract?.professionalProfileId === professionalProfileId
+          ? {
+            id: serviceRequest.contract.id,
+            status: serviceRequest.contract.status,
+            completedAt: serviceRequest.contract.completedAt,
+            review: serviceRequest.contract.review?.publishedAt !== null
+              ? serviceRequest.contract.review
+              : null,
+            customerReview: serviceRequest.contract.customerReview,
+          }
+          : null,
       serviceRequest: {
         id: serviceRequest.id,
         title: serviceRequest.title,

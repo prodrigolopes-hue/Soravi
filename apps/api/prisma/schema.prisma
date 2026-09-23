@@ -113,6 +113,15 @@ enum NotificationType {
   OPPORTUNITY_CREATED
   PROPOSAL_CREATED
   MESSAGE_CREATED
+  REVIEW_REMINDER_D1
+  REVIEW_REMINDER_D4
+  REVIEW_REMINDER_D6
+}
+
+enum ReviewReminderType {
+  D1
+  D4
+  D6
 }
 
 enum CommunicationChannel {
@@ -160,6 +169,7 @@ model User {
   communicationPreferences          CommunicationPreference[]
   outboundNotifications             OutboundNotification[]
   phoneVerificationChallenges       PhoneVerificationChallenge[]
+  reviewReminders                   ReviewReminder[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -182,6 +192,8 @@ model UserRole {
 model CustomerProfile {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @unique(map: "customer_profiles_user_id_key") @map("user_id") @db.Uuid
+  averageRating Decimal @default(0) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount Int @default(0) @map("review_count")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -189,6 +201,7 @@ model CustomerProfile {
   serviceRequests ServiceRequest[]
   contracts       Contract[]
   reviews         Review[]
+  customerReviews CustomerReview[]
   favorites       Favorite[]
 
   @@map("customer_profiles")
@@ -216,6 +229,7 @@ model ProfessionalProfile {
   proposals              Proposal[]
   contracts              Contract[]
   reviews                Review[]
+  customerReviews        CustomerReview[]
   favorites              Favorite[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
@@ -488,10 +502,28 @@ model Contract {
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
   conversation        Conversation?
   review              Review?
+  customerReview      CustomerReview?
+  reviewReminders     ReviewReminder[]
 
   @@index([customerProfileId, status, createdAt], map: "contracts_customer_profile_status_created_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "contracts_professional_profile_status_created_at_idx")
   @@map("contracts")
+}
+
+model ReviewReminder {
+  id           String             @id @default(uuid()) @db.Uuid
+  contractId   String             @map("contract_id") @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  reminderType ReviewReminderType @map("reminder_type")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, userId, reminderType], map: "review_reminders_contract_user_type_key")
+  @@index([contractId], map: "review_reminders_contract_idx")
+  @@index([userId], map: "review_reminders_user_idx")
+  @@map("review_reminders")
 }
 
 model Review {
@@ -501,6 +533,7 @@ model Review {
   professionalProfileId String   @map("professional_profile_id") @db.Uuid
   rating                Int
   comment               String?  @db.VarChar(1000)
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz(3)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -510,6 +543,25 @@ model Review {
 
   @@index([professionalProfileId, createdAt], map: "reviews_professional_created_at_idx")
   @@map("reviews")
+}
+
+model CustomerReview {
+  id                    String   @id @default(uuid()) @db.Uuid
+  contractId            String   @unique(map: "professional_reviews_contract_id_key") @map("contract_id") @db.Uuid
+  customerProfileId     String   @map("customer_profile_id") @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  rating                Int
+  comment               String?  @db.VarChar(1000)
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  contract            Contract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@index([customerProfileId, createdAt], map: "customer_reviews_customer_created_at_idx")
+  @@map("customer_reviews")
 }
 
 model Conversation {

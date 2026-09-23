@@ -33,4 +33,9 @@ export class ContractsController {
   review(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string, @Body() input: CreateReviewDto) {
     return this.contractsService.review(currentUser.id, contractId, input);
   }
+
+  @Post(":contractId/customer-review") @Roles(Role.PROFESSIONAL) @UseGuards(AccessTokenGuard, RolesGuard, PhoneVerifiedGuard)
+  reviewCustomer(@CurrentUser() currentUser: AuthenticatedUser, @Param("contractId", new ParseUUIDPipe()) contractId: string, @Body() input: CreateReviewDto) {
+    return this.contractsService.reviewCustomer(currentUser.id, contractId, input);
+  }
 }

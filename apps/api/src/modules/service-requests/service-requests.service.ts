@@ -52,6 +52,16 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
   addressComplement: true,
   editableUntil: true,
   createdAt: true,
+  contract: {
+    select: {
+      id: true,
+      status: true,
+      completedAt: true,
+      conversation: { select: { id: true } },
+      review: { select: { id: true, rating: true, comment: true, publishedAt: true } },
+      customerReview: { select: { id: true, rating: true, comment: true, publishedAt: true } },
+    },
+  },
 } satisfies Prisma.ServiceRequestSelect;
 
 const SERVICE_REQUEST_PHOTO_SIGNED_URL_TTL_SECONDS = 300;
@@ -219,12 +229,14 @@ export class ServiceRequestsService {
           select: {
             id: true,
             status: true,
+            completedAt: true,
             conversation: {
               select: {
                 id: true,
               },
             },
-            review: { select: { id: true, rating: true, comment: true } },
+            review: { select: { id: true, rating: true, comment: true, publishedAt: true } },
+            customerReview: { select: { id: true, rating: true, comment: true, publishedAt: true } },
           },
         },
       },
@@ -514,8 +526,10 @@ function toServiceRequestResponseProperties(
   contract?: {
       id: string;
       status: import("../../generated/prisma/client").ContractStatus;
+      completedAt: Date | null;
       conversation: { id: string } | null;
-      review?: { id: string; rating: number; comment: string | null } | null;
+      review?: { id: string; rating: number; comment: string | null; publishedAt: Date | null } | null;
+      customerReview?: { id: string; rating: number; comment: string | null; publishedAt: Date | null } | null;
     } | null;
   },
 ) {
@@ -539,6 +553,6 @@ function toServiceRequestResponseProperties(
     editableUntil: serviceRequest.editableUntil,
     createdAt: serviceRequest.createdAt,
     conversationId: serviceRequest.contract?.conversation?.id ?? null,
-    contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, review: serviceRequest.contract.review ?? null } : null,
+    contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, completedAt: serviceRequest.contract.completedAt, review: serviceRequest.contract.review ?? null, customerReview: serviceRequest.contract.customerReview?.publishedAt !== null ? serviceRequest.contract.customerReview : null } : null,
   };
 }

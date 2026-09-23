@@ -14,6 +14,7 @@ const CONTRACT_RESPONSE_SELECT = {
   startedAt: true,
   completedAt: true,
 } as const;
+const REVIEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000;
 
 @Injectable()
 export class ContractsService {
@@ -74,12 +75,37 @@ export class ContractsService {
     return this.prisma.$transaction(async (transaction) => {
       const contract = await this.findLockedContract(transaction, contractId);
       if (contract.customerProfile.userId !== userId || contract.status !== ContractStatus.COMPLETED) throw new ForbiddenException({ code: "REVIEW_NOT_ALLOWED", message: "Avaliação não permitida." });
+      this.ensureReviewWindowOpen(contract.completedAt);
       const existing = await transaction.review.findUnique({ where: { contractId } });
       if (existing) throw new ConflictException({ code: "REVIEW_ALREADY_EXISTS", message: "Esta contratação já foi avaliada." });
-      const review = await transaction.review.create({ data: { contractId, customerProfileId: contract.customerProfileId, professionalProfileId: contract.professionalProfileId, rating: input.rating, comment: input.comment || null } });
-      const aggregate = await transaction.review.aggregate({ where: { professionalProfileId: contract.professionalProfileId }, _avg: { rating: true }, _count: { id: true } });
-      const reputation = await transaction.professionalProfile.update({ where: { id: contract.professionalProfileId }, data: { averageRating: new Prisma.Decimal(aggregate._avg.rating ?? 0), reviewCount: aggregate._count.id }, select: { averageRating: true, reviewCount: true } });
-      return { review, reputation };
+      const review = await transaction.review.create({ data: { contractId, customerProfileId: contract.customerProfileId, professionalProfileId: contract.professionalProfileId, rating: input.rating, comment: input.comment || null, publishedAt: null } });
+      const opposite = await transaction.customerReview.findUnique({ where: { contractId }, select: { id: true } });
+      if (opposite) {
+        const publishedAt = new Date();
+        await transaction.review.update({ where: { id: review.id }, data: { publishedAt } });
+        await transaction.customerReview.update({ where: { id: opposite.id }, data: { publishedAt } });
+        await this.recalculatePublishedReputations(transaction, contract.customerProfileId, contract.professionalProfileId);
+      }
+      return { review };
+    });
+  }
+
+  async reviewCustomer(userId: string, contractId: string, input: CreateReviewDto) {
+    return this.prisma.$transaction(async (transaction) => {
+      const contract = await this.findLockedContract(transaction, contractId);
+      if (contract.professionalProfile.userId !== userId || contract.status !== ContractStatus.COMPLETED) throw new ForbiddenException({ code: "PROFESSIONAL_REVIEW_NOT_ALLOWED", message: "Avaliação não permitida." });
+      this.ensureReviewWindowOpen(contract.completedAt);
+      const existing = await transaction.customerReview.findUnique({ where: { contractId } });
+      if (existing) throw new ConflictException({ code: "PROFESSIONAL_REVIEW_ALREADY_EXISTS", message: "Esta contratação já foi avaliada pelo profissional." });
+      const review = await transaction.customerReview.create({ data: { contractId, customerProfileId: contract.customerProfileId, professionalProfileId: contract.professionalProfileId, rating: input.rating, comment: input.comment || null, publishedAt: null } });
+      const opposite = await transaction.review.findUnique({ where: { contractId }, select: { id: true } });
+      if (opposite) {
+        const publishedAt = new Date();
+        await transaction.customerReview.update({ where: { id: review.id }, data: { publishedAt } });
+        await transaction.review.update({ where: { id: opposite.id }, data: { publishedAt } });
+        await this.recalculatePublishedReputations(transaction, contract.customerProfileId, contract.professionalProfileId);
+      }
+      return review;
     });
   }
 
@@ -102,6 +128,27 @@ export class ContractsService {
       throw new ContractNotFoundException();
     }
     return contract;
+  }
+
+  private async recalculatePublishedReputations(
+    transaction: Prisma.TransactionClient,
+    customerProfileId: string,
+    professionalProfileId: string,
+  ): Promise<void> {
+    const [professional, customer] = await Promise.all([
+      transaction.review.aggregate({ where: { professionalProfileId, publishedAt: { not: null } }, _avg: { rating: true }, _count: true }),
+      transaction.customerReview.aggregate({ where: { customerProfileId, publishedAt: { not: null } }, _avg: { rating: true }, _count: true }),
+    ]);
+    await Promise.all([
+      transaction.professionalProfile.update({ where: { id: professionalProfileId }, data: { averageRating: new Prisma.Decimal(professional._avg?.rating ?? 0), reviewCount: professional._count ?? 0 } }),
+      transaction.customerProfile.update({ where: { id: customerProfileId }, data: { averageRating: new Prisma.Decimal(customer._avg?.rating ?? 0), reviewCount: customer._count ?? 0 } }),
+    ]);
+  }
+
+  private ensureReviewWindowOpen(completedAt: Date | null): void {
+    if (completedAt === null || Date.now() >= completedAt.getTime() + REVIEW_WINDOW_MS) {
+      throw new ForbiddenException({ code: "REVIEW_WINDOW_EXPIRED", message: "O período de avaliação foi encerrado." });
+    }
   }
 
   private toResponse(contract: {
