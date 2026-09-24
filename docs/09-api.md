@@ -2,6 +2,12 @@
 
 # Objetivo
 
+## Avaliacoes bilaterais cegas
+
+`POST /api/v1/contracts/:contractId/review` permite ao cliente criar `Review` (cliente -> profissional). `POST /api/v1/contracts/:contractId/customer-review` permite ao profissional criar `CustomerReview` (profissional -> cliente). Ambos aceitam `rating` inteiro de 1 a 5 e `comment` opcional, somente apos `COMPLETED` e ate sete dias de `completedAt`; apos o prazo, retornam `REVIEW_WINDOW_EXPIRED`.
+
+A primeira avaliacao tem `publishedAt: null`; a segunda dentro do prazo publica ambas. A Central de Notificacoes aceita `REVIEW_REMINDER_D1`, `REVIEW_REMINDER_D4` e `REVIEW_REMINDER_D6`; lembretes podem ter `href: null` e nao criam navegacao no frontend.
+
 Avaliações: `POST /api/v1/contracts/:contractId/review` aceita `rating` de 1 a 5 e `comment` opcional para o cliente proprietário após `COMPLETED`.
 
 ## Estado atual dos contratos
@@ -219,9 +225,10 @@ POST /api/v1/conversations/{conversationId}/messages
 
 # Avaliações
 
-POST /api/v1/reviews
+- `POST /api/v1/contracts/:contractId/review`: cliente avalia o profissional;
+- `POST /api/v1/contracts/:contractId/customer-review`: profissional avalia o cliente.
 
-GET /api/v1/professionals/{id}/reviews
+Os dois endpoints exigem contrato `COMPLETED`, aceitam `rating` de 1 a 5 e `comment` opcional, e encerram em D+7 com `REVIEW_WINDOW_EXPIRED`.
 
 ------------------------------------------------------------------------
 

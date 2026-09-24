@@ -2,6 +2,10 @@
 
 # Objetivo
 
+- [x] Avaliacoes bilaterais cegas: `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, janela de sete dias, publicacao coordenada e reputacao somente publicada; validadas localmente.
+- [x] Lembretes idempotentes `D1`, `D4` e `D6` somente para quem ainda nao avaliou; em atraso, somente o marco mais recente e usado. D+7 publica pendentes e nao gera lembrete.
+- [ ] Staging: aplicar migrations e executar validacao E2E das avaliacoes bilaterais cegas.
+
 - [x] Avaliações: uma review por contrato `COMPLETED`, com reputação profissional recalculada transacionalmente.
 
 ## Estado atual corrigido

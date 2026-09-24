@@ -4,9 +4,15 @@
 
 ## Estado operacional validado
 
+### Avaliacoes bilaterais cegas
+
+Implementadas e validadas localmente: cliente cria `Review` para profissional e profissional cria `CustomerReview` para cliente, uma por direcao em contrato `COMPLETED`. A janela e de sete dias a partir de `completedAt`; nota e inteira de 1 a 5, comentario e opcional e o prazo encerrado retorna `REVIEW_WINDOW_EXPIRED`.
+
+A primeira avaliacao fica oculta com `publishedAt = null`; a segunda dentro da janela publica ambas. Em D+7, o `ReviewPublicationProcessor` publica a pendente e recalcula reputacao somente com avaliacoes publicadas. Ele roda no bootstrap e no intervalo `REVIEW_PUBLICATION_INTERVAL_MS`, gera lembretes idempotentes D+1/D+4/D+6 somente para pendentes e escolhe apenas o marco mais recente quando atrasado. D+7 nao gera lembrete. A Central de Notificacoes suporta os tres tipos `REVIEW_REMINDER_D1`, `REVIEW_REMINDER_D4` e `REVIEW_REMINDER_D6`. Staging ainda requer migrations e validacao E2E.
+
 Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `publishedAt`, depois despacha oportunidades para profissionais aprovados, disponíveis e da categoria compatível. Bootstrap e processor periódico recuperam itens elegíveis sem depender de `editableUntil`; lock, idempotência e `skipDuplicates` são preservados.
 
-Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. Avaliações são planejadas, não implementadas.
+Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente.
 
 Consolidar as diretrizes técnicas da Soravi para que qualquer
 desenvolvedor consiga compreender, evoluir e manter o sistema.

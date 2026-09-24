@@ -2,13 +2,19 @@
 
 # Objetivo
 
-`Review` é vinculada de forma única a `Contract`, cliente e profissional; armazena nota 1 a 5 e comentário opcional. Sua criação recalcula `averageRating` e `reviewCount` do profissional na mesma transação.
+## Avaliacoes bilaterais cegas
+
+Implementadas e validadas localmente: `Review` representa cliente -> profissional e `CustomerReview`, profissional -> cliente. Sao unicas por `Contract`, aceitam nota inteira de 1 a 5 e comentario opcional. A primeira fica com `publishedAt = null`; a segunda dentro da janela publica ambas, e o processor publica a pendente apos sete dias de `Contract.completedAt`.
+
+`ReviewReminder` registra `contractId`, `userId`, `reminderType` (`D1`, `D4`, `D6`) e `createdAt`; a unicidade por contrato, usuario e tipo garante idempotencia. Reputacao considera somente `publishedAt != null`; `CustomerProfile` e `ProfessionalProfile` mantem `averageRating` e `reviewCount`.
+
+As avaliações bilaterais cegas estão implementadas e validadas localmente. `Review` representa cliente → profissional e `CustomerReview`, profissional → cliente; ambas são únicas por `Contract`, aceitam nota inteira de 1 a 5 e comentário opcional.
 
 ## Estado atual de ServiceRequest
 
 `ServiceRequest` é publicada em `OPEN` após a revisão no frontend e recebe `publishedAt`. `editableUntil` permanece no schema apenas como campo legado: não governa UX, edição ou despacho. `opportunitiesDispatchedAt` continua como marcador de distribuição idempotente. O enum contém `DRAFT`, mas o fluxo atual não persiste rascunhos.
 
-`Review` e favoritos estão implementados no MVP; `averageRating` e `reviewCount` são recalculados a partir das avaliações concluídas.
+`Review`, `CustomerReview` e favoritos estão implementados no MVP. Reputação considera apenas avaliações com `publishedAt != null`; `CustomerProfile` e `ProfessionalProfile` mantêm `averageRating` e `reviewCount` recalculados.
 
 Definir as principais entidades da plataforma Soravi e seus
 relacionamentos.
@@ -82,11 +88,11 @@ Campos: - texto - remetente - data - lida
 
 ------------------------------------------------------------------------
 
-## Avaliação
+## Avaliações bilaterais cegas
 
-Campos: - nota - comentário - data
+`Review` (cliente → profissional) e `CustomerReview` (profissional → cliente) possuem `contractId`, perfis envolvidos, `rating`, `comment`, `createdAt`, `updatedAt` e `publishedAt`. A primeira avaliação permanece cega com `publishedAt = null`; a segunda publicada dentro da janela publica ambas. Após sete dias de `Contract.completedAt`, o processor publica a pendente.
 
-Relacionamentos: - cliente - profissional
+`ReviewReminder` registra `contractId`, `userId`, `reminderType` (`D1`, `D4`, `D6`) e `createdAt`. A unicidade por contrato, usuário e tipo torna os lembretes idempotentes.
 
 ------------------------------------------------------------------------
 
@@ -98,8 +104,7 @@ Relacionamentos: - cliente - profissional
 
 ## Notificações
 
-Tipos: - nova proposta - mensagem - contratação - avaliação - avisos da
-plataforma
+Tipos incluem `REVIEW_REMINDER_D1`, `REVIEW_REMINDER_D4` e `REVIEW_REMINDER_D6`, além dos tipos operacionais já existentes.
 
 ------------------------------------------------------------------------
 

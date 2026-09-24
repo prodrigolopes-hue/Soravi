@@ -1,5 +1,11 @@
 # Changelog
 
+## Avaliacoes bilaterais cegas - implementacao e validacao local
+
+- Implementadas `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, nota inteira de 1 a 5, comentario opcional, janela de sete dias e erro `REVIEW_WINDOW_EXPIRED` apos o prazo.
+- Implementadas publicacao cega por `publishedAt`, publicacao coordenada na segunda avaliacao, publicacao automatica em D+7, reputacao somente publicada e lembretes idempotentes D+1/D+4/D+6 para quem ainda nao avaliou.
+- Validados localmente `review-publication.processor.spec.ts` (10/10), `contracts.service.spec.ts` (20/20) e builds de API e frontend. Staging ainda precisa receber migrations e validacao E2E.
+
 ## Avaliações de contratos concluídos
 
 - Implementada review única por contrato, com nota de 1 a 5, comentário opcional e atualização transacional da reputação profissional.
