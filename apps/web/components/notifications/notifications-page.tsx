@@ -346,7 +346,15 @@ function notificationTypeLabel(type: NotificationType): string {
     return "Oportunidade";
   }
 
-  return type === "PROPOSAL_CREATED" ? "Proposta" : "Mensagem";
+  if (type === "PROPOSAL_CREATED") {
+    return "Proposta";
+  }
+
+  if (type === "MESSAGE_CREATED") {
+    return "Mensagem";
+  }
+
+  return "Avaliação";
 }
 
 function notificationActionLabel(type: NotificationType): string {

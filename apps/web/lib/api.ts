@@ -37,7 +37,10 @@ export const notificationsUpdatedEventName = "notifications-updated";
 export type NotificationType =
   | "OPPORTUNITY_CREATED"
   | "PROPOSAL_CREATED"
-  | "MESSAGE_CREATED";
+  | "MESSAGE_CREATED"
+  | "REVIEW_REMINDER_D1"
+  | "REVIEW_REMINDER_D4"
+  | "REVIEW_REMINDER_D6";
 
 export interface NotificationListItem {
   id: string;
@@ -194,7 +197,10 @@ function isNotificationType(value: unknown): value is NotificationType {
   return (
     value === "OPPORTUNITY_CREATED" ||
     value === "PROPOSAL_CREATED" ||
-    value === "MESSAGE_CREATED"
+    value === "MESSAGE_CREATED" ||
+    value === "REVIEW_REMINDER_D1" ||
+    value === "REVIEW_REMINDER_D4" ||
+    value === "REVIEW_REMINDER_D6"
   );
 }
 
