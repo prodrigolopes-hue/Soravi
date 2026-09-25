@@ -9,6 +9,7 @@ export const launchInterestsUrl = `${normalizedApiBaseUrl}/api/v1/launch-interes
 export const adminCustomersUrl = `${normalizedApiBaseUrl}/api/v1/users/admin/customers`;
 
 export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin/professionals`;
+export const professionalVerificationSubmissionUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-verification/submission`;
 
 export const categoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories`;
 

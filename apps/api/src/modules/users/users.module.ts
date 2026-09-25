@@ -6,6 +6,7 @@ import { UsersController } from "./users.controller";
 import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
+import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
 import { UsersService } from "./users.service";
 
 @Module({
@@ -19,6 +20,7 @@ import { UsersService } from "./users.service";
     UsersPhoneService,
     UsersPasswordService,
     UsersAdminStatusService,
+    ProfessionalVerificationSubmissionService,
   ],
   exports: [UsersService],
 })

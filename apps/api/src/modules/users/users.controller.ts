@@ -6,12 +6,12 @@ import {
   HttpStatus,
   Patch,
   Param,
+  Post,
   ParseUUIDPipe,
   Query,
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -29,6 +29,8 @@ import { UpdateUserAdminStatusDto } from "./dto/update-user-admin-status.dto";
 import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
+import { ProfessionalVerificationSubmissionResponseDto } from "./dto/professional-verification-submission-response.dto";
+import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -38,6 +40,7 @@ export class UsersController {
     private readonly usersPhoneService: UsersPhoneService,
     private readonly usersPasswordService: UsersPasswordService,
     private readonly usersAdminStatusService: UsersAdminStatusService,
+    private readonly professionalVerificationSubmissionService: ProfessionalVerificationSubmissionService,
   ) {}
 
   @Get("me")
@@ -131,6 +134,15 @@ export class UsersController {
     @Query() query: UsersAdminProfessionalsQueryDto,
   ): Promise<UsersAdminProfessionalsListResponseDto> {
     return this.usersService.findAllAdminProfessionals(query);
+  }
+
+  @Post("me/professional-verification/submission")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  submitProfessionalVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<ProfessionalVerificationSubmissionResponseDto> {
+    return this.professionalVerificationSubmissionService.submit(currentUser.id);
   }
 
   @Patch("admin/:userId/status")
