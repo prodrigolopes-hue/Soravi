@@ -31,6 +31,9 @@ import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { ProfessionalVerificationSubmissionResponseDto } from "./dto/professional-verification-submission-response.dto";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
+import { ProfessionalVerificationReviewResponseDto } from "./dto/professional-verification-review-response.dto";
+import { ReviewProfessionalVerificationDto } from "./dto/review-professional-verification.dto";
+import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -41,6 +44,7 @@ export class UsersController {
     private readonly usersPasswordService: UsersPasswordService,
     private readonly usersAdminStatusService: UsersAdminStatusService,
     private readonly professionalVerificationSubmissionService: ProfessionalVerificationSubmissionService,
+    private readonly professionalVerificationReviewService: ProfessionalVerificationReviewService,
   ) {}
 
   @Get("me")
@@ -143,6 +147,17 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ): Promise<ProfessionalVerificationSubmissionResponseDto> {
     return this.professionalVerificationSubmissionService.submit(currentUser.id);
+  }
+
+  @Patch("admin/professionals/:userId/verification")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  reviewProfessionalVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("userId", new ParseUUIDPipe()) userId: string,
+    @Body() input: ReviewProfessionalVerificationDto,
+  ): Promise<ProfessionalVerificationReviewResponseDto> {
+    return this.professionalVerificationReviewService.review(currentUser.id, userId, input);
   }
 
   @Patch("admin/:userId/status")

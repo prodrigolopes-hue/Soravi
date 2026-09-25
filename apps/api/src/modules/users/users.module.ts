@@ -7,6 +7,7 @@ import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
+import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 
 @Module({
@@ -21,6 +22,7 @@ import { UsersService } from "./users.service";
     UsersPasswordService,
     UsersAdminStatusService,
     ProfessionalVerificationSubmissionService,
+    ProfessionalVerificationReviewService,
   ],
   exports: [UsersService],
 })

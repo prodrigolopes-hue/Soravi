@@ -14,6 +14,7 @@ import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
+import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 
 describe("UsersController", () => {
@@ -38,6 +39,7 @@ describe("UsersController", () => {
     };
     let usersAdminStatusServiceMock: { updateStatus: jest.Mock };
     let professionalVerificationSubmissionServiceMock: { submit: jest.Mock };
+    let professionalVerificationReviewServiceMock: { review: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -53,6 +55,7 @@ describe("UsersController", () => {
         };
         usersAdminStatusServiceMock = { updateStatus: jest.fn() };
         professionalVerificationSubmissionServiceMock = { submit: jest.fn() };
+        professionalVerificationReviewServiceMock = { review: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -60,6 +63,7 @@ describe("UsersController", () => {
             usersPasswordServiceMock as unknown as UsersPasswordService,
             usersAdminStatusServiceMock as unknown as UsersAdminStatusService,
             professionalVerificationSubmissionServiceMock as unknown as ProfessionalVerificationSubmissionService,
+            professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
         );
     });
 
@@ -334,6 +338,11 @@ describe("UsersController", () => {
 
         expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
         expect(roles).toEqual([Role.PROFESSIONAL]);
+    });
+
+    it("protege a revisao com autenticacao e papel ADMIN", () => {
+        expect(Reflect.getMetadata("__guards__", UsersController.prototype.reviewProfessionalVerification)).toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", UsersController.prototype.reviewProfessionalVerification)).toEqual([Role.ADMIN]);
     });
 
     it("encaminha a alteração administrativa de status", async () => {

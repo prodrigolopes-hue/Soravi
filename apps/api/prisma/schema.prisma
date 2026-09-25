@@ -163,6 +163,7 @@ model User {
   legalAcceptances                  LegalAcceptance[]
   reviewedCategoryRequests          CategoryRequest[]            @relation("CategoryRequestReviewer")
   reviewedPublicCategorySuggestions PublicCategorySuggestion[]   @relation("PublicCategorySuggestionReviewer")
+  reviewedProfessionalProfiles      ProfessionalProfile[]        @relation("ProfessionalProfileReviewer")
   messages                          Message[]
   conversationReadStates            ConversationReadState[]
   notifications                     Notification[]
@@ -213,6 +214,9 @@ model ProfessionalProfile {
   displayName            String                         @map("display_name") @db.VarChar(120)
   bio                    String?                        @db.VarChar(1000)
   verificationStatus     ProfessionalVerificationStatus @default(NOT_STARTED) @map("verification_status")
+  reviewNotes            String?                        @map("review_notes") @db.VarChar(1000)
+  reviewedByUserId       String?                        @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt             DateTime?                      @map("reviewed_at") @db.Timestamptz(3)
   averageRating          Decimal                        @default(0) @map("average_rating") @db.Decimal(3, 2)
   reviewCount            Int                            @default(0) @map("review_count")
   servicesCompletedCount Int                            @default(0) @map("services_completed_count")
@@ -223,6 +227,7 @@ model ProfessionalProfile {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedByUser         User?                  @relation("ProfessionalProfileReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
@@ -233,6 +238,7 @@ model ProfessionalProfile {
   favorites              Favorite[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
+  @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
   @@index([averageRating], map: "professional_profiles_average_rating_idx")
   @@map("professional_profiles")
