@@ -16,6 +16,8 @@ export type UsersAdminProfessionalRecord = {
     id: string;
     displayName: string;
     verificationStatus: ProfessionalVerificationStatus;
+    reviewedAt?: Date | null;
+    reviewNotes?: string | null;
     isAvailable: boolean;
   };
 };
@@ -24,12 +26,16 @@ export class UsersAdminProfessionalProfileItemResponseDto {
   id!: string;
   displayName!: string;
   verificationStatus!: ProfessionalVerificationStatus;
+  reviewedAt?: Date | null;
+  reviewNotes?: string | null;
   isAvailable!: boolean;
 
   constructor(record: UsersAdminProfessionalRecord["professionalProfile"]) {
     this.id = record.id;
     this.displayName = record.displayName;
     this.verificationStatus = record.verificationStatus;
+    if (record.reviewedAt !== undefined) this.reviewedAt = record.reviewedAt;
+    if (record.reviewNotes !== undefined) this.reviewNotes = record.reviewNotes;
     this.isAvailable = record.isAvailable;
   }
 }

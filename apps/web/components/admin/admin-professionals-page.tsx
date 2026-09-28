@@ -8,6 +8,7 @@ import { adminProfessionalsUrl } from "../../lib/api";
 import { ManageableAdminUserStatus } from "../../lib/admin-user-status";
 import { useAuth } from "../auth/auth-provider";
 import { AdminUserStatusAction } from "./admin-user-status-action";
+import { AdminProfessionalVerificationAction } from "./admin-professional-verification-action";
 
 const PAGE_SIZE = 20;
 
@@ -19,6 +20,8 @@ interface AdminProfessionalProfile {
   id: string;
   displayName: string;
   verificationStatus: string;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
   isAvailable: boolean;
 }
 
@@ -82,6 +85,8 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     typeof candidate.id !== "string" ||
     typeof candidate.displayName !== "string" ||
     typeof candidate.verificationStatus !== "string" ||
+    !isNullableString(candidate.reviewedAt) ||
+    !isNullableString(candidate.reviewNotes) ||
     typeof candidate.isAvailable !== "boolean"
   ) {
     return null;
@@ -91,6 +96,8 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     id: candidate.id,
     displayName: candidate.displayName,
     verificationStatus: candidate.verificationStatus,
+    reviewedAt: candidate.reviewedAt,
+    reviewNotes: candidate.reviewNotes,
     isAvailable: candidate.isAvailable,
   };
 }
@@ -281,6 +288,13 @@ export function AdminProfessionalsPage() {
             }
           : current,
       );
+    },
+    [],
+  );
+
+  const handleVerificationReviewed = useCallback(
+    (userId: string, verificationStatus: "APPROVED" | "REJECTED", reviewedAt: string, reviewNotes: string | null) => {
+      setResponse((current) => current ? { ...current, items: current.items.map((item) => item.id === userId ? { ...item, professionalProfile: { ...item.professionalProfile, verificationStatus, reviewedAt, reviewNotes } } : item) } : current);
     },
     [],
   );
@@ -520,6 +534,7 @@ export function AdminProfessionalsPage() {
                       <p>
                         <span className="font-medium text-slate-900">Verificação profissional:</span> {formatVerificationStatus(item.professionalProfile.verificationStatus)}
                       </p>
+                      {item.professionalProfile.reviewNotes ? <p><span className="font-medium text-slate-900">Nota da revisão:</span> {item.professionalProfile.reviewNotes}</p> : null}
                       <p>
                         <span className="font-medium text-slate-900">Disponibilidade:</span> {formatAvailability(item.professionalProfile.isAvailable)}
                       </p>
@@ -531,6 +546,7 @@ export function AdminProfessionalsPage() {
                       </p>
                     </div>
                     <div className="mt-4 border-t border-slate-200 pt-4">
+                      <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
                       <AdminUserStatusAction
                         userId={item.id}
                         userName={item.professionalProfile.displayName}
@@ -598,6 +614,7 @@ export function AdminProfessionalsPage() {
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {formatVerificationStatus(item.professionalProfile.verificationStatus)}
+                          {item.professionalProfile.reviewNotes ? <p className="mt-2 text-xs text-slate-600">{item.professionalProfile.reviewNotes}</p> : null}
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {formatAvailability(item.professionalProfile.isAvailable)}
@@ -606,6 +623,7 @@ export function AdminProfessionalsPage() {
                           {formatRegistrationDate(item.createdAt)}
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
+                          <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
                           <AdminUserStatusAction
                             userId={item.id}
                             userName={item.professionalProfile.displayName}

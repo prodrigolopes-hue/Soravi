@@ -66,6 +66,8 @@ const adminProfessionalsSelect = {
       id: true,
       displayName: true,
       verificationStatus: true,
+      reviewedAt: true,
+      reviewNotes: true,
       isAvailable: true,
     },
   },
@@ -165,6 +167,8 @@ export class UsersService {
           id: item.professionalProfile.id,
           displayName: item.professionalProfile.displayName,
           verificationStatus: item.professionalProfile.verificationStatus,
+          reviewedAt: item.professionalProfile.reviewedAt,
+          reviewNotes: item.professionalProfile.reviewNotes,
           isAvailable: item.professionalProfile.isAvailable,
         },
       });

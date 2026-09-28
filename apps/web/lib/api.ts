@@ -11,6 +11,10 @@ export const adminCustomersUrl = `${normalizedApiBaseUrl}/api/v1/users/admin/cus
 export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin/professionals`;
 export const professionalVerificationSubmissionUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-verification/submission`;
 
+export function adminProfessionalVerificationUrl(userId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/users/admin/professionals/${encodeURIComponent(userId)}/verification`;
+}
+
 export const categoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories`;
 
 export const favoritesUrl = `${normalizedApiBaseUrl}/api/v1/favorites`;
