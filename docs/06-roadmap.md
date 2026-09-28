@@ -8,9 +8,9 @@ Avaliações de contratos concluídos estão implementadas no MVP.
 
 As avaliacoes bilaterais cegas estao implementadas e validadas localmente. Staging ainda precisa receber as migrations e validacao E2E; esta funcionalidade nao esta marcada como validada nesse ambiente.
 
-Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações e favoritos. Parcial: painéis, administração, moderação e verificação profissional.
+Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações e favoritos. A verificação profissional básica — submissão pelo profissional e revisão administrativa — está implementada e validada localmente. Painéis, administração e moderação permanecem parciais.
 
-Próximas prioridades: painéis consolidados, administração/moderação, verificação profissional, regressão final, aplicação das migrations e validação E2E em staging das avaliações bilaterais cegas, e preparação para produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
+Próximas prioridades: painéis consolidados, evolução de administração/moderação, regressão final, aplicação das migrations e validação E2E em staging. Para a verificação profissional, staging ainda precisa receber a migration `20260924000100_add_professional_profile_review_metadata` e ter um usuário `ADMIN` garantido antes do E2E. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
 
 Definir a evolução da Soravi em fases, garantindo entregas incrementais
 e foco no MVP.

@@ -47,6 +47,18 @@ média - quantidade de avaliações
 
 Relacionamentos: - várias propostas - várias avaliações recebidas
 
+### Verificação profissional
+
+`ProfessionalProfile.verificationStatus` usa o enum
+`ProfessionalVerificationStatus`: `NOT_STARTED`, `PENDING`, `APPROVED` e
+`REJECTED`.
+
+Para registrar a decisão administrativa, o perfil possui `reviewedAt`
+(`DateTime?`), `reviewedByUserId` (`UUID?`, relacionado ao `User` revisor) e
+`reviewNotes` (`string?`, máximo de 1000 caracteres após trim). Esses campos
+permanecem nulos antes da revisão. Não há histórico de eventos de revisão neste
+MVP.
+
 ------------------------------------------------------------------------
 
 ## Categoria

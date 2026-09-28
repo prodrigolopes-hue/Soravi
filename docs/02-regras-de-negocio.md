@@ -40,6 +40,25 @@ Pode:
 -   conversar com clientes;
 -   receber avaliações.
 
+### Verificação profissional básica
+
+O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,
+`APPROVED` e `REJECTED`. `NOT_STARTED` identifica o profissional que ainda não
+enviou o perfil para análise; `PENDING`, o perfil em análise administrativa.
+
+O profissional autenticado com papel `PROFESSIONAL` pode submeter o próprio
+perfil pelo endpoint `POST /api/v1/users/me/professional-verification/submission`.
+A única transição dessa etapa é `NOT_STARTED -> PENDING`. A submissão exige
+`ProfessionalProfile` existente e não excluído, `displayName` preenchido,
+telefone existente e verificado e pelo menos uma `ProfessionalCategory`
+vinculada a uma categoria ativa. A transição é protegida contra concorrência e
+não permite que `PENDING`, `APPROVED` ou `REJECTED` retornem para `PENDING`.
+
+No painel profissional, o estado elegível em `NOT_STARTED` exibe a ação de
+submissão; telefone não verificado é apresentado como pendência. Em `PENDING`,
+o painel informa “Perfil em análise”. O estado permanece após recarregar a
+sessão ou a página.
+
 ## Administrador
 
 Pode:
@@ -49,6 +68,24 @@ Pode:
 -   bloquear contas;
 -   gerenciar categorias;
 -   visualizar indicadores.
+
+### Revisão de verificação profissional
+
+Somente `ADMIN` pode revisar um perfil pendente pelo endpoint
+`PATCH /api/v1/users/admin/professionals/:userId/verification`. As únicas
+transições permitidas são `PENDING -> APPROVED` e `PENDING -> REJECTED`.
+`NOT_STARTED`, `APPROVED` e `REJECTED` não podem ser revisados neste fluxo.
+
+A decisão pode registrar `reviewNotes` opcional, com espaços externos removidos
+e até 1000 caracteres. A revisão grava `reviewedAt` e `reviewedByUserId` no
+`ProfessionalProfile`; a operação é transacional e protegida contra concorrência.
+Ela não altera `User.status`, sessões, regras de oportunidades nem redistribui
+oportunidades retroativamente.
+
+Em `/admin/profissionais`, somente itens `PENDING` exibem Aprovar e Rejeitar.
+Após uma decisão, a linha é atualizada localmente e as ações deixam de aparecer.
+Não há reenvio após rejeição, histórico de múltiplos eventos, documentos
+comprobatórios ou notificação da decisão neste MVP.
 
 ------------------------------------------------------------------------
 

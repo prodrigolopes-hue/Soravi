@@ -14,7 +14,9 @@
 - [x] Publicação em `OPEN` com `publishedAt` e despacho imediato, idempotente, de oportunidades.
 - [x] Oportunidades, propostas, contratação, chat e notificações.
 - [x] Favoritos e avaliações.
-- [~] Painéis, administração, moderação e verificação profissional.
+- [~] Painéis, administração e moderação.
+- [x] Verificação profissional básica: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED` e respectivas interfaces, validadas localmente.
+- [ ] Staging: aplicar `20260924000100_add_professional_profile_review_metadata`, garantir usuário `ADMIN` e executar validação E2E da verificação profissional.
 
 `editableUntil` é legado e não controla mais UX, edição ou dispatcher.
 
@@ -307,6 +309,8 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Bloqueio e reativação administrativa de contas CUSTOMER/PROFESSIONAL.
 - [x] Frontend de moderação `ACTIVE`/`BLOCKED` para clientes e profissionais.
 - [x] Revogação de todas as sessões ainda ativas durante o bloqueio.
+- [x] Submissão do perfil profissional elegível para verificação (`NOT_STARTED -> PENDING`).
+- [x] Revisão administrativa de profissionais pendentes (`PENDING -> APPROVED|REJECTED`), com confirmação, motivo opcional e atualização local da linha.
 
 ### Pendente
 
@@ -314,6 +318,9 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Suspensão de profissional em fluxo próprio.
 - [ ] Moderação de profissional.
 - [ ] Curadoria de profissional.
+- [ ] Reenvio para verificação após `REJECTED`.
+- [ ] Histórico multi-evento de revisões, documentos comprobatórios e notificações da decisão.
+- [ ] Edição completa do perfil profissional.
 
 ### Pendente
 

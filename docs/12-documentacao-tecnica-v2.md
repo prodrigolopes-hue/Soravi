@@ -12,6 +12,26 @@ A primeira avaliacao fica oculta com `publishedAt = null`; a segunda dentro da j
 
 Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `publishedAt`, depois despacha oportunidades para profissionais aprovados, disponíveis e da categoria compatível. Bootstrap e processor periódico recuperam itens elegíveis sem depender de `editableUntil`; lock, idempotência e `skipDuplicates` são preservados.
 
+### Verificação profissional
+
+A verificação profissional básica está implementada e validada localmente. O
+profissional com papel `PROFESSIONAL` submete o próprio perfil por
+`POST /api/v1/users/me/professional-verification/submission`, na transição
+atômica `NOT_STARTED -> PENDING`. A elegibilidade exige perfil não excluído,
+`displayName`, telefone existente e verificado e categoria ativa vinculada.
+
+O administrador revisa somente perfis `PENDING` por
+`PATCH /api/v1/users/admin/professionals/:userId/verification`, transicionando
+para `APPROVED` ou `REJECTED`. A decisão é transacional, segura contra
+concorrência e registra `reviewedAt`, `reviewedByUserId` e `reviewNotes`
+opcional (após trim, até 1000 caracteres). O frontend preserva o estado após
+refetch/F5 e atualiza localmente a linha revisada. Não existem ainda reenvio,
+histórico de eventos, documentos nem notificações da decisão.
+
+Staging não foi validado: antes do E2E, é necessário aplicar a migration
+`20260924000100_add_professional_profile_review_metadata` e garantir um usuário
+`ADMIN` para a revisão.
+
 Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente.
 
 Consolidar as diretrizes técnicas da Soravi para que qualquer

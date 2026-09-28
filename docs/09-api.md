@@ -393,7 +393,9 @@ HTTP `200 OK`
         "id": "...",
         "displayName": "...",
         "verificationStatus": "PENDING",
-        "isAvailable": true
+        "isAvailable": true,
+        "reviewedAt": null,
+        "reviewNotes": null
       }
     }
   ],
@@ -419,13 +421,90 @@ Campos retornados por item:
 - `professionalProfile.id`;
 - `professionalProfile.displayName`;
 - `professionalProfile.verificationStatus`;
-- `professionalProfile.isAvailable`.
+- `professionalProfile.isAvailable`;
+- `professionalProfile.reviewedAt`;
+- `professionalProfile.reviewNotes`.
 
 Respostas relevantes:
 
 - `200 OK` - sucesso;
 - `401 Unauthorized` - não autenticado ou token inválido;
 - `403 Forbidden` - usuário autenticado sem role `ADMIN`.
+
+## Submissão de perfil para verificação profissional
+
+### Requisição
+
+POST `/api/v1/users/me/professional-verification/submission`
+
+Autenticação e autorização:
+
+- Bearer access token obrigatório;
+- papel `PROFESSIONAL` obrigatório.
+
+Não há payload. A submissão exige `ProfessionalProfile` existente e não
+excluído, `displayName` preenchido, telefone existente e verificado e pelo
+menos uma categoria ativa vinculada. Só é permitida a transição
+`NOT_STARTED -> PENDING`; os estados `PENDING`, `APPROVED` e `REJECTED` não
+podem ser submetidos novamente. A atualização é segura contra concorrência.
+
+### Resposta
+
+HTTP `200 OK`, com o estado atualizado suficiente para o painel profissional,
+incluindo `verificationStatus: "PENDING"`.
+
+Respostas de erro relevantes:
+
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário sem papel `PROFESSIONAL`;
+- `400/409` - perfil inelegível ou transição de verificação inválida.
+
+## Revisão administrativa de verificação profissional
+
+### Requisição
+
+PATCH `/api/v1/users/admin/professionals/:userId/verification`
+
+Autenticação e autorização:
+
+- Bearer access token obrigatório;
+- papel `ADMIN` obrigatório.
+
+Payload:
+
+```json
+{
+  "status": "APPROVED",
+  "reviewNotes": "opcional; máximo de 1000 caracteres após trim"
+}
+```
+
+`status` aceita somente `APPROVED` ou `REJECTED`; o profissional alvo precisa
+ter `ProfessionalProfile` e estar em `PENDING`. A revisão é transacional e
+segura contra concorrência. Ela registra o instante, o administrador revisor e
+as notas, sem alterar `User.status` ou sessões.
+
+### Resposta
+
+HTTP `200 OK`:
+
+```json
+{
+  "userId": "...",
+  "verificationStatus": "APPROVED",
+  "reviewedAt": "...",
+  "reviewedByUserId": "...",
+  "reviewNotes": null
+}
+```
+
+Respostas de erro relevantes:
+
+- `401 Unauthorized` - não autenticado ou token inválido;
+- `403 Forbidden` - usuário sem papel `ADMIN`;
+- `400` - status de destino inválido ou notas inválidas;
+- `404` - alvo sem perfil profissional elegível;
+- `409 Conflict` - estado atual não permite revisão ou outra revisão venceu a concorrência.
 
 ## Listagem administrativa de categorias oficiais
 

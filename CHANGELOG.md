@@ -1,5 +1,12 @@
 # Changelog
 
+## Verificação profissional - implementação e validação local
+
+- Implementados os estados `NOT_STARTED`, `PENDING`, `APPROVED` e `REJECTED`, a submissão autenticada do próprio profissional em `POST /api/v1/users/me/professional-verification/submission` e a transição concorrente segura `NOT_STARTED -> PENDING` para perfis elegíveis.
+- Implementada a revisão administrativa em `PATCH /api/v1/users/admin/professionals/:userId/verification`, restrita a `ADMIN`, com as transições finais `PENDING -> APPROVED|REJECTED`, `reviewNotes` opcional com trim e limite de 1000 caracteres, e persistência de `reviewedAt` e `reviewedByUserId`.
+- Implementadas as interfaces de submissão no painel profissional e de aprovação/rejeição em `/admin/profissionais`, com atualização local da linha e persistência de estado após refetch/F5. O fluxo foi validado localmente; não há validação em staging, deploy ou reenvio após rejeição.
+- Antes do E2E em staging, aplicar a migration `20260924000100_add_professional_profile_review_metadata` e garantir um usuário `ADMIN` para a revisão.
+
 ## Avaliacoes bilaterais cegas - implementacao e validacao local
 
 - Implementadas `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, nota inteira de 1 a 5, comentario opcional, janela de sete dias e erro `REVIEW_WINDOW_EXPIRED` apos o prazo.
