@@ -131,6 +131,12 @@ Fase 3 - Escalabilidade
 
 Fase 4 - Microsserviços (se necessário)
 
+## Rotas públicas planejadas de descoberta
+
+`/servicos/[categorySlug]` é uma referência de rota planejada para a futura página de categoria; não está implementada. Ela deverá combinar descoberta direta de profissionais com entrada para criação de solicitação e recebimento de propostas.
+
+O perfil público profissional também é futuro e sua rota definitiva ainda não foi decidida. Não há, por este registro, endpoint público, API de filtros ou regra de localização implementada.
+
 ------------------------------------------------------------------------
 
 ## Pré-lançamento

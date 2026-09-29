@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-29
+
+### Documentação de descoberta e contratação (planejada)
+
+- registrada a direção de produto da Home orientada por “Como podemos ajudar você hoje?”, com os caminhos “Buscar profissionais” e “Descrever o que preciso”;
+- registrada a página de categoria conceitual `/servicos/[categorySlug]`, que combinará descoberta direta de profissionais com criação de solicitação e recebimento de propostas, sem posicionamento de simples classificados;
+- registrado que perfil público profissional, rota definitiva do perfil e filtros por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação permanecem planejados;
+- nenhum endpoint, API de filtros, perfil público, migration, rota implementada ou deploy foi criado por esta atualização documental.
+
 ## Verificação profissional - implementação e validação local
 
 - Implementados os estados `NOT_STARTED`, `PENDING`, `APPROVED` e `REJECTED`, a submissão autenticada do próprio profissional em `POST /api/v1/users/me/professional-verification/submission` e a transição concorrente segura `NOT_STARTED -> PENDING` para perfis elegíveis.

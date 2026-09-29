@@ -115,3 +115,19 @@ possível de etapas, mantendo excelente experiência de uso.
 -   Taxa de contratação.
 -   Avaliações concluídas.
 -   Retenção de usuários.
+
+------------------------------------------------------------------------
+
+# Visão de experiência: Home, categorias e perfil público (planejada)
+
+A mensagem central é **“Soravi conecta pessoas a soluções.”** A experiência deve partir da pergunta **“Como podemos ajudar você hoje?”**, não de uma navegação de classificados.
+
+A Home planejada terá um hero com os caminhos **Buscar profissionais** e **Descrever o que preciso**, busca por serviço/categoria, localização ou região, categorias em destaque, sinais de confiança e segurança e o CTA para profissionais **“Quero trabalhar”**.
+
+Ao selecionar uma categoria, como Eletricista, a referência de navegação é `/servicos/[categorySlug]` (por exemplo, `/servicos/eletricista`). A página de categoria combinará escolher um profissional e acessar seu perfil público com descrever a necessidade para criar uma solicitação e receber propostas. Ela não será apenas uma lista de profissionais.
+
+Fluxos planejados: `contar o que precisa → receber propostas → comparar e conversar → contratar → serviço concluído → avaliar`; ou `categoria → profissional → perfil → solicitar serviço`.
+
+O perfil público profissional é futuro. Deverá considerar nome público, título, bio, área de atendimento, categorias, reputação, avaliações publicadas, status de verificação, disponibilidade e ação para solicitar serviço. A rota definitiva permanece em aberto para decisão técnica; `/profissionais/[professionalProfileId]` é somente referência conceitual.
+
+Essas superfícies e os filtros por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação ainda não estão implementados.

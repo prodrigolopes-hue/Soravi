@@ -148,6 +148,14 @@ Princípios:
 
 # Componentes Reutilizáveis
 
+## Padrões de descoberta e contratação (planejados)
+
+Home e páginas de categoria devem orientar a decisão pela necessidade do cliente, com a pergunta “Como podemos ajudar você hoje?” e caminhos claros para buscar profissionais ou descrever o que precisa. A categoria deve manter as duas alternativas visíveis: escolher um profissional ou criar uma solicitação para receber propostas.
+
+Cards futuros de profissional devem priorizar identidade pública, título, especialidades, área de atendimento quando aplicável, verificação, reputação e ações inequívocas para ver perfil ou solicitar serviço.
+
+Essas jornadas serão mobile-first e deverão atender WCAG 2.1 AA, incluindo ordem de foco, contraste, rótulos de campos, estados de erro e alternativas textuais para sinais visuais de verificação e reputação.
+
 -   Navbar
 -   Footer
 -   Card de Profissional

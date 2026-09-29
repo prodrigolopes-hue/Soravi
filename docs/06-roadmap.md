@@ -59,6 +59,15 @@ editoriais e de qualidade.
 
 # Fase 2 --- Crescimento
 
+## Incremento planejado: descoberta e contratação por categoria
+
+- Home orientada pela pergunta “Como podemos ajudar você hoje?”, com busca, categorias em destaque, sinais de confiança, CTA “Quero trabalhar” e os caminhos “Buscar profissionais” e “Descrever o que preciso”.
+- Página `/servicos/[categorySlug]` como referência de rota planejada para categoria, combinando escolha de profissional e criação de solicitação para receber propostas.
+- Perfil público profissional futuro, com rota final a definir em ADR e dados públicos sujeitos às regras de elegibilidade e privacidade.
+- Evolução futura de filtros por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação.
+
+Nada deste incremento está concluído; filtros de localização e área de atendimento ainda dependem de regras e implementação próprias.
+
 Adicionar: - Busca avançada - Favoritos - Notificações em tempo real -
 Perfil público do profissional - Histórico de serviços - Melhorias de
 desempenho

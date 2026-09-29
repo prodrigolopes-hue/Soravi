@@ -289,6 +289,16 @@ Regras específicas para o formulário "Acompanhe o lançamento":
 - a ordem de exibição é controlada por `displayOrder`;
 - a criação, edição, ativação e desativação de categorias serão restritas à administração.
 
+## Descoberta e contratação por categoria (planejado)
+
+As futuras páginas públicas de categoria deverão oferecer tanto a escolha de um profissional quanto a descrição da necessidade para abertura de solicitação. A listagem não substituirá o fluxo de solicitações e propostas.
+
+Quando a exibição pública de profissionais for implementada, ela deverá considerar perfil profissional ativo, `verificationStatus = APPROVED`, disponibilidade e categoria compatível. Localização ou área de atendimento só deverá compor essa elegibilidade quando a respectiva regra estiver implementada.
+
+Os cards futuros poderão exibir avatar, nome público, título, área de atendimento, selo de verificação, reputação, quantidade de avaliações, descrição curta, especialidades/categorias e as ações “Ver perfil” e “Solicitar serviço”. Esses dados e regras de apresentação não constituem API ou filtro já disponível.
+
+Os filtros por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação são evolução planejada. Nenhum deve ser apresentado como implementado antes de regras, dados e interfaces correspondentes.
+
 ## Categorias solicitadas por profissionais
 
 - a ausência de uma categoria não pode impedir o cadastro profissional;

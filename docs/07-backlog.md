@@ -248,6 +248,15 @@ Os demais hardenings de segurança já registrados acima permanecem pendentes.
 -   expansão geográfica e editorial.
 -   realizar análise competitiva estruturada de plataformas de serviços, usando É Pra Ontem, GetNinjas e Triider apenas como referências de pesquisa futura.
 
+## Descoberta e contratação por categoria (planejado)
+
+- [ ] Profissionalizar a Home a partir da pergunta “Como podemos ajudar você hoje?”, com os caminhos “Buscar profissionais” e “Descrever o que preciso”, busca, categorias em destaque, sinais de confiança e CTA para profissionais.
+- [ ] Integrar o caminho “Descrever o que preciso” ao fluxo de criação de solicitação e recebimento de propostas, sem assumir novas APIs além das já existentes.
+- [ ] Criar a página de categoria conceitualmente prevista em `/servicos/[categorySlug]`, combinando descoberta e escolha de profissional com criação de solicitação para receber propostas; não tratá-la como simples lista de profissionais.
+- [ ] Criar perfil público profissional futuro, com definição posterior da rota final, dos dados expostos e das regras de privacidade.
+- [ ] Implementar filtros avançados planejados por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação.
+- [ ] Definir e implementar os critérios de exibição pública: perfil ativo, `verificationStatus = APPROVED`, disponibilidade e categoria compatível. Incluir localização ou área de atendimento somente quando a regra correspondente existir.
+
 ## Infraestrutura editorial
 
 -   painel editorial;

@@ -453,3 +453,21 @@ Profissionais com informações coerentes e baixo risco poderão ser aprovados s
 Casos moderados ou altos terão revisão proporcional ao risco.
 
 Nenhuma funcionalidade deve ser criada nesta decisão.
+
+## Descoberta direta e solicitação nas páginas de categoria
+
+### Decisão (2026-09-29)
+
+A página de categoria da Soravi combinará descoberta direta de profissionais com criação de solicitação, evitando posicionamento como simples classificados.
+
+### Diretrizes
+
+- a rota conceitual planejada para categoria é `/servicos/[categorySlug]`;
+- a experiência deve permitir tanto escolher um profissional e, no futuro, acessar seu perfil público ou solicitar seu serviço, quanto descrever a necessidade para abrir uma solicitação e receber propostas;
+- o perfil público profissional é uma capacidade futura; sua rota final permanece a definir;
+- filtros por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação permanecem planejados, sem API ou interface implementada por esta decisão;
+- a futura exibição pública deverá exigir perfil ativo, `verificationStatus = APPROVED`, disponibilidade e categoria compatível. Localização ou área de atendimento só entra nessa regra quando houver modelagem e regra correspondente.
+
+### Consequências
+
+Home, categoria, perfil público e filtros deverão evoluir como superfícies de descoberta e contratação complementares ao fluxo de solicitações e propostas. Esta decisão não cria rota, API, filtro, perfil público, migration ou alteração de código.
