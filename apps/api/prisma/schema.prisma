@@ -213,6 +213,8 @@ model ProfessionalProfile {
   userId                 String                         @unique(map: "professional_profiles_user_id_key") @map("user_id") @db.Uuid
   displayName            String                         @map("display_name") @db.VarChar(120)
   bio                    String?                        @db.VarChar(1000)
+  professionalTitle      String?                        @map("professional_title") @db.VarChar(80)
+  serviceArea            String?                        @map("service_area") @db.VarChar(100)
   verificationStatus     ProfessionalVerificationStatus @default(NOT_STARTED) @map("verification_status")
   reviewNotes            String?                        @map("review_notes") @db.VarChar(1000)
   reviewedByUserId       String?                        @map("reviewed_by_user_id") @db.Uuid
