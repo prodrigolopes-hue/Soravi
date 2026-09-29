@@ -120,7 +120,7 @@ export function HeaderAuthAction({
         ) : null}
 
         <Link
-          href="/conta/seguranca"
+          href="/conta"
           className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           onClick={onAction}
         >
@@ -197,7 +197,7 @@ export function HeaderAuthAction({
         ) : null}
 
         <Link
-          href="/conta/seguranca"
+          href="/conta"
           className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
         >
           Conta
