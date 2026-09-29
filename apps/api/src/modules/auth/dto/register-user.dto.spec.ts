@@ -71,6 +71,45 @@ describe("RegisterUserDto password", () => {
   );
 });
 
+describe("RegisterUserDto professional details", () => {
+  it("exige e normaliza os dados profissionais para PROFESSIONAL", async () => {
+    const dto = plainToInstance(RegisterUserDto, {
+      ...professionalBody(),
+      professionalTitle: "  Eletricista residencial  ",
+      serviceArea: "  Campinas e região  ",
+      description: "  Profissional com experiência em instalações elétricas residenciais.  ",
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+    expect(dto.professionalTitle).toBe("Eletricista residencial");
+    expect(dto.serviceArea).toBe("Campinas e região");
+    expect(dto.description).toBe("Profissional com experiência em instalações elétricas residenciais.");
+  });
+
+  it.each([
+    { professionalTitle: undefined },
+    { serviceArea: undefined },
+    { description: undefined },
+    { professionalTitle: "ab" },
+    { professionalTitle: "a".repeat(81) },
+    { serviceArea: "a" },
+    { serviceArea: "a".repeat(101) },
+    { description: "a".repeat(29) },
+    { description: "a".repeat(501) },
+  ])("rejeita detalhes profissionais ausentes ou fora dos limites %#", async (overrides) => {
+    const dto = plainToInstance(RegisterUserDto, {
+      ...professionalBody(),
+      ...overrides,
+    });
+
+    expect(await validate(dto)).not.toHaveLength(0);
+  });
+
+  it("mantém CUSTOMER válido sem detalhes profissionais", async () => {
+    await expect(validate(createDto(undefined))).resolves.toHaveLength(0);
+  });
+});
+
 function createDto(phone: string | null | undefined): RegisterUserDto {
   return plainToInstance(RegisterUserDto, {
     name: "Maria da Silva",
@@ -81,4 +120,15 @@ function createDto(phone: string | null | undefined): RegisterUserDto {
     acceptedTermsVersion: "1.0",
     acceptedPrivacyPolicyVersion: "1.0",
   });
+}
+
+function professionalBody() {
+  return {
+    ...createDto(undefined),
+    initialRole: Role.PROFESSIONAL,
+    categorySlugs: ["eletrica"],
+    professionalTitle: "Eletricista residencial",
+    serviceArea: "Campinas e região",
+    description: "Profissional com experiência em instalações elétricas residenciais.",
+  };
 }

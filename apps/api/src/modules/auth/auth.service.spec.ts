@@ -416,6 +416,9 @@ describe("AuthService", () => {
       data: {
         userId,
         displayName: "Maria da Silva",
+        professionalTitle: "Eletricista residencial",
+        serviceArea: "São Paulo e região",
+        bio: "Profissional com experiência em instalações elétricas residenciais.",
       },
     });
 
@@ -1695,6 +1698,13 @@ describe("AuthService", () => {
       acceptedTermsVersion: "1.0",
       acceptedPrivacyPolicyVersion: "1.0",
       categorySlugs,
+      ...(initialRole === Role.PROFESSIONAL
+        ? {
+          professionalTitle: "Eletricista residencial",
+          serviceArea: "São Paulo e região",
+          description: "Profissional com experiência em instalações elétricas residenciais.",
+        }
+        : {}),
     };
   }
 

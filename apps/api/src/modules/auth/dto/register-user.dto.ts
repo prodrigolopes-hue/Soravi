@@ -8,6 +8,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from "class-validator";
 
 import { IsBrazilianPhone } from "../../../common/phone/is-brazilian-phone.decorator";
@@ -110,4 +111,55 @@ export class RegisterUserDto {
     message: "Selecione no máximo três categorias.",
   })
   categorySlugs?: string[];
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim() : value,
+  )
+  @ValidateIf(
+    (object: RegisterUserDto) =>
+      object.initialRole === Role.PROFESSIONAL ||
+      object.professionalTitle !== undefined,
+  )
+  @IsString({ message: "O serviço principal deve ser um texto." })
+  @MinLength(3, {
+    message: "O serviço principal deve possuir pelo menos 3 caracteres.",
+  })
+  @MaxLength(80, {
+    message: "O serviço principal deve possuir no máximo 80 caracteres.",
+  })
+  professionalTitle?: string;
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim() : value,
+  )
+  @ValidateIf(
+    (object: RegisterUserDto) =>
+      object.initialRole === Role.PROFESSIONAL ||
+      object.serviceArea !== undefined,
+  )
+  @IsString({ message: "A área de atendimento deve ser um texto." })
+  @MinLength(2, {
+    message: "A área de atendimento deve possuir pelo menos 2 caracteres.",
+  })
+  @MaxLength(100, {
+    message: "A área de atendimento deve possuir no máximo 100 caracteres.",
+  })
+  serviceArea?: string;
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim() : value,
+  )
+  @ValidateIf(
+    (object: RegisterUserDto) =>
+      object.initialRole === Role.PROFESSIONAL ||
+      object.description !== undefined,
+  )
+  @IsString({ message: "A descrição profissional deve ser um texto." })
+  @MinLength(30, {
+    message: "A descrição profissional deve possuir pelo menos 30 caracteres.",
+  })
+  @MaxLength(500, {
+    message: "A descrição profissional deve possuir no máximo 500 caracteres.",
+  })
+  description?: string;
 }

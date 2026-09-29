@@ -298,6 +298,9 @@ export function ProfessionalRegistrationForm() {
             acceptedPrivacyPolicyVersion:
               LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
             categorySlugs: data.categories,
+            professionalTitle: data.professionalTitle,
+            serviceArea: data.serviceArea,
+            description: data.description,
           }),
         },
       );

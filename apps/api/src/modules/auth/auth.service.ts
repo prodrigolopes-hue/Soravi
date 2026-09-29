@@ -198,6 +198,9 @@ export class AuthService {
               data: {
                 userId: user.id,
                 displayName: input.name.trim(),
+                professionalTitle: input.professionalTitle,
+                serviceArea: input.serviceArea,
+                bio: input.description,
               },
             });
 
