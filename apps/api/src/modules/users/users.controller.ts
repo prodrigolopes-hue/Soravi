@@ -35,6 +35,9 @@ import { ProfessionalVerificationReviewResponseDto } from "./dto/professional-ve
 import { ReviewProfessionalVerificationDto } from "./dto/review-professional-verification.dto";
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
+import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
+import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 
 @Controller("users")
 export class UsersController {
@@ -45,6 +48,7 @@ export class UsersController {
     private readonly usersAdminStatusService: UsersAdminStatusService,
     private readonly professionalVerificationSubmissionService: ProfessionalVerificationSubmissionService,
     private readonly professionalVerificationReviewService: ProfessionalVerificationReviewService,
+    private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
   ) {}
 
   @Get("me")
@@ -147,6 +151,28 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ): Promise<ProfessionalVerificationSubmissionResponseDto> {
     return this.professionalVerificationSubmissionService.submit(currentUser.id);
+  }
+
+  @Get("me/professional-profile")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findCurrentProfessionalProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<ProfessionalProfileResponseDto> {
+    return this.currentProfessionalProfileService.findCurrent(currentUser.id);
+  }
+
+  @Patch("me/professional-profile")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  updateCurrentProfessionalProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: UpdateCurrentProfessionalProfileDto,
+  ): Promise<ProfessionalProfileResponseDto> {
+    return this.currentProfessionalProfileService.updateCurrent(
+      currentUser.id,
+      input,
+    );
   }
 
   @Patch("admin/professionals/:userId/verification")

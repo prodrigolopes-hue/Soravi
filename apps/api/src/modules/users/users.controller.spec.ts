@@ -16,6 +16,7 @@ import { UsersPhoneService } from "./users-phone.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
+import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 
 describe("UsersController", () => {
     const userId =
@@ -40,6 +41,10 @@ describe("UsersController", () => {
     let usersAdminStatusServiceMock: { updateStatus: jest.Mock };
     let professionalVerificationSubmissionServiceMock: { submit: jest.Mock };
     let professionalVerificationReviewServiceMock: { review: jest.Mock };
+    let currentProfessionalProfileServiceMock: {
+        findCurrent: jest.Mock;
+        updateCurrent: jest.Mock;
+    };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -56,6 +61,10 @@ describe("UsersController", () => {
         usersAdminStatusServiceMock = { updateStatus: jest.fn() };
         professionalVerificationSubmissionServiceMock = { submit: jest.fn() };
         professionalVerificationReviewServiceMock = { review: jest.fn() };
+        currentProfessionalProfileServiceMock = {
+            findCurrent: jest.fn(),
+            updateCurrent: jest.fn(),
+        };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -64,6 +73,7 @@ describe("UsersController", () => {
             usersAdminStatusServiceMock as unknown as UsersAdminStatusService,
             professionalVerificationSubmissionServiceMock as unknown as ProfessionalVerificationSubmissionService,
             professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
+            currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
         );
     });
 
@@ -324,6 +334,48 @@ describe("UsersController", () => {
         );
 
         expect(roles).toEqual([Role.ADMIN]);
+    });
+
+    it("encaminha a leitura do próprio perfil profissional", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.PROFESSIONAL],
+            phoneVerifiedAt: null,
+        };
+        const response = { id: "perfil-id" };
+        currentProfessionalProfileServiceMock.findCurrent.mockResolvedValue(response);
+
+        await expect(controller.findCurrentProfessionalProfile(currentUser)).resolves.toBe(response);
+        expect(currentProfessionalProfileServiceMock.findCurrent).toHaveBeenCalledWith(userId);
+    });
+
+    it("encaminha a atualização do próprio perfil profissional", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.PROFESSIONAL],
+            phoneVerifiedAt: null,
+        };
+        const input = {
+            displayName: "Maria Serviços",
+            categorySlugs: ["eletrica"],
+            isAvailable: true,
+        };
+        const response = { id: "perfil-id" };
+        currentProfessionalProfileServiceMock.updateCurrent.mockResolvedValue(response);
+
+        await expect(controller.updateCurrentProfessionalProfile(currentUser, input)).resolves.toBe(response);
+        expect(currentProfessionalProfileServiceMock.updateCurrent).toHaveBeenCalledWith(userId, input);
+    });
+
+    it.each([
+        "findCurrentProfessionalProfile",
+        "updateCurrentProfessionalProfile",
+    ] as const)("protege %s com autenticação e papel PROFESSIONAL", (methodName) => {
+        const method = UsersController.prototype[methodName];
+        expect(Reflect.getMetadata("__guards__", method)).toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", method)).toEqual([Role.PROFESSIONAL]);
     });
 
     it("protege a submissao de verificacao com autenticacao e papel PROFESSIONAL", () => {

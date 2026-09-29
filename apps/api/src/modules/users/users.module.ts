@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenModule } from "../auth/access-token.module";
 import { UsersController } from "./users.controller";
+import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
@@ -18,6 +19,7 @@ import { UsersService } from "./users.service";
   controllers: [UsersController],
   providers: [
     UsersService,
+    CurrentProfessionalProfileService,
     UsersPhoneService,
     UsersPasswordService,
     UsersAdminStatusService,
