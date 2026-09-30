@@ -1,5 +1,10 @@
 # Changelog
 
+## Histórico de decisões de verificação profissional
+
+- Adicionada a tabela append-only `ProfessionalVerificationReview`. Cada decisão administrativa vencedora (`PENDING -> APPROVED|REJECTED`) grava um novo registro na mesma transação que atualiza o snapshot em `ProfessionalProfile`.
+- Não houve backfill: os campos de snapshot existentes não permitem afirmar, com segurança, que toda situação final representa uma decisão administrativa histórica completa. Assim, o histórico passa a ser fiel a partir desta migration, sem inventar revisor, nota ou data.
+
 ## 2026-09-29
 
 ### Documentação de descoberta e contratação (planejada)

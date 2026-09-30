@@ -154,23 +154,24 @@ model User {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  roles                             UserRole[]
-  customerProfile                   CustomerProfile?
-  professionalProfile               ProfessionalProfile?
-  sessions                          AuthSession[]
-  passwordResetTokens               PasswordResetToken[]
-  emailVerificationTokens           EmailVerificationToken[]
-  legalAcceptances                  LegalAcceptance[]
-  reviewedCategoryRequests          CategoryRequest[]            @relation("CategoryRequestReviewer")
-  reviewedPublicCategorySuggestions PublicCategorySuggestion[]   @relation("PublicCategorySuggestionReviewer")
-  reviewedProfessionalProfiles      ProfessionalProfile[]        @relation("ProfessionalProfileReviewer")
-  messages                          Message[]
-  conversationReadStates            ConversationReadState[]
-  notifications                     Notification[]
-  communicationPreferences          CommunicationPreference[]
-  outboundNotifications             OutboundNotification[]
-  phoneVerificationChallenges       PhoneVerificationChallenge[]
-  reviewReminders                   ReviewReminder[]
+  roles                                   UserRole[]
+  customerProfile                         CustomerProfile?
+  professionalProfile                     ProfessionalProfile?
+  sessions                                AuthSession[]
+  passwordResetTokens                     PasswordResetToken[]
+  emailVerificationTokens                 EmailVerificationToken[]
+  legalAcceptances                        LegalAcceptance[]
+  reviewedCategoryRequests                CategoryRequest[]                @relation("CategoryRequestReviewer")
+  reviewedPublicCategorySuggestions       PublicCategorySuggestion[]       @relation("PublicCategorySuggestionReviewer")
+  reviewedProfessionalProfiles            ProfessionalProfile[]            @relation("ProfessionalProfileReviewer")
+  reviewedProfessionalVerificationReviews ProfessionalVerificationReview[] @relation("ProfessionalVerificationReviewReviewer")
+  messages                                Message[]
+  conversationReadStates                  ConversationReadState[]
+  notifications                           Notification[]
+  communicationPreferences                CommunicationPreference[]
+  outboundNotifications                   OutboundNotification[]
+  phoneVerificationChallenges             PhoneVerificationChallenge[]
+  reviewReminders                         ReviewReminder[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -191,12 +192,12 @@ model UserRole {
 }
 
 model CustomerProfile {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique(map: "customer_profiles_user_id_key") @map("user_id") @db.Uuid
-  averageRating Decimal @default(0) @map("average_rating") @db.Decimal(3, 2)
-  reviewCount Int @default(0) @map("review_count")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique(map: "customer_profiles_user_id_key") @map("user_id") @db.Uuid
+  averageRating Decimal  @default(0) @map("average_rating") @db.Decimal(3, 2)
+  reviewCount   Int      @default(0) @map("review_count")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceRequests ServiceRequest[]
@@ -228,8 +229,8 @@ model ProfessionalProfile {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviewedByUser         User?                  @relation("ProfessionalProfileReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  user                   User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedByUser         User?                            @relation("ProfessionalProfileReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
@@ -238,12 +239,29 @@ model ProfessionalProfile {
   reviews                Review[]
   customerReviews        CustomerReview[]
   favorites              Favorite[]
+  verificationReviews    ProfessionalVerificationReview[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
   @@index([averageRating], map: "professional_profiles_average_rating_idx")
   @@map("professional_profiles")
+}
+
+model ProfessionalVerificationReview {
+  id                    String                         @id @default(uuid()) @db.Uuid
+  professionalProfileId String                         @map("professional_profile_id") @db.Uuid
+  fromStatus            ProfessionalVerificationStatus @map("from_status")
+  toStatus              ProfessionalVerificationStatus @map("to_status")
+  reviewNotes           String?                        @map("review_notes") @db.VarChar(1000)
+  reviewedByUserId      String?                        @map("reviewed_by_user_id") @db.Uuid
+  createdAt             DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  reviewedByUser      User?               @relation("ProfessionalVerificationReviewReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([professionalProfileId, createdAt], map: "professional_verification_reviews_profile_created_at_idx")
+  @@map("professional_verification_reviews")
 }
 
 model Favorite {
@@ -535,15 +553,15 @@ model ReviewReminder {
 }
 
 model Review {
-  id                    String   @id @default(uuid()) @db.Uuid
-  contractId            String   @unique(map: "reviews_contract_id_key") @map("contract_id") @db.Uuid
-  customerProfileId     String   @map("customer_profile_id") @db.Uuid
-  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  id                    String    @id @default(uuid()) @db.Uuid
+  contractId            String    @unique(map: "reviews_contract_id_key") @map("contract_id") @db.Uuid
+  customerProfileId     String    @map("customer_profile_id") @db.Uuid
+  professionalProfileId String    @map("professional_profile_id") @db.Uuid
   rating                Int
-  comment               String?  @db.VarChar(1000)
+  comment               String?   @db.VarChar(1000)
   publishedAt           DateTime? @map("published_at") @db.Timestamptz(3)
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   contract            Contract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
   customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
@@ -554,15 +572,15 @@ model Review {
 }
 
 model CustomerReview {
-  id                    String   @id @default(uuid()) @db.Uuid
-  contractId            String   @unique(map: "professional_reviews_contract_id_key") @map("contract_id") @db.Uuid
-  customerProfileId     String   @map("customer_profile_id") @db.Uuid
-  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  id                    String    @id @default(uuid()) @db.Uuid
+  contractId            String    @unique(map: "professional_reviews_contract_id_key") @map("contract_id") @db.Uuid
+  customerProfileId     String    @map("customer_profile_id") @db.Uuid
+  professionalProfileId String    @map("professional_profile_id") @db.Uuid
   rating                Int
-  comment               String?  @db.VarChar(1000)
+  comment               String?   @db.VarChar(1000)
   publishedAt           DateTime? @map("published_at") @db.Timestamptz(3)
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   contract            Contract            @relation(fields: [contractId], references: [id], onDelete: Restrict)
   customerProfile     CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)

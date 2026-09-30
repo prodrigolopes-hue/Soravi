@@ -20,9 +20,39 @@ export class ProfessionalVerificationReviewService {
       if (target.verificationStatus !== ProfessionalVerificationStatus.PENDING) throw new ProfessionalVerificationReviewTransitionNotAllowedException();
       const reviewedAt = new Date();
       const reviewNotes = input.reviewNotes ?? null;
-      const result = await transaction.professionalProfile.updateMany({ where: { id: target.id, verificationStatus: ProfessionalVerificationStatus.PENDING }, data: { verificationStatus: input.status, reviewNotes, reviewedAt, reviewedByUserId: adminUserId } });
-      if (result.count !== 1) throw new ProfessionalVerificationReviewTransitionNotAllowedException();
-      return new ProfessionalVerificationReviewResponseDto({ userId: targetUserId, verificationStatus: input.status, reviewedAt, reviewedByUserId: adminUserId, reviewNotes });
+      const result = await transaction.professionalProfile.updateMany({
+        where: {
+          id: target.id,
+          verificationStatus: ProfessionalVerificationStatus.PENDING,
+        },
+        data: {
+          verificationStatus: input.status,
+          reviewNotes,
+          reviewedAt,
+          reviewedByUserId: adminUserId,
+        },
+      });
+
+      if (result.count !== 1) {
+        throw new ProfessionalVerificationReviewTransitionNotAllowedException();
+      }
+      await transaction.professionalVerificationReview.create({
+        data: {
+          professionalProfileId: target.id,
+          fromStatus: ProfessionalVerificationStatus.PENDING,
+          toStatus: input.status,
+          reviewNotes,
+          reviewedByUserId: adminUserId,
+          createdAt: reviewedAt,
+        },
+      });
+      return new ProfessionalVerificationReviewResponseDto({
+        userId: targetUserId,
+        verificationStatus: input.status,
+        reviewedAt,
+        reviewedByUserId: adminUserId,
+        reviewNotes,
+      });
     });
   }
 
