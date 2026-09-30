@@ -91,7 +91,10 @@ Campos principais:
 - `initialRole` (`CUSTOMER` ou `PROFESSIONAL`);
 - `acceptedTermsVersion`;
 - `acceptedPrivacyPolicyVersion`;
-- `categorySlugs?: string[]`.
+- `categorySlugs?: string[]`;
+- `professionalTitle?: string`;
+- `serviceArea?: string`;
+- `description?: string`.
 
 Regras de categorias no registro:
 
@@ -100,6 +103,8 @@ Regras de categorias no registro:
 - slugs devem ser únicos;
 - slugs devem existir e estar ativos em `Category` (`isActive = true`);
 - validação final é sempre do backend.
+- `professionalTitle` e `serviceArea` são persistidos no `ProfessionalProfile`,
+  e `description` é persistido como `bio`.
 
 Compatibilidade:
 
@@ -135,6 +140,20 @@ GET /api/v1/users/me - Dados do usuário autenticado
 PUT /api/v1/users/me - Atualizar perfil
 
 DELETE /api/v1/users/me - Encerrar conta
+
+## Perfil profissional atual
+
+Rotas autenticadas, restritas a `PROFESSIONAL`:
+
+- `GET /api/v1/users/me/professional-profile` retorna o perfil atual;
+- `PATCH /api/v1/users/me/professional-profile` atualiza o perfil atual.
+
+O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
+`categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
+bio aceitam `null`; `categorySlugs` deve conter de 1 a 3 slugs únicos de
+categorias ativas; `isAvailable` é booleano. O retorno inclui `id`, os campos
+do perfil, `verificationStatus` e as categorias. Esta API suporta a rota web
+`/profissional/perfil`, com visualização e edição explícita pelo profissional.
 
 ------------------------------------------------------------------------
 
@@ -444,9 +463,15 @@ Autenticação e autorização:
 
 Não há payload. A submissão exige `ProfessionalProfile` existente e não
 excluído, `displayName` preenchido, telefone existente e verificado e pelo
-menos uma categoria ativa vinculada. Só é permitida a transição
-`NOT_STARTED -> PENDING`; os estados `PENDING`, `APPROVED` e `REJECTED` não
-podem ser submetidos novamente. A atualização é segura contra concorrência.
+menos uma categoria ativa vinculada. Permite `NOT_STARTED -> PENDING` e,
+depois de uma rejeição, `REJECTED -> PENDING`. No reenvio, também exige
+`professionalTitle` e `serviceArea` preenchidos e `bio` com pelo menos 30
+caracteres. `PENDING` e `APPROVED` não podem ser submetidos novamente. A
+atualização é segura contra concorrência.
+
+No reenvio, o snapshot atual limpa `reviewedAt`, `reviewedByUserId` e
+`reviewNotes` para `null`; o histórico `ProfessionalVerificationReview` não é
+alterado.
 
 ### Resposta
 
@@ -481,8 +506,10 @@ Payload:
 
 `status` aceita somente `APPROVED` ou `REJECTED`; o profissional alvo precisa
 ter `ProfessionalProfile` e estar em `PENDING`. A revisão é transacional e
-segura contra concorrência. Ela registra o instante, o administrador revisor e
-as notas, sem alterar `User.status` ou sessões.
+segura contra concorrência. Além de registrar o instante, o administrador
+revisor e as notas no snapshot do perfil, cada decisão vencedora cria um
+`ProfessionalVerificationReview` append-only com `fromStatus`, `toStatus`,
+notas, revisor e data. A revisão não altera `User.status` ou sessões.
 
 ### Resposta
 

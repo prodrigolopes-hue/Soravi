@@ -14,23 +14,50 @@ Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `p
 
 ### Verificação profissional
 
-A verificação profissional básica está implementada e validada localmente. O
-profissional com papel `PROFESSIONAL` submete o próprio perfil por
-`POST /api/v1/users/me/professional-verification/submission`, na transição
-atômica `NOT_STARTED -> PENDING`. A elegibilidade exige perfil não excluído,
-`displayName`, telefone existente e verificado e categoria ativa vinculada.
+A verificação profissional, o perfil editável e a área Conta estão
+**IMPLEMENTADOS E VALIDADOS LOCALMENTE**. O profissional com papel
+`PROFESSIONAL` consulta e edita o próprio perfil em `/profissional/perfil`, por
+`GET`/`PATCH /api/v1/users/me/professional-profile`: `displayName`,
+`professionalTitle`, `serviceArea`, `bio`, de uma a três categorias e
+`isAvailable`. A área autenticada inclui `/conta`, `/conta/telefone` e
+`/conta/seguranca`; a alteração segura de telefone reutiliza o backend existente.
+O cadastro profissional persiste `professionalTitle`, `serviceArea` e
+`description` como `bio`.
+
+O profissional submete o próprio perfil por
+`POST /api/v1/users/me/professional-verification/submission`, nas transições
+atômicas `NOT_STARTED -> PENDING` e `REJECTED -> PENDING`. A elegibilidade exige
+perfil não excluído, `displayName`, telefone existente e verificado e categoria
+ativa vinculada; no reenvio exige ainda `professionalTitle`, `serviceArea` e
+`bio` com pelo menos 30 caracteres.
 
 O administrador revisa somente perfis `PENDING` por
 `PATCH /api/v1/users/admin/professionals/:userId/verification`, transicionando
 para `APPROVED` ou `REJECTED`. A decisão é transacional, segura contra
 concorrência e registra `reviewedAt`, `reviewedByUserId` e `reviewNotes`
-opcional (após trim, até 1000 caracteres). O frontend preserva o estado após
-refetch/F5 e atualiza localmente a linha revisada. Não existem ainda reenvio,
-histórico de eventos, documentos nem notificações da decisão.
+opcional (após trim, até 1000 caracteres) como snapshot no
+`ProfessionalProfile`. A mesma transação cria `ProfessionalVerificationReview`
+append-only para cada decisão `PENDING -> APPROVED|REJECTED`. Em um reenvio, o
+snapshot de revisão é limpo (`reviewedAt`, `reviewedByUserId` e `reviewNotes`
+para `null`) e o histórico anterior permanece intacto.
 
-Staging não foi validado: antes do E2E, é necessário aplicar a migration
-`20260924000100_add_professional_profile_review_metadata` e garantir um usuário
-`ADMIN` para a revisão.
+Na UX, `REJECTED` mostra “Perfil não aprovado”; o fluxo exige editar, salvar e
+só então usar “Reenviar para análise”, sem reenvio automático ao salvar.
+`PENDING` mostra “Perfil em análise” e `APPROVED` mantém a indicação normal.
+As notas de revisão podem ser vistas apenas pelo próprio profissional
+autenticado, nunca em superfície pública. O frontend preserva o estado após
+refetch/F5 e atualiza localmente a linha revisada. Documentos comprobatórios e
+notificações da decisão continuam fora deste bloco.
+
+Staging não foi validado para este bloco: antes do E2E, é necessário aplicar as
+migrations `20260924000100_add_professional_profile_review_metadata`,
+`20260928000100_add_professional_profile_editable_fields` e
+`20260929000100_create_professional_verification_reviews`, garantir um usuário
+`ADMIN` e executar o ciclo `REJECTED -> editar -> salvar -> reenviar -> PENDING
+-> aprovar/rejeitar`. Não há afirmação de deploy ou de migrations aplicadas em
+staging. Localmente, os testes de reenvio passaram (12/12), os builds da API e
+web passaram e o E2E manual confirmou esse ciclo, inclusive a persistência de
+`PENDING` após F5 e o retorno a `APPROVED` após aprovação administrativa.
 
 Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente.
 

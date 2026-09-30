@@ -34,6 +34,7 @@ Pode:
 Pode:
 
 -   criar conta profissional;
+-   consultar e editar o próprio perfil em `/profissional/perfil`;
 -   informar categorias atendidas;
 -   definir área de atuação;
 -   enviar propostas;
@@ -48,16 +49,23 @@ enviou o perfil para análise; `PENDING`, o perfil em análise administrativa.
 
 O profissional autenticado com papel `PROFESSIONAL` pode submeter o próprio
 perfil pelo endpoint `POST /api/v1/users/me/professional-verification/submission`.
-A única transição dessa etapa é `NOT_STARTED -> PENDING`. A submissão exige
-`ProfessionalProfile` existente e não excluído, `displayName` preenchido,
-telefone existente e verificado e pelo menos uma `ProfessionalCategory`
-vinculada a uma categoria ativa. A transição é protegida contra concorrência e
-não permite que `PENDING`, `APPROVED` ou `REJECTED` retornem para `PENDING`.
+As transições permitidas são `NOT_STARTED -> PENDING` e, após uma rejeição,
+`REJECTED -> PENDING`. A submissão exige `ProfessionalProfile` existente e não
+excluído, `displayName` preenchido, telefone existente e verificado e pelo
+menos uma `ProfessionalCategory` vinculada a uma categoria ativa. No reenvio
+após `REJECTED`, também exige `professionalTitle` e `serviceArea` preenchidos e
+`bio` com pelo menos 30 caracteres. A transição é protegida contra concorrência;
+`PENDING` e `APPROVED` não podem ser submetidos novamente.
 
-No painel profissional, o estado elegível em `NOT_STARTED` exibe a ação de
-submissão; telefone não verificado é apresentado como pendência. Em `PENDING`,
-o painel informa “Perfil em análise”. O estado permanece após recarregar a
-sessão ou a página.
+Em `/profissional/perfil`, o profissional vê o perfil em modo de visualização e
+pode usar **Editar perfil**, salvar ou cancelar a edição de `displayName`,
+`professionalTitle`, `serviceArea`, `bio`, de uma a três categorias e
+`isAvailable`. Em `REJECTED`, ele vê “Perfil não aprovado”; salvar alterações
+não reenvia automaticamente. Depois de salvar, a ação **Reenviar para análise**
+fica disponível. Em `PENDING`, o painel informa “Perfil em análise”; em
+`APPROVED`, mantém a indicação normal de aprovação. O estado permanece após
+recarregar a sessão ou a página. `reviewNotes` pode ser exibido somente ao
+próprio profissional autenticado e não é dado público.
 
 ## Administrador
 
@@ -77,15 +85,26 @@ transições permitidas são `PENDING -> APPROVED` e `PENDING -> REJECTED`.
 `NOT_STARTED`, `APPROVED` e `REJECTED` não podem ser revisados neste fluxo.
 
 A decisão pode registrar `reviewNotes` opcional, com espaços externos removidos
-e até 1000 caracteres. A revisão grava `reviewedAt` e `reviewedByUserId` no
-`ProfessionalProfile`; a operação é transacional e protegida contra concorrência.
-Ela não altera `User.status`, sessões, regras de oportunidades nem redistribui
-oportunidades retroativamente.
+e até 1000 caracteres. Cada decisão vencedora cria um
+`ProfessionalVerificationReview` append-only, preservando o evento
+`PENDING -> APPROVED|REJECTED`. O `ProfessionalProfile` mantém somente o
+snapshot da decisão mais recente (`verificationStatus`, `reviewedAt`,
+`reviewedByUserId` e `reviewNotes`). No reenvio `REJECTED -> PENDING`, os três
+campos de revisão do snapshot são zerados para `null`, sem apagar o histórico.
+A operação é transacional e protegida contra concorrência. Ela não altera
+`User.status`, sessões, regras de oportunidades nem redistribui oportunidades
+retroativamente.
 
 Em `/admin/profissionais`, somente itens `PENDING` exibem Aprovar e Rejeitar.
 Após uma decisão, a linha é atualizada localmente e as ações deixam de aparecer.
-Não há reenvio após rejeição, histórico de múltiplos eventos, documentos
-comprobatórios ou notificação da decisão neste MVP.
+O histórico de decisões é preservado; documentos comprobatórios e notificações
+da decisão não fazem parte deste MVP.
+
+### Estado de implementação e ambientes
+
+O perfil editável, o histórico append-only e o reenvio após rejeição estão
+**IMPLEMENTADOS E VALIDADOS LOCALMENTE**. Este bloco ainda não foi validado em
+staging; não há afirmação de deploy nem de migrations aplicadas nesse ambiente.
 
 ------------------------------------------------------------------------
 

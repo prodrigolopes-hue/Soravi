@@ -42,8 +42,8 @@ profissionais favoritos
 
 ## Profissional
 
-Campos adicionais: - descrição - categorias - área de atendimento - nota
-média - quantidade de avaliações
+Campos adicionais: `displayName`, `professionalTitle`, `serviceArea`, `bio`,
+categorias, `isAvailable`, nota média e quantidade de avaliações.
 
 Relacionamentos: - várias propostas - várias avaliações recebidas
 
@@ -53,11 +53,32 @@ Relacionamentos: - várias propostas - várias avaliações recebidas
 `ProfessionalVerificationStatus`: `NOT_STARTED`, `PENDING`, `APPROVED` e
 `REJECTED`.
 
-Para registrar a decisão administrativa, o perfil possui `reviewedAt`
-(`DateTime?`), `reviewedByUserId` (`UUID?`, relacionado ao `User` revisor) e
-`reviewNotes` (`string?`, máximo de 1000 caracteres após trim). Esses campos
-permanecem nulos antes da revisão. Não há histórico de eventos de revisão neste
-MVP.
+Para registrar o estado atual da decisão administrativa, o perfil possui
+`reviewedAt` (`DateTime?`), `reviewedByUserId` (`UUID?`, relacionado ao `User`
+revisor) e `reviewNotes` (`string?`, máximo de 1000 caracteres após trim).
+Com `verificationStatus`, esses campos formam o snapshot da decisão mais
+recente e permanecem nulos antes da revisão. No reenvio `REJECTED -> PENDING`,
+`reviewedAt`, `reviewedByUserId` e `reviewNotes` voltam a `null`.
+
+`ProfessionalVerificationReview` é o histórico append-only de decisões:
+
+- `id`;
+- `professionalProfileId`;
+- `fromStatus`;
+- `toStatus`;
+- `reviewNotes`;
+- `reviewedByUserId`;
+- `createdAt`.
+
+Cada transição administrativa vencedora `PENDING -> APPROVED|REJECTED` cria um
+registro nessa entidade na mesma transação que atualiza o snapshot do
+`ProfessionalProfile`. O reenvio não altera nem remove registros anteriores.
+Há índice por `professionalProfileId, createdAt`; o perfil é removido em cascade
+e o revisor é preservado por referência opcional com `onDelete: SetNull`.
+
+Os campos editáveis do profissional estão disponíveis localmente e validados:
+`displayName` (até 120), `professionalTitle` (até 80), `serviceArea` (até 100),
+`bio` (até 1000), de uma a três categorias ativas e `isAvailable`.
 
 ------------------------------------------------------------------------
 

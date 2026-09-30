@@ -471,3 +471,31 @@ A página de categoria da Soravi combinará descoberta direta de profissionais c
 ### Consequências
 
 Home, categoria, perfil público e filtros deverão evoluir como superfícies de descoberta e contratação complementares ao fluxo de solicitações e propostas. Esta decisão não cria rota, API, filtro, perfil público, migration ou alteração de código.
+
+## Histórico append-only e reenvio da verificação profissional
+
+### Decisão (2026-09-30)
+
+As decisões administrativas de verificação serão registradas em
+`ProfessionalVerificationReview` como eventos append-only. O
+`ProfessionalProfile` conservará somente o snapshot da decisão mais recente:
+`verificationStatus`, `reviewedAt`, `reviewedByUserId` e `reviewNotes`.
+
+O profissional rejeitado pode corrigir o perfil e reenviá-lo explicitamente.
+No reenvio `REJECTED -> PENDING`, os metadados de revisão do snapshot são
+limpos, mas os eventos históricos não são alterados nem removidos.
+
+### Consequências
+
+- cada decisão vencedora `PENDING -> APPROVED|REJECTED` preserva autor, data,
+  notas e estados de origem/destino;
+- interfaces correntes consultam o snapshot para o estado operacional, sem
+  tratar o histórico como estado mutável;
+- `reviewNotes` é dado privado do profissional autenticado e não deve compor
+  perfil ou descoberta pública;
+- reenvio exige ação explícita após salvar as correções, evitando mudança de
+  status automática pela simples edição do perfil.
+
+Esta decisão está implementada e validada localmente. Staging ainda não foi
+validado para o bloco e esta documentação não afirma deploy nem migrations
+aplicadas nesse ambiente.

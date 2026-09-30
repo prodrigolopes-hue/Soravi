@@ -15,8 +15,11 @@
 - [x] Oportunidades, propostas, contratação, chat e notificações.
 - [x] Favoritos e avaliações.
 - [~] Painéis, administração e moderação.
-- [x] Verificação profissional básica: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED` e respectivas interfaces, validadas localmente.
-- [ ] Staging: aplicar `20260924000100_add_professional_profile_review_metadata`, garantir usuário `ADMIN` e executar validação E2E da verificação profissional.
+- [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente.
+- [x] Área Conta: `/conta`, `/conta/telefone`, `/conta/seguranca` e acesso profissional a `/profissional/perfil`; a troca segura de telefone reutiliza o backend existente.
+- [x] Cadastro profissional persiste `professionalTitle`, `serviceArea` e `description -> bio`.
+- [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; tudo validado localmente.
+- [ ] Staging: aplicar `20260924000100_add_professional_profile_review_metadata`, `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews`, garantir usuário `ADMIN` e executar validação E2E completa do perfil e da verificação profissional.
 
 `editableUntil` é legado e não controla mais UX, edição ou dispatcher.
 
@@ -46,7 +49,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 # ÉPICO 2 - Perfil
 
--   Editar perfil
+- [x] Editar perfil profissional autenticado.
 -   Foto
 -   Endereço
 -   Categorias
@@ -320,16 +323,16 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Revogação de todas as sessões ainda ativas durante o bloqueio.
 - [x] Submissão do perfil profissional elegível para verificação (`NOT_STARTED -> PENDING`).
 - [x] Revisão administrativa de profissionais pendentes (`PENDING -> APPROVED|REJECTED`), com confirmação, motivo opcional e atualização local da linha.
+- [x] Histórico append-only de decisões em `ProfessionalVerificationReview`; `ProfessionalProfile` mantém o snapshot atual.
+- [x] Reenvio após `REJECTED`: editar, salvar e enviar explicitamente para nova análise (`REJECTED -> PENDING`), sem apagar histórico.
+- [x] Edição completa do perfil profissional: `displayName`, `professionalTitle`, `serviceArea`, `bio`, categorias e disponibilidade.
 
 ### Pendente
 
-- [ ] Edição de profissional.
 - [ ] Suspensão de profissional em fluxo próprio.
 - [ ] Moderação de profissional.
 - [ ] Curadoria de profissional.
-- [ ] Reenvio para verificação após `REJECTED`.
-- [ ] Histórico multi-evento de revisões, documentos comprobatórios e notificações da decisão.
-- [ ] Edição completa do perfil profissional.
+- [ ] Documentos comprobatórios e notificações da decisão.
 
 ### Pendente
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-30
+
+### Perfil profissional editável, histórico e reenvio — implementado e validado localmente
+
+- implementada a rota `/profissional/perfil`, com visualização, edição, salvar/cancelar e os campos `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`;
+- consolidada a Área Conta em `/conta`, `/conta/telefone` e `/conta/seguranca`; profissionais também acessam `/profissional/perfil`, e a alteração segura de telefone reutiliza o backend existente;
+- o cadastro profissional agora persiste `professionalTitle`, `serviceArea` e `description` como `bio`;
+- `ProfessionalVerificationReview` registra de forma append-only cada decisão administrativa vencedora `PENDING -> APPROVED|REJECTED`; `ProfessionalProfile` mantém apenas o snapshot mais recente (`verificationStatus`, `reviewedAt`, `reviewedByUserId`, `reviewNotes`);
+- implementado o reenvio explícito após `REJECTED`: o profissional edita, salva e só então usa `POST /api/v1/users/me/professional-verification/submission` para transicionar a `PENDING`; o snapshot limpa `reviewedAt`, `reviewedByUserId` e `reviewNotes`, sem apagar o histórico;
+- o reenvio exige `displayName`, telefone existente e verificado, categoria ativa, `professionalTitle`, `serviceArea` e `bio` com ao menos 30 caracteres; `PENDING` e `APPROVED` não podem reenviar;
+- UX: `REJECTED` mostra “Perfil não aprovado”, salvar não reenvia automaticamente, `PENDING` mostra “Perfil em análise”, e `reviewNotes` é visível somente ao profissional autenticado, nunca publicamente;
+- validação local concluída: testes de reenvio 12/12, builds de API e web aprovados e E2E manual `REJECTED -> editar -> salvar -> reenviar -> PENDING`, com persistência após F5, revisão administrativa e retorno a `APPROVED`;
+- staging ainda não foi validado para este bloco. Não há afirmação de deploy nem de migrations aplicadas em staging. Antes do E2E nesse ambiente, aplicar `20260924000100_add_professional_profile_review_metadata`, `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews`, além de garantir um usuário `ADMIN`.
+
 ## Histórico de decisões de verificação profissional
 
 - Adicionada a tabela append-only `ProfessionalVerificationReview`. Cada decisão administrativa vencedora (`PENDING -> APPROVED|REJECTED`) grava um novo registro na mesma transação que atualiza o snapshot em `ProfessionalProfile`.
@@ -18,8 +32,8 @@
 
 - Implementados os estados `NOT_STARTED`, `PENDING`, `APPROVED` e `REJECTED`, a submissão autenticada do próprio profissional em `POST /api/v1/users/me/professional-verification/submission` e a transição concorrente segura `NOT_STARTED -> PENDING` para perfis elegíveis.
 - Implementada a revisão administrativa em `PATCH /api/v1/users/admin/professionals/:userId/verification`, restrita a `ADMIN`, com as transições finais `PENDING -> APPROVED|REJECTED`, `reviewNotes` opcional com trim e limite de 1000 caracteres, e persistência de `reviewedAt` e `reviewedByUserId`.
-- Implementadas as interfaces de submissão no painel profissional e de aprovação/rejeição em `/admin/profissionais`, com atualização local da linha e persistência de estado após refetch/F5. O fluxo foi validado localmente; não há validação em staging, deploy ou reenvio após rejeição.
-- Antes do E2E em staging, aplicar a migration `20260924000100_add_professional_profile_review_metadata` e garantir um usuário `ADMIN` para a revisão.
+- Implementadas as interfaces de submissão no painel profissional e de aprovação/rejeição em `/admin/profissionais`, com atualização local da linha e persistência de estado após refetch/F5. O fluxo básico foi validado localmente; o reenvio após rejeição está registrado na entrada de 2026-09-30. Não há validação em staging ou afirmação de deploy.
+- Antes do E2E em staging do bloco completo, aplicar as migrations de metadados, campos editáveis e histórico, registradas na entrada de 2026-09-30, e garantir um usuário `ADMIN` para a revisão.
 
 ## Avaliacoes bilaterais cegas - implementacao e validacao local
 
