@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, currentProfessionalProfileUrl } from "../../lib/api";
+import { categoriesUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
 import {
   type ProfessionalCategory,
   type ProfessionalProfile,
@@ -52,7 +52,7 @@ const verificationStyles = {
 } as const;
 
 export function ProfessionalProfilePage() {
-  const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+  const { accessToken, isAuthenticated, isLoading, user, refreshSession } = useAuth();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
@@ -61,6 +61,10 @@ export function ProfessionalProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+  const [isReadyToResubmit, setIsReadyToResubmit] = useState(false);
   const {
     register,
     handleSubmit,
@@ -195,6 +199,7 @@ export function ProfessionalProfilePage() {
       setCategories((current) => mergeProfileCategories(current, updatedProfile.categories));
       reset(formValuesFromProfile(updatedProfile));
       setSaveMessage("Perfil profissional atualizado com sucesso.");
+      if (updatedProfile.verificationStatus === "REJECTED") { setSaveMessage("Perfil atualizado com sucesso. Agora você pode reenviá-lo para análise."); setIsReadyToResubmit(true); }
       setIsEditing(false);
     } catch (error) {
       setSaveError(
@@ -205,6 +210,16 @@ export function ProfessionalProfilePage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function resubmitForVerification(): Promise<void> {
+    if (!accessToken || profile?.verificationStatus !== "REJECTED" || isSubmittingVerification) return;
+    setIsSubmittingVerification(true); setSubmissionError(null); setSubmissionMessage(null);
+    try {
+      const response = await fetch(professionalVerificationSubmissionUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      if (!response.ok) { const payload: unknown = await response.json().catch(() => null); throw new Error(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" ? payload.message : "Não foi possível reenviar seu perfil agora."); }
+      await refreshSession(); await loadProfile(); setSubmissionMessage("Perfil reenviado para análise com sucesso.");
+    } catch (error) { setSubmissionError(error instanceof Error ? error.message : "Não foi possível reenviar seu perfil agora."); } finally { setIsSubmittingVerification(false); }
   }
 
   function toggleCategory(slug: string): void {
@@ -283,9 +298,13 @@ export function ProfessionalProfilePage() {
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" />
             <div>
-              <h2 id="verification-status-title" className="font-bold text-slate-950">Status da verificação</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Este status é somente leitura nesta tela.</p>
+              <h2 id="verification-status-title" className="font-bold text-slate-950">{profile.verificationStatus === "REJECTED" ? "Perfil não aprovado" : profile.verificationStatus === "PENDING" ? "Perfil em análise" : "Status da verificação"}</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{profile.verificationStatus === "REJECTED" ? "Revise as informações abaixo antes de reenviar seu perfil para uma nova análise." : profile.verificationStatus === "PENDING" ? "Seu perfil foi reenviado e está aguardando uma nova análise da Soravi." : "Este status é somente leitura nesta tela."}</p>
               <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verificationStyles[profile.verificationStatus]}`}>{verificationLabels[profile.verificationStatus]}</span>
+              {profile.verificationStatus === "REJECTED" && user?.professionalProfile?.reviewNotes ? <p className="mt-3 text-sm leading-6 text-red-800"><span className="font-semibold">Motivo da revisão:</span> {user.professionalProfile.reviewNotes}</p> : null}
+              {profile.verificationStatus === "REJECTED" && !isEditing && isReadyToResubmit ? <button type="button" disabled={isSubmittingVerification} onClick={() => void resubmitForVerification()} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmittingVerification ? "Reenviando..." : "Reenviar para análise"}</button> : null}
+              {submissionError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{submissionError}</p> : null}
+              {submissionMessage ? <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{submissionMessage}</p> : null}
             </div>
           </div>
         </section>

@@ -12,6 +12,7 @@ export interface ProfessionalProfileSummary {
   id: string;
   displayName: string;
   verificationStatus: ProfessionalVerificationStatus;
+  reviewNotes: string | null;
   isAvailable: boolean;
 }
 

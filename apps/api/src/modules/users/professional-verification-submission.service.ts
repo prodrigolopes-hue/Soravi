@@ -15,6 +15,9 @@ import { ProfessionalVerificationStatusTransitionNotAllowedException } from "./e
 interface LockedProfessionalProfile {
   id: string;
   displayName: string;
+  professionalTitle: string | null;
+  serviceArea: string | null;
+  bio: string | null;
   verificationStatus: ProfessionalVerificationStatus;
   phone: string | null;
   phoneVerifiedAt: Date | null;
@@ -34,7 +37,8 @@ export class ProfessionalVerificationSubmissionService {
         throw new ProfessionalVerificationProfileNotFoundException();
       }
 
-      if (profile.verificationStatus !== ProfessionalVerificationStatus.NOT_STARTED) {
+      const isResubmission = profile.verificationStatus === ProfessionalVerificationStatus.REJECTED;
+      if (profile.verificationStatus !== ProfessionalVerificationStatus.NOT_STARTED && !isResubmission) {
         throw new ProfessionalVerificationStatusTransitionNotAllowedException();
       }
 
@@ -69,13 +73,24 @@ export class ProfessionalVerificationSubmissionService {
         );
       }
 
+      if (isResubmission && !profile.professionalTitle?.trim()) {
+        throw new ProfessionalVerificationSubmissionNotEligibleException("PROFESSIONAL_TITLE_MISSING");
+      }
+      if (isResubmission && !profile.serviceArea?.trim()) {
+        throw new ProfessionalVerificationSubmissionNotEligibleException("SERVICE_AREA_MISSING");
+      }
+      if (isResubmission && (!profile.bio || profile.bio.trim().length < 30)) {
+        throw new ProfessionalVerificationSubmissionNotEligibleException("BIO_TOO_SHORT");
+      }
+
       const result = await transaction.professionalProfile.updateMany({
         where: {
           id: profile.id,
-          verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
+          verificationStatus: isResubmission ? ProfessionalVerificationStatus.REJECTED : ProfessionalVerificationStatus.NOT_STARTED,
         },
         data: {
           verificationStatus: ProfessionalVerificationStatus.PENDING,
+          ...(isResubmission ? { reviewedAt: null, reviewedByUserId: null, reviewNotes: null } : {}),
         },
       });
 
@@ -98,6 +113,9 @@ export class ProfessionalVerificationSubmissionService {
         SELECT
           "professional_profiles"."id",
           "professional_profiles"."display_name" AS "displayName",
+          "professional_profiles"."professional_title" AS "professionalTitle",
+          "professional_profiles"."service_area" AS "serviceArea",
+          "professional_profiles"."bio",
           "professional_profiles"."verification_status" AS "verificationStatus",
           "users"."phone",
           "users"."phone_verified_at" AS "phoneVerifiedAt"

@@ -448,6 +448,7 @@ describe("AuthService", () => {
       displayName: "Maria da Silva",
       verificationStatus:
         ProfessionalVerificationStatus.NOT_STARTED,
+      reviewNotes: null,
       isAvailable: true,
     });
   });
@@ -1751,6 +1752,7 @@ describe("AuthService", () => {
         displayName: "Maria da Silva",
         verificationStatus:
           ProfessionalVerificationStatus.NOT_STARTED,
+        reviewNotes: null,
         isAvailable: true,
       },
       createdAt: new Date("2026-07-31T17:57:46.624Z"),

@@ -35,6 +35,7 @@ export interface AuthUser {
     id: string;
     displayName: string;
     verificationStatus: string;
+    reviewNotes: string | null;
     isAvailable: boolean;
   } | null;
 }

@@ -36,6 +36,7 @@ const safeUserSelect = {
       id: true,
       displayName: true,
       verificationStatus: true,
+      reviewNotes: true,
       isAvailable: true,
     },
   },
