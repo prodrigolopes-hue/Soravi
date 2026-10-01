@@ -85,8 +85,15 @@ export class NotificationsService {
           notification.resourceType === "CONVERSATION",
       )
       .map((notification) => notification.resourceId);
+    const contractIds = notifications
+      .filter(
+        (notification) =>
+          isReviewReminder(notification.type) &&
+          notification.resourceType === "CONTRACT",
+      )
+      .map((notification) => notification.resourceId);
 
-    const [opportunities, proposals, messages, conversations] = await Promise.all([
+    const [opportunities, proposals, messages, conversations, contracts] = await Promise.all([
       this.prisma.serviceOpportunity.findMany({
         where: {
           id: { in: opportunityIds },
@@ -130,7 +137,37 @@ export class NotificationsService {
         },
         select: { id: true },
       }),
+      this.prisma.contract.findMany({
+        where: {
+          id: { in: contractIds },
+          OR: [
+            { customerProfile: { userId } },
+            { professionalProfile: { userId } },
+          ],
+        },
+        select: {
+          id: true,
+          serviceRequestId: true,
+          professionalProfileId: true,
+          customerProfile: { select: { userId: true } },
+          professionalProfile: { select: { userId: true } },
+        },
+      }),
     ]);
+    const contractProfessionalOpportunities =
+      await this.prisma.serviceOpportunity.findMany({
+        where: {
+          serviceRequestId: {
+            in: contracts.map((contract) => contract.serviceRequestId),
+          },
+          professionalProfile: { userId },
+        },
+        select: {
+          id: true,
+          serviceRequestId: true,
+          professionalProfileId: true,
+        },
+      });
     const opportunityIdsWithAccess = new Set(
       opportunities.map((opportunity) => opportunity.id),
     );
@@ -146,6 +183,15 @@ export class NotificationsService {
     }
     const conversationIdsWithAccess = new Set(
       conversations.map((conversation) => conversation.id),
+    );
+    const contractsById = new Map(
+      contracts.map((contract) => [contract.id, contract]),
+    );
+    const professionalOpportunityIds = new Map(
+      contractProfessionalOpportunities.map((opportunity) => [
+        `${opportunity.serviceRequestId}:${opportunity.professionalProfileId}`,
+        opportunity.id,
+      ]),
     );
     const items: NotificationListItemProperties[] = notifications.map(
       (notification) => {
@@ -193,6 +239,27 @@ export class NotificationsService {
           href = `/conversas/${notification.resourceId}`;
         }
 
+        if (
+          isReviewReminder(notification.type) &&
+          notification.resourceType === "CONTRACT"
+        ) {
+          const contract = contractsById.get(notification.resourceId);
+
+          if (contract?.customerProfile.userId === userId) {
+            href = `/solicitacoes/${contract.serviceRequestId}`;
+          }
+
+          if (contract?.professionalProfile.userId === userId) {
+            const opportunityId = professionalOpportunityIds.get(
+              `${contract.serviceRequestId}:${contract.professionalProfileId}`,
+            );
+
+            if (opportunityId) {
+              href = `/profissional/oportunidades/${opportunityId}`;
+            }
+          }
+        }
+
         return { ...notification, href };
       },
     );
@@ -236,4 +303,12 @@ export class NotificationsService {
       data: { readAt: new Date() },
     });
   }
+}
+
+function isReviewReminder(type: NotificationType): boolean {
+  return (
+    type === NotificationType.REVIEW_REMINDER_D1 ||
+    type === NotificationType.REVIEW_REMINDER_D4 ||
+    type === NotificationType.REVIEW_REMINDER_D6
+  );
 }

@@ -21,6 +21,7 @@ describe("NotificationsService", () => {
     proposal: { findMany: jest.Mock };
     message: { findMany: jest.Mock };
     conversation: { findMany: jest.Mock };
+    contract: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -44,6 +45,9 @@ describe("NotificationsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       conversation: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      contract: {
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(),
@@ -199,6 +203,93 @@ describe("NotificationsService", () => {
 
     const result = await service.findAll(userId, 1, 20);
 
+    expect(result.items[0]?.href).toBeNull();
+  });
+
+  it("resolves a customer review reminder to the service request", async () => {
+    const contractId = "125afb87-2b81-4de7-9606-8f382fff3341";
+    const serviceRequestId = "225afb87-2b81-4de7-9606-8f382fff3341";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.REVIEW_REMINDER_D1,
+        resourceType: "CONTRACT",
+        resourceId: contractId,
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.contract.findMany.mockResolvedValue([
+      {
+        id: contractId,
+        serviceRequestId,
+        professionalProfileId: "professional-profile-id",
+        customerProfile: { userId },
+        professionalProfile: { userId: "professional-user-id" },
+      },
+    ]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]?.href).toBe(`/solicitacoes/${serviceRequestId}`);
+  });
+
+  it("resolves a professional review reminder to the opportunity", async () => {
+    const contractId = "325afb87-2b81-4de7-9606-8f382fff3341";
+    const serviceRequestId = "425afb87-2b81-4de7-9606-8f382fff3341";
+    const professionalProfileId = "professional-profile-id";
+    const opportunityId = "525afb87-2b81-4de7-9606-8f382fff3342";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.REVIEW_REMINDER_D4,
+        resourceType: "CONTRACT",
+        resourceId: contractId,
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: opportunityId, serviceRequestId, professionalProfileId },
+      ]);
+    prismaMock.contract.findMany.mockResolvedValue([
+      {
+        id: contractId,
+        serviceRequestId,
+        professionalProfileId,
+        customerProfile: { userId: "customer-user-id" },
+        professionalProfile: { userId },
+      },
+    ]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(result.items[0]?.href).toBe(
+      `/profissional/oportunidades/${opportunityId}`,
+    );
+  });
+
+  it("does not provide href for a non-participant or inconsistent contract", async () => {
+    const contractId = "625afb87-2b81-4de7-9606-8f382fff3342";
+    prismaMock.notification.findMany.mockResolvedValue([
+      createNotification({
+        type: NotificationType.REVIEW_REMINDER_D6,
+        resourceType: "CONTRACT",
+        resourceId: contractId,
+      }),
+    ]);
+    prismaMock.serviceOpportunity.findMany.mockResolvedValue([]);
+    prismaMock.contract.findMany.mockResolvedValue([]);
+
+    const result = await service.findAll(userId, 1, 20);
+
+    expect(prismaMock.contract.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: [contractId] },
+        OR: [
+          { customerProfile: { userId } },
+          { professionalProfile: { userId } },
+        ],
+      },
+      select: expect.any(Object),
+    });
     expect(result.items[0]?.href).toBeNull();
   });
 
