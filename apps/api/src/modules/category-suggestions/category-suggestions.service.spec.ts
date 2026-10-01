@@ -19,7 +19,7 @@ describe("CategorySuggestionsService", () => {
       count: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
-      update: jest.Mock;
+      updateMany: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -40,7 +40,7 @@ describe("CategorySuggestionsService", () => {
         count: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
-        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(),
     };
@@ -177,12 +177,13 @@ describe("CategorySuggestionsService", () => {
   });
 
   it("modera sugestão pendente com sucesso", async () => {
-    prismaMock.publicCategorySuggestion.findUnique.mockResolvedValue({
+    prismaMock.publicCategorySuggestion.findUnique
+      .mockResolvedValueOnce({
       id: "suggestion-id",
       status: PublicCategorySuggestionStatus.PENDING,
-    });
+      })
+      .mockResolvedValueOnce({
 
-    prismaMock.publicCategorySuggestion.update.mockResolvedValue({
       id: "suggestion-id",
       suggestedName: "Encanador",
       description: "Atendimento 24h",
@@ -193,6 +194,9 @@ describe("CategorySuggestionsService", () => {
       phone: null,
       reviewNotes: "Categoria válida",
       reviewedAt: new Date("2026-08-11T10:00:00.000Z"),
+      });
+    prismaMock.publicCategorySuggestion.updateMany.mockResolvedValue({
+      count: 1,
     });
 
     const result = await service.moderateSuggestion(
@@ -204,10 +208,11 @@ describe("CategorySuggestionsService", () => {
       },
     );
 
-    expect(prismaMock.publicCategorySuggestion.update).toHaveBeenCalledWith(
+    expect(prismaMock.publicCategorySuggestion.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           id: "suggestion-id",
+          status: PublicCategorySuggestionStatus.PENDING,
         },
         data: expect.objectContaining({
           status: PublicCategorySuggestionStatus.APPROVED,
@@ -219,6 +224,40 @@ describe("CategorySuggestionsService", () => {
     );
 
     expect(result.status).toBe(PublicCategorySuggestionStatus.APPROVED);
+  });
+
+  it("modera sugestao pendente para REJECTED", async () => {
+    prismaMock.publicCategorySuggestion.findUnique
+      .mockResolvedValueOnce({
+        id: "suggestion-id",
+        status: PublicCategorySuggestionStatus.PENDING,
+      })
+      .mockResolvedValueOnce({
+        id: "suggestion-id",
+        suggestedName: "Encanador",
+        description: "Atendimento 24h",
+        status: PublicCategorySuggestionStatus.REJECTED,
+        createdAt: new Date("2026-08-10T10:00:00.000Z"),
+        name: "Joao",
+        email: "joao@exemplo.com",
+        phone: null,
+        reviewNotes: "Fora do escopo",
+        reviewedAt: new Date("2026-08-11T10:00:00.000Z"),
+      });
+    prismaMock.publicCategorySuggestion.updateMany.mockResolvedValue({
+      count: 1,
+    });
+
+    const result = await service.moderateSuggestion(
+      "suggestion-id",
+      "admin-id",
+      {
+        status: PublicCategorySuggestionStatus.REJECTED,
+        reviewNotes: "Fora do escopo",
+      },
+    );
+
+    expect(result.status).toBe(PublicCategorySuggestionStatus.REJECTED);
   });
 
   it("falha quando sugestão não existe", async () => {
@@ -242,5 +281,44 @@ describe("CategorySuggestionsService", () => {
         status: PublicCategorySuggestionStatus.REJECTED,
       }),
     ).rejects.toBeInstanceOf(PublicCategorySuggestionNotPendingException);
+
+    expect(prismaMock.publicCategorySuggestion.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("falha quando a atualizacao condicional perde a concorrencia", async () => {
+    const persistedSuggestion = {
+      status: PublicCategorySuggestionStatus.APPROVED,
+      reviewNotes: "Categoria valida",
+    };
+
+    prismaMock.publicCategorySuggestion.findUnique.mockResolvedValue({
+      id: "suggestion-id",
+      status: PublicCategorySuggestionStatus.PENDING,
+    });
+    prismaMock.publicCategorySuggestion.updateMany.mockImplementation(
+      async ({
+        where,
+      }: {
+        where: { status: PublicCategorySuggestionStatus };
+      }) => ({
+        count:
+          persistedSuggestion.status === where.status
+            ? 1
+            : 0,
+      }),
+    );
+
+    await expect(
+      service.moderateSuggestion("suggestion-id", "second-admin-id", {
+        status: PublicCategorySuggestionStatus.REJECTED,
+        reviewNotes: "Segunda decisao",
+      }),
+    ).rejects.toBeInstanceOf(PublicCategorySuggestionNotPendingException);
+
+    expect(persistedSuggestion).toEqual({
+      status: PublicCategorySuggestionStatus.APPROVED,
+      reviewNotes: "Categoria valida",
+    });
+    expect(prismaMock.publicCategorySuggestion.findUnique).toHaveBeenCalledTimes(1);
   });
 });

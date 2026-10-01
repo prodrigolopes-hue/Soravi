@@ -119,17 +119,33 @@ export class CategorySuggestionsService {
       throw new PublicCategorySuggestionNotPendingException();
     }
 
-    const moderated =
-      await this.prisma.publicCategorySuggestion.update({
-        where: { id },
+    const updated =
+      await this.prisma.publicCategorySuggestion.updateMany({
+        where: {
+          id,
+          status: PublicCategorySuggestionStatus.PENDING,
+        },
         data: {
           status: input.status,
           reviewNotes: this.normalizeOptionalString(input.reviewNotes),
           reviewedAt: new Date(),
           reviewedByUserId: reviewerUserId,
         },
+      });
+
+    if (updated.count !== 1) {
+      throw new PublicCategorySuggestionNotPendingException();
+    }
+
+    const moderated =
+      await this.prisma.publicCategorySuggestion.findUnique({
+        where: { id },
         select: PUBLIC_CATEGORY_SUGGESTION_ADMIN_ITEM_SELECT,
       });
+
+    if (!moderated) {
+      throw new PublicCategorySuggestionNotFoundException();
+    }
 
     return new PublicCategorySuggestionAdminResponseDto(moderated);
   }
