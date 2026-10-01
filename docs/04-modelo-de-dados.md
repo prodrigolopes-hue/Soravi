@@ -80,6 +80,13 @@ Os campos editáveis do profissional estão disponíveis localmente e validados:
 `displayName` (até 120), `professionalTitle` (até 80), `serviceArea` (até 100),
 `bio` (até 1000), de uma a três categorias ativas e `isAvailable`.
 
+O modelo de perfil, o histórico de verificação e o comportamento do snapshot
+foram validados localmente e em staging. Em staging, as migrations
+`20260928000100_add_professional_profile_editable_fields` e
+`20260929000100_create_professional_verification_reviews` foram aplicadas, e
+`prisma migrate status` confirmou `Database schema is up to date` com 29
+migrations. Isso não declara estado de produção.
+
 ------------------------------------------------------------------------
 
 ## Categoria

@@ -103,8 +103,11 @@ da decisão não fazem parte deste MVP.
 ### Estado de implementação e ambientes
 
 O perfil editável, o histórico append-only e o reenvio após rejeição estão
-**IMPLEMENTADOS E VALIDADOS LOCALMENTE**. Este bloco ainda não foi validado em
-staging; não há afirmação de deploy nem de migrations aplicadas nesse ambiente.
+**IMPLEMENTADOS, VALIDADOS LOCALMENTE E VALIDADOS EM STAGING**. Em staging,
+foram confirmados os ciclos `NOT_STARTED -> PENDING -> APPROVED` e
+`PENDING -> REJECTED -> editar -> salvar -> reenviar -> PENDING -> APPROVED`,
+inclusive a persistência após F5 e a visibilidade privada do motivo de revisão.
+Essa validação não afirma deploy ou go-live em produção.
 
 ------------------------------------------------------------------------
 

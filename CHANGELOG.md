@@ -2,7 +2,7 @@
 
 ## 2026-09-30
 
-### Perfil profissional editável, histórico e reenvio — implementado e validado localmente
+### Perfil profissional editável, histórico e reenvio — implementado e validado localmente e em staging
 
 - implementada a rota `/profissional/perfil`, com visualização, edição, salvar/cancelar e os campos `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`;
 - consolidada a Área Conta em `/conta`, `/conta/telefone` e `/conta/seguranca`; profissionais também acessam `/profissional/perfil`, e a alteração segura de telefone reutiliza o backend existente;
@@ -12,7 +12,9 @@
 - o reenvio exige `displayName`, telefone existente e verificado, categoria ativa, `professionalTitle`, `serviceArea` e `bio` com ao menos 30 caracteres; `PENDING` e `APPROVED` não podem reenviar;
 - UX: `REJECTED` mostra “Perfil não aprovado”, salvar não reenvia automaticamente, `PENDING` mostra “Perfil em análise”, e `reviewNotes` é visível somente ao profissional autenticado, nunca publicamente;
 - validação local concluída: testes de reenvio 12/12, builds de API e web aprovados e E2E manual `REJECTED -> editar -> salvar -> reenviar -> PENDING`, com persistência após F5, revisão administrativa e retorno a `APPROVED`;
-- staging ainda não foi validado para este bloco. Não há afirmação de deploy nem de migrations aplicadas em staging. Antes do E2E nesse ambiente, aplicar `20260924000100_add_professional_profile_review_metadata`, `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews`, além de garantir um usuário `ADMIN`.
+- validação em staging concluída de ponta a ponta: perfil editável, Área Conta, submissão, aprovação, rejeição, exibição privada do motivo, edição, salvamento, reenvio, nova aprovação e persistência após F5; o profissional de teste e a listagem administrativa terminaram em `APPROVED`;
+- em staging, `ProfessionalVerificationReview` confirmou o histórico append-only e o reenvio preservou o histórico enquanto limpava e refazia o snapshot do `ProfessionalProfile`; as migrations `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews` foram aplicadas com sucesso, e `prisma migrate status` confirmou `Database schema is up to date` com 29 migrations;
+- a conta `ADMIN` de teste e `/admin/profissionais` foram validadas, incluindo Aprovar/Rejeitar. Esta validação não afirma deploy em produção, go-live ou conclusão de integrações WhatsApp/Meta.
 
 ## Histórico de decisões de verificação profissional
 
@@ -32,8 +34,7 @@
 
 - Implementados os estados `NOT_STARTED`, `PENDING`, `APPROVED` e `REJECTED`, a submissão autenticada do próprio profissional em `POST /api/v1/users/me/professional-verification/submission` e a transição concorrente segura `NOT_STARTED -> PENDING` para perfis elegíveis.
 - Implementada a revisão administrativa em `PATCH /api/v1/users/admin/professionals/:userId/verification`, restrita a `ADMIN`, com as transições finais `PENDING -> APPROVED|REJECTED`, `reviewNotes` opcional com trim e limite de 1000 caracteres, e persistência de `reviewedAt` e `reviewedByUserId`.
-- Implementadas as interfaces de submissão no painel profissional e de aprovação/rejeição em `/admin/profissionais`, com atualização local da linha e persistência de estado após refetch/F5. O fluxo básico foi validado localmente; o reenvio após rejeição está registrado na entrada de 2026-09-30. Não há validação em staging ou afirmação de deploy.
-- Antes do E2E em staging do bloco completo, aplicar as migrations de metadados, campos editáveis e histórico, registradas na entrada de 2026-09-30, e garantir um usuário `ADMIN` para a revisão.
+- Implementadas as interfaces de submissão no painel profissional e de aprovação/rejeição em `/admin/profissionais`, com atualização local da linha e persistência de estado após refetch/F5. O fluxo básico e o reenvio após rejeição, registrados na entrada de 2026-09-30, foram posteriormente validados em staging. Não há afirmação de deploy em produção.
 
 ## Avaliacoes bilaterais cegas - implementacao e validacao local
 

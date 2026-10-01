@@ -15,7 +15,7 @@ Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `p
 ### Verificação profissional
 
 A verificação profissional, o perfil editável e a área Conta estão
-**IMPLEMENTADOS E VALIDADOS LOCALMENTE**. O profissional com papel
+**IMPLEMENTADOS, VALIDADOS LOCALMENTE E VALIDADOS EM STAGING**. O profissional com papel
 `PROFESSIONAL` consulta e edita o próprio perfil em `/profissional/perfil`, por
 `GET`/`PATCH /api/v1/users/me/professional-profile`: `displayName`,
 `professionalTitle`, `serviceArea`, `bio`, de uma a três categorias e
@@ -49,15 +49,19 @@ autenticado, nunca em superfície pública. O frontend preserva o estado após
 refetch/F5 e atualiza localmente a linha revisada. Documentos comprobatórios e
 notificações da decisão continuam fora deste bloco.
 
-Staging não foi validado para este bloco: antes do E2E, é necessário aplicar as
-migrations `20260924000100_add_professional_profile_review_metadata`,
-`20260928000100_add_professional_profile_editable_fields` e
-`20260929000100_create_professional_verification_reviews`, garantir um usuário
-`ADMIN` e executar o ciclo `REJECTED -> editar -> salvar -> reenviar -> PENDING
--> aprovar/rejeitar`. Não há afirmação de deploy ou de migrations aplicadas em
-staging. Localmente, os testes de reenvio passaram (12/12), os builds da API e
-web passaram e o E2E manual confirmou esse ciclo, inclusive a persistência de
+Localmente, os testes de reenvio passaram (12/12), os builds da API e web
+passaram e o E2E manual confirmou esse ciclo, inclusive a persistência de
 `PENDING` após F5 e o retorno a `APPROVED` após aprovação administrativa.
+Em staging, o E2E confirmou `NOT_STARTED -> PENDING -> APPROVED`,
+`PENDING -> REJECTED` e `REJECTED -> editar -> salvar -> reenviar -> PENDING
+-> APPROVED`; o motivo da revisão foi exibido somente ao profissional, o perfil
+editado permaneceu salvo após F5 e a visão administrativa também terminou em
+`APPROVED`. A conta `ADMIN` de teste e `/admin/profissionais` foram validadas
+para Aprovar/Rejeitar. As migrations
+`20260928000100_add_professional_profile_editable_fields` e
+`20260929000100_create_professional_verification_reviews` foram aplicadas com
+sucesso, e `prisma migrate status` confirmou `Database schema is up to date`
+com 29 migrations. Isso não afirma deploy, go-live ou validação em produção.
 
 Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente.
 

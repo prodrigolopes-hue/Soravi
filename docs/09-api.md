@@ -155,6 +155,10 @@ categorias ativas; `isAvailable` é booleano. O retorno inclui `id`, os campos
 do perfil, `verificationStatus` e as categorias. Esta API suporta a rota web
 `/profissional/perfil`, com visualização e edição explícita pelo profissional.
 
+O perfil editável e sua integração com o fluxo de verificação foram validados
+localmente e em staging. Essa validação não representa disponibilidade ou
+promoção para produção.
+
 ------------------------------------------------------------------------
 
 # Solicitações

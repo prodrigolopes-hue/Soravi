@@ -496,6 +496,8 @@ limpos, mas os eventos históricos não são alterados nem removidos.
 - reenvio exige ação explícita após salvar as correções, evitando mudança de
   status automática pela simples edição do perfil.
 
-Esta decisão está implementada e validada localmente. Staging ainda não foi
-validado para o bloco e esta documentação não afirma deploy nem migrations
-aplicadas nesse ambiente.
+Esta decisão está implementada, validada localmente e validada em staging. As
+migrations `20260928000100_add_professional_profile_editable_fields` e
+`20260929000100_create_professional_verification_reviews` foram aplicadas nesse
+ambiente, cujo `prisma migrate status` confirmou atualizado com 29 migrations.
+Esta documentação não afirma deploy, go-live ou validação em produção.

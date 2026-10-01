@@ -15,11 +15,12 @@
 - [x] Oportunidades, propostas, contratação, chat e notificações.
 - [x] Favoritos e avaliações.
 - [~] Painéis, administração e moderação.
-- [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente.
+- [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente e em staging.
 - [x] Área Conta: `/conta`, `/conta/telefone`, `/conta/seguranca` e acesso profissional a `/profissional/perfil`; a troca segura de telefone reutiliza o backend existente.
 - [x] Cadastro profissional persiste `professionalTitle`, `serviceArea` e `description -> bio`.
-- [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; tudo validado localmente.
-- [ ] Staging: aplicar `20260924000100_add_professional_profile_review_metadata`, `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews`, garantir usuário `ADMIN` e executar validação E2E completa do perfil e da verificação profissional.
+- [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; validada localmente e em staging, inclusive persistência após F5, edição e nova aprovação.
+- [x] Staging: migrations de campos editáveis e histórico aplicadas (`20260928000100_add_professional_profile_editable_fields`, `20260929000100_create_professional_verification_reviews`), `prisma migrate status` atualizado com 29 migrations, conta `ADMIN` funcional e E2E completo do perfil e da verificação profissional.
+- [ ] Produção: aprovar o plano de promoção, aplicar controladamente as migrations necessárias, executar o E2E do fluxo e decidir o go-live. A validação em staging não substitui essas etapas.
 
 `editableUntil` é legado e não controla mais UX, edição ou dispatcher.
 
