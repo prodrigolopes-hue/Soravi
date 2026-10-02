@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from "@nestjs/common";
@@ -60,6 +61,7 @@ const REMINDERS: Record<
 @Injectable()
 export class ReviewPublicationProcessor
   implements OnApplicationBootstrap, OnApplicationShutdown {
+  private readonly logger = new Logger(ReviewPublicationProcessor.name);
   private readonly intervalMs: number;
   private isProcessing = false;
 
@@ -107,11 +109,40 @@ export class ReviewPublicationProcessor
     this.isProcessing = true;
 
     try {
-      await this.processReviewReminders();
-      await this.publishExpiredReviews();
+      this.logger.debug("Iniciando ciclo de publicação de avaliações.");
+
+      try {
+        await this.processReviewReminders();
+      } catch (error: unknown) {
+        this.logger.error(
+          "Falha ao processar lembretes de avaliação.",
+          this.getErrorMessage(error),
+        );
+      }
+
+      try {
+        await this.publishExpiredReviews();
+      } catch (error: unknown) {
+        this.logger.error(
+          "Falha ao publicar avaliações expiradas.",
+          this.getErrorMessage(error),
+        );
+      }
+    } catch (error: unknown) {
+      this.logger.error(
+        "Falha inesperada no ciclo de publicação de avaliações.",
+        this.getErrorMessage(error),
+      );
     } finally {
       this.isProcessing = false;
+      this.logger.debug("Finalizando ciclo de publicação de avaliações.");
     }
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error && error.message
+      ? error.message
+      : "Erro desconhecido.";
   }
 
   private async processReviewReminders(): Promise<void> {

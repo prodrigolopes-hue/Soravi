@@ -192,6 +192,13 @@ class EnvironmentVariables {
   @IsOptional()
   OUTBOUND_NOTIFICATION_BATCH_SIZE = 25;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(86400000)
+  @IsOptional()
+  REVIEW_PUBLICATION_INTERVAL_MS = 60000;
+
   @IsString()
   @MinLength(1)
   DATABASE_URL!: string;

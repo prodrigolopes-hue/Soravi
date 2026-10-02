@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { Logger } from "@nestjs/common";
 
 import {
   NotificationType,
@@ -58,6 +59,7 @@ describe("ReviewPublicationProcessor", () => {
     deleteInterval: jest.fn(),
   };
   const configService = { get: jest.fn().mockReturnValue(60_000) };
+  let loggerErrorSpy: jest.SpyInstance;
   const processor = new ReviewPublicationProcessor(
     configService as never,
     schedulerRegistry as never,
@@ -80,10 +82,79 @@ describe("ReviewPublicationProcessor", () => {
       _avg: { rating: 3.5 },
       _count: 3,
     });
+    loggerErrorSpy = jest
+      .spyOn(
+        (processor as unknown as { logger: Logger }).logger,
+        "error",
+      )
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    loggerErrorSpy.mockRestore();
     jest.useRealTimers();
+  });
+
+  it("logs a reminder failure and still attempts expired review publication", async () => {
+    prisma.contract.findMany
+      .mockRejectedValueOnce(new Error("reminders unavailable"))
+      .mockResolvedValueOnce([]);
+
+    await processor.processReviews();
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      "Falha ao processar lembretes de avaliação.",
+      "reminders unavailable",
+    );
+    expect(prisma.contract.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("logs a publication failure without preventing a later cycle", async () => {
+    prisma.contract.findMany
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error("publication unavailable"))
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await processor.processReviews();
+    await processor.processReviews();
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      "Falha ao publicar avaliações expiradas.",
+      "publication unavailable",
+    );
+    expect(prisma.contract.findMany).toHaveBeenCalledTimes(4);
+  });
+
+  it("releases local processing state after an error", async () => {
+    prisma.contract.findMany
+      .mockRejectedValueOnce(new Error("reminders unavailable"))
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await processor.processReviews();
+    await processor.processReviews();
+
+    expect(prisma.contract.findMany).toHaveBeenCalledTimes(4);
+  });
+
+  it("blocks overlapping local executions", async () => {
+    let resolveReminderQuery: ((value: unknown[]) => void) | undefined;
+    const pendingReminderQuery = new Promise<unknown[]>((resolve) => {
+      resolveReminderQuery = resolve;
+    });
+    prisma.contract.findMany
+      .mockReturnValueOnce(pendingReminderQuery)
+      .mockResolvedValueOnce([]);
+
+    const firstExecution = processor.processReviews();
+    await processor.processReviews();
+
+    expect(prisma.contract.findMany).toHaveBeenCalledTimes(1);
+
+    resolveReminderQuery?.([]);
+    await firstExecution;
   });
 
   it.each([
