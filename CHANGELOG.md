@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-03
+
+### Teste controlado de restore/PITR em produção
+
+- validado PITR/restore do PostgreSQL de produção em banco temporário separado,
+  `soravi-postgres-restore-test-2026-10-03`, sem alteração do banco ativo;
+- confirmados conexão ao banco restaurado, schema público com 14 tabelas e
+  histórico de 6 migrations em `_prisma_migrations`;
+- nenhuma variável da API de produção foi modificada e nenhuma aplicação foi
+  apontada para o banco restaurado; a produção foi preservada.
+
 ## 2026-09-30
 
 ### Perfil profissional editável, histórico e reenvio — implementado e validado localmente e em staging

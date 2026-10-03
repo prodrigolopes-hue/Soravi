@@ -122,9 +122,68 @@ export, não seu conteúdo nem informações de conexão.
    responsável. A existência de um restore bem-sucedido não autoriza, por si
    só, trocar o banco ativo.
 
-Nesta etapa, o procedimento de restore ainda **não foi testado**. Planeje e
-registre um exercício em ambiente separado antes de depender dele em um
-incidente real.
+O procedimento foi validado em recurso separado em 03/10/2026. Os detalhes,
+o escopo da validação e os cuidados remanescentes estão na seção seguinte.
+
+## Teste de restore validado em 03/10/2026
+
+### Objetivo
+
+Validar, de forma controlada, que o PITR do PostgreSQL de produção permite
+recuperar schema, histórico de migrations e tabelas em recurso separado, sem
+alterar a produção.
+
+### Procedimento resumido
+
+1. Foi criado no Render um banco temporário separado por Point-in-Time
+   Recovery: `soravi-postgres-restore-test-2026-10-03`.
+2. A conexão externa ao banco restaurado foi validada.
+3. `current_database` confirmou que a validação ocorreu no banco restaurado.
+4. Foram verificadas a estrutura do schema público e as migrations aplicadas.
+5. Nenhuma aplicação foi apontada para o banco temporário e nenhuma variável
+   da API de produção foi modificada.
+
+### Evidências
+
+- O banco de origem de produção é `soravi-postgres-production`, PostgreSQL 18,
+  plano Basic-256mb, com PITR ativo e janela de recuperação de 3 dias.
+- O schema público do banco restaurado continha 14 tabelas.
+- `_prisma_migrations` confirmou 6 migrations aplicadas.
+- Foram recuperadas as tabelas:
+
+  - `_prisma_migrations`;
+  - `auth_sessions`;
+  - `categories`;
+  - `category_requests`;
+  - `customer_profiles`;
+  - `email_verification_tokens`;
+  - `launch_interests`;
+  - `legal_acceptances`;
+  - `password_reset_tokens`;
+  - `professional_categories`;
+  - `professional_profiles`;
+  - `public_category_suggestions`;
+  - `user_roles`;
+  - `users`.
+
+### Resultado
+
+O PITR foi validado com sucesso em recurso separado: schema, histórico de
+migrations e tabelas da produção foram recuperados. A produção não foi
+alterada durante o teste.
+
+### Cuidados que permanecem obrigatórios
+
+- Nunca testar restore sobre o banco de produção ativo.
+- Restaurar inicialmente para recurso separado e validar antes de qualquer
+  promoção.
+- O teste não alterou produção, não modificou variáveis da API de produção e
+  não apontou nenhuma aplicação para o banco restaurado.
+- Uma promoção de banco restaurado continua exigindo decisão explícita do
+  responsável por produção.
+- O teste comprovou recuperação de banco; uma recuperação de incidente real
+  ainda deve executar as validações de aplicação, healthcheck e smoke test
+  descritas neste runbook.
 
 ## PITR: quando e como decidir
 
@@ -207,7 +266,8 @@ Registre, no mínimo:
 ## Limitações atuais
 
 - PITR possui janela atual de somente 3 dias.
-- O restore não foi testado nesta etapa.
+- O restore/PITR foi validado em recurso separado em 03/10/2026, mas nenhuma
+  promoção de banco restaurado foi testada nesta etapa.
 - Storage autoscaling está desabilitado; acompanhe capacidade do banco no
   painel do Render.
 - Para o MVP, recomenda-se uma única instância da API.
