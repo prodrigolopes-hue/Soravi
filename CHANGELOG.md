@@ -11,6 +11,13 @@
 - nenhuma variável da API de produção foi modificada e nenhuma aplicação foi
   apontada para o banco restaurado; a produção foi preservada.
 
+### Regressão final do MVP aprovada em staging
+
+- sanidade técnica aprovada na branch `staging`: 12 suítes focadas e 164 testes aprovados, builds de API e frontend aprovados e `git diff --check` sem falhas;
+- validados em staging os fluxos de CUSTOMER (login, sessão após F5, dashboard, solicitações, revisão/publicação, favoritos, conversas, notificações e Área Conta), PROFESSIONAL (perfil, oportunidades, proposta, retirada, contrato, chat, ciclo `ACCEPTED -> IN_PROGRESS -> COMPLETED`, avaliação e restrições) e ADMIN (painel, clientes, profissionais, categorias, verificação e bloqueio/desbloqueio);
+- confirmados os hardenings de IDOR/RBAC, concorrência de sugestões de categoria, destinos de lembretes D1/D4/D6, robustez do processor de avaliações, healthchecks live/ready e restore/PITR em banco separado; produção não foi promovida nem alterada por esta regressão;
+- correção visual final no dashboard profissional: “Acoes rápidas” passou a “Ações rápidas” e o atalho `/profissional/perfil` passou a “Meu perfil”, preservando rota, ícone e comportamento.
+
 ## 2026-09-30
 
 ### Perfil profissional editável, histórico e reenvio — implementado e validado localmente e em staging

@@ -4,7 +4,7 @@
 
 - [x] Avaliacoes bilaterais cegas: `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, janela de sete dias, publicacao coordenada e reputacao somente publicada; validadas localmente.
 - [x] Lembretes idempotentes `D1`, `D4` e `D6` somente para quem ainda nao avaliou; em atraso, somente o marco mais recente e usado. D+7 publica pendentes e nao gera lembrete.
-- [ ] Staging: aplicar migrations e executar validacao E2E das avaliacoes bilaterais cegas.
+- [x] Staging: migrations e validação E2E das avaliações bilaterais cegas concluídas na regressão final de 03/10/2026.
 
 - [x] Avaliações: uma review por contrato `COMPLETED`, com reputação profissional recalculada transacionalmente.
 
@@ -14,12 +14,14 @@
 - [x] Publicação em `OPEN` com `publishedAt` e despacho imediato, idempotente, de oportunidades.
 - [x] Oportunidades, propostas, contratação, chat e notificações.
 - [x] Favoritos e avaliações.
-- [~] Painéis, administração e moderação.
+- [x] Painéis, administração e moderação básica: CUSTOMER, PROFESSIONAL e ADMIN validados em staging na regressão final de 03/10/2026.
 - [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente e em staging.
 - [x] Área Conta: `/conta`, `/conta/telefone`, `/conta/seguranca` e acesso profissional a `/profissional/perfil`; a troca segura de telefone reutiliza o backend existente.
 - [x] Cadastro profissional persiste `professionalTitle`, `serviceArea` e `description -> bio`.
 - [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; validada localmente e em staging, inclusive persistência após F5, edição e nova aprovação.
 - [x] Staging: migrations de campos editáveis e histórico aplicadas (`20260928000100_add_professional_profile_editable_fields`, `20260929000100_create_professional_verification_reviews`), `prisma migrate status` atualizado com 29 migrations, conta `ADMIN` funcional e E2E completo do perfil e da verificação profissional.
+- [x] Regressão final de staging em 03/10/2026: sanidade técnica (12 suítes/164 testes, builds de API e web, `git diff --check`), fluxos CUSTOMER/PROFESSIONAL/ADMIN, restrições de papéis e hardenings recentes validados.
+- [x] Operação: PITR/restore de produção validado em banco separado; schema e migrations recuperados sem alteração da produção.
 - [ ] Produção: aprovar o plano de promoção, aplicar controladamente as migrations necessárias, executar o E2E do fluxo e decidir o go-live. A validação em staging não substitui essas etapas.
 
 `editableUntil` é legado e não controla mais UX, edição ou dispatcher.

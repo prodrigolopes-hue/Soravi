@@ -6,11 +6,11 @@ Avaliações de contratos concluídos estão implementadas no MVP.
 
 ## Estado atual
 
-As avaliacoes bilaterais cegas estao implementadas e validadas localmente. Staging ainda precisa receber as migrations e validacao E2E; esta funcionalidade nao esta marcada como validada nesse ambiente.
+As avaliações bilaterais cegas estão implementadas e validadas localmente e em staging. A regressão final do MVP em staging foi aprovada em 03/10/2026; isso não representa promoção ou validação em produção.
 
-Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações e favoritos. O perfil profissional editável, a área Conta, a verificação profissional com histórico append-only e o reenvio após rejeição estão **IMPLEMENTADOS, VALIDADOS LOCALMENTE E VALIDADOS EM STAGING**. Painéis, administração e moderação permanecem parciais.
+Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações, favoritos, painéis, administração e moderação básica. Os fluxos de CUSTOMER, PROFESSIONAL e ADMIN estão **IMPLEMENTADOS, VALIDADOS LOCALMENTE E VALIDADOS EM STAGING**.
 
-Próximas prioridades: painéis consolidados, evolução de administração/moderação, regressão final e planejamento controlado de promoção para produção. O bloco de perfil e verificação já foi validado em staging com conta `ADMIN`, inclusive rejeição, edição, reenvio, nova aprovação e persistência. As migrations `20260928000100_add_professional_profile_editable_fields` e `20260929000100_create_professional_verification_reviews` foram aplicadas nesse ambiente; `prisma migrate status` informou schema atualizado com 29 migrations. Para produção, ainda faltam o plano de promoção aprovado, a aplicação controlada das migrations necessárias, a validação E2E no ambiente de produção e a decisão de go-live. Isto não marca deploy, go-live ou validação em produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
+Próxima prioridade: preparação controlada de produção/go-live. Antes da promoção, revisar variáveis de ambiente, confirmar `prisma migrate status`, criar export lógico, aplicar migrations/deploy do backend de forma controlada, validar `/api/v1/health/ready`, alterar o healthcheck do Render para essa rota, publicar o frontend, executar smoke test e acompanhar Logs, Metrics, Events e notificações de falha. Isto não marca deploy, go-live ou validação em produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
 
 Definir a evolução da Soravi em fases, garantindo entregas incrementais
 e foco no MVP.

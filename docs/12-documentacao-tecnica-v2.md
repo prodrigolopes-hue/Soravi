@@ -6,9 +6,9 @@
 
 ### Avaliacoes bilaterais cegas
 
-Implementadas e validadas localmente: cliente cria `Review` para profissional e profissional cria `CustomerReview` para cliente, uma por direcao em contrato `COMPLETED`. A janela e de sete dias a partir de `completedAt`; nota e inteira de 1 a 5, comentario e opcional e o prazo encerrado retorna `REVIEW_WINDOW_EXPIRED`.
+Implementadas e validadas localmente e em staging: cliente cria `Review` para profissional e profissional cria `CustomerReview` para cliente, uma por direcao em contrato `COMPLETED`. A janela e de sete dias a partir de `completedAt`; nota e inteira de 1 a 5, comentario e opcional e o prazo encerrado retorna `REVIEW_WINDOW_EXPIRED`.
 
-A primeira avaliacao fica oculta com `publishedAt = null`; a segunda dentro da janela publica ambas. Em D+7, o `ReviewPublicationProcessor` publica a pendente e recalcula reputacao somente com avaliacoes publicadas. Ele roda no bootstrap e no intervalo `REVIEW_PUBLICATION_INTERVAL_MS`, gera lembretes idempotentes D+1/D+4/D+6 somente para pendentes e escolhe apenas o marco mais recente quando atrasado. D+7 nao gera lembrete. A Central de Notificacoes suporta os tres tipos `REVIEW_REMINDER_D1`, `REVIEW_REMINDER_D4` e `REVIEW_REMINDER_D6`. Staging ainda requer migrations e validacao E2E.
+A primeira avaliacao fica oculta com `publishedAt = null`; a segunda dentro da janela publica ambas. Em D+7, o `ReviewPublicationProcessor` publica a pendente e recalcula reputacao somente com avaliacoes publicadas. Ele roda no bootstrap e no intervalo `REVIEW_PUBLICATION_INTERVAL_MS`, gera lembretes idempotentes D+1/D+4/D+6 somente para pendentes e escolhe apenas o marco mais recente quando atrasado. D+7 nao gera lembrete. A Central de Notificacoes suporta os tres tipos `REVIEW_REMINDER_D1`, `REVIEW_REMINDER_D4` e `REVIEW_REMINDER_D6`. Migrations e validação E2E deste fluxo foram concluídas em staging na regressão final de 03/10/2026.
 
 Cliente preenche, revisa e publica a solicitação; a criação gera `OPEN` e `publishedAt`, depois despacha oportunidades para profissionais aprovados, disponíveis e da categoria compatível. Bootstrap e processor periódico recuperam itens elegíveis sem depender de `editableUntil`; lock, idempotência e `skipDuplicates` são preservados.
 
@@ -63,7 +63,13 @@ para Aprovar/Rejeitar. As migrations
 sucesso, e `prisma migrate status` confirmou `Database schema is up to date`
 com 29 migrations. Isso não afirma deploy, go-live ou validação em produção.
 
-Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente.
+Ao aceitar proposta, cria-se contrato `ACCEPTED` e conversa. Profissional inicia (`IN_PROGRESS`) no detalhe da oportunidade; cliente conclui (`COMPLETED`) no detalhe da solicitação. A conversa mantém chat e status. As avaliações bilaterais cegas descritas acima estão implementadas e validadas localmente e em staging.
+
+### Regressão final de staging e próximo passo
+
+Em 03/10/2026, a regressão final do MVP em staging foi aprovada: sanidade técnica (12 suítes focadas, 164 testes, builds de API e frontend e `git diff --check`), fluxos de CUSTOMER, PROFESSIONAL e ADMIN, restrições de papel e hardenings recentes. Incluem-se IDOR dos recursos privados, RBAC administrativo, concorrência de sugestões de categoria, destinos D1/D4/D6, robustez do processor de avaliações, healthchecks live/ready e PITR em banco separado.
+
+Produção ainda não foi promovida, não recebeu deploy nesta etapa e não teve smoke test de produção. Antes do go-live, a sequência controlada é: revisar envs; confirmar `prisma migrate status` de produção; criar export lógico; aplicar migrations/deploy do backend; validar `/api/v1/health/ready`; mudar o healthcheck do serviço para essa rota; publicar o frontend; executar smoke test; e acompanhar Logs, Metrics, Events e notificações de falha.
 
 Consolidar as diretrizes técnicas da Soravi para que qualquer
 desenvolvedor consiga compreender, evoluir e manter o sistema.
