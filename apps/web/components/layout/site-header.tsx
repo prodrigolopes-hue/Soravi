@@ -231,7 +231,13 @@ export function HeaderAuthAction({
   );
 }
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  showMarketingNavigation?: boolean;
+};
+
+export function SiteHeader({
+  showMarketingNavigation = true,
+}: SiteHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   function closeMenu() {
@@ -261,24 +267,28 @@ export function SiteHeader() {
           aria-label="Navegação principal"
           className="hidden items-center gap-8 md:flex"
         >
-          {navigationItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {showMarketingNavigation
+            ? navigationItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                >
+                  {item.label}
+                </Link>
+              ))
+            : null}
 
           <HeaderAuthAction />
 
-          <Link
-            href="/cadastro/profissional"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            Quero trabalhar
-          </Link>
+          {showMarketingNavigation ? (
+            <Link
+              href="/cadastro/profissional"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            >
+              Quero trabalhar
+            </Link>
+          ) : null}
         </nav>
 
         <button
@@ -306,26 +316,30 @@ export function SiteHeader() {
           className="border-t border-slate-200 bg-white px-4 py-4 md:hidden"
         >
           <div className="mx-auto flex max-w-7xl flex-col gap-2">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                onClick={closeMenu}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {showMarketingNavigation
+              ? navigationItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    onClick={closeMenu}
+                  >
+                    {item.label}
+                  </Link>
+                ))
+              : null}
 
             <HeaderAuthAction mobile onAction={closeMenu} />
 
-            <Link
-              href="/cadastro/profissional"
-              className="mt-2 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-              onClick={closeMenu}
-            >
-              Quero trabalhar
-            </Link>
+            {showMarketingNavigation ? (
+              <Link
+                href="/cadastro/profissional"
+                className="mt-2 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                onClick={closeMenu}
+              >
+                Quero trabalhar
+              </Link>
+            ) : null}
           </div>
         </nav>
       ) : null}
