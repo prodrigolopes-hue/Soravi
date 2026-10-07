@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { adminCustomersUrl } from "../../lib/api";
 import { ManageableAdminUserStatus } from "../../lib/admin-user-status";
 import { useAuth } from "../auth/auth-provider";
+import { AdminBackLink } from "./admin-back-link";
 import { AdminUserStatusAction } from "./admin-user-status-action";
 
 const PAGE_SIZE = 20;
@@ -368,7 +369,7 @@ export function AdminCustomersPage() {
     <main className="bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">Painel administrativo</p>
+          <AdminBackLink />
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Clientes</h1>
           <p className="mt-3 max-w-3xl leading-7 text-slate-600">
             Acompanhe as contas de clientes com uma visão administrativa clara e paginada.
