@@ -2,8 +2,19 @@
 
 import Script from "next/script";
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 import { useCookieConsent } from "../cookies/cookie-consent";
+import {
+  canTrackAnalytics,
+  createAnalyticsPageLocation,
+  googleAnalyticsCookieDomains,
+  isAdminPath,
+  sanitizeAnalyticsPathname,
+  sanitizeAnalyticsReferrer,
+  safeAnalyticsPageTitle,
+  shouldSendAnalyticsPageView,
+} from "./google-analytics-routing";
 
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID?.trim();
@@ -32,8 +43,6 @@ function removeGoogleAnalyticsCookies(): void {
     return;
   }
 
-  const domain = window.location.hostname;
-
   const cookieNames = document.cookie
     .split(";")
     .map((cookie) => cookie.trim().split("=")[0])
@@ -48,7 +57,7 @@ function removeGoogleAnalyticsCookies(): void {
     document.cookie =
       `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 
-    if (domain) {
+    for (const domain of googleAnalyticsCookieDomains(window.location.hostname)) {
       document.cookie =
         `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}`;
     }
@@ -59,18 +68,57 @@ interface GoogleAnalyticsProps {
   nonce?: string;
 }
 
+function setGoogleAnalyticsDisabled(
+  gtagWindow: GtagWindow,
+  disabled: boolean,
+): void {
+  Reflect.set(
+    gtagWindow,
+    `ga-disable-${GA_MEASUREMENT_ID}`,
+    disabled,
+  );
+}
+
 export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
   const { preference } = useCookieConsent();
+  const pathname = usePathname();
   const configuredRef = useRef(false);
+  const initializedRef = useRef(false);
+  const firstPageViewSentRef = useRef(false);
+  const lastTrackedPathRef = useRef<string | null>(null);
+  const analyticsEnabled = canTrackAnalytics(preference, pathname);
+  const isAdministrativeNavigation = isAdminPath(pathname);
 
   useEffect(() => {
     if (!GA_MEASUREMENT_ID) {
       return;
     }
 
-    const gtagWindow = ensureGtag();
+    if (analyticsEnabled) {
+      const gtagWindow = ensureGtag();
+      const sanitizedPathname = sanitizeAnalyticsPathname(pathname);
+      const sanitizedReferrer = sanitizeAnalyticsReferrer(
+        document.referrer,
+        window.location.origin,
+      );
+      const pageReferrer = lastTrackedPathRef.current
+        ? `${window.location.origin}${sanitizeAnalyticsPathname(lastTrackedPathRef.current)}`
+        : sanitizedReferrer;
+      const pageLocation = createAnalyticsPageLocation(
+        window.location.origin,
+        pathname,
+        window.location.search,
+        !firstPageViewSentRef.current,
+      );
+      const pageTitle = safeAnalyticsPageTitle(pathname);
 
-    if (preference?.analytics === "accepted") {
+      setGoogleAnalyticsDisabled(gtagWindow, false);
+
+      if (!initializedRef.current) {
+        gtagWindow.gtag?.("js", new Date());
+        initializedRef.current = true;
+      }
+
       gtagWindow.gtag?.("consent", "update", {
         analytics_storage: "granted",
         ad_storage: "denied",
@@ -83,28 +131,54 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
           anonymize_ip: true,
           allow_google_signals: false,
           allow_ad_personalization_signals: false,
-          send_page_view: true,
+          send_page_view: false,
+          page_location: pageLocation,
+          page_path: sanitizedPathname,
+          page_title: pageTitle,
+          ...(pageReferrer
+            ? { page_referrer: pageReferrer }
+            : {}),
         });
-
         configuredRef.current = true;
+      }
+
+      if (shouldSendAnalyticsPageView(lastTrackedPathRef.current, pathname)) {
+        gtagWindow.gtag?.("event", "page_view", {
+          page_location: pageLocation,
+          page_path: sanitizedPathname,
+          page_title: pageTitle,
+          ...(pageReferrer
+            ? { page_referrer: pageReferrer }
+            : {}),
+        });
+        lastTrackedPathRef.current = pathname;
+        firstPageViewSentRef.current = true;
       }
 
       return;
     }
 
-    gtagWindow.gtag?.("consent", "update", {
-      analytics_storage: "denied",
-      ad_storage: "denied",
-      ad_user_data: "denied",
-      ad_personalization: "denied",
-    });
+    const gtagWindow = window as GtagWindow;
+    setGoogleAnalyticsDisabled(gtagWindow, true);
 
-    if (preference?.analytics === "rejected") {
+    if (preference?.analytics !== "accepted") {
+      gtagWindow.gtag?.("consent", "update", {
+        analytics_storage: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+      });
       removeGoogleAnalyticsCookies();
+      configuredRef.current = false;
+      lastTrackedPathRef.current = null;
     }
-  }, [preference]);
 
-  if (!GA_MEASUREMENT_ID) {
+    if (isAdministrativeNavigation) {
+      lastTrackedPathRef.current = null;
+    }
+  }, [analyticsEnabled, isAdministrativeNavigation, pathname, preference]);
+
+  if (!GA_MEASUREMENT_ID || !analyticsEnabled) {
     return null;
   }
 
@@ -116,21 +190,6 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
         strategy="afterInteractive"
       />
 
-      <Script
-        id="soravi-google-analytics-bootstrap"
-        nonce={nonce}
-        strategy="afterInteractive"
-      >
-        {`
-          window.dataLayer = window.dataLayer || [];
-
-          window.gtag = window.gtag || function() {
-            window.dataLayer.push(arguments);
-          };
-
-          window.gtag('js', new Date());
-        `}
-      </Script>
     </>
   );
 }
