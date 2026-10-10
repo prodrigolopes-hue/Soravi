@@ -5,6 +5,12 @@ export function shouldInitializeGoogleAnalytics(
   return analyticsEnabled && !initialized;
 }
 
+export function shouldSetDefaultGoogleAnalyticsConsent(
+  defaultConsentInitialized: boolean,
+): boolean {
+  return !defaultConsentInitialized;
+}
+
 export function shouldConfigureGoogleAnalytics(
   analyticsEnabled: boolean,
   scriptLoaded: boolean,

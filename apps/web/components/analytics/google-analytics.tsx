@@ -23,6 +23,7 @@ import {
 import {
   shouldConfigureGoogleAnalytics,
   shouldInitializeGoogleAnalytics,
+  shouldSetDefaultGoogleAnalyticsConsent,
   shouldSendGoogleAnalyticsPageView,
 } from "./google-analytics-lifecycle";
 
@@ -93,7 +94,9 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
   const { preference } = useCookieConsent();
   const pathname = usePathname();
   const configuredRef = useRef(false);
+  const defaultConsentInitializedRef = useRef(false);
   const initializedRef = useRef(false);
+  const analyticsWasGrantedRef = useRef(false);
   const firstPageViewSentRef = useRef(false);
   const lastTrackedPathRef = useRef<string | null>(null);
   const scriptLoadErrorReportedRef = useRef(false);
@@ -106,11 +109,22 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
       return;
     }
 
+    const gtagWindow = ensureGtag();
+
+    if (shouldSetDefaultGoogleAnalyticsConsent(defaultConsentInitializedRef.current)) {
+      gtagWindow.gtag?.("consent", "default", {
+        analytics_storage: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied",
+      });
+      defaultConsentInitializedRef.current = true;
+    }
+
     if (!analyticsEnabled) {
       return;
     }
 
-    const gtagWindow = ensureGtag();
     setGoogleAnalyticsDisabled(gtagWindow, false);
 
     if (shouldInitializeGoogleAnalytics(analyticsEnabled, initializedRef.current)) {
@@ -124,6 +138,7 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
       ad_user_data: "denied",
       ad_personalization: "denied",
     });
+    analyticsWasGrantedRef.current = true;
   }, [analyticsEnabled]);
 
   useEffect(() => {
@@ -134,13 +149,17 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
     const gtagWindow = window as GtagWindow;
     setGoogleAnalyticsDisabled(gtagWindow, true);
 
-    if (preference?.analytics !== "accepted") {
-      gtagWindow.gtag?.("consent", "update", {
-        analytics_storage: "denied",
-        ad_storage: "denied",
-        ad_user_data: "denied",
-        ad_personalization: "denied",
-      });
+    if (preference?.analytics === "rejected") {
+      if (analyticsWasGrantedRef.current) {
+        gtagWindow.gtag?.("consent", "update", {
+          analytics_storage: "denied",
+          ad_storage: "denied",
+          ad_user_data: "denied",
+          ad_personalization: "denied",
+        });
+        analyticsWasGrantedRef.current = false;
+      }
+
       removeGoogleAnalyticsCookies();
       lastTrackedPathRef.current = null;
     }

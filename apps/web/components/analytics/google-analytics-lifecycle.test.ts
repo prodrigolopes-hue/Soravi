@@ -4,10 +4,17 @@ import test from "node:test";
 import {
   shouldConfigureGoogleAnalytics,
   shouldInitializeGoogleAnalytics,
+  shouldSetDefaultGoogleAnalyticsConsent,
   shouldSendGoogleAnalyticsPageView,
 } from "./google-analytics-lifecycle";
 
-test("inicializa somente uma vez depois do consentimento", () => {
+test("estabelece consent default negado antes da inicializacao", () => {
+  assert.equal(shouldSetDefaultGoogleAnalyticsConsent(false), true);
+  assert.equal(shouldInitializeGoogleAnalytics(false, false), false);
+  assert.equal(shouldSetDefaultGoogleAnalyticsConsent(true), false);
+});
+
+test("inicializa somente uma vez depois do consentimento aceito", () => {
   assert.equal(shouldInitializeGoogleAnalytics(false, false), false);
   assert.equal(shouldInitializeGoogleAnalytics(true, false), true);
   assert.equal(shouldInitializeGoogleAnalytics(true, true), false);
