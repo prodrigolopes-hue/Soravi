@@ -1,7 +1,13 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { usePathname } from "next/navigation";
 
 import { useCookieConsent } from "../cookies/cookie-consent";
@@ -13,8 +19,12 @@ import {
   sanitizeAnalyticsPathname,
   sanitizeAnalyticsReferrer,
   safeAnalyticsPageTitle,
-  shouldSendAnalyticsPageView,
 } from "./google-analytics-routing";
+import {
+  shouldConfigureGoogleAnalytics,
+  shouldInitializeGoogleAnalytics,
+  shouldSendGoogleAnalyticsPageView,
+} from "./google-analytics-lifecycle";
 
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID?.trim();
@@ -86,75 +96,38 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
   const initializedRef = useRef(false);
   const firstPageViewSentRef = useRef(false);
   const lastTrackedPathRef = useRef<string | null>(null);
+  const scriptLoadErrorReportedRef = useRef(false);
+  const [isGoogleTagLoaded, setIsGoogleTagLoaded] = useState(false);
   const analyticsEnabled = canTrackAnalytics(preference, pathname);
   const isAdministrativeNavigation = isAdminPath(pathname);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!GA_MEASUREMENT_ID) {
       return;
     }
 
-    if (analyticsEnabled) {
-      const gtagWindow = ensureGtag();
-      const sanitizedPathname = sanitizeAnalyticsPathname(pathname);
-      const sanitizedReferrer = sanitizeAnalyticsReferrer(
-        document.referrer,
-        window.location.origin,
-      );
-      const pageReferrer = lastTrackedPathRef.current
-        ? `${window.location.origin}${sanitizeAnalyticsPathname(lastTrackedPathRef.current)}`
-        : sanitizedReferrer;
-      const pageLocation = createAnalyticsPageLocation(
-        window.location.origin,
-        pathname,
-        window.location.search,
-        !firstPageViewSentRef.current,
-      );
-      const pageTitle = safeAnalyticsPageTitle(pathname);
+    if (!analyticsEnabled) {
+      return;
+    }
 
-      setGoogleAnalyticsDisabled(gtagWindow, false);
+    const gtagWindow = ensureGtag();
+    setGoogleAnalyticsDisabled(gtagWindow, false);
 
-      if (!initializedRef.current) {
-        gtagWindow.gtag?.("js", new Date());
-        initializedRef.current = true;
-      }
+    if (shouldInitializeGoogleAnalytics(analyticsEnabled, initializedRef.current)) {
+      gtagWindow.gtag?.("js", new Date());
+      initializedRef.current = true;
+    }
 
-      gtagWindow.gtag?.("consent", "update", {
-        analytics_storage: "granted",
-        ad_storage: "denied",
-        ad_user_data: "denied",
-        ad_personalization: "denied",
-      });
+    gtagWindow.gtag?.("consent", "update", {
+      analytics_storage: "granted",
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+    });
+  }, [analyticsEnabled]);
 
-      if (!configuredRef.current) {
-        gtagWindow.gtag?.("config", GA_MEASUREMENT_ID, {
-          anonymize_ip: true,
-          allow_google_signals: false,
-          allow_ad_personalization_signals: false,
-          send_page_view: false,
-          page_location: pageLocation,
-          page_path: sanitizedPathname,
-          page_title: pageTitle,
-          ...(pageReferrer
-            ? { page_referrer: pageReferrer }
-            : {}),
-        });
-        configuredRef.current = true;
-      }
-
-      if (shouldSendAnalyticsPageView(lastTrackedPathRef.current, pathname)) {
-        gtagWindow.gtag?.("event", "page_view", {
-          page_location: pageLocation,
-          page_path: sanitizedPathname,
-          page_title: pageTitle,
-          ...(pageReferrer
-            ? { page_referrer: pageReferrer }
-            : {}),
-        });
-        lastTrackedPathRef.current = pathname;
-        firstPageViewSentRef.current = true;
-      }
-
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID || analyticsEnabled) {
       return;
     }
 
@@ -169,14 +142,87 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
         ad_personalization: "denied",
       });
       removeGoogleAnalyticsCookies();
-      configuredRef.current = false;
       lastTrackedPathRef.current = null;
     }
 
     if (isAdministrativeNavigation) {
       lastTrackedPathRef.current = null;
     }
-  }, [analyticsEnabled, isAdministrativeNavigation, pathname, preference]);
+  }, [analyticsEnabled, isAdministrativeNavigation, preference]);
+
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID || !analyticsEnabled || !isGoogleTagLoaded) {
+      return;
+    }
+
+    const gtagWindow = ensureGtag();
+    const sanitizedPathname = sanitizeAnalyticsPathname(pathname);
+    const sanitizedReferrer = sanitizeAnalyticsReferrer(
+      document.referrer,
+      window.location.origin,
+    );
+    const pageReferrer = lastTrackedPathRef.current
+      ? `${window.location.origin}${sanitizeAnalyticsPathname(lastTrackedPathRef.current)}`
+      : sanitizedReferrer;
+    const pageLocation = createAnalyticsPageLocation(
+      window.location.origin,
+      pathname,
+      window.location.search,
+      !firstPageViewSentRef.current,
+    );
+    const pageTitle = safeAnalyticsPageTitle(pathname);
+
+    if (
+      shouldConfigureGoogleAnalytics(
+        analyticsEnabled,
+        isGoogleTagLoaded,
+        configuredRef.current,
+      )
+    ) {
+      gtagWindow.gtag?.("config", GA_MEASUREMENT_ID, {
+        anonymize_ip: true,
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        send_page_view: false,
+        page_location: pageLocation,
+        page_path: sanitizedPathname,
+        page_title: pageTitle,
+        ...(pageReferrer ? { page_referrer: pageReferrer } : {}),
+      });
+      configuredRef.current = true;
+    }
+
+    if (
+      shouldSendGoogleAnalyticsPageView(
+        analyticsEnabled,
+        isGoogleTagLoaded,
+        lastTrackedPathRef.current,
+        pathname,
+      )
+    ) {
+      gtagWindow.gtag?.("event", "page_view", {
+        page_location: pageLocation,
+        page_path: sanitizedPathname,
+        page_title: pageTitle,
+        ...(pageReferrer ? { page_referrer: pageReferrer } : {}),
+      });
+      lastTrackedPathRef.current = pathname;
+      firstPageViewSentRef.current = true;
+    }
+  }, [analyticsEnabled, isGoogleTagLoaded, pathname]);
+
+  const handleGoogleTagLoad = useCallback(() => {
+    setIsGoogleTagLoaded(true);
+  }, []);
+
+  const handleGoogleTagError = useCallback(() => {
+    if (scriptLoadErrorReportedRef.current) {
+      return;
+    }
+
+    scriptLoadErrorReportedRef.current = true;
+    console.warn("Google Analytics script failed to load.");
+  }, []);
 
   if (!GA_MEASUREMENT_ID || !analyticsEnabled) {
     return null;
@@ -188,6 +234,9 @@ export function GoogleAnalytics({ nonce }: GoogleAnalyticsProps) {
         nonce={nonce}
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
         strategy="afterInteractive"
+        onLoad={handleGoogleTagLoad}
+        onReady={handleGoogleTagLoad}
+        onError={handleGoogleTagError}
       />
 
     </>
