@@ -35,15 +35,17 @@ interface GtagWindow extends Window {
   gtag?: (...args: unknown[]) => void;
 }
 
-function ensureGtag(): GtagWindow {
+export function ensureGtag(): GtagWindow {
   const gtagWindow = window as GtagWindow;
 
   gtagWindow.dataLayer = gtagWindow.dataLayer ?? [];
 
   gtagWindow.gtag =
     gtagWindow.gtag ??
-    function gtag(...args: unknown[]) {
-      gtagWindow.dataLayer?.push(args);
+    function gtag() {
+      // Google tag requires the native Arguments object in dataLayer.
+      // eslint-disable-next-line prefer-rest-params
+      gtagWindow.dataLayer?.push(arguments);
     };
 
   return gtagWindow;
