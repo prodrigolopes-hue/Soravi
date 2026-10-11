@@ -23,6 +23,10 @@ import {
   type SignUpEventTracker,
 } from "../analytics/google-analytics-events";
 import { useCookieConsent } from "../cookies/cookie-consent";
+import {
+  isRegistrationContactConflict,
+  REGISTRATION_CONTACT_CONFLICT_MESSAGE,
+} from "./registration-conflict";
 import { apiBaseUrl, categoriesUrl, categorySuggestionsUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
@@ -163,6 +167,7 @@ export function ProfessionalRegistrationForm() {
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [isSuggestionFormOpen, setIsSuggestionFormOpen] = useState(false);
   const [suggestedCategoryName, setSuggestedCategoryName] = useState("");
   const [suggestedCategoryDescription, setSuggestedCategoryDescription] = useState("");
@@ -274,6 +279,7 @@ export function ProfessionalRegistrationForm() {
           "Não foi possível validar as categorias agora. Tente novamente em instantes.",
       });
       setFormMessage(null);
+      setFormError(null);
       return;
     }
 
@@ -287,10 +293,12 @@ export function ProfessionalRegistrationForm() {
         message: "Selecione apenas categorias disponíveis.",
       });
       setFormMessage(null);
+      setFormError(null);
       return;
     }
 
     clearErrors("categories");
+    setFormError(null);
 
     try {
       const response = await fetch(
@@ -320,8 +328,11 @@ export function ProfessionalRegistrationForm() {
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         const code =
-          payload && typeof payload === "object" && "code" in payload
-            ? (payload as { code?: unknown }).code
+          payload &&
+          typeof payload === "object" &&
+          "code" in payload &&
+          typeof payload.code === "string"
+            ? payload.code
             : null;
 
         if (code === "PASSWORD_TOO_COMMON") {
@@ -331,11 +342,15 @@ export function ProfessionalRegistrationForm() {
               "Escolha uma senha menos comum e difícil de adivinhar.",
           });
           setFormMessage(null);
+          setFormError(null);
           return;
         }
 
-        setFormMessage(
-          "Não foi possível concluir seu cadastro profissional no momento.",
+        setFormMessage(null);
+        setFormError(
+          isRegistrationContactConflict(response.status, code)
+            ? REGISTRATION_CONTACT_CONFLICT_MESSAGE
+            : "Não foi possível concluir seu cadastro profissional no momento.",
         );
         return;
       }
@@ -350,7 +365,8 @@ export function ProfessionalRegistrationForm() {
       );
       router.replace("/entrar");
     } catch {
-      setFormMessage(
+      setFormMessage(null);
+      setFormError(
         "Não foi possível conectar à Soravi. Tente novamente em instantes.",
       );
     }
@@ -424,6 +440,7 @@ export function ProfessionalRegistrationForm() {
 
   function handleInvalidSubmit(): void {
     setFormMessage(null);
+    setFormError(null);
   }
 
   return (
@@ -1012,6 +1029,16 @@ export function ProfessionalRegistrationForm() {
           </p>
         ) : null}
       </div>
+
+      {formError ? (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
+        >
+          {formError}
+        </div>
+      ) : null}
 
       {formMessage ? (
         <div

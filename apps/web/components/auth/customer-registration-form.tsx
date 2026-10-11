@@ -20,6 +20,10 @@ import {
   type SignUpEventTracker,
 } from "../analytics/google-analytics-events";
 import { useCookieConsent } from "../cookies/cookie-consent";
+import {
+  isRegistrationContactConflict,
+  REGISTRATION_CONTACT_CONFLICT_MESSAGE,
+} from "./registration-conflict";
 import { apiBaseUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
@@ -175,8 +179,8 @@ export function CustomerRegistrationForm() {
 
         const errorMessage = extractErrorMessage(payload);
 
-        if (response.status === 409 || errorMessage?.toLowerCase().includes("e-mail") || errorMessage?.toLowerCase().includes("email")) {
-          setFormError("Já existe uma conta cadastrada com este e-mail.");
+        if (isRegistrationContactConflict(response.status, errorCode)) {
+          setFormError(REGISTRATION_CONTACT_CONFLICT_MESSAGE);
         } else if (errorMessage) {
           setFormError(errorMessage);
         } else {

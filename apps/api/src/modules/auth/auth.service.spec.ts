@@ -11,6 +11,7 @@ import {
 } from "argon2";
 
 import {
+  Prisma,
   ProfessionalVerificationStatus,
   Role,
   UserStatus,
@@ -688,47 +689,50 @@ describe("AuthService", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it("deve rejeitar e-mail já utilizado", async () => {
-    const input = createRegistrationInput(Role.CUSTOMER);
+  it.each([
+    ["e-mail", "maria.teste@soravi.com.br", null, "+55 11 99999-9999"],
+    ["telefone", "outra.pessoa@soravi.com.br", "+5521999999999", "(21) 99999-9999"],
+  ])(
+    "retorna o mesmo conflito público para %s duplicado",
+    async (_contact, emailNormalized, phoneNormalized, phone) => {
+      const input = createRegistrationInput(Role.CUSTOMER);
+      input.phone = phone;
 
-    prismaMock.user.findFirst.mockResolvedValue({
-      emailNormalized: "maria.teste@soravi.com.br",
-      phoneNormalized: null,
-    });
+      prismaMock.user.findFirst.mockResolvedValue({
+        emailNormalized,
+        phoneNormalized,
+      });
 
-    await expect(
-      authService.register(input),
-    ).rejects.toBeInstanceOf(ConflictException);
+      const error = await authService.register(input).catch(
+        (caught: unknown) => caught,
+      );
 
-    expect(hashPasswordMock).not.toHaveBeenCalled();
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-    expect(
-      usersServiceMock.findSafeById,
-    ).not.toHaveBeenCalled();
-  });
+      expectRegistrationContactConflict(error);
+      expect(hashPasswordMock).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(usersServiceMock.findSafeById).not.toHaveBeenCalled();
+    },
+  );
 
-  it("detecta colisão de formatos equivalentes pela unique normalizada", async () => {
-    const input = createRegistrationInput(Role.CUSTOMER);
-    input.phone = "(21) 99999-9999";
-    prismaMock.user.findFirst.mockResolvedValue({
-      emailNormalized: "outra.pessoa@soravi.com.br",
-      phoneNormalized: "+5521999999999",
-    });
+  it.each(["email_normalized", "phone_normalized"])(
+    "retorna o mesmo conflito público para corrida P2002 de %s",
+    async (target) => {
+      const input = createRegistrationInput(Role.CUSTOMER);
 
-    await expect(authService.register(input)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-    expect(prismaMock.user.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            { phoneNormalized: "+5521999999999" },
-          ]),
-        }),
-      }),
-    );
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
-  });
+      prismaMock.user.findFirst.mockResolvedValue(null);
+      transactionClientMock.user.create.mockRejectedValue(
+        createUniqueConstraintError(target),
+      );
+
+      const error = await authService.register(input).catch(
+        (caught: unknown) => caught,
+      );
+
+      expectRegistrationContactConflict(error);
+      expect(transactionClientMock.user.create).toHaveBeenCalledTimes(1);
+      expect(usersServiceMock.findSafeById).not.toHaveBeenCalled();
+    },
+  );
 
   it("deve normalizar o e-mail antes da consulta de cadastro", async () => {
     const input = createRegistrationInput(Role.CUSTOMER);
@@ -1685,6 +1689,33 @@ describe("AuthService", () => {
       },
     );
   });
+
+  function expectRegistrationContactConflict(error: unknown): void {
+    expect(error).toBeInstanceOf(ConflictException);
+
+    if (!(error instanceof ConflictException)) {
+      throw error;
+    }
+
+    expect(error.getStatus()).toBe(409);
+    expect(error.getResponse()).toEqual({
+      code: "REGISTRATION_CONTACT_CONFLICT",
+      message:
+        "Não foi possível usar os dados de contato informados. Se você já possui uma conta, entre para continuar ou utilize outros dados.",
+    });
+  }
+
+  function createUniqueConstraintError(
+    target: string,
+  ): Prisma.PrismaClientKnownRequestError {
+    return Object.assign(
+      Object.create(Prisma.PrismaClientKnownRequestError.prototype),
+      {
+        code: "P2002",
+        meta: { target: [target] },
+      },
+    ) as Prisma.PrismaClientKnownRequestError;
+  }
 
   function createRegistrationInput(
     initialRole: RegisterUserDto["initialRole"],

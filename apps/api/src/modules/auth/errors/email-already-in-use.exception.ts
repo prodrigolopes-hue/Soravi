@@ -3,8 +3,9 @@ import { ConflictException } from "@nestjs/common";
 export class EmailAlreadyInUseException extends ConflictException {
   constructor() {
     super({
-      code: "EMAIL_ALREADY_IN_USE",
-      message: "Já existe uma conta associada a este e-mail.",
+      code: "REGISTRATION_CONTACT_CONFLICT",
+      message:
+        "Não foi possível usar os dados de contato informados. Se você já possui uma conta, entre para continuar ou utilize outros dados.",
     });
   }
 }
