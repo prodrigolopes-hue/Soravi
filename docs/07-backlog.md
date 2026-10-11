@@ -24,6 +24,9 @@
 - [x] Operação: PITR/restore de produção validado em banco separado; schema e migrations recuperados sem alteração da produção.
 - [ ] Produção: aprovar o plano de promoção, aplicar controladamente as migrations necessárias, executar o E2E do fluxo e decidir o go-live. A validação em staging não substitui essas etapas.
 
+- [x] GA4: corrigida e publicada em produção a fila do stub `gtag` no commit `74286a5`; `page_view` manual da tag `G-8V8DGFH741` transmitido por `collect` HTTP 204 no Chrome e no Edge, preservando consentimento explícito, exclusão de `/admin`, sanitização e deduplicação controlada.
+- [ ] GA4: planejar e implementar os eventos de conversão `sign_up`, `service_request_published` e `proposal_submitted`, com validação técnica, revisão de privacidade e monitoramento periódico da instrumentação.
+
 `editableUntil` é legado e não controla mais UX, edição ou dispatcher.
 
 Organizar todas as funcionalidades da Soravi em uma lista priorizada

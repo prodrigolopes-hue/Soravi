@@ -10,6 +10,8 @@ As avaliações bilaterais cegas estão implementadas e validadas localmente e e
 
 Concluído: auth base, telefone, sessão persistente, revisão/publicação de solicitações, oportunidades, propostas, contratação, ciclo operacional do contrato, chat, notificações, avaliações, favoritos, painéis, administração e moderação básica. Os fluxos de CUSTOMER, PROFESSIONAL e ADMIN estão **IMPLEMENTADOS, VALIDADOS LOCALMENTE E VALIDADOS EM STAGING**.
 
+Em 2026-10-11, a correção de GA4 publicada em produção no commit `74286a5` validou tecnicamente a transmissão manual de `page_view` da tag `G-8V8DGFH741`, com `collect` HTTP 204 no Chrome e no Edge. A próxima evolução de instrumentação é planejar e implementar, com as mesmas salvaguardas de consentimento e privacidade, os eventos `sign_up`, `service_request_published` e `proposal_submitted`. Essa validação não mede resultados de negócio; o GA4 deve continuar sob monitoramento periódico.
+
 Próxima prioridade: preparação controlada de produção/go-live. Antes da promoção, revisar variáveis de ambiente, confirmar `prisma migrate status`, criar export lógico, aplicar migrations/deploy do backend de forma controlada, validar `/api/v1/health/ready`, alterar o healthcheck do Render para essa rota, publicar o frontend, executar smoke test e acompanhar Logs, Metrics, Events e notificações de falha. Isto não marca deploy, go-live ou validação em produção. Marketplace, pagamentos internos, apps nativos, assinatura premium, seguro/garantia, IA avançada e publicidade patrocinada estão fora do MVP.
 
 Definir a evolução da Soravi em fases, garantindo entregas incrementais

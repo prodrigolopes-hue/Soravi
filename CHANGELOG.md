@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-11
+
+### Google Analytics 4 — correção de transmissão validada em produção
+
+- publicado em produção o commit `74286a5`, que corrigiu o stub do `gtag` para enfileirar o objeto nativo `arguments` em `dataLayer`, em vez de um `Array` criado por parâmetros rest;
+- a tag `G-8V8DGFH741` passou a emitir requisições `collect` com HTTP 204 no Chrome e no Edge; o `page_view` foi validado tecnicamente com `en`, `dl` e `tid` corretos;
+- o fluxo preserva `analytics_storage: denied` como consentimento padrão e o altera para `granted` somente após aceite explícito; os consentimentos publicitários permanecem negados e o script GA4 só é carregado após esse aceite;
+- `/admin` e suas subrotas permanecem excluídas, e URL, título e referrer são sanitizados; somente `utm_source`, `utm_medium` e `utm_campaign` são aceitas na entrada;
+- a navegação interna para `/entrar` e um recarregamento controlado dessa rota não apresentaram duplicação de `page_view`; a medição automática de page views foi desativada no painel GA4 e a aplicação mantém o envio manual;
+- esta validação confirma transporte técnico da instrumentação, não mede conversão, retenção ou resultado de negócio. O monitoramento periódico do GA4 permanece necessário.
+
 ## 2026-10-03
 
 ### Teste controlado de restore/PITR em produção

@@ -13,6 +13,14 @@ organização e facilidade de manutenção.
 
 ------------------------------------------------------------------------
 
+## Google Analytics 4
+
+O GA4 usa a Measurement ID `G-8V8DGFH741` como instrumentação auxiliar de navegação; PostgreSQL permanece a fonte oficial dos dados de negócio. A correção publicada em produção no commit `74286a5` alinhou o stub do `gtag` ao padrão oficial, enfileirando `arguments` em `dataLayer` em vez de um `Array` criado por parâmetros rest.
+
+O consentimento padrão mantém `analytics_storage: denied`; somente o aceite explícito o atualiza para `granted`. Os consentimentos publicitários permanecem negados, e `gtag.js` só é carregado depois do aceite. A aplicação envia `page_view` manualmente, pois a medição automática foi desativada no painel GA4; impede rastreamento de `/admin` e subrotas, sanitiza URL, título e referrer e aceita somente `utm_source`, `utm_medium` e `utm_campaign` na entrada.
+
+Em produção, a transmissão técnica foi validada no Chrome e no Edge por requisições `collect` HTTP 204 e por `page_view` com `en`, `dl` e `tid` corretos, inclusive na navegação interna para `/entrar` e sem duplicação no recarregamento controlado dessa rota. Isso não representa medição de resultado de negócio. O comportamento do GA4, o consentimento e a ausência de duplicações devem ser monitorados periodicamente.
+
 # Arquitetura Geral
 
 A Soravi será desenvolvida inicialmente como um **monólito modular**.

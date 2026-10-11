@@ -141,6 +141,24 @@ Toda alteração importante deverá ser adicionada neste documento com:
 -   Motivo
 -   Impacto
 
+## Google Analytics 4 com consentimento explícito e page view manual
+
+### Decisão (2026-10-11)
+
+A Soravi utiliza a tag GA4 `G-8V8DGFH741` somente após consentimento explícito. O padrão é `analytics_storage: denied`; o aceite atualiza exclusivamente esse armazenamento para `granted`, mantendo os consentimentos publicitários negados. A medição automática de page views permanece desativada no painel GA4, e a aplicação envia `page_view` manualmente.
+
+### Motivação
+
+O commit `74286a5`, publicado em produção, corrigiu o stub do `gtag` para usar `dataLayer.push(arguments)`, conforme o padrão oficial. A correção restaurou a transmissão técnica validada por requisições `collect` HTTP 204 no Chrome e no Edge, sem ampliar a coleta antes do consentimento.
+
+### Consequências
+
+- `/admin` e suas subrotas permanecem fora do rastreamento;
+- URL, título e referrer são sanitizados, e somente `utm_source`, `utm_medium` e `utm_campaign` são mantidas na entrada;
+- PostgreSQL continua sendo a fonte oficial dos dados de negócio; GA4 não é fonte de verdade operacional;
+- a validação de `page_view` e de ausência de duplicação em recarregamento controlado não comprova conversão ou desempenho de negócio;
+- a instrumentação e o consentimento devem ser monitorados periodicamente. Os próximos eventos planejados são `sign_up`, `service_request_published` e `proposal_submitted`.
+
 ## Monólito modular para o backend
 
 ### Decisão
