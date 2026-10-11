@@ -5,11 +5,22 @@ interface GoogleAnalyticsSignUpParameters {
   send_to: string;
 }
 
-type GoogleAnalyticsEventFunction = (
-  command: "event",
-  eventName: "sign_up",
-  parameters: GoogleAnalyticsSignUpParameters,
-) => void;
+interface GoogleAnalyticsServiceRequestPublishedParameters {
+  send_to: string;
+}
+
+interface GoogleAnalyticsEventFunction {
+  (
+    command: "event",
+    eventName: "sign_up",
+    parameters: GoogleAnalyticsSignUpParameters,
+  ): void;
+  (
+    command: "event",
+    eventName: "service_request_published",
+    parameters: GoogleAnalyticsServiceRequestPublishedParameters,
+  ): void;
+}
 
 interface GoogleAnalyticsEventWindow extends Window {
   gtag?: GoogleAnalyticsEventFunction;
@@ -59,6 +70,49 @@ export function trackGoogleAnalyticsSignUp(
   } catch {
     // Analytics must never prevent the confirmed registration flow.
   }
+}
+
+export function trackGoogleAnalyticsServiceRequestPublished(
+  hasAnalyticsConsent: boolean,
+): void {
+  if (!hasAnalyticsConsent || typeof window === "undefined") {
+    return;
+  }
+
+  const measurementId = getGoogleAnalyticsMeasurementId();
+
+  if (!measurementId) {
+    return;
+  }
+
+  const gtagWindow = window as GoogleAnalyticsEventWindow;
+
+  if (
+    Reflect.get(gtagWindow, `ga-disable-${measurementId}`) === true ||
+    typeof gtagWindow.gtag !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    gtagWindow.gtag("event", "service_request_published", {
+      send_to: measurementId,
+    });
+  } catch {
+    // Analytics must never prevent the confirmed publication flow.
+  }
+}
+
+export function shouldTrackPublishedServiceRequest(
+  trackedServiceRequestIds: Set<string>,
+  serviceRequestId: string,
+): boolean {
+  if (trackedServiceRequestIds.has(serviceRequestId)) {
+    return false;
+  }
+
+  trackedServiceRequestIds.add(serviceRequestId);
+  return true;
 }
 
 export function createSignUpEventTracker(): SignUpEventTracker {

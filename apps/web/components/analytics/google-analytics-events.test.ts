@@ -3,8 +3,11 @@ import test from "node:test";
 
 import {
   createSignUpEventTracker,
+  shouldTrackPublishedServiceRequest,
   trackGoogleAnalyticsSignUp,
+  trackGoogleAnalyticsServiceRequestPublished,
 } from "./google-analytics-events";
+import { extractPublishedServiceRequestId } from "../service-requests/new-service-request-page";
 
 const measurementId = "G-TEST123";
 
@@ -146,4 +149,109 @@ test("processa apenas uma vez o mesmo sucesso e absorve falhas do Analytics", ()
     tracker.track("professional", true);
     assert.equal(events.length, 1);
   });
+});
+
+test("envia a publicação confirmada somente com consentimento e send_to", () => {
+  withAnalyticsEnvironment((events) => {
+    trackGoogleAnalyticsServiceRequestPublished(false);
+    assert.deepEqual(events, []);
+
+    trackGoogleAnalyticsServiceRequestPublished(true);
+    assert.deepEqual(events, [
+      {
+        command: "event",
+        eventName: "service_request_published",
+        parameters: { send_to: measurementId },
+      },
+    ]);
+  });
+});
+
+test("não envia publicação sem tag, com GA4 desabilitado ou quando a tag falha", () => {
+  const previousWindow = globalThis.window;
+  const previousMeasurementId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
+
+  process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = measurementId;
+
+  try {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {} as Window,
+    });
+    assert.doesNotThrow(() => {
+      trackGoogleAnalyticsServiceRequestPublished(true);
+    });
+
+    withAnalyticsEnvironment(
+      (events) => {
+        trackGoogleAnalyticsServiceRequestPublished(true);
+        assert.deepEqual(events, []);
+      },
+      { disabled: true },
+    );
+
+    withAnalyticsEnvironment(
+      (events) => {
+        assert.doesNotThrow(() => {
+          trackGoogleAnalyticsServiceRequestPublished(true);
+        });
+        assert.deepEqual(events, []);
+      },
+      { shouldThrow: true },
+    );
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: previousWindow,
+    });
+
+    if (previousMeasurementId === undefined) {
+      delete process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
+    } else {
+      process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = previousMeasurementId;
+    }
+  }
+});
+
+test("aceita apenas a resposta publicada confirmada e deduplica por ID em memória", () => {
+  assert.equal(
+    extractPublishedServiceRequestId({
+      id: "service-request-1",
+      status: "OPEN",
+    }),
+    "service-request-1",
+  );
+  assert.equal(extractPublishedServiceRequestId({ status: "OPEN" }), null);
+  assert.equal(
+    extractPublishedServiceRequestId({
+      id: "service-request-1",
+      status: "DRAFT",
+    }),
+    null,
+  );
+  assert.equal(extractPublishedServiceRequestId(null), null);
+
+  const trackedServiceRequestIds = new Set<string>();
+
+  assert.equal(
+    shouldTrackPublishedServiceRequest(
+      trackedServiceRequestIds,
+      "service-request-1",
+    ),
+    true,
+  );
+  assert.equal(
+    shouldTrackPublishedServiceRequest(
+      trackedServiceRequestIds,
+      "service-request-1",
+    ),
+    false,
+  );
+  assert.equal(
+    shouldTrackPublishedServiceRequest(
+      trackedServiceRequestIds,
+      "service-request-2",
+    ),
+    true,
+  );
 });

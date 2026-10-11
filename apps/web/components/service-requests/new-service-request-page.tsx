@@ -22,7 +22,12 @@ import {
   serviceRequestPhotosUrl,
   serviceRequestsUrl,
 } from "../../lib/api";
+import {
+  shouldTrackPublishedServiceRequest,
+  trackGoogleAnalyticsServiceRequestPublished,
+} from "../analytics/google-analytics-events";
 import { useAuth } from "../auth/auth-provider";
+import { useCookieConsent } from "../cookies/cookie-consent";
 import {
   serviceRequestSchema,
   type ServiceRequestFormData,
@@ -124,14 +129,20 @@ function extractErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-function extractServiceRequestId(payload: unknown): string | null {
+export function extractPublishedServiceRequestId(payload: unknown): string | null {
   if (typeof payload !== "object" || payload === null) {
     return null;
   }
 
-  const id = (payload as { id?: unknown }).id;
+  const candidate = payload as { id?: unknown; status?: unknown };
 
-  return typeof id === "string" && id.length > 0 ? id : null;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.length > 0 &&
+    candidate.status === "OPEN"
+  )
+    ? candidate.id
+    : null;
 }
 
 interface FieldErrorProps {
@@ -153,6 +164,7 @@ function FieldError({ id, message }: FieldErrorProps) {
 
 export function NewServiceRequestPage() {
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+  const { preference } = useCookieConsent();
   const router = useRouter();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesState, setCategoriesState] =
@@ -172,6 +184,7 @@ export function NewServiceRequestPage() {
     useState<PostalCodeLookupState>("idle");
   const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
   const isPublishingRef = useRef(false);
+  const trackedPublishedServiceRequestIdsRef = useRef(new Set<string>());
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const lastLookedUpPostalCodeRef = useRef<string | null>(null);
   const postalCodeAbortControllerRef = useRef<AbortController | null>(null);
@@ -509,13 +522,25 @@ export function NewServiceRequestPage() {
         return;
       }
 
-      const serviceRequestId = extractServiceRequestId(payload);
+      const serviceRequestId = extractPublishedServiceRequestId(payload);
       if (!serviceRequestId) {
         setSubmissionState("error");
         setFormMessage("A solicitação foi publicada, mas não foi possível abrir os detalhes.");
         setSubmissionProgress(null);
         return;
       }
+
+      if (
+        shouldTrackPublishedServiceRequest(
+          trackedPublishedServiceRequestIdsRef.current,
+          serviceRequestId,
+        )
+      ) {
+        trackGoogleAnalyticsServiceRequestPublished(
+          preference?.analytics === "accepted",
+        );
+      }
+
       let failedUploads = 0;
 
       if (photosToUpload.length > 0) {
