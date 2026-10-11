@@ -14,10 +14,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "../../lib/zod";
 
+import {
+  createSignUpEventTracker,
+  type SignUpEventTracker,
+} from "../analytics/google-analytics-events";
+import { useCookieConsent } from "../cookies/cookie-consent";
 import { apiBaseUrl, categoriesUrl, categorySuggestionsUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
@@ -147,6 +152,13 @@ function formatPhone(value: string): string {
 
 export function ProfessionalRegistrationForm() {
   const router = useRouter();
+  const { preference } = useCookieConsent();
+  const signUpEventTrackerRef = useRef<SignUpEventTracker | null>(null);
+  const signUpEventTracker =
+    signUpEventTrackerRef.current ?? createSignUpEventTracker();
+
+  signUpEventTrackerRef.current = signUpEventTracker;
+
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -327,6 +339,11 @@ export function ProfessionalRegistrationForm() {
         );
         return;
       }
+
+      signUpEventTracker.track(
+        "professional",
+        preference?.analytics === "accepted",
+      );
 
       setFormMessage(
         "Cadastro profissional enviado com sucesso. Você já pode entrar na Soravi.",

@@ -11,10 +11,15 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "../../lib/zod";
 
+import {
+  createSignUpEventTracker,
+  type SignUpEventTracker,
+} from "../analytics/google-analytics-events";
+import { useCookieConsent } from "../cookies/cookie-consent";
 import { apiBaseUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
@@ -96,6 +101,13 @@ type SubmissionState = "idle" | "submitting" | "success" | "error";
 
 export function CustomerRegistrationForm() {
   const router = useRouter();
+  const { preference } = useCookieConsent();
+  const signUpEventTrackerRef = useRef<SignUpEventTracker | null>(null);
+  const signUpEventTracker =
+    signUpEventTrackerRef.current ?? createSignUpEventTracker();
+
+  signUpEventTrackerRef.current = signUpEventTracker;
+
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] =
     useState(false);
@@ -174,6 +186,11 @@ export function CustomerRegistrationForm() {
         setSubmissionState("error");
         return;
       }
+
+      signUpEventTracker.track(
+        "customer",
+        preference?.analytics === "accepted",
+      );
 
       setSubmissionState("success");
       setFormMessage("Conta criada com sucesso. Você já pode entrar na Soravi.");
