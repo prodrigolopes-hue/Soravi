@@ -49,7 +49,7 @@ export function HowItWorks() {
     <section
       id="como-funciona"
       aria-labelledby="how-it-works-title"
-      className="bg-slate-50 py-16 sm:py-20"
+      className="scroll-mt-20 bg-slate-50 py-16 sm:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">

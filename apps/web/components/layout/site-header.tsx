@@ -218,6 +218,7 @@ export function HeaderAuthAction({
     <Link
       href="/entrar"
       className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+      onClick={onAction}
     >
       Entrar
     </Link>
