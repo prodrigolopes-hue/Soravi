@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 const journeyItems = [
@@ -65,31 +66,16 @@ export function HeroSection() {
           </ul>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-7">
-          <div className="rounded-2xl bg-blue-600 p-6 text-white">
-            <p className="text-sm font-medium text-blue-100">
-              Precisa resolver algo?
-            </p>
-            <h2 className="mt-2 text-2xl font-bold">
-              Conte para a Soravi o que aconteceu.
-            </h2>
-            <p className="mt-3 leading-7 text-blue-100">
-              Você cria uma solicitação e profissionais interessados podem
-              apresentar propostas.
-            </p>
-          </div>
-
-          <ol className="mt-5 space-y-3" aria-label="Resumo do processo">
-            <li className="rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
-              1. Informe a categoria e os detalhes da sua necessidade.
-            </li>
-            <li className="rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
-              2. Revise e publique sua solicitação.
-            </li>
-            <li className="rounded-xl border border-slate-200 p-4 text-sm text-slate-700">
-              3. Analise as propostas que receber.
-            </li>
-          </ol>
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+          <Image
+            src="/images/soravi-hero-cliente-profissional.webp"
+            alt="Cliente cumprimenta profissional de serviços em uma residência"
+            width={1200}
+            height={800}
+            priority
+            sizes="(max-width: 1023px) calc(100vw - 2rem), (max-width: 1279px) 45vw, 560px"
+            className="h-auto w-full object-cover"
+          />
         </div>
       </div>
     </section>
