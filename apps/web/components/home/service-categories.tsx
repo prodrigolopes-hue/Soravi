@@ -8,6 +8,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 
 import { categoriesUrl } from "../../lib/api";
 
@@ -29,6 +30,18 @@ const categoryIconMap: Record<string, LucideIcon> = {
   hammer: Hammer,
   snowflake: Snowflake,
   "house-wrench": Wrench,
+};
+
+const categoryImageBySlug: Readonly<Record<string, string>> = {
+  eletricista: "/images/soravi-categoria-eletricista.webp",
+  encanador: "/images/soravi-categoria-encanador.webp",
+  pintor: "/images/soravi-categoria-pintor.webp",
+  diarista: "/images/soravi-categoria-diarista.webp",
+  jardineiro: "/images/soravi-categoria-jardineiro.webp",
+  "montador-de-moveis": "/images/soravi-categoria-montador-moveis.webp",
+  "climatizacao-e-ar-condicionado": "/images/soravi-categoria-climatizacao.webp",
+  "reparos-e-manutencao-residencial":
+    "/images/soravi-categoria-reparos-residenciais.webp",
 };
 
 function isServiceCategory(value: unknown): value is ServiceCategory {
@@ -98,21 +111,38 @@ export async function ServiceCategories() {
 
         {hasCategories ? (
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {categories.map(({ id, name, description, icon }) => {
+            {categories.map(({ id, name, slug, description, icon }) => {
               const Icon = resolveCategoryIcon(icon);
+              const imageSrc = categoryImageBySlug[slug];
 
               return (
                 <article
                   key={id}
-                  className="rounded-2xl border border-slate-200 bg-white p-5"
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
                 >
-                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <Icon aria-hidden="true" className="size-5" />
+                  {imageSrc ? (
+                    <div className="aspect-video bg-slate-100">
+                      <Image
+                        src={imageSrc}
+                        alt={`Profissional de ${name} em atendimento`}
+                        width={960}
+                        height={540}
+                        sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(50vw - 2rem), (max-width: 1279px) calc(25vw - 2rem), 320px"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-video items-center justify-center bg-blue-50 text-blue-600">
+                      <Icon aria-hidden="true" className="size-8" />
+                    </div>
+                  )}
+
+                  <div className="p-5">
+                    <h3 className="font-semibold text-slate-950">{name}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {description ?? "Categoria disponível para sua solicitação."}
+                    </p>
                   </div>
-                  <h3 className="mt-5 font-semibold text-slate-950">{name}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {description ?? "Categoria disponível para sua solicitação."}
-                  </p>
                 </article>
               );
             })}
