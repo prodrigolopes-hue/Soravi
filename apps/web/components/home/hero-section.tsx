@@ -8,12 +8,6 @@ const journeyItems = [
   "Escolha quem vai realizar o serviço",
 ];
 
-const processSteps = [
-  "Informe a categoria e os detalhes da sua necessidade.",
-  "Revise e publique sua solicitação.",
-  "Analise as propostas que receber.",
-];
-
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden bg-slate-50">
@@ -72,42 +66,16 @@ export function HeroSection() {
           </ul>
         </div>
 
-        <div className="space-y-5 lg:space-y-6">
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-            <Image
-              src="/images/soravi-hero-cliente-profissional.webp"
-              alt="Cliente cumprimenta profissional de serviços em uma residência"
-              width={1200}
-              height={800}
-              priority
-              sizes="(max-width: 1023px) calc(100vw - 2rem), (max-width: 1279px) 52vw, 680px"
-              className="h-auto w-full object-cover"
-            />
-          </div>
-
-          <div className="rounded-2xl bg-blue-600 p-5 text-white shadow-lg shadow-blue-200/60 sm:p-6">
-            <h2 className="text-xl font-bold">
-              Conte para a Soravi o que aconteceu.
-            </h2>
-            <p className="mt-2 leading-7 text-blue-100">
-              Você cria uma solicitação e profissionais interessados podem
-              apresentar propostas.
-            </p>
-
-            <ol className="mt-5 grid gap-2 sm:grid-cols-3">
-              {processSteps.map((step, index) => (
-                <li
-                  key={step}
-                  className="rounded-xl bg-white/10 px-3 py-3 text-sm leading-5 text-blue-50"
-                >
-                  <span className="mr-1 font-semibold text-white">
-                    {index + 1}.
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-          </div>
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+          <Image
+            src="/images/soravi-hero-cliente-profissional.webp"
+            alt="Cliente cumprimenta profissional de serviços em uma residência"
+            width={1200}
+            height={800}
+            priority
+            sizes="(max-width: 1023px) calc(100vw - 2rem), (max-width: 1279px) 52vw, 680px"
+            className="h-auto w-full object-cover"
+          />
         </div>
       </div>
     </section>
