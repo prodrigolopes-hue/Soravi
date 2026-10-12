@@ -8,6 +8,12 @@ const journeyItems = [
   "Escolha quem vai realizar o serviço",
 ];
 
+const processSteps = [
+  "Informe a categoria e os detalhes da sua necessidade.",
+  "Revise e publique sua solicitação.",
+  "Analise as propostas que receber.",
+];
+
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden bg-slate-50">
@@ -17,7 +23,7 @@ export function HeroSection() {
       />
 
       <div
-        className="relative mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:px-8 lg:py-28"
+        className="relative mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-10 lg:px-8 lg:py-20"
       >
         <div className="max-w-3xl">
           <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
@@ -66,16 +72,42 @@ export function HeroSection() {
           </ul>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-          <Image
-            src="/images/soravi-hero-cliente-profissional.webp"
-            alt="Cliente cumprimenta profissional de serviços em uma residência"
-            width={1200}
-            height={800}
-            priority
-            sizes="(max-width: 1023px) calc(100vw - 2rem), (max-width: 1279px) 45vw, 560px"
-            className="h-auto w-full object-cover"
-          />
+        <div className="space-y-5 lg:space-y-6">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+            <Image
+              src="/images/soravi-hero-cliente-profissional.webp"
+              alt="Cliente cumprimenta profissional de serviços em uma residência"
+              width={1200}
+              height={800}
+              priority
+              sizes="(max-width: 1023px) calc(100vw - 2rem), (max-width: 1279px) 52vw, 680px"
+              className="h-auto w-full object-cover"
+            />
+          </div>
+
+          <div className="rounded-2xl bg-blue-600 p-5 text-white shadow-lg shadow-blue-200/60 sm:p-6">
+            <h2 className="text-xl font-bold">
+              Conte para a Soravi o que aconteceu.
+            </h2>
+            <p className="mt-2 leading-7 text-blue-100">
+              Você cria uma solicitação e profissionais interessados podem
+              apresentar propostas.
+            </p>
+
+            <ol className="mt-5 grid gap-2 sm:grid-cols-3">
+              {processSteps.map((step, index) => (
+                <li
+                  key={step}
+                  className="rounded-xl bg-white/10 px-3 py-3 text-sm leading-5 text-blue-50"
+                >
+                  <span className="mr-1 font-semibold text-white">
+                    {index + 1}.
+                  </span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
     </section>
