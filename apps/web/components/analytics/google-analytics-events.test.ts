@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   createSignUpEventTracker,
   shouldTrackPublishedServiceRequest,
+  shouldTrackSubmittedProposal,
   trackGoogleAnalyticsSignUp,
+  trackGoogleAnalyticsProposalSubmitted,
   trackGoogleAnalyticsServiceRequestPublished,
 } from "./google-analytics-events";
 import { extractPublishedServiceRequestId } from "../service-requests/new-service-request-page";
@@ -13,11 +15,13 @@ const measurementId = "G-TEST123";
 
 interface RecordedEvent {
   command: "event";
-  eventName: "sign_up";
-  parameters: {
-    account_type: "customer" | "professional";
-    send_to: string;
-  };
+  eventName: "sign_up" | "service_request_published" | "proposal_submitted";
+  parameters:
+    | {
+        account_type: "customer" | "professional";
+        send_to: string;
+      }
+    | { send_to: string };
 }
 
 function withAnalyticsEnvironment(
@@ -31,7 +35,7 @@ function withAnalyticsEnvironment(
     [`ga-disable-${measurementId}`]: options.disabled === true,
     gtag(
       command: "event",
-      eventName: "sign_up",
+      eventName: RecordedEvent["eventName"],
       parameters: RecordedEvent["parameters"],
     ): void {
       if (options.shouldThrow) {
@@ -252,6 +256,93 @@ test("aceita apenas a resposta publicada confirmada e deduplica por ID em memór
       trackedServiceRequestIds,
       "service-request-2",
     ),
+    true,
+  );
+});
+
+test("emits confirmed proposal only with consent and send_to", () => {
+  withAnalyticsEnvironment((events) => {
+    trackGoogleAnalyticsProposalSubmitted(false);
+    assert.deepEqual(events, []);
+
+    trackGoogleAnalyticsProposalSubmitted(true);
+    assert.deepEqual(events, [
+      {
+        command: "event",
+        eventName: "proposal_submitted",
+        parameters: { send_to: measurementId },
+      },
+    ]);
+  });
+});
+
+test("does not emit proposal without tag, with disabled GA4, or when GA4 fails", () => {
+  const previousWindow = globalThis.window;
+  const previousMeasurementId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
+
+  process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = measurementId;
+
+  try {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {} as Window,
+    });
+    assert.doesNotThrow(() => {
+      trackGoogleAnalyticsProposalSubmitted(true);
+    });
+
+    withAnalyticsEnvironment(
+      (events) => {
+        trackGoogleAnalyticsProposalSubmitted(true);
+        assert.deepEqual(events, []);
+      },
+      { disabled: true },
+    );
+
+    withAnalyticsEnvironment(
+      (events) => {
+        assert.doesNotThrow(() => {
+          trackGoogleAnalyticsProposalSubmitted(true);
+        });
+        assert.deepEqual(events, []);
+      },
+      { shouldThrow: true },
+    );
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: previousWindow,
+    });
+
+    if (previousMeasurementId === undefined) {
+      delete process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
+    } else {
+      process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = previousMeasurementId;
+    }
+  }
+});
+
+test("deduplicates confirmed proposals by in-memory ID", () => {
+  const trackedProposalIds = new Set<string>();
+
+  assert.equal(
+    shouldTrackSubmittedProposal(trackedProposalIds, "", "ACTIVE"),
+    false,
+  );
+  assert.equal(
+    shouldTrackSubmittedProposal(trackedProposalIds, "proposal-1", "ACCEPTED"),
+    false,
+  );
+  assert.equal(
+    shouldTrackSubmittedProposal(trackedProposalIds, "proposal-1", "ACTIVE"),
+    true,
+  );
+  assert.equal(
+    shouldTrackSubmittedProposal(trackedProposalIds, "proposal-1", "ACTIVE"),
+    false,
+  );
+  assert.equal(
+    shouldTrackSubmittedProposal(trackedProposalIds, "proposal-2", "ACTIVE"),
     true,
   );
 });

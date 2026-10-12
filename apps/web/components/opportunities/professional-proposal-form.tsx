@@ -7,6 +7,11 @@ import { useForm } from "react-hook-form";
 import { z } from "../../lib/zod";
 
 import { proposalCreateUrl } from "../../lib/api";
+import {
+  shouldTrackSubmittedProposal,
+  trackGoogleAnalyticsProposalSubmitted,
+} from "../analytics/google-analytics-events";
+import { useCookieConsent } from "../cookies/cookie-consent";
 
 const estimatedDurationUnits = ["HOUR", "DAY", "WEEK", "MONTH"] as const;
 
@@ -132,9 +137,11 @@ export function ProfessionalProposalForm({
   accessToken,
   serviceRequestId,
 }: ProfessionalProposalFormProps) {
+  const { preference } = useCookieConsent();
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
   const [proposal, setProposal] = useState<ProposalResponse | null>(null);
   const submissionInFlightRef = useRef(false);
+  const trackedProposalIdsRef = useRef(new Set<string>());
   const {
     register,
     handleSubmit,
@@ -210,6 +217,18 @@ export function ProfessionalProposalForm({
       if (!parsedProposal) {
         setSubmissionState("error");
         return;
+      }
+
+      if (
+        shouldTrackSubmittedProposal(
+          trackedProposalIdsRef.current,
+          parsedProposal.id,
+          parsedProposal.status,
+        )
+      ) {
+        trackGoogleAnalyticsProposalSubmitted(
+          preference?.analytics === "accepted",
+        );
       }
 
       setProposal(parsedProposal);

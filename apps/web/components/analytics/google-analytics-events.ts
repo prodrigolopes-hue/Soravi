@@ -9,6 +9,10 @@ interface GoogleAnalyticsServiceRequestPublishedParameters {
   send_to: string;
 }
 
+interface GoogleAnalyticsProposalSubmittedParameters {
+  send_to: string;
+}
+
 interface GoogleAnalyticsEventFunction {
   (
     command: "event",
@@ -19,6 +23,11 @@ interface GoogleAnalyticsEventFunction {
     command: "event",
     eventName: "service_request_published",
     parameters: GoogleAnalyticsServiceRequestPublishedParameters,
+  ): void;
+  (
+    command: "event",
+    eventName: "proposal_submitted",
+    parameters: GoogleAnalyticsProposalSubmittedParameters,
   ): void;
 }
 
@@ -103,6 +112,37 @@ export function trackGoogleAnalyticsServiceRequestPublished(
   }
 }
 
+export function trackGoogleAnalyticsProposalSubmitted(
+  hasAnalyticsConsent: boolean,
+): void {
+  if (!hasAnalyticsConsent || typeof window === "undefined") {
+    return;
+  }
+
+  const measurementId = getGoogleAnalyticsMeasurementId();
+
+  if (!measurementId) {
+    return;
+  }
+
+  const gtagWindow = window as GoogleAnalyticsEventWindow;
+
+  if (
+    Reflect.get(gtagWindow, `ga-disable-${measurementId}`) === true ||
+    typeof gtagWindow.gtag !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    gtagWindow.gtag("event", "proposal_submitted", {
+      send_to: measurementId,
+    });
+  } catch {
+    // Analytics must never prevent the confirmed proposal submission flow.
+  }
+}
+
 export function shouldTrackPublishedServiceRequest(
   trackedServiceRequestIds: Set<string>,
   serviceRequestId: string,
@@ -112,6 +152,23 @@ export function shouldTrackPublishedServiceRequest(
   }
 
   trackedServiceRequestIds.add(serviceRequestId);
+  return true;
+}
+
+export function shouldTrackSubmittedProposal(
+  trackedProposalIds: Set<string>,
+  proposalId: string,
+  proposalStatus: string,
+): boolean {
+  if (
+    proposalId.length === 0 ||
+    proposalStatus !== "ACTIVE" ||
+    trackedProposalIds.has(proposalId)
+  ) {
+    return false;
+  }
+
+  trackedProposalIds.add(proposalId);
   return true;
 }
 
