@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, Check } from "lucide-react";
+import Link from "next/link";
 
 const benefits = [
   "Encontre novas oportunidades",
@@ -43,7 +43,7 @@ export function ProfessionalCta() {
               href="/cadastro/profissional"
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-slate-950 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 lg:w-auto"
             >
-              Criar perfil profissional
+              Quero trabalhar na Soravi
               <ArrowRight aria-hidden="true" className="size-5" />
             </Link>
           </div>

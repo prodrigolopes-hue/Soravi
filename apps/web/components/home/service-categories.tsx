@@ -1,14 +1,14 @@
-import Link from "next/link";
 import {
   Hammer,
   Leaf,
   Paintbrush,
-  Snowflake,
   PlugZap,
+  Snowflake,
   SprayCan,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+
 import { categoriesUrl } from "../../lib/api";
 
 interface ServiceCategory {
@@ -42,7 +42,8 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
     typeof candidate.id === "string" &&
     typeof candidate.name === "string" &&
     typeof candidate.slug === "string" &&
-    (typeof candidate.description === "string" || candidate.description === null) &&
+    (typeof candidate.description === "string" ||
+      candidate.description === null) &&
     (typeof candidate.icon === "string" || candidate.icon === null) &&
     typeof candidate.displayOrder === "number" &&
     Number.isInteger(candidate.displayOrder)
@@ -50,19 +51,13 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
 }
 
 function resolveCategoryIcon(icon: string | null): LucideIcon {
-  if (!icon) {
-    return Wrench;
-  }
-
-  return categoryIconMap[icon] ?? Wrench;
+  return icon ? (categoryIconMap[icon] ?? Wrench) : Wrench;
 }
 
 async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
   try {
     const response = await fetch(categoriesUrl, {
-      next: {
-        revalidate: 300,
-      },
+      next: { revalidate: 300 },
     });
 
     if (!response.ok) {
@@ -71,11 +66,7 @@ async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
 
     const payload: unknown = await response.json();
 
-    if (!Array.isArray(payload)) {
-      return null;
-    }
-
-    return payload.filter(isServiceCategory);
+    return Array.isArray(payload) ? payload.filter(isServiceCategory) : null;
   } catch {
     return null;
   }
@@ -94,40 +85,35 @@ export async function ServiceCategories() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="font-semibold text-blue-600">Categorias de serviços</p>
-
           <h2
             id="service-categories-title"
             className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl"
           >
             Encontre ajuda para diferentes necessidades
           </h2>
-
           <p className="mt-4 text-lg leading-8 text-slate-600">
-            Explore algumas das categorias que estarão disponíveis na Soravi.
+            Conheça as categorias disponíveis para criar sua solicitação.
           </p>
         </div>
 
         {hasCategories ? (
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {categories.map(({ id, name, slug, description, icon }) => {
+            {categories.map(({ id, name, description, icon }) => {
               const Icon = resolveCategoryIcon(icon);
 
               return (
-                <Link
+                <article
                   key={id}
-                  href={`/profissionais?categoria=${slug}`}
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  className="rounded-2xl border border-slate-200 bg-white p-5"
                 >
-                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <Icon aria-hidden="true" className="size-5" />
                   </div>
-
                   <h3 className="mt-5 font-semibold text-slate-950">{name}</h3>
-
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {description ?? "Profissionais disponíveis nesta categoria."}
+                    {description ?? "Categoria disponível para sua solicitação."}
                   </p>
-                </Link>
+                </article>
               );
             })}
           </div>
