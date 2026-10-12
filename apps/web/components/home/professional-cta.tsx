@@ -49,7 +49,7 @@ export function ProfessionalCta() {
             </div>
           </div>
 
-          <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:w-[58%] lg:rounded-none">
+          <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:w-[58%] lg:aspect-auto lg:rounded-none">
             <Image
               src="/images/soravi-banner-profissional.webp"
               alt="Profissional de serviços em uma residência"
