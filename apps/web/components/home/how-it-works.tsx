@@ -84,7 +84,7 @@ export function HowItWorks() {
         <ol className="relative mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {steps.map(({ number, title, description, icon: Icon }, index) => (
             <li key={number} className="relative min-w-0">
-              <article className="relative flex h-full min-h-80 flex-col items-center rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-[0_12px_30px_-18px_rgba(15,23,42,0.28)] sm:p-7">
+              <article className="relative flex h-full flex-col items-center rounded-3xl border border-slate-200/80 bg-white p-6 text-center shadow-[0_12px_30px_-18px_rgba(15,23,42,0.28)] sm:p-7">
                 <span className="absolute left-5 top-5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold tracking-wide text-blue-700">
                   {number}
                 </span>
@@ -102,25 +102,25 @@ export function HowItWorks() {
               {index < steps.length - 1 ? (
                 <svg
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-[calc(100%+0.15rem)] top-1/2 z-10 hidden h-16 w-6 -translate-y-1/2 overflow-visible lg:block"
+                  className="pointer-events-none absolute left-[calc(100%+0.15rem)] top-7 z-10 hidden h-16 w-6 overflow-visible lg:block"
                   fill="none"
                   viewBox="0 0 28 64"
                 >
                   <path
                     d="M1 31C8 16 18 16 24 31"
                     stroke="currentColor"
-                    strokeDasharray="4 5"
+                    strokeDasharray="5 4"
                     strokeLinecap="round"
-                    strokeWidth="1.5"
-                    className="text-blue-400"
+                    strokeWidth="2"
+                    className="text-blue-500"
                   />
                   <path
                     d="m20 27 5 4-5 4"
                     stroke="currentColor"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth="1.5"
-                    className="text-blue-400"
+                    strokeWidth="2"
+                    className="text-blue-500"
                   />
                 </svg>
               ) : null}
