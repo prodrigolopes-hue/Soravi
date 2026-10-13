@@ -110,7 +110,7 @@ export async function ServiceCategories() {
         </div>
 
         {hasCategories ? (
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {categories.map(({ id, name, slug, description, icon }) => {
               const Icon = resolveCategoryIcon(icon);
               const imageSrc = categoryImageBySlug[slug];
@@ -118,7 +118,7 @@ export async function ServiceCategories() {
               return (
                 <article
                   key={id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                  className="h-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white"
                 >
                   {imageSrc ? (
                     <div className="aspect-video bg-slate-100">
@@ -127,7 +127,7 @@ export async function ServiceCategories() {
                         alt={`Profissional de ${name} em atendimento`}
                         width={960}
                         height={540}
-                        sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(50vw - 2rem), (max-width: 1279px) calc(25vw - 2rem), 320px"
+                        sizes="(max-width: 639px) calc((100vw - 2.75rem) / 2), (max-width: 1023px) calc(50vw - 2rem), (max-width: 1279px) calc(25vw - 1.75rem), 320px"
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -137,9 +137,11 @@ export async function ServiceCategories() {
                     </div>
                   )}
 
-                  <div className="p-5">
-                    <h3 className="font-semibold text-slate-950">{name}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <div className="p-3 sm:p-5">
+                    <h3 className="text-sm font-semibold text-slate-950 sm:text-base">
+                      {name}
+                    </h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-600 sm:text-sm sm:leading-6">
                       {description ?? "Categoria disponível para sua solicitação."}
                     </p>
                   </div>
