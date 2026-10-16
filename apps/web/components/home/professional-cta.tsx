@@ -1,6 +1,10 @@
+"use client";
+
 import { ArrowRight, BriefcaseBusiness, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
+import { useAuth } from "../auth/auth-provider";
 
 const benefits = [
   "Encontre novas oportunidades",
@@ -9,6 +13,9 @@ const benefits = [
 ];
 
 export function ProfessionalCta() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const showProfessionalRegistrationCta = !isLoading && !isAuthenticated;
+
   return (
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -38,15 +45,17 @@ export function ProfessionalCta() {
               ))}
             </ul>
 
-            <div className="mt-8">
-              <Link
-                href="/cadastro/profissional"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-slate-950 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto"
-              >
-                Quero trabalhar na Soravi
-                <ArrowRight aria-hidden="true" className="size-5" />
-              </Link>
-            </div>
+            {showProfessionalRegistrationCta ? (
+              <div className="mt-8">
+                <Link
+                  href="/cadastro/profissional"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-slate-950 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto"
+                >
+                  Quero trabalhar na Soravi
+                  <ArrowRight aria-hidden="true" className="size-5" />
+                </Link>
+              </div>
+            ) : null}
           </div>
 
           <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:w-[58%] lg:aspect-auto lg:rounded-none">

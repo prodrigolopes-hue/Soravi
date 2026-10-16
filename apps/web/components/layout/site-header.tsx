@@ -240,6 +240,9 @@ export function SiteHeader({
   showMarketingNavigation = true,
 }: SiteHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
+  const showProfessionalRegistrationCta =
+    showMarketingNavigation && !isLoading && !isAuthenticated;
 
   function closeMenu() {
     setIsMenuOpen(false);
@@ -282,7 +285,7 @@ export function SiteHeader({
 
           <HeaderAuthAction />
 
-          {showMarketingNavigation ? (
+          {showProfessionalRegistrationCta ? (
             <Link
               href="/cadastro/profissional"
               className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
@@ -332,7 +335,7 @@ export function SiteHeader({
 
             <HeaderAuthAction mobile onAction={closeMenu} />
 
-            {showMarketingNavigation ? (
+            {showProfessionalRegistrationCta ? (
               <Link
                 href="/cadastro/profissional"
                 className="mt-2 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
