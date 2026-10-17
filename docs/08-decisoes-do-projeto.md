@@ -522,7 +522,11 @@ Esta documentação não afirma deploy, go-live ou validação em produção.
 
 ## Evolução de contas e CPF
 
-### Decisões aprovadas (2026-10-17; ainda não implementadas)
+### Decisões aprovadas (2026-10-17; extensão empresarial ainda não implementada)
+
+Atualização de escopo: a proteção para categorias do perfil profissional
+pessoal foi implementada nesta etapa. A extensão abaixo para empresas continua
+pendente; esta entrega não modela empresas, CPF/CNPJ ou ativação de perfis.
 
 - Uma pessoa utiliza uma única conta e pode possuir perfis de cliente e
   profissional, preservando seu histórico.

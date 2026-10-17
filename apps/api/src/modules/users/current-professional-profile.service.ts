@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
+import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
+import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
 import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 import { CurrentProfessionalProfileNotFoundException } from "./errors/current-professional-profile-not-found.exception";
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
+import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
 
 const professionalProfileSelect = {
   id: true,
@@ -63,6 +65,7 @@ export class CurrentProfessionalProfileService {
     input: UpdateCurrentProfessionalProfileDto,
   ): Promise<ProfessionalProfileResponseDto> {
     return this.prisma.$transaction(async (transaction) => {
+      await lockUserCategoryProtection(transaction, userId);
       this.ensureDistinctCategorySlugs(input.categorySlugs);
 
       const profile = await transaction.professionalProfile.findFirst({
@@ -71,7 +74,10 @@ export class CurrentProfessionalProfileService {
           deletedAt: null,
           user: { deletedAt: null },
         },
-        select: { id: true },
+        select: {
+          id: true,
+          professionalCategories: { select: { categoryId: true } },
+        },
       });
 
       if (!profile) {
@@ -88,6 +94,34 @@ export class CurrentProfessionalProfileService {
 
       if (categories.length !== input.categorySlugs.length) {
         throw new InvalidProfessionalProfileCategoriesException();
+      }
+
+      const addedCategoryIds = categories
+        .filter((category) => !profile.professionalCategories.some(
+          (currentCategory) => currentCategory.categoryId === category.id,
+        ))
+        .map((category) => category.id);
+
+      if (addedCategoryIds.length > 0) {
+        const hasOpenOwnRequest = await transaction.serviceRequest.findFirst({
+          where: {
+            customerProfile: { userId },
+            categoryId: { in: addedCategoryIds },
+            deletedAt: null,
+            status: {
+              in: [
+                ServiceRequestStatus.OPEN,
+                ServiceRequestStatus.RECEIVING_PROPOSALS,
+                ServiceRequestStatus.IN_NEGOTIATION,
+              ],
+            },
+          },
+          select: { id: true },
+        });
+
+        if (hasOpenOwnRequest) {
+          throw new ProfessionalCategoryOpenServiceRequestException();
+        }
       }
 
       const profileData: Prisma.ProfessionalProfileUpdateInput = {

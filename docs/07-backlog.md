@@ -331,9 +331,13 @@ Cada tarefa somente será considerada concluída quando:
   usando chaves separadas, após definição operacional.
 - [ ] Garantir erros públicos de conflito de CPF que não revelem a existência
   nem dados de outra conta.
-- [ ] Bloquear no backend a solicitação pela união das categorias profissionais
-  pessoais do usuário e das empresas que ele representa ativamente, antes de
-  publicar e liberar contratação, independentemente do contexto de atuação.
+- [x] Bloquear no backend, para o perfil profissional pessoal atual, a criação
+  de solicitação em categoria própria, impedir adicionar categoria com
+  solicitação própria aberta e revalidar categoria no envio de proposta,
+  preservando histórico e contratos.
+- [ ] Estender o bloqueio à união das categorias das empresas representadas
+  ativamente, antes de publicar e liberar contratação, quando a modelagem
+  empresarial for definida.
 - [ ] Impedir distribuição de oportunidade e envio de proposta para a própria
   solicitação.
 - [ ] Cobrir as duas proteções backend com testes de autorização, integração e

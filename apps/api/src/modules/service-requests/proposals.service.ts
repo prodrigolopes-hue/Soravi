@@ -13,6 +13,7 @@ import {
   NotificationType,
 } from "../../generated/prisma/client";
 import { PrismaService } from "../../database/prisma.service";
+import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
 import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 import {
   AcceptProposalResponseDto,
@@ -149,6 +150,7 @@ export class ProposalsService {
   ): Promise<ProposalResponseDto> {
     try {
       const proposal = await this.prisma.$transaction(async (transaction) => {
+        await lockUserCategoryProtection(transaction, userId);
         const professionalProfile = await transaction.professionalProfile.findFirst({
           where: {
             userId,
@@ -160,7 +162,10 @@ export class ProposalsService {
               roles: { some: { role: Role.PROFESSIONAL } },
             },
           },
-          select: { id: true },
+          select: {
+            id: true,
+            professionalCategories: { select: { categoryId: true } },
+          },
         });
 
         if (!professionalProfile) {
@@ -189,7 +194,12 @@ export class ProposalsService {
 
         const lockedServiceRequest = await transaction.serviceRequest.findFirst({
           where: { id: serviceRequestId, deletedAt: null },
-          select: { status: true, visibleProposalLimit: true, customerProfile: { select: { userId: true } } },
+          select: {
+            categoryId: true,
+            status: true,
+            visibleProposalLimit: true,
+            customerProfile: { select: { userId: true } },
+          },
         });
 
         if (!lockedServiceRequest) {
@@ -219,6 +229,12 @@ export class ProposalsService {
           lockedServiceRequest.status !== ServiceRequestStatus.RECEIVING_PROPOSALS
         ) {
           throw new ServiceRequestNotAcceptingProposalsException();
+        }
+
+        if (!professionalProfile.professionalCategories.some(
+          (category) => category.categoryId === lockedServiceRequest.categoryId,
+        )) {
+          throw new ProposalCreationUnavailableException();
         }
 
         const existingProposal = await transaction.proposal.findUnique({

@@ -50,13 +50,17 @@ describe("ProposalsService", () => {
   beforeEach(() => {
     transactionMock = {
       professionalProfile: {
-        findFirst: jest.fn().mockResolvedValue({ id: professionalProfileId }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: professionalProfileId,
+          professionalCategories: [{ categoryId: "category-id" }],
+        }),
       },
       serviceRequest: {
         findFirst: jest
           .fn()
           .mockResolvedValue({
             id: serviceRequestId,
+            categoryId: "category-id",
             status: ServiceRequestStatus.OPEN,
             visibleProposalLimit: 3,
             customerProfile: { userId: customerUserId },
@@ -262,7 +266,10 @@ describe("ProposalsService", () => {
           roles: { some: { role: Role.PROFESSIONAL } },
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        professionalCategories: { select: { categoryId: true } },
+      },
     });
     expect(transactionMock.serviceOpportunity.findUnique).toHaveBeenCalledWith({
       where: {
@@ -398,6 +405,7 @@ describe("ProposalsService", () => {
 
   it("mantém RECEIVING_PROPOSALS sem atualizar a solicitação", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId: "category-id",
       status: ServiceRequestStatus.RECEIVING_PROPOSALS,
       customerProfile: { userId: customerUserId },
     });
@@ -417,6 +425,18 @@ describe("ProposalsService", () => {
 
     expect(transactionMock.proposal.create).not.toHaveBeenCalled();
     expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it("revalida a categoria profissional e rejeita proposta após sua remoção", async () => {
+    transactionMock.professionalProfile.findFirst.mockResolvedValue({
+      id: professionalProfileId,
+      professionalCategories: [],
+    });
+
+    await expect(service.create(userId, serviceRequestId, createDto()))
+      .rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
   });
 
   it("bloqueia perfil não aprovado pela consulta de elegibilidade", async () => {

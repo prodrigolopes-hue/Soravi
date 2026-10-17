@@ -39,6 +39,8 @@ describe("ServiceRequestsService", () => {
       update: jest.Mock;
     };
     serviceRequestFile: { create: jest.Mock };
+    professionalProfile: { findFirst: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
   let storageMock: {
@@ -60,6 +62,8 @@ describe("ServiceRequestsService", () => {
         update: jest.fn(),
       },
       serviceRequestFile: { create: jest.fn() },
+      professionalProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
       $transaction: jest.fn(),
     };
     storageMock = {
@@ -79,10 +83,11 @@ describe("ServiceRequestsService", () => {
     prismaMock.category.findFirst.mockResolvedValue({
       id: createInput().categoryId,
     });
-    prismaMock.$transaction.mockImplementation(async () => [
-      await prismaMock.serviceRequest.count(),
-      await prismaMock.serviceRequest.findMany(),
-    ]);
+    prismaMock.$transaction.mockImplementation(async (input: unknown) =>
+      typeof input === "function"
+        ? (input as (transaction: typeof prismaMock) => unknown)(prismaMock)
+        : Promise.all(input as Promise<unknown>[]),
+    );
   });
 
   afterEach(() => {
@@ -160,6 +165,27 @@ describe("ServiceRequestsService", () => {
     ).rejects.toBeInstanceOf(InvalidServiceRequestCategoryException);
 
     expect(prismaMock.serviceRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia publicação em categoria do próprio perfil profissional", async () => {
+    prismaMock.professionalProfile.findFirst.mockResolvedValue({ id: "professional-profile-id" });
+
+    await expect(service.createServiceRequest(userId, createInput())).rejects.toMatchObject({
+      response: expect.objectContaining({ code: "SERVICE_REQUEST_OWN_PROFESSIONAL_CATEGORY" }),
+    });
+
+    expect(prismaMock.serviceRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("permite publicação em categoria diferente da profissional", async () => {
+    prismaMock.serviceRequest.create.mockResolvedValue(createServiceRequestRecord(ServiceRequestStatus.OPEN));
+
+    await expect(service.createServiceRequest(userId, createInput())).resolves.toMatchObject({
+      status: ServiceRequestStatus.OPEN,
+    });
+    expect(prismaMock.professionalProfile.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ professionalCategories: { some: { categoryId: createInput().categoryId } } }),
+    }));
   });
 
   it("lista somente solicitações do CustomerProfile autenticado", async () => {
@@ -408,6 +434,7 @@ describe("ServiceRequestsService", () => {
       },
       select: {
         status: true,
+        visibleProposalLimit: true,
       },
     });
     expect(prismaMock.category.findFirst).toHaveBeenCalledWith({

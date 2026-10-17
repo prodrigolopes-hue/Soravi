@@ -54,16 +54,21 @@ Pode:
 -   contratar;
 -   avaliar serviços.
 
-**Decisão aprovada, ainda não implementada:** o bloqueio de solicitação
-considera a união das categorias profissionais pessoais do usuário e das
-empresas que ele representa ativamente. Aplica-se independentemente de ele
-atuar pessoalmente ou em nome de qualquer dessas empresas. Se a pessoa ou uma
-empresa representada oferece pintura, nenhum desses contextos pode solicitar
-pintura; outras categorias continuam permitidas.
+**Implementação pessoal atual:** o backend bloqueia criação/publicação de
+solicitação em categoria vinculada ao perfil profissional da mesma conta.
+Também bloqueia adicionar tal categoria ao perfil se houver solicitação
+própria em aberto nela. As duas gravações serializam pela linha da conta na
+mesma transação.
 
-Essa restrição é aplicada pelo backend antes de liberar a contratação. A
-política temporal para mudança de categorias e representações sobre
-solicitações e propostas já existentes permanece pendente.
+Para esta regra, solicitação em aberto é `OPEN`, `RECEIVING_PROPOSALS` ou
+`IN_NEGOTIATION`. `DRAFT` é legado e não é publicado; `HIRED`,
+`IN_PROGRESS`, `COMPLETED` e `CANCELLED` não bloqueiam. Remover categoria não
+altera solicitações, propostas ou contratos existentes, mas impede nova
+proposta em oportunidade antiga porque a categoria é revalidada no envio.
+
+**Extensão empresarial pendente:** incluir categorias de empresas representadas
+ativamente na mesma proteção, sem implementar empresa, CPF/CNPJ ou ativação
+de perfis nesta etapa.
 
 ## Profissional
 
@@ -192,8 +197,10 @@ Cada proposta deve conter:
 Um profissional pode enviar apenas uma proposta por solicitação, podendo
 editá-la enquanto a solicitação estiver aberta.
 
-O backend também deve negar propostas do profissional para solicitação da sua
-própria conta, independentemente de oportunidades já existentes.
+O backend também nega propostas do profissional para solicitação da sua
+própria conta, independentemente de oportunidades já existentes, e revalida
+que a categoria da solicitação continua vinculada ao seu perfil no momento do
+envio. A revalidação não desfaz propostas ou contratos anteriores.
 
 ------------------------------------------------------------------------
 

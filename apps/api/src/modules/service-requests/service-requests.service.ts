@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
+import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
 import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
@@ -22,6 +23,7 @@ import { ServiceRequestPhotoLimitException } from "./errors/service-request-phot
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
 import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
 import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
+import { ServiceRequestOwnProfessionalCategoryException } from "./errors/service-request-own-professional-category.exception";
 import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
 import {
   detectServiceRequestPhotoMimeType,
@@ -127,7 +129,10 @@ export class ServiceRequestsService {
     userId: string,
     input: CreateServiceRequestDto,
   ): Promise<ServiceRequestResponseDto> {
-    const customerProfile = await this.prisma.customerProfile.findUnique({
+    const serviceRequest = await this.prisma.$transaction(async (transaction) => {
+      await lockUserCategoryProtection(transaction, userId);
+
+    const customerProfile = await transaction.customerProfile.findUnique({
       where: {
         userId,
       },
@@ -140,7 +145,7 @@ export class ServiceRequestsService {
       throw new CustomerProfileNotFoundException();
     }
 
-    const category = await this.prisma.category.findFirst({
+    const category = await transaction.category.findFirst({
       where: {
         id: input.categoryId,
         isActive: true,
@@ -154,9 +159,22 @@ export class ServiceRequestsService {
       throw new InvalidServiceRequestCategoryException();
     }
 
+    const ownsCategory = await transaction.professionalProfile.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+        professionalCategories: { some: { categoryId: category.id } },
+      },
+      select: { id: true },
+    });
+
+    if (ownsCategory) {
+      throw new ServiceRequestOwnProfessionalCategoryException();
+    }
+
     const publishedAt = new Date();
 
-    const serviceRequest = await this.prisma.serviceRequest.create({
+    return transaction.serviceRequest.create({
       data: {
         customerProfileId: customerProfile.id,
         categoryId: category.id,
@@ -178,6 +196,7 @@ export class ServiceRequestsService {
         opportunitiesDispatchedAt: null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
     });
 
     await this.distributionService.distribute(serviceRequest.id).catch(() => undefined);

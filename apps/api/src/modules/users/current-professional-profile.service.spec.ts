@@ -5,6 +5,7 @@ import { ProfessionalVerificationStatus } from "../../generated/prisma/client";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 import { CurrentProfessionalProfileNotFoundException } from "./errors/current-professional-profile-not-found.exception";
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
+import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 
 describe("CurrentProfessionalProfileService", () => {
@@ -23,12 +24,14 @@ describe("CurrentProfessionalProfileService", () => {
     };
     category: { findMany: jest.Mock };
     professionalCategory: { deleteMany: jest.Mock; createMany: jest.Mock };
+    serviceRequest: { findFirst: jest.Mock };
+    $queryRaw: jest.Mock;
   };
 
   beforeEach(() => {
     transactionMock = {
       professionalProfile: {
-        findFirst: jest.fn().mockResolvedValue({ id: profileId }),
+        findFirst: jest.fn().mockResolvedValue({ id: profileId, professionalCategories: [{ categoryId: "category-eletrica" }] }),
         findUnique: jest.fn().mockResolvedValue(profile()),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -41,6 +44,8 @@ describe("CurrentProfessionalProfileService", () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      serviceRequest: { findFirst: jest.fn().mockResolvedValue(null) },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
     };
     prismaMock = {
       professionalProfile: { findFirst: jest.fn().mockResolvedValue(profile()) },
@@ -121,6 +126,19 @@ describe("CurrentProfessionalProfileService", () => {
 
     await expect(service.updateCurrent(userId, input())).rejects.toBeInstanceOf(InvalidProfessionalProfileCategoriesException);
     expect(transactionMock.professionalProfile.update).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia a adição quando há solicitação própria em aberto na categoria", async () => {
+    transactionMock.category.findMany.mockResolvedValue([
+      { id: "category-eletrica", slug: "eletrica" },
+      { id: "category-pintura", slug: "pintura" },
+    ]);
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({ id: "service-request-id" });
+
+    await expect(service.updateCurrent(userId, input({ categorySlugs: ["eletrica", "pintura"] })))
+      .rejects.toBeInstanceOf(ProfessionalCategoryOpenServiceRequestException);
+
+    expect(transactionMock.professionalCategory.createMany).not.toHaveBeenCalled();
   });
 
   it("preserva null para opcionais normalizados pelo DTO", async () => {
