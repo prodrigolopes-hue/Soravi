@@ -210,6 +210,10 @@ export class ProposalsService {
           throw new ProposalCreationUnavailableException();
         }
 
+        if (lockedServiceRequest.customerProfile.userId === userId) {
+          throw new ProposalCreationUnavailableException();
+        }
+
         if (
           lockedServiceRequest.status !== ServiceRequestStatus.OPEN &&
           lockedServiceRequest.status !== ServiceRequestStatus.RECEIVING_PROPOSALS

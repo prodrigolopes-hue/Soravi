@@ -21,11 +21,12 @@ import { ServiceRequestNotFoundException } from "./errors/service-request-not-fo
 import { ServiceRequestNotAcceptingProposalsException } from "./errors/service-request-not-accepting-proposals.exception";
 import { ProposalsService } from "./proposals.service";
 
+const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
+
 describe("ProposalsService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const customerProfileId = "425afb87-2b81-4de7-9606-8f382fff3341";
   const customerUserId = "325afb87-2b81-4de7-9606-8f382fff3341";
-  const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
   const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
   const notificationId = "825afb87-2b81-4de7-9606-8f382fff3341";
 
@@ -146,7 +147,10 @@ describe("ProposalsService", () => {
       take: 10,
       select: expect.objectContaining({
         professionalProfile: {
-          select: { displayName: true },
+          select: {
+            id: true,
+            displayName: true,
+          },
         },
       }),
     });
@@ -218,8 +222,8 @@ describe("ProposalsService", () => {
       status: ProposalStatus.ACTIVE,
       submittedAt: new Date("2026-08-19T12:00:00.000Z"),
       professionalName: "Profissional Soravi",
+      professionalProfileId,
     });
-    expect(result.items[0]).not.toHaveProperty("professionalProfileId");
     expect(result.items[0]).not.toHaveProperty("professionalProfile");
     expect(result.items[0]).not.toHaveProperty("email");
     expect(result.items[0]).not.toHaveProperty("phone");
@@ -244,7 +248,7 @@ describe("ProposalsService", () => {
     expect(result.items[0]).not.toHaveProperty("professionalProfile");
   });
 
-  it("cria proposta ACTIVE para profissional elegível com oportunidade", async () => {
+  it("permite proposta entre usuários diferentes para profissional elegível com oportunidade", async () => {
     const result = await service.create(userId, serviceRequestId, createDto());
 
     expect(transactionMock.professionalProfile.findFirst).toHaveBeenCalledWith({
@@ -298,6 +302,31 @@ describe("ProposalsService", () => {
       select: expect.any(Object),
     });
     expect(result.status).toBe(ProposalStatus.ACTIVE);
+  });
+
+  it("rejeita proposta própria mesmo quando existe oportunidade preexistente", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
+      status: ServiceRequestStatus.OPEN,
+      visibleProposalLimit: 3,
+      customerProfile: { userId },
+    });
+
+    await expect(
+      service.create(userId, serviceRequestId, createDto()),
+    ).rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.serviceOpportunity.findUnique).toHaveBeenCalledWith({
+      where: {
+        serviceRequestId_professionalProfileId: {
+          serviceRequestId,
+          professionalProfileId,
+        },
+      },
+      select: { id: true },
+    });
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
   });
 
   it("cria notificação idempotente para o cliente proprietário da solicitação", async () => {
@@ -447,7 +476,10 @@ describe("ProposalsService", () => {
 
   it("retorna 409 quando a solicitação não aceita propostas", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
       status: ServiceRequestStatus.CANCELLED,
+      visibleProposalLimit: 3,
+      customerProfile: { userId: customerUserId },
     });
 
     await expect(
@@ -538,6 +570,9 @@ function createReceivedProposal(displayName = "Profissional Soravi") {
     message: "Posso realizar amanhã.",
     status: ProposalStatus.ACTIVE,
     submittedAt: new Date("2026-08-19T12:00:00.000Z"),
-    professionalProfile: { displayName },
+    professionalProfile: {
+      id: professionalProfileId,
+      displayName,
+    },
   };
 }

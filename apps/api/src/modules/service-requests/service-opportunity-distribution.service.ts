@@ -54,7 +54,14 @@ export class ServiceOpportunityDistributionService {
           opportunitiesDispatchedAt: null,
           deletedAt: null,
         },
-        select: { categoryId: true },
+        select: {
+          categoryId: true,
+          customerProfile: {
+            select: {
+              userId: true,
+            },
+          },
+        },
       });
 
       if (!serviceRequest) {
@@ -63,6 +70,9 @@ export class ServiceOpportunityDistributionService {
 
       const professionals = await transaction.professionalProfile.findMany({
         where: {
+          userId: {
+            not: serviceRequest.customerProfile.userId,
+          },
           deletedAt: null,
           isAvailable: true,
           verificationStatus: ProfessionalVerificationStatus.APPROVED,

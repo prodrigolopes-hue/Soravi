@@ -35,6 +35,7 @@ describe("ServiceOpportunityDistributionService", () => {
   const secondProfessionalProfileId = "a25afb87-2b81-4de7-9606-8f382fff3341";
   const firstProfessionalUserId = "b25afb87-2b81-4de7-9606-8f382fff3341";
   const secondProfessionalUserId = "c25afb87-2b81-4de7-9606-8f382fff3341";
+  const customerUserId = "225afb87-2b81-4de7-9606-8f382fff3341";
   const firstOpportunityId = "d25afb87-2b81-4de7-9606-8f382fff3341";
   const secondOpportunityId = "e25afb87-2b81-4de7-9606-8f382fff3341";
   const firstNotificationId = "f25afb87-2b81-4de7-9606-8f382fff3341";
@@ -49,7 +50,12 @@ describe("ServiceOpportunityDistributionService", () => {
     transactionMock = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: serviceRequestId }]),
       serviceRequest: {
-        findFirst: jest.fn().mockResolvedValue({ categoryId }),
+        findFirst: jest.fn().mockResolvedValue({
+          categoryId,
+          customerProfile: {
+            userId: customerUserId,
+          },
+        }),
         update: jest.fn().mockResolvedValue({}),
       },
       professionalProfile: {
@@ -123,7 +129,14 @@ describe("ServiceOpportunityDistributionService", () => {
         opportunitiesDispatchedAt: null,
         deletedAt: null,
       },
-      select: { categoryId: true },
+      select: {
+        categoryId: true,
+        customerProfile: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
     expect(result).toEqual({
       dispatched: true,
@@ -164,11 +177,14 @@ describe("ServiceOpportunityDistributionService", () => {
     expect(transactionMock.serviceRequest.findFirst).not.toHaveBeenCalled();
   });
 
-  it("seleciona somente profissionais aprovados, disponíveis, ativos e da categoria", async () => {
+  it("exclui o próprio cliente e seleciona somente profissionais aprovados, disponíveis, ativos e da categoria", async () => {
     await service.distribute(serviceRequestId);
 
     expect(transactionMock.professionalProfile.findMany).toHaveBeenCalledWith({
       where: {
+        userId: {
+          not: customerUserId,
+        },
         deletedAt: null,
         isAvailable: true,
         verificationStatus: ProfessionalVerificationStatus.APPROVED,
@@ -178,6 +194,51 @@ describe("ServiceOpportunityDistributionService", () => {
       },
       select: { id: true, userId: true },
     });
+  });
+
+  it("não cria oportunidade para o próprio usuário quando ele também possui perfil profissional", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId,
+      customerProfile: {
+        userId: firstProfessionalUserId,
+      },
+    });
+    transactionMock.professionalProfile.findMany.mockResolvedValue([
+      {
+        id: secondProfessionalProfileId,
+        userId: secondProfessionalUserId,
+      },
+    ]);
+    transactionMock.serviceOpportunity.createManyAndReturn.mockResolvedValue([
+      {
+        id: secondOpportunityId,
+        professionalProfileId: secondProfessionalProfileId,
+      },
+    ]);
+
+    await service.distribute(serviceRequestId);
+
+    expect(transactionMock.professionalProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: {
+            not: firstProfessionalUserId,
+          },
+        }),
+      }),
+    );
+    expect(
+      transactionMock.serviceOpportunity.createManyAndReturn,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          {
+            serviceRequestId,
+            professionalProfileId: secondProfessionalProfileId,
+          },
+        ],
+      }),
+    );
   });
 
   it("não marca a solicitação quando não há profissional elegível", async () => {
@@ -320,7 +381,10 @@ describe("ServiceOpportunityDistributionService", () => {
 
   it("a segunda chamada não duplica oportunidades", async () => {
     transactionMock.serviceRequest.findFirst
-      .mockResolvedValueOnce({ categoryId })
+      .mockResolvedValueOnce({
+        categoryId,
+        customerProfile: { userId: customerUserId },
+      })
       .mockResolvedValueOnce(null);
 
     const firstResult = await service.distribute(serviceRequestId);
