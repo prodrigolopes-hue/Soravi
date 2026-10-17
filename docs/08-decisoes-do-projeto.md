@@ -529,9 +529,13 @@ Esta documentação não afirma deploy, go-live ou validação em produção.
 - Um cliente pode adicionar perfil profissional. O perfil continua sujeito à
   verificação profissional existente antes de enviar propostas.
 - Um profissional pode ativar perfil cliente para contratar serviços.
-- Um usuário com perfil profissional não pode solicitar orçamento nas
-  categorias em que atua; a regra é aplicada no backend antes da publicação e
-  da liberação da contratação.
+- O bloqueio de solicitação considera a união das categorias profissionais
+  pessoais do usuário e das empresas que ele representa ativamente,
+  independentemente de atuar pessoalmente ou em nome de qualquer dessas
+  empresas. Se a pessoa ou uma empresa representada oferece pintura, nenhum
+  desses contextos pode solicitar pintura; outras categorias continuam
+  permitidas. A regra é aplicada no backend antes da publicação e da liberação
+  da contratação.
 - A plataforma não deve distribuir oportunidade nem aceitar proposta de um
   profissional para solicitação criada pela sua própria conta.
 - O cadastro de cliente ou profissional pode ser de pessoa física ou pessoa
@@ -569,6 +573,17 @@ enviarem. A ativação de perfil adicional só pode ser liberada depois de as
 proteções backend contra solicitação na própria categoria e contra oportunidade
 ou proposta na própria solicitação estarem implementadas e testadas.
 
+### Requisitos técnicos da proposta
+
+- Preservar compatibilidade com usuários legados sem CPF, sem criar dados
+  fictícios.
+- Derivar permissões empresariais da representação ativa e do perfil da
+  empresa; não exigir perfil profissional pessoal do responsável.
+- Garantir um único responsável ativo por empresa no MVP, inclusive sob
+  concorrência.
+- Implementar e testar as proteções backend antes de liberar os novos
+  contextos de atuação.
+
 ### Pendências explícitas
 
 - Política de adequação para contas existentes sem CPF.
@@ -581,4 +596,6 @@ ou proposta na própria solicitação estarem implementadas e testadas.
 - Correção de CPF, acesso interno, auditoria e retenção.
 - Efeito de adicionar ou remover categorias sobre solicitações, oportunidades
   e propostas existentes.
+- Política temporal para mudança de categorias e representações sobre
+  solicitações e propostas já existentes.
 - Comportamento de chamadas repetidas de ativação com dados diferentes.

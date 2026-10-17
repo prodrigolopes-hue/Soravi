@@ -54,9 +54,16 @@ Pode:
 -   contratar;
 -   avaliar serviços.
 
-Um cliente que também possui perfil profissional não pode criar solicitação
-na categoria em que atua como profissional. Essa restrição é aplicada pelo
-backend antes de liberar a contratação.
+**Decisão aprovada, ainda não implementada:** o bloqueio de solicitação
+considera a união das categorias profissionais pessoais do usuário e das
+empresas que ele representa ativamente. Aplica-se independentemente de ele
+atuar pessoalmente ou em nome de qualquer dessas empresas. Se a pessoa ou uma
+empresa representada oferece pintura, nenhum desses contextos pode solicitar
+pintura; outras categorias continuam permitidas.
+
+Essa restrição é aplicada pelo backend antes de liberar a contratação. A
+política temporal para mudança de categorias e representações sobre
+solicitações e propostas já existentes permanece pendente.
 
 ## Profissional
 

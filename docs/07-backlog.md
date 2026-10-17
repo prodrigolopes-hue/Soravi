@@ -331,12 +331,18 @@ Cada tarefa somente será considerada concluída quando:
   usando chaves separadas, após definição operacional.
 - [ ] Garantir erros públicos de conflito de CPF que não revelem a existência
   nem dados de outra conta.
-- [ ] Bloquear no backend a solicitação em categoria em que o usuário atua como
-  profissional, antes de publicar e liberar contratação.
+- [ ] Bloquear no backend a solicitação pela união das categorias profissionais
+  pessoais do usuário e das empresas que ele representa ativamente, antes de
+  publicar e liberar contratação, independentemente do contexto de atuação.
 - [ ] Impedir distribuição de oportunidade e envio de proposta para a própria
   solicitação.
 - [ ] Cobrir as duas proteções backend com testes de autorização, integração e
   concorrência pertinentes antes de liberar ativação de perfis adicionais.
+- [ ] Manter compatibilidade com usuários legados sem CPF, sem dados fictícios.
+- [ ] Derivar permissões empresariais da representação ativa e do perfil da
+  empresa, sem exigir perfil profissional pessoal do responsável.
+- [ ] Garantir um único responsável ativo por empresa no MVP, inclusive sob
+  concorrência.
 - [ ] Implementar ativação transacional e idempotente de cliente →
   profissional e de profissional → cliente, preservando histórico, somente
   após as proteções backend anteriores estarem implementadas e testadas.
@@ -355,6 +361,8 @@ Cada tarefa somente será considerada concluída quando:
 - [ ] Definir correção de CPF, acesso interno, auditoria e retenção.
 - [ ] Definir o efeito de mudanças de categorias sobre solicitações,
   oportunidades e propostas existentes.
+- [ ] Definir a política temporal para mudanças de categorias e representações
+  sobre solicitações e propostas já existentes.
 - [ ] Definir o comportamento de chamadas repetidas de ativação com dados
   diferentes.
 
