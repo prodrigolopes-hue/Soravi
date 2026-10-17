@@ -4,6 +4,7 @@ import { PrismaModule } from "../../database/prisma.module";
 import { AccessTokenModule } from "../auth/access-token.module";
 import { UsersController } from "./users.controller";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { UsersAdminStatusService } from "./users-admin-status.service";
 import { UsersPasswordService } from "./users-password.service";
 import { UsersPhoneService } from "./users-phone.service";
@@ -19,6 +20,7 @@ import { UsersService } from "./users.service";
   controllers: [UsersController],
   providers: [
     UsersService,
+    CustomerProfileActivationService,
     CurrentProfessionalProfileService,
     UsersPhoneService,
     UsersPasswordService,

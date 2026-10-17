@@ -17,6 +17,7 @@ import { ProfessionalVerificationSubmissionService } from "./professional-verifi
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 
 describe("UsersController", () => {
     const userId =
@@ -45,6 +46,7 @@ describe("UsersController", () => {
         findCurrent: jest.Mock;
         updateCurrent: jest.Mock;
     };
+    let customerProfileActivationServiceMock: { activateCurrentProfessional: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -65,6 +67,7 @@ describe("UsersController", () => {
             findCurrent: jest.fn(),
             updateCurrent: jest.fn(),
         };
+        customerProfileActivationServiceMock = { activateCurrentProfessional: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -74,7 +77,26 @@ describe("UsersController", () => {
             professionalVerificationSubmissionServiceMock as unknown as ProfessionalVerificationSubmissionService,
             professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
             currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
+            customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
         );
+    });
+
+    it("ativa perfil cliente somente para o usuário autenticado", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId, sessionId, roles: [Role.PROFESSIONAL], phoneVerifiedAt: null,
+        };
+        const response = createUserResponse(Role.PROFESSIONAL);
+        customerProfileActivationServiceMock.activateCurrentProfessional.mockResolvedValue(response);
+
+        await expect(controller.activateCurrentCustomerProfile(currentUser)).resolves.toBe(response);
+        expect(customerProfileActivationServiceMock.activateCurrentProfessional).toHaveBeenCalledWith(userId);
+    });
+
+    it("protege a ativação por sessão e papel PROFESSIONAL", () => {
+        expect(Reflect.getMetadata("__guards__", UsersController.prototype.activateCurrentCustomerProfile))
+            .toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", UsersController.prototype.activateCurrentCustomerProfile))
+            .toEqual([Role.PROFESSIONAL]);
     });
 
     afterEach(() => {

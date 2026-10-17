@@ -1,8 +1,10 @@
 "use client";
 
-import { LockKeyhole, Phone, UserRound } from "lucide-react";
+import { LoaderCircle, LockKeyhole, Phone, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
+import { customerProfileActivationUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 
 type AccountCard = {
@@ -13,8 +15,11 @@ type AccountCard = {
 };
 
 export function AccountHubPage() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { accessToken, isAuthenticated, isLoading, refreshSession, user } = useAuth();
+  const [isActivatingCustomer, setIsActivatingCustomer] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
+  const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
 
   if (isLoading) {
     return <AccountMessage title="Carregando sua conta..." />;
@@ -39,6 +44,22 @@ export function AccountHubPage() {
         icon: UserRound,
       }]
       : []),
+    ...(isProfessional
+      ? [{
+        title: "Painel profissional",
+        description: "Acompanhe oportunidades, propostas e seus atendimentos.",
+        href: "/profissional",
+        icon: UserRound,
+      }]
+      : []),
+    ...(isCustomer
+      ? [{
+        title: "Painel do cliente",
+        description: "Crie solicitações e acompanhe seus serviços contratados.",
+        href: "/cliente",
+        icon: UserRound,
+      }]
+      : []),
     {
       title: "Telefone",
       description: "Altere ou verifique seu telefone pelo fluxo seguro.",
@@ -52,6 +73,38 @@ export function AccountHubPage() {
       icon: LockKeyhole,
     },
   ];
+
+  async function activateCustomerProfile(): Promise<void> {
+    if (!accessToken || isActivatingCustomer) {
+      return;
+    }
+
+    setIsActivatingCustomer(true);
+    setActivationError(null);
+
+    try {
+      const response = await fetch(customerProfileActivationUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        credentials: "include",
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(extractErrorMessage(payload));
+      }
+
+      await refreshSession();
+    } catch (error: unknown) {
+      setActivationError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível ativar o perfil de cliente agora.",
+      );
+    } finally {
+      setIsActivatingCustomer(false);
+    }
+  }
 
   return (
     <main className="min-h-full bg-slate-50">
@@ -69,10 +122,27 @@ export function AccountHubPage() {
               <span><span className="block text-lg font-bold text-slate-950">{title}</span><span className="mt-2 block text-sm leading-6 text-slate-600">{description}</span></span>
             </Link>
           ))}
+          {isProfessional && !isCustomer ? <section className="flex min-h-36 flex-col items-start rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm" aria-labelledby="customer-activation-title">
+            <span className="text-lg font-bold text-slate-950" id="customer-activation-title">Também quero contratar</span>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Contrate outros serviços usando sua conta atual.</p>
+            <button type="button" onClick={() => void activateCustomerProfile()} disabled={isActivatingCustomer} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+              {isActivatingCustomer ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : null}
+              {isActivatingCustomer ? "Ativando perfil..." : "Ativar perfil de cliente"}
+            </button>
+            {activationError ? <p role="alert" className="mt-3 text-sm text-red-700">{activationError}</p> : null}
+          </section> : null}
         </section>
       </div>
     </main>
   );
+}
+
+function extractErrorMessage(payload: unknown): string {
+  if (typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message;
+  }
+
+  return "Não foi possível ativar o perfil de cliente agora.";
 }
 
 function AccountMessage({ title, description, action }: { title: string; description?: string; action?: { href: string; label: string } }) {

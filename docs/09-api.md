@@ -137,6 +137,13 @@ Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma t
 
 GET /api/v1/users/me - Dados do usuário autenticado
 
+POST `/api/v1/users/me/roles/customer` ativa o perfil cliente da conta
+profissional autenticada. Não recebe body, exige sessão válida e
+`PROFESSIONAL`; a conta pode estar `PENDING` ou `ACTIVE`, não pode estar
+soft-deleted e precisa ter perfil profissional não excluído; a operação é idempotente,
+preserva perfil, categorias e verificação profissional e retorna o usuário
+seguro atual. Ela não altera o status da conta nem dispensa telefone verificado nos fluxos que já o exigem.
+
 PUT /api/v1/users/me - Atualizar perfil
 
 DELETE /api/v1/users/me - Encerrar conta

@@ -19,12 +19,12 @@ Soravi.
 
 ## Conta e perfis
 
-**Decisão aprovada, ainda não implementada:** uma pessoa usa uma única conta
-e pode ativar nela os perfis de cliente e profissional, sem perder histórico.
-Um cliente pode adicionar perfil profissional e um profissional pode ativar
-perfil cliente para contratar serviços. A criação de cada perfil adicional
-deve respeitar a verificação profissional existente antes do envio de
-propostas.
+**Implementação atual:** uma conta profissional `PENDING` ou `ACTIVE`, não excluída e com perfil profissional não excluído, pode ativar seu
+perfil cliente por `POST /api/v1/users/me/roles/customer`, sem perder
+histórico. A operação é idempotente, preserva o perfil profissional e não
+remove papéis existentes. A ativação cliente → profissional permanece
+pendente; ambas as modalidades continuam sujeitas à verificação profissional
+existente antes do envio de propostas.
 
 O cadastro pode ser de pessoa física ou jurídica, para clientes e
 profissionais. Pessoa física informa nome completo e CPF. Pessoa jurídica

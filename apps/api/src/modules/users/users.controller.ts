@@ -38,6 +38,7 @@ import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
+import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 
 @Controller("users")
 export class UsersController {
@@ -49,6 +50,7 @@ export class UsersController {
     private readonly professionalVerificationSubmissionService: ProfessionalVerificationSubmissionService,
     private readonly professionalVerificationReviewService: ProfessionalVerificationReviewService,
     private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
+    private readonly customerProfileActivationService: CustomerProfileActivationService,
   ) {}
 
   @Get("me")
@@ -57,6 +59,17 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ): Promise<UserResponseDto> {
     return this.usersService.findSafeById(
+      currentUser.id,
+    );
+  }
+
+  @Post("me/roles/customer")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  activateCurrentCustomerProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    return this.customerProfileActivationService.activateCurrentProfessional(
       currentUser.id,
     );
   }
