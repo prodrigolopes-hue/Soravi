@@ -17,6 +17,31 @@ Soravi.
 
 # Perfis de Usuário
 
+## Conta e perfis
+
+**Decisão aprovada, ainda não implementada:** uma pessoa usa uma única conta
+e pode ativar nela os perfis de cliente e profissional, sem perder histórico.
+Um cliente pode adicionar perfil profissional e um profissional pode ativar
+perfil cliente para contratar serviços. A criação de cada perfil adicional
+deve respeitar a verificação profissional existente antes do envio de
+propostas.
+
+O cadastro pode ser de pessoa física ou jurídica, para clientes e
+profissionais. Pessoa física informa nome completo e CPF. Pessoa jurídica
+informa razão social, CNPJ e nome completo com CPF do responsável. CPF é dado
+da identidade pessoal, privado, único por pessoa e compartilhado entre seus
+perfis; não deve ser duplicado em contas pessoais independentes. Os dados do
+responsável são conceitualmente distintos dos dados da empresa.
+
+A validação de dígitos de CPF ou CNPJ não equivale à autenticação ou
+verificação de identidade. Contas existentes não receberão CPF fictício. A
+cardinalidade entre pessoa, empresa, representantes e conta pessoal permanece
+pendente na decisão de projeto.
+
+PF/PJ descreve a natureza da pessoa ou empresa; cliente/profissional descreve
+os perfis de atuação. São dimensões distintas, e esta regra não define ainda a
+modelagem empresarial nem suas relações.
+
 ## Cliente
 
 Pode:
@@ -29,6 +54,10 @@ Pode:
 -   contratar;
 -   avaliar serviços.
 
+Um cliente que também possui perfil profissional não pode criar solicitação
+na categoria em que atua como profissional. Essa restrição é aplicada pelo
+backend antes de liberar a contratação.
+
 ## Profissional
 
 Pode:
@@ -40,6 +69,11 @@ Pode:
 -   enviar propostas;
 -   conversar com clientes;
 -   receber avaliações.
+
+Um profissional não pode receber oportunidade nem enviar proposta para uma
+solicitação criada pela sua própria conta, ainda que possua perfil cliente.
+Essas proteções backend devem estar implementadas e testadas antes de liberar
+a ativação de perfis adicionais.
 
 ### Verificação profissional básica
 
@@ -123,6 +157,10 @@ Cada solicitação deve conter:
 -   data de criação;
 -   status.
 
+Quando o solicitante também tiver perfil profissional, o backend deve bloquear
+a criação antes de publicar ou distribuir a solicitação se sua categoria
+estiver entre as categorias profissionais ativas daquele usuário.
+
 Status possíveis:
 
 -   Aberta
@@ -146,6 +184,9 @@ Cada proposta deve conter:
 
 Um profissional pode enviar apenas uma proposta por solicitação, podendo
 editá-la enquanto a solicitação estiver aberta.
+
+O backend também deve negar propostas do profissional para solicitação da sua
+própria conta, independentemente de oportunidades já existentes.
 
 ------------------------------------------------------------------------
 
@@ -391,9 +432,11 @@ Informações iniciais poderão incluir:
 - forma geral de atendimento;
 - disponibilidade aproximada.
 
-CPF ou CNPJ não deve ser tratado como obrigatório no cadastro inicial para todos.
-
-Regra: "CPF ou CNPJ poderá ser solicitado quando necessário para a etapa de verificação de identidade, conforme finalidade, proporcionalidade, categoria, risco e regras de privacidade aplicáveis."
+Para pessoa física, CPF é obrigatório e privado. Para pessoa jurídica, CNPJ,
+razão social e os dados pessoais do responsável são distintos. CPF não compõe
+perfil público nem é compartilhado como dado de apresentação; sua validação
+estrutural não comprova identidade. A privacidade dos dados empresariais e a
+representação da empresa permanecem pendentes.
 
 Deve ser mantido o princípio de minimização de dados pessoais.
 
@@ -406,7 +449,8 @@ Devem ser considerados:
 - cidade/região;
 - foto de perfil, quando aplicável;
 - coerência das informações;
-- CPF/CNPJ, quando necessário à verificação.
+- resultado, método e responsável pela verificação de identidade, quando
+  aplicável.
 
 Evitar armazenamento de cópias completas de documentos sem necessidade.
 

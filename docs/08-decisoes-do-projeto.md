@@ -433,9 +433,9 @@ Não utilizar a expressão de forma que implique certificação de competência,
 
 ### CPF/CNPJ
 
-Não coletar obrigatoriamente de todo profissional no primeiro cadastro.
-
-Poderá ser solicitado quando necessário para verificação, respeitando finalidade, proporcionalidade e minimização de dados.
+Substituída pela decisão de evolução de contas de 2026-10-17, registrada ao
+fim deste documento. O cadastro de pessoa jurídica inclui CNPJ e responsável
+identificado por CPF; a representação empresarial detalhada permanece pendente.
 
 ### Não aprovação
 
@@ -519,3 +519,66 @@ migrations `20260928000100_add_professional_profile_editable_fields` e
 `20260929000100_create_professional_verification_reviews` foram aplicadas nesse
 ambiente, cujo `prisma migrate status` confirmou atualizado com 29 migrations.
 Esta documentação não afirma deploy, go-live ou validação em produção.
+
+## Evolução de contas e CPF
+
+### Decisões aprovadas (2026-10-17; ainda não implementadas)
+
+- Uma pessoa utiliza uma única conta e pode possuir perfis de cliente e
+  profissional, preservando seu histórico.
+- Um cliente pode adicionar perfil profissional. O perfil continua sujeito à
+  verificação profissional existente antes de enviar propostas.
+- Um profissional pode ativar perfil cliente para contratar serviços.
+- Um usuário com perfil profissional não pode solicitar orçamento nas
+  categorias em que atua; a regra é aplicada no backend antes da publicação e
+  da liberação da contratação.
+- A plataforma não deve distribuir oportunidade nem aceitar proposta de um
+  profissional para solicitação criada pela sua própria conta.
+- O cadastro de cliente ou profissional pode ser de pessoa física ou pessoa
+  jurídica. Pessoa física informa nome completo e CPF; pessoa jurídica informa
+  razão social, CNPJ e nome completo com CPF do responsável.
+- PF/PJ e cliente/profissional são dimensões distintas: a primeira descreve a
+  pessoa ou empresa; a segunda, os perfis de atuação. Esta decisão não define
+  ainda a modelagem de empresas e representantes.
+- CPF é dado privado e único da identidade pessoal, compartilhado entre seus
+  perfis e não duplicado em contas pessoais independentes. Empresa e
+  responsável são dados conceitualmente separados. Validar dígitos de CPF ou
+  CNPJ não equivale a verificar identidade.
+- Contas existentes não receberão CPF fictício.
+
+### Proposta técnica (depende de definição operacional)
+
+Modelar separadamente a identidade pessoal, que reúne nome completo e CPF, e a
+empresa, que reúne razão social e CNPJ. A identidade pessoal é a referência
+conceitual para os perfis e para a representação empresarial; isso não define
+ainda tabelas, relações ou cardinalidades.
+
+Armazenar o CPF da identidade pessoal de forma cifrada e seu índice HMAC
+determinístico para unicidade, com chaves separadas. Não manter
+simultaneamente uma cópia aberta dos mesmos dígitos. A constraint única deve
+incidir sobre o índice HMAC da identidade pessoal; em conflito, a resposta
+pública não pode confirmar se o CPF pertence a outra conta nem revelar seus
+dados. Não impor unicidade de CPF diretamente na empresa: um responsável pode
+representar mais de uma empresa.
+
+As ativações cliente → profissional e profissional → cliente devem ser
+transacionais e idempotentes. A semântica para chamadas repetidas com dados
+diferentes permanece pendente. Backend e frontend devem evoluir coordenadamente:
+nenhum cadastro pode passar a exigir CPF antes de os formulários efetivamente o
+enviarem. A ativação de perfil adicional só pode ser liberada depois de as
+proteções backend contra solicitação na própria categoria e contra oportunidade
+ou proposta na própria solicitação estarem implementadas e testadas.
+
+### Pendências explícitas
+
+- Política de adequação para contas existentes sem CPF.
+- Cardinalidade entre empresa, responsáveis e vínculo com a conta pessoal,
+  inclusive participação de outros representantes.
+- Verificação do vínculo do responsável com a empresa.
+- Migração de pessoa física para atuação empresarial.
+- Aplicação das restrições por categoria à empresa e ao responsável.
+- Privacidade e exposição dos dados empresariais.
+- Correção de CPF, acesso interno, auditoria e retenção.
+- Efeito de adicionar ou remover categorias sobre solicitações, oportunidades
+  e propostas existentes.
+- Comportamento de chamadas repetidas de ativação com dados diferentes.

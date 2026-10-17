@@ -319,6 +319,45 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Testes automatizados de autenticação e autorização.
 - [x] Integração da autenticação com o frontend.
 
+### Evolução de contas, PF/PJ e CPF (decisões aprovadas; a implementar)
+
+- [ ] Modelar cadastro de pessoa física e jurídica para clientes e
+  profissionais: pessoa física com nome completo e CPF; pessoa jurídica com
+  razão social, CNPJ e responsável identificado por nome completo e CPF.
+- [ ] Adicionar CPF privado à identidade pessoal, com validação estrutural
+  distinta da verificação de identidade e sem duplicá-lo em contas pessoais
+  independentes.
+- [ ] Implementar armazenamento proposto com CPF cifrado e índice HMAC único,
+  usando chaves separadas, após definição operacional.
+- [ ] Garantir erros públicos de conflito de CPF que não revelem a existência
+  nem dados de outra conta.
+- [ ] Bloquear no backend a solicitação em categoria em que o usuário atua como
+  profissional, antes de publicar e liberar contratação.
+- [ ] Impedir distribuição de oportunidade e envio de proposta para a própria
+  solicitação.
+- [ ] Cobrir as duas proteções backend com testes de autorização, integração e
+  concorrência pertinentes antes de liberar ativação de perfis adicionais.
+- [ ] Implementar ativação transacional e idempotente de cliente →
+  profissional e de profissional → cliente, preservando histórico, somente
+  após as proteções backend anteriores estarem implementadas e testadas.
+- [ ] Coordenar backend e frontend para que a obrigatoriedade de CPF não seja
+  publicada antes de os formulários enviarem o dado.
+- [ ] Definir a adequação das contas existentes sem CPF, sem criar CPF
+  fictício.
+- [ ] Definir cardinalidade entre empresa, responsáveis e conta pessoal,
+  inclusive outros representantes; não impor unicidade de CPF diretamente na
+  empresa.
+- [ ] Definir verificação do vínculo do responsável com a empresa.
+- [ ] Definir migração de pessoa física para atuação empresarial.
+- [ ] Definir aplicação das restrições por categoria à empresa e ao
+  responsável.
+- [ ] Definir privacidade e exposição dos dados empresariais.
+- [ ] Definir correção de CPF, acesso interno, auditoria e retenção.
+- [ ] Definir o efeito de mudanças de categorias sobre solicitações,
+  oportunidades e propostas existentes.
+- [ ] Definir o comportamento de chamadas repetidas de ativação com dados
+  diferentes.
+
 ### Administração de profissionais
 
 ### Concluído
@@ -417,7 +456,8 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 - [ ] obter da Meta permissão para criar o template pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a criação foi recusada por falta de permissão da WABA;
 - [ ] validar envio real de OTP, configurar e assinar o webhook e ativar o provider Meta em produção;
 - [ ] verificação básica de identidade;
-- [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
+- [ ] Integrar a verificação de identidade ao CPF obrigatório da conta, sem
+  confundir validação de dígitos com identidade verificada;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
 - [ ] evidências profissionais;
 - [ ] portfólio/fotos;
