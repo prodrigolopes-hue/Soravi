@@ -25,6 +25,12 @@ export function AccountHubPage() {
   }
 
   const cards: AccountCard[] = [
+    {
+      title: "Meus dados",
+      description: "Consulte seus dados pessoais e a situação do telefone.",
+      href: "/conta/dados",
+      icon: UserRound,
+    },
     ...(isProfessional
       ? [{
         title: "Perfil profissional",

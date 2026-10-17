@@ -21,6 +21,12 @@ type HeaderAuthActionProps = {
   onAction?: () => void;
 };
 
+function accountGreeting(name: string | undefined): string {
+  const firstName = name?.trim().split(/\s+/u)[0];
+
+  return firstName ? "Olá, " + firstName : "Minha conta";
+}
+
 export function HeaderAuthAction({
   mobile = false,
   onAction,
@@ -30,6 +36,7 @@ export function HeaderAuthAction({
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
   const isAdmin = Boolean(user?.roles.includes("ADMIN"));
+  const greeting = accountGreeting(user?.name);
 
   async function handleSignOut(): Promise<void> {
     await signOut();
@@ -57,6 +64,10 @@ export function HeaderAuthAction({
   if (isAuthenticated) {
     return mobile ? (
       <div className="flex flex-col gap-2">
+        <p className="truncate px-4 py-2 text-sm font-semibold text-slate-900">
+          {greeting}
+        </p>
+
         {isCustomer ? (
           <Link href="/cliente" className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600" onClick={onAction}>
             Meu painel
@@ -124,7 +135,7 @@ export function HeaderAuthAction({
           className="rounded-xl px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           onClick={onAction}
         >
-          Conta
+          Minha conta
         </Link>
 
         <button
@@ -198,9 +209,11 @@ export function HeaderAuthAction({
 
         <Link
           href="/conta"
-          className="font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+          aria-label={`${greeting}, abrir Minha conta`}
+          title="Minha conta"
+          className="block max-w-44 truncate font-medium text-slate-700 transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
         >
-          Conta
+          {greeting}
         </Link>
 
         <button
