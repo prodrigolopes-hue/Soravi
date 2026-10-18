@@ -1,8 +1,13 @@
 import "reflect-metadata";
 
-import { validateEnvironment } from "./environment.validation";
+import {
+  createCpfProtectorFromEnvironment,
+  validateEnvironment,
+} from "./environment.validation";
 
 describe("validateEnvironment", () => {
+  const cpfEncryptionKey = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+  const cpfHmacKey = "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=";
   const requiredEnvironment = {
     DATABASE_URL: "postgresql://soravi:soravi@localhost:5432/soravi",
     REDIS_URL: "redis://localhost:6379",
@@ -255,6 +260,88 @@ describe("validateEnvironment", () => {
           requiredEnvironment.JWT_ACCESS_SECRET,
       }),
     ).toThrow("deve ser diferente de JWT_ACCESS_SECRET");
+  });
+
+  it("aceita a ausência completa da configuração opcional de CPF", () => {
+    const environment = validateEnvironment(requiredEnvironment);
+
+    expect(createCpfProtectorFromEnvironment(environment)).toBeUndefined();
+  });
+
+  it.each([
+    { CPF_ENCRYPTION_KEY: cpfEncryptionKey },
+    {
+      CPF_ENCRYPTION_KEY: "",
+      CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+      CPF_HMAC_KEY: cpfHmacKey,
+      CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+    },
+  ])("rejeita configuração de CPF parcial ou vazia", (cpfEnvironment) => {
+    expect(() =>
+      validateEnvironment({ ...requiredEnvironment, ...cpfEnvironment }),
+    ).toThrow("configuração de proteção de CPF inválida");
+  });
+
+  it.each([
+    ["Base64 inválido", "not-base64"],
+    ["Base64 não canônico", "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQF="],
+    ["chave com tamanho incorreto", "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="],
+  ])("rejeita %s na chave de cifra de CPF", (_description, encryptionKey) => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        CPF_ENCRYPTION_KEY: encryptionKey,
+        CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+        CPF_HMAC_KEY: cpfHmacKey,
+        CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+      }),
+    ).toThrow("configuração de proteção de CPF inválida");
+  });
+
+  it.each([
+    ["CPF_ENCRYPTION_KEY_ID", "invalid id"],
+    ["CPF_HMAC_KEY_ID", "cpf/key"],
+    ["CPF_ENCRYPTION_KEY_ID", "a".repeat(65)],
+  ] as const)(
+    "rejeita identificador de chave de CPF inválido: %s",
+    (field, keyId) => {
+      expect(() =>
+        validateEnvironment({
+          ...requiredEnvironment,
+          CPF_ENCRYPTION_KEY: cpfEncryptionKey,
+          CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+          CPF_HMAC_KEY: cpfHmacKey,
+          CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+          [field]: keyId,
+        }),
+      ).toThrow("configuração de proteção de CPF inválida");
+    },
+  );
+
+  it("rejeita a reutilização da chave de cifra como chave HMAC de CPF", () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        CPF_ENCRYPTION_KEY: cpfEncryptionKey,
+        CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+        CPF_HMAC_KEY: cpfEncryptionKey,
+        CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+      }),
+    ).toThrow("configuração de proteção de CPF inválida");
+  });
+
+  it("valida e disponibiliza o protetor para configuração de CPF completa", () => {
+    const environment = validateEnvironment({
+      ...requiredEnvironment,
+      CPF_ENCRYPTION_KEY: cpfEncryptionKey,
+      CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+      CPF_HMAC_KEY: cpfHmacKey,
+      CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+    });
+    const protector = createCpfProtectorFromEnvironment(environment);
+
+    expect(protector).toBeDefined();
+    expect(protector?.hmac("529.982.247-25")).toHaveLength(64);
   });
 
   it.each([

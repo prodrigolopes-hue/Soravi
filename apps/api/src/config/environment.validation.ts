@@ -13,6 +13,12 @@ import {
   validateSync,
 } from "class-validator";
 
+import {
+  createCpfProtector,
+  isCpfProtectionKeyId,
+  type CpfProtector,
+} from "../common/cpf/cpf-protection";
+
 const environmentNames = [
   "development",
   "test",
@@ -33,6 +39,23 @@ const passwordResetDeliveryProviders = ["unavailable", "resend"] as const;
 
 type PasswordResetDeliveryProvider =
   (typeof passwordResetDeliveryProviders)[number];
+
+const cpfProtectionVariableNames = [
+  "CPF_ENCRYPTION_KEY",
+  "CPF_ENCRYPTION_KEY_ID",
+  "CPF_HMAC_KEY",
+  "CPF_HMAC_KEY_ID",
+] as const;
+
+type CpfProtectionVariableName =
+  (typeof cpfProtectionVariableNames)[number];
+
+type CpfProtectionEnvironment = Partial<
+  Record<CpfProtectionVariableName, unknown>
+>;
+
+const CPF_PROTECTION_CONFIGURATION_ERROR =
+  "Variáveis de ambiente inválidas: configuração de proteção de CPF inválida.";
 
 class EnvironmentVariables {
   @IsIn(environmentNames)
@@ -78,6 +101,14 @@ class EnvironmentVariables {
   @IsString()
   @MinLength(32)
   PHONE_VERIFICATION_HMAC_SECRET!: string;
+
+  CPF_ENCRYPTION_KEY?: string;
+
+  CPF_ENCRYPTION_KEY_ID?: string;
+
+  CPF_HMAC_KEY?: string;
+
+  CPF_HMAC_KEY_ID?: string;
 
   @Type(() => Number)
   @IsInt()
@@ -288,6 +319,8 @@ export function validateEnvironment(
     }
   }
 
+  createCpfProtectorFromEnvironment(validatedEnvironment);
+
   if (
     validatedEnvironment.PHONE_VERIFICATION_HMAC_SECRET ===
     validatedEnvironment.JWT_ACCESS_SECRET
@@ -319,4 +352,59 @@ export function validateEnvironment(
   }
 
   return validatedEnvironment;
+}
+
+/**
+ * Cria o protetor de CPF somente quando as quatro variáveis correspondentes
+ * estão configuradas. A ausência integral mantém o recurso desabilitado.
+ */
+export function createCpfProtectorFromEnvironment(
+  environment: CpfProtectionEnvironment,
+): CpfProtector | undefined {
+  const values = cpfProtectionVariableNames.map((name) => environment[name]);
+  if (values.every((value) => value === undefined)) {
+    return undefined;
+  }
+
+  try {
+    if (
+      !values.every(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    ) {
+      throw new Error();
+    }
+
+    const [encryptionKey, encryptionKeyId, hmacKey, hmacKeyId] = values;
+
+    if (
+      !isCpfProtectionKeyId(encryptionKeyId) ||
+      !isCpfProtectionKeyId(hmacKeyId)
+    ) {
+      throw new Error();
+    }
+
+    return createCpfProtector({
+      encryptionKey: decodeCanonicalBase64Key(encryptionKey),
+      encryptionKeyId,
+      hmacKey: decodeCanonicalBase64Key(hmacKey),
+    });
+  } catch {
+    throw new Error(CPF_PROTECTION_CONFIGURATION_ERROR);
+  }
+}
+
+function decodeCanonicalBase64Key(value: string): Buffer {
+  if (!/^[A-Za-z0-9+/]{43}=$/u.test(value)) {
+    throw new Error();
+  }
+
+  const key = Buffer.from(value, "base64");
+
+  if (key.length !== 32 || key.toString("base64") !== value) {
+    throw new Error();
+  }
+
+  return key;
 }

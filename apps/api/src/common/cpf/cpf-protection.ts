@@ -55,6 +55,11 @@ export class CpfProtectionError extends Error {
   }
 }
 
+/** Verifica o formato de identificadores de versões de chaves de CPF. */
+export function isCpfProtectionKeyId(value: unknown): value is string {
+  return typeof value === "string" && KEY_ID_PATTERN.test(value);
+}
+
 /**
  * Cria operações de proteção de CPF com material de chave fornecido pelo
  * chamador. Esta fábrica não lê configuração nem mantém chaves implícitas.
@@ -142,8 +147,7 @@ function validateKeys(keys: CpfProtectionKeys): {
   if (
     !keys ||
     typeof keys !== "object" ||
-    typeof keys.encryptionKeyId !== "string" ||
-    !KEY_ID_PATTERN.test(keys.encryptionKeyId)
+    !isCpfProtectionKeyId(keys.encryptionKeyId)
   ) {
     throw new CpfProtectionConfigurationError();
   }
@@ -224,7 +228,7 @@ function isEncryptedCpfEnvelope(value: unknown): value is EncryptedCpfEnvelope {
   return (
     envelope.formatVersion === ENVELOPE_FORMAT_VERSION &&
     typeof envelope.encryptionKeyId === "string" &&
-    KEY_ID_PATTERN.test(envelope.encryptionKeyId) &&
+    isCpfProtectionKeyId(envelope.encryptionKeyId) &&
     typeof envelope.nonce === "string" &&
     typeof envelope.ciphertext === "string" &&
     typeof envelope.tag === "string"
