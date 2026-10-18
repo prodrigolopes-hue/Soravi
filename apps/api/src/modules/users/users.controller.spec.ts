@@ -18,6 +18,7 @@ import { ProfessionalVerificationReviewService } from "./professional-verificati
 import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
+import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 
 describe("UsersController", () => {
     const userId =
@@ -47,6 +48,7 @@ describe("UsersController", () => {
         updateCurrent: jest.Mock;
     };
     let customerProfileActivationServiceMock: { activateCurrentProfessional: jest.Mock };
+    let professionalProfileActivationServiceMock: { activateCurrentCustomer: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -68,6 +70,7 @@ describe("UsersController", () => {
             updateCurrent: jest.fn(),
         };
         customerProfileActivationServiceMock = { activateCurrentProfessional: jest.fn() };
+        professionalProfileActivationServiceMock = { activateCurrentCustomer: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -78,6 +81,7 @@ describe("UsersController", () => {
             professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
             currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
             customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
+            professionalProfileActivationServiceMock as unknown as ProfessionalProfileActivationService,
         );
     });
 
@@ -90,6 +94,20 @@ describe("UsersController", () => {
 
         await expect(controller.activateCurrentCustomerProfile(currentUser)).resolves.toBe(response);
         expect(customerProfileActivationServiceMock.activateCurrentProfessional).toHaveBeenCalledWith(userId);
+    });
+
+    it("ativa perfil profissional somente para o usuário autenticado", async () => {
+        const currentUser: AuthenticatedUser = { id: userId, sessionId, roles: [Role.CUSTOMER], phoneVerifiedAt: null };
+        const input = { professionalTitle: "Eletricista", serviceArea: "São Paulo", bio: "Descrição profissional suficientemente longa.", categorySlugs: ["eletrica"] };
+        const response = createUserResponse(Role.CUSTOMER);
+        professionalProfileActivationServiceMock.activateCurrentCustomer.mockResolvedValue(response);
+        await expect(controller.activateCurrentProfessionalProfile(currentUser, input)).resolves.toBe(response);
+        expect(professionalProfileActivationServiceMock.activateCurrentCustomer).toHaveBeenCalledWith(userId, input);
+    });
+
+    it("protege a ativação profissional por sessão e papel CUSTOMER", () => {
+        expect(Reflect.getMetadata("__guards__", UsersController.prototype.activateCurrentProfessionalProfile)).toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", UsersController.prototype.activateCurrentProfessionalProfile)).toEqual([Role.CUSTOMER]);
     });
 
     it("protege a ativação por sessão e papel PROFESSIONAL", () => {

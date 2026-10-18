@@ -137,6 +137,15 @@ Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma t
 
 GET /api/v1/users/me - Dados do usuário autenticado
 
+POST `/api/v1/users/me/roles/professional` ativa o perfil profissional da
+conta cliente autenticada. Recebe `professionalTitle`, `serviceArea`, `bio` e
+de 1 a 3 `categorySlugs` ativos e distintos. Exige sessão válida, `CUSTOMER`,
+conta `PENDING` ou `ACTIVE` e perfil cliente existente. A criação começa com
+verificação `NOT_STARTED` e disponibilidade ativa; não altera telefone, status
+da conta, perfil cliente ou outros papéis, nem aprova ou submete verificação.
+Repetições preservam o perfil e categorias da primeira ativação concluída; a
+edição posterior usa `PATCH /api/v1/users/me/professional-profile`.
+
 POST `/api/v1/users/me/roles/customer` ativa o perfil cliente da conta
 profissional autenticada. Não recebe body, exige sessão válida e
 `PROFESSIONAL`; a conta pode estar `PENDING` ou `ACTIVE`, não pode estar

@@ -131,6 +131,11 @@ export function AccountHubPage() {
             </button>
             {activationError ? <p role="alert" className="mt-3 text-sm text-red-700">{activationError}</p> : null}
           </section> : null}
+          {isCustomer && !isProfessional ? <section className="flex min-h-36 flex-col items-start rounded-2xl border border-blue-200 bg-blue-50 p-5 shadow-sm" aria-labelledby="professional-activation-title">
+            <span className="text-lg font-bold text-slate-950" id="professional-activation-title">Também quero trabalhar</span>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Ative seu perfil profissional usando esta mesma conta.</p>
+            <Link href="/conta/ativar-profissional" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Criar perfil profissional</Link>
+          </section> : null}
         </section>
       </div>
     </main>

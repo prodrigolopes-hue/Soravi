@@ -39,6 +39,8 @@ import { CurrentProfessionalProfileService } from "./current-professional-profil
 import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
+import { ActivateCurrentProfessionalProfileDto } from "./dto/activate-current-professional-profile.dto";
+import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 
 @Controller("users")
 export class UsersController {
@@ -51,6 +53,7 @@ export class UsersController {
     private readonly professionalVerificationReviewService: ProfessionalVerificationReviewService,
     private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
     private readonly customerProfileActivationService: CustomerProfileActivationService,
+    private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
   ) {}
 
   @Get("me")
@@ -72,6 +75,16 @@ export class UsersController {
     return this.customerProfileActivationService.activateCurrentProfessional(
       currentUser.id,
     );
+  }
+
+  @Post("me/roles/professional")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  activateCurrentProfessionalProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: ActivateCurrentProfessionalProfileDto,
+  ): Promise<UserResponseDto> {
+    return this.professionalProfileActivationService.activateCurrentCustomer(currentUser.id, input);
   }
 
   @Patch("me/phone")

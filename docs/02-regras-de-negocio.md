@@ -22,9 +22,12 @@ Soravi.
 **Implementação atual:** uma conta profissional `PENDING` ou `ACTIVE`, não excluída e com perfil profissional não excluído, pode ativar seu
 perfil cliente por `POST /api/v1/users/me/roles/customer`, sem perder
 histórico. A operação é idempotente, preserva o perfil profissional e não
-remove papéis existentes. A ativação cliente → profissional permanece
-pendente; ambas as modalidades continuam sujeitas à verificação profissional
-existente antes do envio de propostas.
+remove papéis existentes. Uma conta cliente `PENDING` ou `ACTIVE` também pode
+ativar o perfil profissional com título, área, bio e categorias ativas, sem
+alterar o perfil cliente ou aprovar a verificação profissional. Repetições
+preservam o primeiro perfil profissional concluído; alterações posteriores
+ocorrem na rota de edição do perfil. Ambas as modalidades continuam sujeitas à
+verificação profissional existente antes do envio de propostas.
 
 O cadastro pode ser de pessoa física ou jurídica, para clientes e
 profissionais. Pessoa física informa nome completo e CPF. Pessoa jurídica
