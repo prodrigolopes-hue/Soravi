@@ -526,7 +526,7 @@ Esta documentação não afirma deploy, go-live ou validação em produção.
 
 Atualização de escopo: a proteção para categorias do perfil profissional
 pessoal foi implementada nesta etapa. A extensão abaixo para empresas continua
-pendente; esta entrega não modela empresas, CPF/CNPJ ou ativação de perfis.
+pendente; esta entrega não modela empresas, CNPJ ou ativação de perfis.
 
 - Uma pessoa utiliza uma única conta e pode possuir perfis de cliente e
   profissional, preservando seu histórico.
@@ -568,6 +568,26 @@ incidir sobre o índice HMAC da identidade pessoal; em conflito, a resposta
 pública não pode confirmar se o CPF pertence a outra conta nem revelar seus
 dados. Não impor unicidade de CPF diretamente na empresa: um responsável pode
 representar mais de uma empresa.
+
+### Incremento estrutural (2026-10-18)
+
+Foi preparada a estrutura `PersonalIdentity`, opcional para `User`, com o
+envelope cifrado completo do CPF, o HMAC determinístico único no banco e o
+identificador da chave HMAC utilizada. O campo `User.name` continua sendo a
+fonte atual do nome: não há duplicação de nome nem afirmação de conferência com
+o CPF.
+
+Este incremento não integra coleta ou persistência de CPF a cadastros,
+serviços, endpoints ou frontend. Contas existentes seguem sem identidade
+quando não houver cadastro explícito, e não serão criadas identidades vazias ou
+com CPF fictício. Empresas e representantes permanecem incrementos futuros.
+
+A unicidade de CPF é protegida pela constraint única sobre `cpf_hmac`. O
+`hmacKeyId` registra a chave usada no cálculo, mas não implementa rotação nem
+garante que versões de HMAC sejam unívocas. Enquanto não houver procedimento
+seguro de rotação, não será permitido trocar a chave HMAC em banco que possua
+identidades cadastradas. Correção, exclusão e retenção da identidade continuam
+pendentes.
 
 As ativações cliente → profissional e profissional → cliente devem ser
 transacionais e idempotentes. A semântica para chamadas repetidas com dados
