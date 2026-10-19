@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Patch,
   Param,
   Post,
@@ -41,6 +42,10 @@ import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-profes
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { ActivateCurrentProfessionalProfileDto } from "./dto/activate-current-professional-profile.dto";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
+import { RecordPersonalIdentityDto } from "./dto/record-personal-identity.dto";
+import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
+import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
 
 @Controller("users")
 export class UsersController {
@@ -54,6 +59,8 @@ export class UsersController {
     private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
     private readonly customerProfileActivationService: CustomerProfileActivationService,
     private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
+    @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
+    private readonly personalIdentityRecordingService: PersonalIdentityRecordingService | undefined,
   ) {}
 
   @Get("me")
@@ -63,6 +70,27 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     return this.usersService.findSafeById(
       currentUser.id,
+    );
+  }
+
+  @Post("me/personal-identity")
+  @UseGuards(AccessTokenGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  recordCurrentPersonalIdentity(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: RecordPersonalIdentityDto,
+  ): Promise<{ recorded: true }> {
+    if (!this.personalIdentityRecordingService) {
+      throw new PersonalIdentityRecordingDisabledException();
+    }
+    return this.personalIdentityRecordingService.recordInitial(
+      currentUser.id,
+      input.cpf,
     );
   }
 

@@ -54,6 +54,10 @@ type CpfProtectionEnvironment = Partial<
   Record<CpfProtectionVariableName, unknown>
 >;
 
+type PersonalIdentityRecordingEnvironment = CpfProtectionEnvironment & {
+  PERSONAL_IDENTITY_RECORDING_ENABLED?: unknown;
+};
+
 const CPF_PROTECTION_CONFIGURATION_ERROR =
   "Variáveis de ambiente inválidas: configuração de proteção de CPF inválida.";
 
@@ -109,6 +113,10 @@ class EnvironmentVariables {
   CPF_HMAC_KEY?: string;
 
   CPF_HMAC_KEY_ID?: string;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  PERSONAL_IDENTITY_RECORDING_ENABLED?: string;
 
   @Type(() => Number)
   @IsInt()
@@ -319,7 +327,9 @@ export function validateEnvironment(
     }
   }
 
-  createCpfProtectorFromEnvironment(validatedEnvironment);
+  createPersonalIdentityRecordingConfigurationFromEnvironment(
+    validatedEnvironment,
+  );
 
   if (
     validatedEnvironment.PHONE_VERIFICATION_HMAC_SECRET ===
@@ -393,6 +403,26 @@ export function createCpfProtectorFromEnvironment(
   } catch {
     throw new Error(CPF_PROTECTION_CONFIGURATION_ERROR);
   }
+}
+
+export interface PersonalIdentityRecordingConfiguration {
+  cpfProtector: CpfProtector;
+  hmacKeyId: string;
+}
+
+export function createPersonalIdentityRecordingConfigurationFromEnvironment(
+  environment: PersonalIdentityRecordingEnvironment,
+): PersonalIdentityRecordingConfiguration | undefined {
+  const protector = createCpfProtectorFromEnvironment(environment);
+  const enabled = environment.PERSONAL_IDENTITY_RECORDING_ENABLED;
+
+  if (enabled === undefined || enabled === "false") return undefined;
+
+  if (enabled !== "true" || !protector || typeof environment.CPF_HMAC_KEY_ID !== "string") {
+    throw new Error(CPF_PROTECTION_CONFIGURATION_ERROR);
+  }
+
+  return { cpfProtector: protector, hmacKeyId: environment.CPF_HMAC_KEY_ID };
 }
 
 function decodeCanonicalBase64Key(value: string): Buffer {

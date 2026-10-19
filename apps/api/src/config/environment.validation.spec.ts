@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
 import {
+  createPersonalIdentityRecordingConfigurationFromEnvironment,
   createCpfProtectorFromEnvironment,
   validateEnvironment,
 } from "./environment.validation";
@@ -266,6 +267,40 @@ describe("validateEnvironment", () => {
     const environment = validateEnvironment(requiredEnvironment);
 
     expect(createCpfProtectorFromEnvironment(environment)).toBeUndefined();
+  });
+
+  it.each([undefined, "false"])("keeps personal identity recording disabled for flag %s", (flag) => {
+    const environment = validateEnvironment({
+      ...requiredEnvironment,
+      ...(flag === undefined ? {} : { PERSONAL_IDENTITY_RECORDING_ENABLED: flag }),
+    });
+    expect(createPersonalIdentityRecordingConfigurationFromEnvironment(environment)).toBeUndefined();
+  });
+
+  it("rejects enabled personal identity recording without CPF keys", () => {
+    expect(() => validateEnvironment({
+      ...requiredEnvironment,
+      PERSONAL_IDENTITY_RECORDING_ENABLED: "true",
+    })).toThrow("configura");
+  });
+
+  it("rejects an unknown personal identity recording flag", () => {
+    expect(() => validateEnvironment({
+      ...requiredEnvironment,
+      PERSONAL_IDENTITY_RECORDING_ENABLED: "enabled",
+    })).toThrow("Vari");
+  });
+
+  it("returns configured protector and HMAC key id when recording is enabled", () => {
+    const environment = validateEnvironment({
+      ...requiredEnvironment,
+      PERSONAL_IDENTITY_RECORDING_ENABLED: "true",
+      CPF_ENCRYPTION_KEY: cpfEncryptionKey,
+      CPF_ENCRYPTION_KEY_ID: "cpf-encryption-v1",
+      CPF_HMAC_KEY: cpfHmacKey,
+      CPF_HMAC_KEY_ID: "cpf-hmac-v1",
+    });
+    expect(createPersonalIdentityRecordingConfigurationFromEnvironment(environment)).toEqual(expect.objectContaining({ hmacKeyId: "cpf-hmac-v1", cpfProtector: expect.any(Object) }));
   });
 
   it.each([

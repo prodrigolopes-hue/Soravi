@@ -1069,6 +1069,22 @@ Resposta:
 
 ## Usuários
 
+### POST `/api/v1/users/me/personal-identity`
+
+Registra a identidade pessoal inicial da conta autenticada. Requer Bearer access
+token e aplica limite de 3 tentativas por hora. O corpo aceita somente `cpf` e
+a resposta e limitada a `{ "recorded": true }`; CPF, HMAC e envelope nunca
+sao retornados. O `userId` vem exclusivamente da sessao e campos extras sao
+recusados. CPF invalido retorna `400` neutro; recurso indisponivel retorna
+`503` sem consultar ou gravar identidade.
+
+Para ativar, defina `PERSONAL_IDENTITY_RECORDING_ENABLED=true` e as quatro
+chaves validas `CPF_ENCRYPTION_KEY`, `CPF_ENCRYPTION_KEY_ID`, `CPF_HMAC_KEY`
+e `CPF_HMAC_KEY_ID`. Ausencia da flag ou `false` mantem o recurso desabilitado
+e permite iniciar sem chaves. Nao habilite antes de confirmar a migration
+`personal_identities`, guardar as chaves em cofre e verificar compatibilidade
+do `hmacKeyId` com identidades existentes. Rotacao de HMAC nao esta implementada.
+
 ### GET `/api/v1/users/me`
 
 Retorna os dados seguros do usuário autenticado.

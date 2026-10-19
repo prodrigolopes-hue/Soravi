@@ -19,6 +19,8 @@ import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
+import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
+import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
 
 describe("UsersController", () => {
     const userId =
@@ -49,6 +51,7 @@ describe("UsersController", () => {
     };
     let customerProfileActivationServiceMock: { activateCurrentProfessional: jest.Mock };
     let professionalProfileActivationServiceMock: { activateCurrentCustomer: jest.Mock };
+    let personalIdentityRecordingServiceMock: { recordInitial: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -71,6 +74,7 @@ describe("UsersController", () => {
         };
         customerProfileActivationServiceMock = { activateCurrentProfessional: jest.fn() };
         professionalProfileActivationServiceMock = { activateCurrentCustomer: jest.fn() };
+        personalIdentityRecordingServiceMock = { recordInitial: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -82,6 +86,7 @@ describe("UsersController", () => {
             currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
             customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
             professionalProfileActivationServiceMock as unknown as ProfessionalProfileActivationService,
+            personalIdentityRecordingServiceMock as unknown as PersonalIdentityRecordingService,
         );
     });
 
@@ -148,6 +153,67 @@ describe("UsersController", () => {
             "passwordHash",
         );
         expect(response).not.toHaveProperty("sessions");
+    });
+
+    it("grava CPF apenas para o usuario da sessao e retorna confirmacao segura", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        };
+        personalIdentityRecordingServiceMock.recordInitial.mockResolvedValue({ recorded: true });
+
+        await expect(
+            controller.recordCurrentPersonalIdentity(currentUser, { cpf: "529.982.247-25" }),
+        ).resolves.toEqual({ recorded: true });
+        expect(personalIdentityRecordingServiceMock.recordInitial).toHaveBeenCalledWith(
+            userId,
+            "529.982.247-25",
+        );
+    });
+
+    it("protege a gravacao de identidade com autenticacao e throttle", () => {
+        expect(Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.recordCurrentPersonalIdentity,
+        )).toEqual([AccessTokenGuard, ThrottlerGuard]);
+    });
+
+    it("returns a neutral unavailable response while personal identity recording is disabled", () => {
+        (controller as unknown as { personalIdentityRecordingService: undefined })
+            .personalIdentityRecordingService = undefined;
+        const call = () => controller.recordCurrentPersonalIdentity({
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        }, { cpf: "529.982.247-25" });
+        expect(call).toThrow(
+            PersonalIdentityRecordingDisabledException,
+        );
+        try {
+            call();
+        } catch (error: unknown) {
+            const unavailable = error as PersonalIdentityRecordingDisabledException;
+            expect(unavailable.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+            expect(unavailable.getResponse()).toEqual(expect.objectContaining({
+                code: "PERSONAL_IDENTITY_RECORDING_UNAVAILABLE",
+            }));
+        }
+        expect(personalIdentityRecordingServiceMock.recordInitial).not.toHaveBeenCalled();
+    });
+
+    it("limita a gravacao de identidade a tres tentativas por hora", () => {
+        const values = Reflect.getMetadataKeys(
+            UsersController.prototype.recordCurrentPersonalIdentity,
+        )
+            .filter((key) => String(key).toLowerCase().includes("throttler"))
+            .map((key) => Reflect.getMetadata(
+                key,
+                UsersController.prototype.recordCurrentPersonalIdentity,
+            ));
+        expect(values).toEqual(expect.arrayContaining([3, 3_600_000]));
     });
 
     it("deve confirmar acesso profissional", () => {
