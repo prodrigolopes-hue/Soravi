@@ -20,6 +20,8 @@ const MINIMUM_HMAC_KEY_LENGTH = 32;
 const KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const CPF_HMAC_DOMAIN = "soravi:cpf:hmac:v1\0";
+const CPF_HMAC_KEY_FINGERPRINT_DOMAIN =
+  "soravi:cpf:hmac-key-fingerprint:v1\0";
 
 export interface CpfProtectionKeys {
   encryptionKey: Uint8Array;
@@ -39,6 +41,7 @@ export interface CpfProtector {
   encrypt(cpf: string): EncryptedCpfEnvelope;
   decrypt(envelope: unknown): string;
   hmac(cpf: string): string;
+  hmacKeyFingerprint(): string;
 }
 
 export class CpfProtectionConfigurationError extends Error {
@@ -134,6 +137,12 @@ export function createCpfProtector(keys: CpfProtectionKeys): CpfProtector {
       return createHmac("sha256", validatedKeys.hmacKey)
         .update(CPF_HMAC_DOMAIN, "utf8")
         .update(canonicalCpf, "utf8")
+        .digest("hex");
+    },
+
+    hmacKeyFingerprint(): string {
+      return createHmac("sha256", validatedKeys.hmacKey)
+        .update(CPF_HMAC_KEY_FINGERPRINT_DOMAIN, "utf8")
         .digest("hex");
     },
   };

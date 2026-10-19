@@ -589,6 +589,20 @@ seguro de rotação, não será permitido trocar a chave HMAC em banco que possu
 identidades cadastradas. Correção, exclusão e retenção da identidade continuam
 pendentes.
 
+### Vínculo global da chave HMAC de CPF (estrutura preparada)
+
+Foi preparada a tabela singleton `cpf_hmac_key_bindings`, com escopo fixo
+`personal_identity_cpf`, para registrar futuramente o identificador da chave
+HMAC e uma fingerprint criptográfica do seu material. A fingerprint usa domínio
+próprio e não armazena nem expõe a chave. Esta estrutura ainda não é aplicada
+nem consultada pelo serviço de gravação de identidade.
+
+Quando o serviço passar a usar o vínculo, uma linha ausente,
+`ADOPTION_REQUIRED` ou um vínculo incompatível deverá bloquear novas gravações.
+A implantação da migration e a adoção do vínculo devem ocorrer com a coleta de
+CPF desabilitada e sem escritores antigos em execução. Adoção administrativa e
+rotação de chave continuam fora deste incremento.
+
 As ativações cliente → profissional e profissional → cliente devem ser
 transacionais e idempotentes. A semântica para chamadas repetidas com dados
 diferentes permanece pendente. Backend e frontend devem evoluir coordenadamente:

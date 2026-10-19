@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import {
   type CpfProtectionKeys,
   CpfProtectionConfigurationError,
@@ -100,6 +102,56 @@ describe("createCpfProtector", () => {
     const protector = createProtector();
 
     expect(protector.hmac("52998224725")).toBe(protector.hmac("529.982.247-25"));
+  });
+
+  it("deriva a mesma fingerprint para o mesmo material HMAC", () => {
+    expect(createProtector().hmacKeyFingerprint()).toBe(
+      createProtector().hmacKeyFingerprint(),
+    );
+  });
+
+  it("deriva fingerprints diferentes para materiais HMAC diferentes", () => {
+    const protectorWithDifferentHmacKey = createCpfProtector({
+      encryptionKey,
+      hmacKey: Buffer.alloc(32, 3),
+      encryptionKeyId: "cpf-test-v1",
+    });
+
+    expect(protectorWithDifferentHmacKey.hmacKeyFingerprint()).not.toBe(
+      createProtector().hmacKeyFingerprint(),
+    );
+  });
+
+  it("não inclui a chave de cifra na fingerprint HMAC", () => {
+    const protectorWithOtherEncryptionKey = createCpfProtector({
+      encryptionKey: Buffer.alloc(32, 4),
+      hmacKey,
+      encryptionKeyId: "cpf-test-v1",
+    });
+
+    expect(protectorWithOtherEncryptionKey.hmacKeyFingerprint()).toBe(
+      createProtector().hmacKeyFingerprint(),
+    );
+  });
+
+  it("não inclui o identificador da chave de cifra na fingerprint HMAC", () => {
+    const protectorWithOtherEncryptionKeyId = createCpfProtector({
+      encryptionKey,
+      hmacKey,
+      encryptionKeyId: "cpf-test-v2",
+    });
+
+    expect(protectorWithOtherEncryptionKeyId.hmacKeyFingerprint()).toBe(
+      createProtector().hmacKeyFingerprint(),
+    );
+  });
+
+  it("usa o domínio exclusivo da fingerprint da chave HMAC", () => {
+    const expectedFingerprint = createHmac("sha256", hmacKey)
+      .update("soravi:cpf:hmac-key-fingerprint:v1\0", "utf8")
+      .digest("hex");
+
+    expect(createProtector().hmacKeyFingerprint()).toBe(expectedFingerprint);
   });
 
   it.each([

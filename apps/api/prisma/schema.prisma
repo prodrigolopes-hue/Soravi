@@ -136,6 +136,12 @@ enum OutboundNotificationStatus {
   CANCELLED
 }
 
+enum CpfHmacKeyBindingState {
+  UNINITIALIZED
+  BOUND
+  ADOPTION_REQUIRED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -191,6 +197,17 @@ model PersonalIdentity {
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@map("personal_identities")
+}
+
+model CpfHmacKeyBinding {
+  scope              String                 @id @db.VarChar(64)
+  state              CpfHmacKeyBindingState
+  hmacKeyId          String?                @map("hmac_key_id") @db.VarChar(64)
+  hmacKeyFingerprint String?                @map("hmac_key_fingerprint") @db.Char(64)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("cpf_hmac_key_bindings")
 }
 
 model UserRole {
