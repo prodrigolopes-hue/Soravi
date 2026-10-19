@@ -13,6 +13,7 @@ import { ProfessionalVerificationSubmissionService } from "./professional-verifi
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 import { personalIdentityRecordingProvider } from "./personal-identity-recording.provider";
+import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { personalIdentityRecordingProvider } from "./personal-identity-recording
     ProfessionalVerificationSubmissionService,
     ProfessionalVerificationReviewService,
     personalIdentityRecordingProvider,
+    PersonalIdentityStatusService,
   ],
   exports: [UsersService],
 })

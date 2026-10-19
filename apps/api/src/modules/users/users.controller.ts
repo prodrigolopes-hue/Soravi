@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Inject,
@@ -46,6 +47,7 @@ import { RecordPersonalIdentityDto } from "./dto/record-personal-identity.dto";
 import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
+import { PersonalIdentityStatusResult, PersonalIdentityStatusService } from "./personal-identity-status.service";
 
 @Controller("users")
 export class UsersController {
@@ -59,6 +61,7 @@ export class UsersController {
     private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
     private readonly customerProfileActivationService: CustomerProfileActivationService,
     private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
+    private readonly personalIdentityStatusService: PersonalIdentityStatusService,
     @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
     private readonly personalIdentityRecordingService: PersonalIdentityRecordingService | undefined,
   ) {}
@@ -71,6 +74,15 @@ export class UsersController {
     return this.usersService.findSafeById(
       currentUser.id,
     );
+  }
+
+  @Get("me/personal-identity")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AccessTokenGuard)
+  findCurrentPersonalIdentity(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<PersonalIdentityStatusResult> {
+    return this.personalIdentityStatusService.findCurrent(currentUser.id);
   }
 
   @Post("me/personal-identity")

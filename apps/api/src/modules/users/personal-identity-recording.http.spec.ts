@@ -12,6 +12,7 @@ import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
+import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
@@ -24,11 +25,49 @@ import { UsersService } from "./users.service";
 describe("POST /api/v1/users/me/personal-identity", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const recordingService = { recordInitial: jest.fn().mockResolvedValue({ recorded: true }) };
+  const statusService = { findCurrent: jest.fn().mockResolvedValue({ recorded: false }) };
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
 
-  beforeAll(async () => { app = await createApp(userId, recordingService); });
+  beforeAll(async () => { app = await createApp(userId, recordingService, statusService); });
   afterAll(async () => { if (app) await app.close(); });
-  afterEach(() => { jest.clearAllMocks(); recordingService.recordInitial.mockResolvedValue({ recorded: true }); });
+  afterEach(() => {
+    jest.clearAllMocks();
+    recordingService.recordInitial.mockResolvedValue({ recorded: true });
+    statusService.findCurrent.mockResolvedValue({ recorded: false });
+  });
+
+  it("returns 401 for an unauthenticated identity status request", async () => {
+    expect((await get(app!.url)).status).toBe(401);
+    expect(statusService.findCurrent).not.toHaveBeenCalled();
+  });
+
+  it("returns the exact safe status for the session user without an identity", async () => {
+    const response = await get(app!.url, true);
+    expect(response.status).toBe(200);
+    expect(response.body).toBe('{"recorded":false}');
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(statusService.findCurrent).toHaveBeenCalledWith(userId);
+  });
+
+  it("returns the exact safe status when the session user has an identity", async () => {
+    statusService.findCurrent.mockResolvedValue({ recorded: true });
+    const response = await get(app!.url, true);
+    expect(response.status).toBe(200);
+    expect(response.body).toBe('{"recorded":true}');
+    expect(response.body).not.toMatch(/cpf|hmac|envelope|fingerprint|key/i);
+  });
+
+  it("reads the status while identity recording is disabled", async () => {
+    const disabledApp = await createApp(userId, undefined, statusService);
+    try {
+      const response = await get(disabledApp.url, true);
+      expect(response.status).toBe(200);
+      expect(response.body).toBe('{"recorded":false}');
+      expect(statusService.findCurrent).toHaveBeenCalledWith(userId);
+    } finally {
+      await disabledApp.close();
+    }
+  });
 
   it("rejects unauthenticated access", async () => {
     expect((await post(app!.url, { cpf: "529.982.247-25" })).status).toBe(401);
@@ -57,7 +96,7 @@ describe("POST /api/v1/users/me/personal-identity", () => {
   });
 
   it("returns 503 without calling recordInitial while the feature is disabled", async () => {
-    const disabledApp = await createApp(userId, undefined);
+    const disabledApp = await createApp(userId, undefined, statusService);
     try {
       const response = await post(disabledApp.url, { cpf: "529.982.247-25" }, true);
       expect(response.status).toBe(503);
@@ -69,7 +108,7 @@ describe("POST /api/v1/users/me/personal-identity", () => {
 
   it("returns 429 after three valid requests in an isolated in-memory limiter", async () => {
     const rateLimitedService = { recordInitial: jest.fn().mockResolvedValue({ recorded: true }) };
-    const rateLimitedApp = await createApp(userId, rateLimitedService);
+    const rateLimitedApp = await createApp(userId, rateLimitedService, statusService);
     try {
       const responses = [
         await post(rateLimitedApp.url, { cpf: "529.982.247-25" }, true),
@@ -85,7 +124,11 @@ describe("POST /api/v1/users/me/personal-identity", () => {
   });
 });
 
-async function createApp(userId: string, recordingService: { recordInitial: jest.Mock } | undefined) {
+async function createApp(
+  userId: string,
+  recordingService: { recordInitial: jest.Mock } | undefined,
+  statusService: { findCurrent: jest.Mock },
+) {
   const accessTokenAuthService = {
     extractBearerToken: (header: string | undefined) => header === "Bearer valid-token" ? "valid-token" : null,
     authenticateAccessToken: jest.fn().mockResolvedValue({ id: userId, sessionId: "session-id", roles: [Role.CUSTOMER], phoneVerifiedAt: null }),
@@ -105,6 +148,7 @@ async function createApp(userId: string, recordingService: { recordInitial: jest
       { provide: CurrentProfessionalProfileService, useValue: empty }, { provide: CustomerProfileActivationService, useValue: empty },
       { provide: ProfessionalProfileActivationService, useValue: empty },
       { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: recordingService },
+      { provide: PersonalIdentityStatusService, useValue: statusService },
       AccessTokenGuard,
       { provide: AccessTokenAuthService, useValue: accessTokenAuthService },
     ],
@@ -127,5 +171,27 @@ function post(url: string, body: object, authenticated = false): Promise<{ statu
     });
     request.on("error", reject);
     request.end(payload);
+  });
+}
+
+function get(
+  url: string,
+  authenticated = false,
+): Promise<{ status: number; body: string; headers: Record<string, string | string[] | undefined> }> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(url, {
+      method: "GET",
+      headers: authenticated ? { authorization: "Bearer valid-token" } : {},
+    }, (response) => {
+      let responseBody = "";
+      response.on("data", (chunk: Buffer) => { responseBody += chunk.toString("utf8"); });
+      response.on("end", () => resolve({
+        status: response.statusCode ?? 0,
+        body: responseBody,
+        headers: response.headers,
+      }));
+    });
+    request.on("error", reject);
+    request.end();
   });
 }

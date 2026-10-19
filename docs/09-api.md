@@ -1069,6 +1069,18 @@ Resposta:
 
 ## Usuários
 
+### GET `/api/v1/users/me/personal-identity`
+
+Consulta autenticada para a tela “Meus dados”. Retorna exatamente
+`{ "recorded": true }` quando a própria conta possui uma identidade pessoal
+cadastrada, ou `{ "recorded": false }` quando não possui. O resultado não
+representa identidade verificada e nunca inclui CPF, envelope, HMAC, fingerprint
+ou identificadores de chave. A resposta usa `Cache-Control: no-store`.
+
+O `userId` vem exclusivamente da sessão. A leitura funciona mesmo quando
+`PERSONAL_IDENTITY_RECORDING_ENABLED` está ausente ou desabilitada e não cria
+nem altera o vínculo global da chave HMAC.
+
 ### POST `/api/v1/users/me/personal-identity`
 
 Registra a identidade pessoal inicial da conta autenticada. Requer Bearer access

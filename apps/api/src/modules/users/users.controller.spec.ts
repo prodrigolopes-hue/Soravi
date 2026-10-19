@@ -21,6 +21,7 @@ import { CustomerProfileActivationService } from "./customer-profile-activation.
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
 import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
+import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 
 describe("UsersController", () => {
     const userId =
@@ -52,6 +53,7 @@ describe("UsersController", () => {
     let customerProfileActivationServiceMock: { activateCurrentProfessional: jest.Mock };
     let professionalProfileActivationServiceMock: { activateCurrentCustomer: jest.Mock };
     let personalIdentityRecordingServiceMock: { recordInitial: jest.Mock };
+    let personalIdentityStatusServiceMock: { findCurrent: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -75,6 +77,7 @@ describe("UsersController", () => {
         customerProfileActivationServiceMock = { activateCurrentProfessional: jest.fn() };
         professionalProfileActivationServiceMock = { activateCurrentCustomer: jest.fn() };
         personalIdentityRecordingServiceMock = { recordInitial: jest.fn() };
+        personalIdentityStatusServiceMock = { findCurrent: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -86,6 +89,7 @@ describe("UsersController", () => {
             currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
             customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
             professionalProfileActivationServiceMock as unknown as ProfessionalProfileActivationService,
+            personalIdentityStatusServiceMock as unknown as PersonalIdentityStatusService,
             personalIdentityRecordingServiceMock as unknown as PersonalIdentityRecordingService,
         );
     });
@@ -171,6 +175,26 @@ describe("UsersController", () => {
             userId,
             "529.982.247-25",
         );
+    });
+
+    it("consulta o status da identidade somente para o usuário da sessão", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        };
+        personalIdentityStatusServiceMock.findCurrent.mockResolvedValue({ recorded: false });
+
+        await expect(controller.findCurrentPersonalIdentity(currentUser)).resolves.toEqual({ recorded: false });
+        expect(personalIdentityStatusServiceMock.findCurrent).toHaveBeenCalledWith(userId);
+    });
+
+    it("protege a consulta da identidade com autenticação", () => {
+        expect(Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.findCurrentPersonalIdentity,
+        )).toEqual([AccessTokenGuard]);
     });
 
     it("protege a gravacao de identidade com autenticacao e throttle", () => {
