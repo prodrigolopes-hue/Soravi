@@ -594,14 +594,18 @@ pendentes.
 Foi preparada a tabela singleton `cpf_hmac_key_bindings`, com escopo fixo
 `personal_identity_cpf`, para registrar futuramente o identificador da chave
 HMAC e uma fingerprint criptográfica do seu material. A fingerprint usa domínio
-próprio e não armazena nem expõe a chave. Esta estrutura ainda não é aplicada
-nem consultada pelo serviço de gravação de identidade.
+próprio e não armazena nem expõe a chave. O serviço de gravação bloqueia a linha
+singleton antes da linha de `User`, e valida o identificador e a fingerprint
+antes de consultar a unicidade do CPF.
 
-Quando o serviço passar a usar o vínculo, uma linha ausente,
-`ADOPTION_REQUIRED` ou um vínculo incompatível deverá bloquear novas gravações.
-A implantação da migration e a adoção do vínculo devem ocorrer com a coleta de
-CPF desabilitada e sem escritores antigos em execução. Adoção administrativa e
-rotação de chave continuam fora deste incremento.
+Uma linha ausente, `ADOPTION_REQUIRED` ou um vínculo incompatível bloqueia novas
+gravações sem criar ou recriar o singleton. Em `UNINITIALIZED`, a primeira
+gravação elegível só vincula a configuração se não existir nenhuma identidade;
+o vínculo e a identidade são persistidos na mesma transação. A migration deve
+ser aplicada antes de habilitar a coleta. Sua implantação e qualquer adoção
+devem ocorrer com a coleta de CPF desabilitada e sem escritores antigos em
+execução. Adoção administrativa e rotação de chave continuam fora deste
+incremento.
 
 As ativações cliente → profissional e profissional → cliente devem ser
 transacionais e idempotentes. A semântica para chamadas repetidas com dados

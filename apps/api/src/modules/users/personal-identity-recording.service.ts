@@ -4,7 +4,11 @@ import { CpfProtector, isCpfProtectionKeyId } from "../../common/cpf/cpf-protect
 import { normalizeCpf } from "../../common/cpf/cpf";
 import { lockUser } from "../../database/user-transaction-lock";
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma, UserStatus } from "../../generated/prisma/client";
+import {
+  CpfHmacKeyBindingState,
+  Prisma,
+  UserStatus,
+} from "../../generated/prisma/client";
 import { PersonalIdentityChangeUnavailableException } from "./errors/personal-identity-change-unavailable.exception";
 import { PersonalIdentityCpfUnavailableException } from "./errors/personal-identity-cpf-unavailable.exception";
 import { PersonalIdentityKeyUnavailableException } from "./errors/personal-identity-key-unavailable.exception";
@@ -12,6 +16,8 @@ import { PersonalIdentityPersistenceException } from "./errors/personal-identity
 import { PersonalIdentityUnavailableException } from "./errors/personal-identity-unavailable.exception";
 
 export interface PersonalIdentityRecordingResult { recorded: true; }
+
+const CPF_HMAC_KEY_BINDING_SCOPE = "personal_identity_cpf";
 
 @Injectable()
 export class PersonalIdentityRecordingService {
@@ -26,14 +32,48 @@ export class PersonalIdentityRecordingService {
   async recordInitial(userId: string, cpf: string): Promise<PersonalIdentityRecordingResult> {
     const normalizedCpf = normalizeCpf(cpf);
     const cpfHmac = this.cpfProtector.hmac(normalizedCpf);
+    const hmacKeyFingerprint = this.cpfProtector.hmacKeyFingerprint();
     try {
       await this.prisma.$transaction(async (transaction) => {
+        await lockCpfHmacKeyBinding(transaction);
+        const binding = await transaction.cpfHmacKeyBinding.findUnique({
+          where: { scope: CPF_HMAC_KEY_BINDING_SCOPE },
+          select: { state: true, hmacKeyId: true, hmacKeyFingerprint: true },
+        });
+        if (!binding) throw new PersonalIdentityKeyUnavailableException();
+
         await lockUser(transaction, userId);
         const user = await transaction.user.findFirst({
           where: { id: userId, deletedAt: null, status: { in: [UserStatus.PENDING, UserStatus.ACTIVE] } },
           select: { id: true, personalIdentity: { select: { cpfHmac: true, hmacKeyId: true } } },
         });
         if (!user) throw new PersonalIdentityUnavailableException();
+
+        if (binding.state === CpfHmacKeyBindingState.BOUND) {
+          if (
+            binding.hmacKeyId !== this.hmacKeyId ||
+            binding.hmacKeyFingerprint !== hmacKeyFingerprint
+          ) {
+            throw new PersonalIdentityKeyUnavailableException();
+          }
+        } else if (binding.state === CpfHmacKeyBindingState.ADOPTION_REQUIRED) {
+          throw new PersonalIdentityKeyUnavailableException();
+        } else if (binding.state === CpfHmacKeyBindingState.UNINITIALIZED) {
+          const identityExists = await transaction.personalIdentity.count();
+          if (identityExists > 0) throw new PersonalIdentityKeyUnavailableException();
+
+          await transaction.cpfHmacKeyBinding.update({
+            where: { scope: CPF_HMAC_KEY_BINDING_SCOPE },
+            data: {
+              state: CpfHmacKeyBindingState.BOUND,
+              hmacKeyId: this.hmacKeyId,
+              hmacKeyFingerprint,
+            },
+          });
+        } else {
+          throw new PersonalIdentityKeyUnavailableException();
+        }
+
         if (user.personalIdentity) {
           if (user.personalIdentity.hmacKeyId !== this.hmacKeyId) throw new PersonalIdentityKeyUnavailableException();
           if (user.personalIdentity.cpfHmac !== cpfHmac) throw new PersonalIdentityChangeUnavailableException();
@@ -72,6 +112,17 @@ export class PersonalIdentityRecordingService {
     const fields = cause.constraint.fields;
     return Array.isArray(fields) && fields.length === 1 && fields[0] === "cpf_hmac";
   }
+}
+
+async function lockCpfHmacKeyBinding(
+  transaction: Prisma.TransactionClient,
+): Promise<void> {
+  await transaction.$queryRaw(Prisma.sql`
+    SELECT "scope"
+    FROM "cpf_hmac_key_bindings"
+    WHERE "scope" = ${CPF_HMAC_KEY_BINDING_SCOPE}
+    FOR UPDATE
+  `);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
