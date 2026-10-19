@@ -542,9 +542,11 @@ pendente; esta entrega não modela empresas, CNPJ ou ativação de perfis.
   da contratação.
 - A plataforma não deve distribuir oportunidade nem aceitar proposta de um
   profissional para solicitação criada pela sua própria conta.
-- O cadastro de cliente ou profissional pode ser de pessoa física ou pessoa
-  jurídica. Pessoa física informa nome completo e CPF; pessoa jurídica informa
-  razão social, CNPJ e nome completo com CPF do responsável.
+- O cadastro inicial de cliente é simples e não exige CPF. O profissional pode
+  criar conta e preencher o perfil antes da verificação; nome completo e CPF
+  entram como requisito para liberar oportunidades e propostas. Pessoa jurídica
+  mantém razão social, CNPJ e responsável identificado por nome completo e CPF
+  como decisões próprias pendentes.
 - PF/PJ e cliente/profissional são dimensões distintas: a primeira descreve a
   pessoa ou empresa; a segunda, os perfis de atuação. Esta decisão não define
   ainda a modelagem de empresas e representantes.
@@ -553,6 +555,33 @@ pendente; esta entrega não modela empresas, CNPJ ou ativação de perfis.
   responsável são dados conceitualmente separados. Validar dígitos de CPF ou
   CNPJ não equivale a verificar identidade.
 - Contas existentes não receberão CPF fictício.
+
+### Verificação profissional e identidade (decisão aprovada; ainda não implementada)
+
+Para liberar oportunidades e envio de propostas, o profissional deverá concluir
+nome completo e CPF, documento com foto (CIN/RG ou CNH), telefone confirmado,
+e-mail confirmado e CEP de referência, mantido separado da região de
+atendimento. CEP não comprova residência; CPF válido e documento enviado não
+equivalem a identidade verificada. CPF, documentos e endereço residencial são
+privados.
+
+Selfie, método de conferência de titularidade e critérios de aprovação ainda
+precisam de definição. Pendências não bloqueiam login nem excluem histórico. A
+estratégia de adequação de profissionais existentes permanece pendente.
+Empresas/CNPJ preservam as decisões e pendências próprias já registradas.
+
+A foto de perfil deverá corresponder ao profissional individual cuja identidade
+foi verificada, e o cliente deverá identificar previamente quem realizará a
+visita. A conta profissional é individual e intransferível. Ajudantes e
+substitutos precisam ser identificados previamente, com ciência do cliente;
+critérios de verificação e autorização ainda precisam de definição. Empresas
+deverão identificar as pessoas enviadas ao atendimento; sua modelagem e regras
+empresariais continuam pendentes.
+
+Documentos são privados e terão acesso interno restrito. Será previsto canal de
+denúncia de divergência de identidade ou comportamento, com análise interna e
+possibilidade de suspensão. “Identidade verificada” descreve uma checagem
+concluída; não garante conduta futura nem qualidade do serviço.
 
 ### Proposta técnica (depende de definição operacional)
 

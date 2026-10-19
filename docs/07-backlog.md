@@ -321,9 +321,27 @@ Cada tarefa somente será considerada concluída quando:
 
 ### Evolução de contas, PF/PJ e CPF (decisões aprovadas; a implementar)
 
-- [ ] Modelar cadastro de pessoa física e jurídica para clientes e
-  profissionais: pessoa física com nome completo e CPF; pessoa jurídica com
-  razão social, CNPJ e responsável identificado por nome completo e CPF.
+- [ ] Implementar a verificação profissional aprovada sem exigir CPF no
+  cadastro inicial de cliente: nome completo, CPF privado, CIN/RG ou CNH,
+  telefone e e-mail confirmados e CEP de referência privado, separado da
+  região de atendimento. CPF válido, documento enviado e CEP não bastam para
+  afirmar identidade verificada.
+- [ ] Definir selfie, método de conferência de titularidade e critérios de
+  aprovação; não bloquear login nem excluir histórico por pendências.
+- [ ] Implementar foto de perfil vinculada ao profissional individual cuja
+  identidade foi verificada e exibir previamente ao cliente quem realizará a
+  visita, sem apresentar a checagem como garantia de conduta ou qualidade.
+- [ ] Modelar ajudantes, substitutos e pessoas enviadas por empresas, exigindo
+  identificação prévia e ciência do cliente; critérios de verificação,
+  autorização e regras empresariais permanecem pendentes.
+- [ ] Implementar documentos privados com acesso interno restrito e canal de
+  denúncia de divergência de identidade ou comportamento, análise interna e
+  possibilidade de suspensão.
+- [ ] Definir a adequação dos profissionais existentes ao novo requisito.
+- [ ] Modelar PF/PJ preservando cadastro inicial simples para cliente e
+  profissional; CPF da pessoa física entra no fluxo de verificação profissional.
+  Pessoa jurídica mantém razão social, CNPJ e responsável identificado por nome
+  completo e CPF como decisões próprias pendentes.
 - [ ] Adicionar CPF privado à identidade pessoal, com validação estrutural
   distinta da verificação de identidade e sem duplicá-lo em contas pessoais
   independentes.
@@ -468,8 +486,8 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 - [ ] obter da Meta permissão para criar o template pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a criação foi recusada por falta de permissão da WABA;
 - [ ] validar envio real de OTP, configurar e assinar o webhook e ativar o provider Meta em produção;
 - [ ] verificação básica de identidade;
-- [ ] Integrar a verificação de identidade ao CPF obrigatório da conta, sem
-  confundir validação de dígitos com identidade verificada;
+- [ ] Integrar a verificação de identidade aos requisitos profissionais
+  aprovados, sem confundir validação de dígitos com identidade verificada;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
 - [ ] evidências profissionais;
 - [ ] portfólio/fotos;

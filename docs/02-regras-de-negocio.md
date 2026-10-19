@@ -29,12 +29,13 @@ preservam o primeiro perfil profissional concluído; alterações posteriores
 ocorrem na rota de edição do perfil. Ambas as modalidades continuam sujeitas à
 verificação profissional existente antes do envio de propostas.
 
-O cadastro pode ser de pessoa física ou jurídica, para clientes e
-profissionais. Pessoa física informa nome completo e CPF. Pessoa jurídica
-informa razão social, CNPJ e nome completo com CPF do responsável. CPF é dado
-da identidade pessoal, privado, único por pessoa e compartilhado entre seus
-perfis; não deve ser duplicado em contas pessoais independentes. Os dados do
-responsável são conceitualmente distintos dos dados da empresa.
+**Decisão aprovada, ainda não implementada:** o cadastro inicial de cliente é
+simples e não exige CPF. O profissional também pode criar a conta e preencher o
+perfil antes de concluir a verificação. Para liberar oportunidades e propostas,
+ele deverá concluir a verificação definida abaixo. CPF continua dado privado,
+único por pessoa e compartilhado entre seus perfis; não deve ser duplicado em
+contas pessoais independentes. Os dados do responsável são conceitualmente
+distintos dos dados da empresa.
 
 A validação de dígitos de CPF ou CNPJ não equivale à autenticação ou
 verificação de identidade. Contas existentes não receberão CPF fictício. A
@@ -81,7 +82,7 @@ Pode:
 -   consultar e editar o próprio perfil em `/profissional/perfil`;
 -   informar categorias atendidas;
 -   definir área de atuação;
--   enviar propostas;
+-   enviar propostas após aprovação da verificação profissional;
 -   conversar com clientes;
 -   receber avaliações.
 
@@ -90,7 +91,34 @@ solicitação criada pela sua própria conta, ainda que possua perfil cliente.
 Essas proteções backend devem estar implementadas e testadas antes de liberar
 a ativação de perfis adicionais.
 
-### Verificação profissional básica
+### Verificação profissional
+
+**Decisão aprovada, ainda não implementada integralmente:** a liberação para
+receber oportunidades e enviar propostas requer nome completo e CPF, documento
+com foto (CIN/RG ou CNH), telefone confirmado, e-mail confirmado e CEP de
+referência, separado da região de atendimento. CEP não comprova residência;
+CPF válido e documento enviado não equivalem a identidade verificada. CPF,
+documentos e endereço residencial são privados.
+
+Selfie, método de conferência de titularidade e critérios de aprovação ainda
+dependem de definição. Pendências não bloqueiam login nem excluem histórico, e
+a estratégia de adequação de profissionais existentes permanece pendente.
+Empresas e CNPJ mantêm as decisões e pendências próprias.
+
+**Decisão aprovada, ainda não implementada:** a foto de perfil deverá
+corresponder ao profissional cuja identidade foi verificada, e o cliente deverá
+conseguir identificar previamente quem realizará a visita. A conta profissional
+individual é intransferível. Ajudantes e substitutos precisam ser identificados
+previamente, com ciência do cliente; seus critérios de verificação e autorização
+ainda serão definidos. Empresas deverão identificar as pessoas enviadas ao
+atendimento, permanecendo pendentes a modelagem e as regras empresariais.
+
+Documentos são privados, com acesso interno restrito. Deve existir canal para
+denunciar divergência de identidade ou comportamento, sujeito a análise interna
+e eventual suspensão. “Identidade verificada” descreve uma checagem concluída;
+não garante conduta futura nem qualidade do serviço.
+
+**Implementação atual:**
 
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,
 `APPROVED` e `REJECTED`. `NOT_STARTED` identifica o profissional que ainda não
@@ -449,11 +477,12 @@ Informações iniciais poderão incluir:
 - forma geral de atendimento;
 - disponibilidade aproximada.
 
-Para pessoa física, CPF é obrigatório e privado. Para pessoa jurídica, CNPJ,
-razão social e os dados pessoais do responsável são distintos. CPF não compõe
-perfil público nem é compartilhado como dado de apresentação; sua validação
-estrutural não comprova identidade. A privacidade dos dados empresariais e a
-representação da empresa permanecem pendentes.
+Para pessoa física, CPF será privado e exigido somente no fluxo de verificação
+profissional aprovado; não é obrigatório no cadastro inicial de cliente. Para
+pessoa jurídica, CNPJ, razão social e os dados pessoais do responsável são
+distintos. CPF não compõe perfil público nem é compartilhado como dado de
+apresentação; sua validação estrutural não comprova identidade. A privacidade
+dos dados empresariais e a representação da empresa permanecem pendentes.
 
 Deve ser mantido o princípio de minimização de dados pessoais.
 
