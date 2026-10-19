@@ -3,19 +3,78 @@
 import { Phone, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+import { personalIdentityStatusUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+
+type PersonalIdentityStatus =
+  | { kind: "loading"; sessionKey: string }
+  | { kind: "recorded"; sessionKey: string; recorded: boolean }
+  | { kind: "error"; sessionKey: string };
 
 export function AccountDataPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { accessToken, isAuthenticated, isLoading, user } = useAuth();
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
+  const sessionKey = useMemo(
+    () => `${user?.id ?? ""}:${accessToken ?? ""}`,
+    [accessToken, user?.id],
+  );
+  const [personalIdentityStatus, setPersonalIdentityStatus] =
+    useState<PersonalIdentityStatus>({ kind: "loading", sessionKey: "" });
+  const activeStatusSessionKey = useRef<string | null>(null);
+
+  if (isLoading || !isAuthenticated || !user || !accessToken) {
+    activeStatusSessionKey.current = null;
+  }
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/entrar");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user || !accessToken) return;
+
+    const controller = new AbortController();
+    let isCurrent = true;
+    const requestSessionKey = sessionKey;
+    activeStatusSessionKey.current = requestSessionKey;
+    setPersonalIdentityStatus({ kind: "loading", sessionKey: requestSessionKey });
+
+    void fetch(personalIdentityStatusUrl, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Personal identity status request failed.");
+        const payload: unknown = await response.json();
+        if (!isPersonalIdentityStatusResponse(payload)) {
+          throw new Error("Invalid personal identity status response.");
+        }
+        return payload;
+      })
+      .then((payload) => {
+        if (isCurrent) {
+          setPersonalIdentityStatus({ kind: "recorded", sessionKey: requestSessionKey, recorded: payload.recorded });
+        }
+      })
+      .catch(() => {
+        if (isCurrent && !controller.signal.aborted) {
+          setPersonalIdentityStatus({ kind: "error", sessionKey: requestSessionKey });
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+      controller.abort();
+    };
+  }, [accessToken, isAuthenticated, isLoading, refreshAttempt, sessionKey, user]);
 
   if (isLoading) {
     return <AccountDataMessage title="Carregando seus dados..." />;
@@ -24,6 +83,12 @@ export function AccountDataPage() {
   if (!isAuthenticated || !user) {
     return <AccountDataMessage title="Redirecionando para entrar..." />;
   }
+
+  const visiblePersonalIdentityStatus =
+    activeStatusSessionKey.current === sessionKey &&
+    personalIdentityStatus.sessionKey === sessionKey
+      ? personalIdentityStatus
+      : { kind: "loading" as const, sessionKey };
 
   return (
     <main className="min-h-full bg-slate-50">
@@ -53,6 +118,10 @@ export function AccountDataPage() {
             <DataRow label="Nome completo" value={user.name} />
             <DataRow label="E-mail" value={user.email} />
             <DataRow label="Telefone" value={user.phone ?? "Não informado"} valueClassName={user.phone ? undefined : "text-slate-500"} />
+            <PersonalIdentityStatusRow
+              status={visiblePersonalIdentityStatus}
+              onRetry={() => setRefreshAttempt((attempt) => attempt + 1)}
+            />
             <div className="grid gap-1 py-4 sm:grid-cols-3 sm:gap-4">
               <dt className="text-sm font-semibold text-slate-700">Verificação do telefone</dt>
               <dd className="sm:col-span-2">
@@ -80,6 +149,59 @@ function DataRow({ label, value, valueClassName }: { label: string; value: strin
       <dt className="text-sm font-semibold text-slate-700">{label}</dt>
       <dd className={"min-w-0 break-words text-sm text-slate-950 sm:col-span-2 " + (valueClassName ?? "")}>{value}</dd>
     </div>
+  );
+}
+
+function PersonalIdentityStatusRow({
+  status,
+  onRetry,
+}: {
+  status: PersonalIdentityStatus;
+  onRetry: () => void;
+}) {
+  let content: ReactNode;
+
+  if (status.kind === "loading") {
+    content = <span className="text-slate-600">Consultando cadastro do CPF...</span>;
+  } else if (status.kind === "recorded") {
+    content = (
+      <span className={status.recorded ? "font-semibold text-emerald-800" : "text-slate-600"}>
+        {status.recorded ? "CPF cadastrado" : "CPF não informado"}
+      </span>
+    );
+  } else {
+    content = (
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-slate-700">Não foi possível consultar o cadastro do CPF.</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="min-h-11 rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-1 py-4 sm:grid-cols-3 sm:gap-4">
+      <dt className="text-sm font-semibold text-slate-700">CPF</dt>
+      <dd className="min-w-0 text-sm sm:col-span-2" aria-live="polite">
+        {content}
+      </dd>
+    </div>
+  );
+}
+
+function isPersonalIdentityStatusResponse(
+  value: unknown,
+): value is { recorded: boolean } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "recorded" in value &&
+    typeof value.recorded === "boolean"
   );
 }
 

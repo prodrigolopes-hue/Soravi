@@ -17,6 +17,8 @@ export const customerProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/user
 
 export const professionalProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/users/me/roles/professional`;
 
+export const personalIdentityStatusUrl = `${normalizedApiBaseUrl}/api/v1/users/me/personal-identity`;
+
 export function adminProfessionalVerificationUrl(userId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/users/admin/professionals/${encodeURIComponent(userId)}/verification`;
 }
