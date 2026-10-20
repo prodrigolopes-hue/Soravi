@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { categoriesUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
+import { PersonalIdentityCollection } from "./personal-identity-collection";
 import {
   type ProfessionalCategory,
   type ProfessionalProfile,
@@ -294,6 +295,14 @@ export function ProfessionalProfilePage() {
           <p className="mt-3 max-w-2xl leading-7 text-slate-600">Mantenha suas informações atualizadas para apresentar melhor seu trabalho na Soravi.</p>
         </header>
 
+        {accessToken && user ? (
+          <PersonalIdentityCollection
+            key={`${user.id}:${accessToken}`}
+            accessToken={accessToken}
+            userId={user.id}
+          />
+        ) : null}
+
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="verification-status-title">
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" />
@@ -360,7 +369,7 @@ export function ProfessionalProfilePage() {
               Cancelar
             </button>
             <button type="submit" disabled={isSaving} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {isSaving ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <Save aria-hidden="true" className="size-5" />}{isSaving ? "Salvando..." : "Salvar alterações"}
+              {isSaving ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <Save aria-hidden="true" className="size-5" />}{isSaving ? "Salvando..." : "Salvar alterações"}
             </button>
           </div>
         </form> : <ProfileView profile={profile} onEdit={startEditing} saveMessage={saveMessage} />}
