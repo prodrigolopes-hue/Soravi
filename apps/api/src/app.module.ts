@@ -18,6 +18,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { PhoneVerificationModule } from "./modules/phone-verification/phone-verification.module";
 import { ServiceRequestsModule } from "./modules/service-requests/service-requests.module";
 import { FavoritesModule } from "./modules/favorites/favorites.module";
+import { ProfessionalDiscoveryModule } from "./modules/professional-discovery/professional-discovery.module";
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { FavoritesModule } from "./modules/favorites/favorites.module";
     PhoneVerificationModule,
     ServiceRequestsModule,
     FavoritesModule,
+    ProfessionalDiscoveryModule,
   ],
   controllers: [HealthController],
 })

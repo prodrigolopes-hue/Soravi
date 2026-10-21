@@ -1245,13 +1245,17 @@ DELETE /api/v1/professional-profile/me/service-areas/{serviceAreaId}
 
 ---
 
-## 16.9 Listar profissionais publicamente
+## 16.9 Histórico substituído: listagem pública de profissionais
 
 ```text
 GET /api/v1/professionals
 ```
 
-### Filtros iniciais
+Este contrato conceitual foi substituído por
+`GET /api/v1/categories/{categorySlug}/professionals`. Os filtros abaixo não
+estão implementados no endpoint público atual.
+
+### Filtros inicialmente planejados
 
 ```text
 categoryId
@@ -1275,13 +1279,18 @@ sort
 
 ---
 
-## 16.10 Obter perfil público
+## 16.10 Histórico substituído: perfil público
 
 ```text
 GET /api/v1/professionals/{professionalId}
 ```
 
-### Resposta conceitual
+Este contrato conceitual foi substituído por
+`GET /api/v1/professionals/{professionalProfileId}` na seção 17.3. A resposta
+atual não inclui avatar, `verificationStatus`, quantidade de serviços,
+disponibilidade ou áreas de serviço estruturadas.
+
+### Resposta conceitual histórica
 
 ```json
 {
@@ -1334,6 +1343,37 @@ Por padrão, usuários comuns receberão apenas categorias ativas.
 ```text
 GET /api/v1/categories/{categoryId}
 ```
+
+---
+
+## 17.3 Descoberta pública de profissionais
+
+```text
+GET /api/v1/categories/{categorySlug}/professionals?page=1&limit=20
+GET /api/v1/professionals/{professionalProfileId}?page=1&limit=20
+```
+
+Ambos os endpoints são públicos e não exigem sessão. A categoria deve existir e
+estar ativa; caso contrário, a listagem retorna `404` com o código
+`PUBLIC_CATEGORY_NOT_FOUND`. O detalhe retorna `404` com
+`PUBLIC_PROFESSIONAL_NOT_FOUND` quando o perfil não atende aos critérios
+públicos.
+
+Um profissional aparece somente quando o usuário está `ACTIVE`, usuário e
+perfil não foram excluídos, o perfil está `APPROVED`, disponível e vinculado a
+uma categoria ativa. `APPROVED` é aprovação do perfil profissional no fluxo
+operacional; não representa nem declara identidade verificada.
+
+A lista retorna identificador do perfil, nome público, título, área de
+atendimento, categorias ativas e reputação. O detalhe também retorna bio e a
+página de avaliações publicadas. Avaliações incluem somente nota, comentário e
+data de publicação; reputação e avaliações consideram exclusivamente registros
+com `publishedAt` preenchido. Nenhum dos endpoints expõe dados de contato,
+identidade/verificação, propostas, contratos ou conversas.
+
+Os parâmetros `page` e `limit` são inteiros positivos; `limit` é limitado a
+50. A lista é ordenada por nome público e identificador; as avaliações por data
+de publicação e identificador, ambos em ordem decrescente.
 
 ---
 
@@ -2281,11 +2321,14 @@ Participantes ou administrador autorizado.
 
 ---
 
-## 23.3 Listar avaliações do profissional
+## 23.3 Histórico substituído: listar avaliações do profissional
 
 ```text
 GET /api/v1/professionals/{professionalId}/reviews
 ```
+
+Este endpoint conceitual não foi criado. As avaliações públicas paginadas são
+retornadas em `GET /api/v1/professionals/{professionalProfileId}` (seção 17.3).
 
 ### Público
 
