@@ -636,6 +636,34 @@ devem ocorrer com a coleta de CPF desabilitada e sem escritores antigos em
 execução. Adoção administrativa e rotação de chave continuam fora deste
 incremento.
 
+### Estrutura de tentativas de verificação de identidade profissional (preparada)
+
+Foi preparada uma estrutura aditiva para tentativas de verificação de identidade
+profissional: `ProfessionalIdentityVerificationAttempt`,
+`IdentityVerificationDecision` e `IdentityVerificationEvidenceReference`. A
+tentativa vincula um perfil profissional a uma identidade pessoal já existente;
+ela mantém estados operacionais distintos do resultado da identidade. Uma
+decisão registra origem `MANUAL` ou `PROVIDER`, resultado, código de motivo,
+versão dos critérios e, quando manual, o operador responsável. A origem
+`PROVIDER` é somente preparação de modelagem e não integra fornecedor,
+callback, worker ou aprovação automática.
+
+As evidências mantêm apenas referência privada e opaca, seu tipo e eventual
+expiração. A estrutura não armazena URL assinada, documento, selfie, biometria,
+CPF ou payload bruto. As FKs usam `RESTRICT` para que exclusões não eliminem o
+histórico de tentativas, decisões ou referências de evidência.
+
+Há índice parcial para uma tentativa ativa por perfil profissional. As
+constraints distinguem tentativas abertas, encerradas e canceladas, e exigem
+operador para decisão manual. Esta estrutura não altera
+`ProfessionalVerificationStatus`, não faz backfill, não muda perfis existentes
+nem habilita revisão ou aprovação operacional. Identidade confirmada continua
+conceito diferente de aprovação profissional.
+
+O append-only das decisões e a garantia de que perfil e identidade pertencem à
+mesma pessoa ainda precisam ser impostas pelos serviços transacionais ou por
+mecanismo adicional no banco; esta migration não fornece essas garantias.
+
 As ativações cliente → profissional e profissional → cliente devem ser
 transacionais e idempotentes. A semântica para chamadas repetidas com dados
 diferentes permanece pendente. Backend e frontend devem evoluir coordenadamente:

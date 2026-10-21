@@ -30,6 +30,31 @@ enum ProfessionalVerificationStatus {
   REJECTED
 }
 
+enum ProfessionalIdentityVerificationAttemptStatus {
+  AWAITING_EVIDENCE
+  UNDER_REVIEW
+  CLOSED
+  CANCELLED
+}
+
+enum IdentityVerificationResult {
+  PENDING
+  CONFIRMED
+  NOT_CONFIRMED
+  INCONCLUSIVE
+}
+
+enum IdentityVerificationDecisionSource {
+  MANUAL
+  PROVIDER
+}
+
+enum IdentityVerificationEvidenceKind {
+  DOCUMENT
+  OWNERSHIP
+  OTHER
+}
+
 enum LegalDocumentType {
   TERMS_OF_USE
   PRIVACY_POLICY
@@ -172,6 +197,7 @@ model User {
   reviewedPublicCategorySuggestions       PublicCategorySuggestion[]       @relation("PublicCategorySuggestionReviewer")
   reviewedProfessionalProfiles            ProfessionalProfile[]            @relation("ProfessionalProfileReviewer")
   reviewedProfessionalVerificationReviews ProfessionalVerificationReview[] @relation("ProfessionalVerificationReviewReviewer")
+  identityVerificationDecisions           IdentityVerificationDecision[]   @relation("IdentityVerificationDecisionOperator")
   messages                                Message[]
   conversationReadStates                  ConversationReadState[]
   notifications                           Notification[]
@@ -194,7 +220,8 @@ model PersonalIdentity {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                 User                                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  verificationAttempts ProfessionalIdentityVerificationAttempt[]
 
   @@map("personal_identities")
 }
@@ -272,6 +299,7 @@ model ProfessionalProfile {
   customerReviews        CustomerReview[]
   favorites              Favorite[]
   verificationReviews    ProfessionalVerificationReview[]
+  identityVerificationAttempts ProfessionalIdentityVerificationAttempt[]
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
@@ -294,6 +322,58 @@ model ProfessionalVerificationReview {
 
   @@index([professionalProfileId, createdAt], map: "professional_verification_reviews_profile_created_at_idx")
   @@map("professional_verification_reviews")
+}
+
+model ProfessionalIdentityVerificationAttempt {
+  id                    String                                       @id @default(uuid()) @db.Uuid
+  professionalProfileId String                                       @map("professional_profile_id") @db.Uuid
+  personalIdentityId    String                                       @map("personal_identity_id") @db.Uuid
+  status                ProfessionalIdentityVerificationAttemptStatus @default(AWAITING_EVIDENCE)
+  result                IdentityVerificationResult                   @default(PENDING)
+  createdAt             DateTime                                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  closedAt              DateTime?                                    @map("closed_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile                    @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict, map: "piv_attempts_professional_profile_fkey")
+  personalIdentity    PersonalIdentity                       @relation(fields: [personalIdentityId], references: [id], onDelete: Restrict, map: "piv_attempts_personal_identity_fkey")
+  decisions           IdentityVerificationDecision[]
+  evidenceReferences  IdentityVerificationEvidenceReference[]
+
+  @@index([professionalProfileId, createdAt], map: "piv_attempts_profile_created_idx")
+  @@index([personalIdentityId, createdAt], map: "piv_attempts_identity_created_idx")
+  @@map("professional_identity_verification_attempts")
+}
+
+model IdentityVerificationDecision {
+  id               String                             @id @default(uuid()) @db.Uuid
+  attemptId        String                             @map("attempt_id") @db.Uuid
+  source           IdentityVerificationDecisionSource
+  result           IdentityVerificationResult
+  reasonCode       String                             @map("reason_code") @db.VarChar(64)
+  criteriaVersion  String                             @map("criteria_version") @db.VarChar(64)
+  operatorUserId   String?                            @map("operator_user_id") @db.Uuid
+  providerReference String?                           @map("provider_reference") @db.VarChar(255)
+  createdAt        DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User?                                  @relation("IdentityVerificationDecisionOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt], map: "identity_verification_decisions_attempt_created_at_idx")
+  @@index([operatorUserId], map: "identity_verification_decisions_operator_idx")
+  @@map("identity_verification_decisions")
+}
+
+model IdentityVerificationEvidenceReference {
+  id        String                           @id @default(uuid()) @db.Uuid
+  attemptId String                           @map("attempt_id") @db.Uuid
+  kind      IdentityVerificationEvidenceKind
+  reference String                           @db.VarChar(255)
+  expiresAt DateTime?                        @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt], map: "iv_evidence_attempt_created_idx")
+  @@map("identity_verification_evidence_references")
 }
 
 model Favorite {
