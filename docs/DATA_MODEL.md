@@ -729,6 +729,63 @@ serviceRequestId + position UNIQUE
 
 ---
 
+### 7.4.1 ProfessionalProfilePhoto e tarefas de exclusão
+
+`ProfessionalProfilePhoto` é a foto pública opcional de um único
+`ProfessionalProfile`. A relação é 1:1 e usa o identificador do perfil como
+chave primária. O PostgreSQL mantém somente `objectKey`, MIME final WebP,
+largura, altura e timestamps; não armazena URL assinada, nome do arquivo
+enviado, imagem original, documento ou dado de identidade.
+
+O objeto é destinado somente à apresentação pública do perfil profissional.
+Ele não é evidência de identidade, não participa da aprovação profissional e
+é separado de anexos de solicitações e de documentos privados de identidade.
+
+`ProfessionalProfilePhotoDeletionTask` é uma outbox persistente para exclusão
+de objetos que deixaram de ser referenciados. Ela guarda estado, contador de
+tentativas, próxima tentativa, lease de processamento, timestamps e erro
+sanitizado. `lastError` deve conter somente código ou mensagem sanitizada,
+nunca o erro bruto do storage, credenciais ou URL assinada. Os índices por
+estado/data permitem que um worker futuro faça claim concorrente sem processar
+a mesma tarefa enquanto o lease estiver vigente.
+
+O serviço futuro de upload deve registrar e rastrear um candidato antes de
+enviá-lo ao storage, para recuperar quedas entre upload e persistência. A troca
+da foto deve atualizar a referência nova e registrar a exclusão da antiga na
+mesma transação; a exclusão futura do perfil deve remover a associação da foto
+e registrar a tarefa de exclusão do objeto nessa mesma transação. A exclusão
+nunca deve remover uma `objectKey` ainda referenciada. Candidatos abandonados
+e tarefas pendentes devem ser limpos após um prazo seguro, com retentativas e
+lease expirável.
+
+### Campos
+
+```text
+ProfessionalProfilePhoto
+professionalProfileId (PK/FK e 1:1)
+objectKey (UNIQUE)
+mimeType (somente image/webp)
+width
+height
+createdAt
+updatedAt
+
+ProfessionalProfilePhotoDeletionTask
+id
+objectKey (UNIQUE)
+status
+attemptCount
+nextAttemptAt
+claimedAt
+leaseExpiresAt
+completedAt
+lastError
+createdAt
+updatedAt
+```
+
+---
+
 ## 7.5 ServiceOpportunity
 
 Registra uma oportunidade entregue a um profissional para uma solicitação.

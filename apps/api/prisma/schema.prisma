@@ -30,6 +30,13 @@ enum ProfessionalVerificationStatus {
   REJECTED
 }
 
+enum ProfessionalProfilePhotoDeletionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum ProfessionalIdentityVerificationAttemptStatus {
   AWAITING_EVIDENCE
   UNDER_REVIEW
@@ -300,12 +307,45 @@ model ProfessionalProfile {
   favorites              Favorite[]
   verificationReviews    ProfessionalVerificationReview[]
   identityVerificationAttempts ProfessionalIdentityVerificationAttempt[]
+  photo                  ProfessionalProfilePhoto?
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
   @@index([averageRating], map: "professional_profiles_average_rating_idx")
   @@map("professional_profiles")
+}
+
+model ProfessionalProfilePhoto {
+  professionalProfileId String              @id @map("professional_profile_id") @db.Uuid
+  objectKey             String              @unique(map: "professional_profile_photos_object_key_key") @map("object_key") @db.VarChar(1024)
+  mimeType              String              @map("mime_type") @db.VarChar(32)
+  width                 Int
+  height                Int
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@map("professional_profile_photos")
+}
+
+model ProfessionalProfilePhotoDeletionTask {
+  id             String                                 @id @default(uuid()) @db.Uuid
+  objectKey      String                                 @unique(map: "professional_profile_photo_deletion_tasks_object_key_key") @map("object_key") @db.VarChar(1024)
+  status         ProfessionalProfilePhotoDeletionStatus @default(PENDING)
+  attemptCount   Int                                    @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime                               @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  claimedAt      DateTime?                              @map("claimed_at") @db.Timestamptz(3)
+  leaseExpiresAt DateTime?                              @map("lease_expires_at") @db.Timestamptz(3)
+  completedAt    DateTime?                              @map("completed_at") @db.Timestamptz(3)
+  lastError      String?                                @map("last_error") @db.VarChar(1000)
+  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt], map: "professional_profile_photo_deletion_tasks_ready_idx")
+  @@index([status, leaseExpiresAt], map: "professional_profile_photo_deletion_tasks_lease_idx")
+  @@map("professional_profile_photo_deletion_tasks")
 }
 
 model ProfessionalVerificationReview {

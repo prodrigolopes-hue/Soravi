@@ -143,6 +143,15 @@ Será utilizado para:
 
 Os arquivos não serão armazenados diretamente no PostgreSQL.
 
+Fotos públicas de perfis profissionais usam referência própria e opaca no
+storage; não reutilizam anexos de solicitações nem documentos privados de
+identidade. A futura operação de upload deverá registrar o candidato antes do
+envio, trocar a referência e enfileirar a exclusão da foto anterior na mesma
+transação. A exclusão futura do perfil deverá remover a associação e enfileirar
+o objeto na mesma transação, e somente excluir objetos que não estejam mais
+referenciados. Erros persistidos para retentativa devem ser códigos ou mensagens
+sanitizadas, nunca erros brutos do storage, credenciais ou URLs assinadas.
+
 ---
 
 ## 4. Estilo arquitetural
