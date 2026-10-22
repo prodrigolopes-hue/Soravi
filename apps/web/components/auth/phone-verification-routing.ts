@@ -47,7 +47,7 @@ interface PhoneVerificationGuardInput {
   user: PostLoginUser | null;
 }
 
-const PUBLIC_ROUTE_PREFIXES = ["/cadastro"] as const;
+const PUBLIC_ROUTE_PREFIXES = ["/cadastro", "/servicos", "/profissionais"] as const;
 
 const PUBLIC_ROUTES = new Set([
   "/",

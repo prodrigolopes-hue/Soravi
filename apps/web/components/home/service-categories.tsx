@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 import { categoriesUrl } from "../../lib/api";
 
@@ -116,9 +117,11 @@ export async function ServiceCategories() {
               const imageSrc = categoryImageBySlug[slug];
 
               return (
-                <article
+                <Link
                   key={id}
-                  className="h-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                  href={`/servicos/${encodeURIComponent(slug)}`}
+                  className="group h-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  aria-label={`Ver profissionais da categoria ${name}`}
                 >
                   {imageSrc ? (
                     <div className="aspect-video bg-slate-100">
@@ -138,14 +141,14 @@ export async function ServiceCategories() {
                   )}
 
                   <div className="p-3 sm:p-5">
-                    <h3 className="text-sm font-semibold text-slate-950 sm:text-base">
+                    <h3 className="text-sm font-semibold text-slate-950 group-hover:text-blue-700 sm:text-base">
                       {name}
                     </h3>
                     <p className="mt-2 text-xs leading-5 text-slate-600 sm:text-sm sm:leading-6">
                       {description ?? "Categoria disponível para sua solicitação."}
                     </p>
                   </div>
-                </article>
+                </Link>
               );
             })}
           </div>

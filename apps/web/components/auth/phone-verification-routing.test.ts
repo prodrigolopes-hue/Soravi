@@ -97,8 +97,14 @@ test("nao verificado permanece na verificacao sem loop", () => {
   );
 });
 
-test("rotas publicas e subrotas de cadastro ficam liberadas", () => {
-  for (const pathname of ["/", "/entrar", "/cadastro/cliente"]) {
+test("rotas publicas, descoberta e subrotas de cadastro ficam liberadas", () => {
+  for (const pathname of [
+    "/",
+    "/entrar",
+    "/cadastro/cliente",
+    "/servicos/eletrica",
+    "/profissionais/725afb87-2b81-4de7-9606-8f382fff3341",
+  ]) {
     assert.deepEqual(
       phoneVerificationGuardDecision({
         isLoading: false,
