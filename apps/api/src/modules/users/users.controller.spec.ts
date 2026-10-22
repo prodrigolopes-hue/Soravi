@@ -535,7 +535,7 @@ describe("UsersController", () => {
             roles: [Role.ADMIN],
             phoneVerifiedAt: null,
         };
-        const input = { status: UserStatus.BLOCKED } as const;
+        const input = { status: UserStatus.ACTIVE } as const;
         usersAdminStatusServiceMock.updateStatus.mockResolvedValue(undefined);
 
         await expect(controller.updateAdminUserStatus(currentUser, targetUserId, input)).resolves.toBeUndefined();

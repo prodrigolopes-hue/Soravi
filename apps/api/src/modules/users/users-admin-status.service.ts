@@ -17,10 +17,24 @@ interface LockedUserStatusData {
   isAdmin: boolean;
 }
 
-const ADMIN_MANAGEABLE_STATUSES: readonly UserStatus[] = [
+const ADMIN_REQUESTABLE_STATUSES: readonly UserStatus[] = [
   UserStatus.ACTIVE,
   UserStatus.BLOCKED,
 ];
+
+function isAllowedAdminStatusTransition(
+  currentStatus: UserStatus,
+  requestedStatus: UserStatus,
+): boolean {
+  if (currentStatus === UserStatus.PENDING) {
+    return requestedStatus === UserStatus.ACTIVE;
+  }
+
+  return (
+    (currentStatus === UserStatus.ACTIVE || currentStatus === UserStatus.BLOCKED) &&
+    ADMIN_REQUESTABLE_STATUSES.includes(requestedStatus)
+  );
+}
 
 @Injectable()
 export class UsersAdminStatusService {
@@ -38,7 +52,7 @@ export class UsersAdminStatusService {
       throw new AdminSelfStatusChangeForbiddenException();
     }
 
-    if (!ADMIN_MANAGEABLE_STATUSES.includes(input.status)) {
+    if (!ADMIN_REQUESTABLE_STATUSES.includes(input.status)) {
       throw new UserStatusTransitionNotAllowedException();
     }
 
@@ -53,7 +67,7 @@ export class UsersAdminStatusService {
         throw new AdminTargetStatusChangeForbiddenException();
       }
 
-      if (!ADMIN_MANAGEABLE_STATUSES.includes(target.status)) {
+      if (!isAllowedAdminStatusTransition(target.status, input.status)) {
         throw new UserStatusTransitionNotAllowedException();
       }
 

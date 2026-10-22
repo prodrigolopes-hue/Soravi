@@ -131,9 +131,9 @@ Body permitido:
 
 O valor também pode ser `BLOCKED`. Qualquer outro campo é rejeitado. O sucesso retorna `204 No Content`.
 
-O endpoint exige `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida `userId` como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Ele permite bloquear ou reativar somente CUSTOMER e PROFESSIONAL; rejeita self-target, qualquer alvo ADMIN, conta soft-deleted e estado atual `PENDING`, `SUSPENDED` ou `DEACTIVATED`.
+O endpoint exige `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida `userId` como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Ele permite ativar explicitamente `PENDING -> ACTIVE`, além de bloquear ou reativar somente CUSTOMER e PROFESSIONAL; rejeita self-target, qualquer alvo ADMIN, conta soft-deleted e estados atuais `SUSPENDED` ou `DEACTIVATED`. `PENDING -> BLOCKED` continua recusada.
 
-Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma transação, com `SELECT ... FOR UPDATE` sobre `User`. Repetir `BLOCKED` ainda revoga sessões residuais. Reativar não restaura sessões; repetir `ACTIVE` é no-op.
+Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma transação, com `SELECT ... FOR UPDATE` sobre `User`. Repetir `BLOCKED` ainda revoga sessões residuais. Ativar uma conta `PENDING` e reativar uma `BLOCKED` não restauram nem criam sessões; repetir `ACTIVE` é no-op. A ativação é uma decisão administrativa e não comprova identidade, nem altera confirmações de telefone/e-mail, aprovação profissional, CPF ou papéis.
 
 GET /api/v1/users/me - Dados do usuário autenticado
 
