@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { HEADERS_METADATA } from "@nestjs/common/constants";
 
 import { PublicProfessionalDiscoveryQueryDto } from "./dto/public-professional-discovery-query.dto";
 import { ProfessionalDiscoveryController } from "./professional-discovery.controller";
@@ -33,5 +34,18 @@ describe("ProfessionalDiscoveryController", () => {
     await expect(controller.findOne(response.id, query)).resolves.toBe(response);
     expect(professionalDiscoveryServiceMock.findOne).toHaveBeenCalledWith(response.id, query);
     expect(Reflect.getMetadata("__guards__", ProfessionalDiscoveryController.prototype.findOne)).toBeUndefined();
+  });
+
+  it("desabilita cache para URLs temporárias", () => {
+    for (const handler of [
+      ProfessionalDiscoveryController.prototype.findByCategory,
+      ProfessionalDiscoveryController.prototype.findOne,
+    ]) {
+      expect(Reflect.getMetadata(HEADERS_METADATA, handler)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "Cache-Control", value: "no-store" }),
+        ]),
+      );
+    }
   });
 });

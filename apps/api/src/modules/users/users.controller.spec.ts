@@ -1,4 +1,5 @@
 import { HttpStatus } from "@nestjs/common";
+import { HEADERS_METADATA } from "@nestjs/common/constants";
 import { ProfessionalVerificationStatus, Role, UserStatus, } from "../../generated/prisma/client";
 import { ThrottlerGuard } from "@nestjs/throttler";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -488,6 +489,15 @@ describe("UsersController", () => {
 
         await expect(controller.findCurrentProfessionalProfile(currentUser)).resolves.toBe(response);
         expect(currentProfessionalProfileServiceMock.findCurrent).toHaveBeenCalledWith(userId);
+    });
+
+    it("desabilita cache na leitura do próprio perfil profissional", () => {
+        expect(Reflect.getMetadata(
+            HEADERS_METADATA,
+            UsersController.prototype.findCurrentProfessionalProfile,
+        )).toEqual(expect.arrayContaining([
+            expect.objectContaining({ name: "Cache-Control", value: "no-store" }),
+        ]));
     });
 
     it("encaminha a atualização do próprio perfil profissional", async () => {

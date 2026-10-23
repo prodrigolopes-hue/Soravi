@@ -8,6 +8,7 @@ import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-profes
 import { CurrentProfessionalProfileNotFoundException } from "./errors/current-professional-profile-not-found.exception";
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
 import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
+import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
 
 const professionalProfileSelect = {
   id: true,
@@ -33,6 +34,9 @@ const professionalProfileSelect = {
       },
     },
   },
+  photo: {
+    select: { objectKey: true },
+  },
 } satisfies Prisma.ProfessionalProfileSelect;
 
 type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
@@ -41,7 +45,10 @@ type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
 
 @Injectable()
 export class CurrentProfessionalProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly professionalProfilePhotoReadService: ProfessionalProfilePhotoReadService,
+  ) {}
 
   async findCurrent(userId: string): Promise<ProfessionalProfileResponseDto> {
     const profile = await this.prisma.professionalProfile.findFirst({
@@ -173,7 +180,7 @@ export class CurrentProfessionalProfileService {
     }
   }
 
-  private toResponse(profile: ProfessionalProfileRecord): ProfessionalProfileResponseDto {
+  private async toResponse(profile: ProfessionalProfileRecord): Promise<ProfessionalProfileResponseDto> {
     return new ProfessionalProfileResponseDto({
       id: profile.id,
       displayName: profile.displayName,
@@ -183,6 +190,9 @@ export class CurrentProfessionalProfileService {
       isAvailable: profile.isAvailable,
       verificationStatus: profile.verificationStatus,
       categories: profile.professionalCategories.map(({ category }) => category),
+      photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
+        profile.photo?.objectKey,
+      ),
     });
   }
 }

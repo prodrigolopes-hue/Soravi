@@ -182,6 +182,12 @@ O `DELETE` retorna `204 No Content`. Repetir a remoção sem foto permanece
 idempotente. As respostas de erro para foto ausente ou inválida são públicas e
 sanitizadas; arquivo excedente retorna `413 Payload Too Large`.
 
+As respostas do perfil profissional próprio e da descoberta pública incluem
+`photo`. Quando não há foto — ou quando a assinatura temporária não está
+disponível — o valor é `null`. Caso exista, é `{ "url": "…", "expiresAt":
+"…" }`, com URL temporária válida por 15 minutos. Essas respostas usam
+`Cache-Control: no-store` e nunca expõem `objectKey` ou metadados internos.
+
 O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
 `categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
 bio aceitam `null`; `categorySlugs` deve conter de 1 a 3 slugs únicos de

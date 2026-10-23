@@ -17,6 +17,7 @@ import { personalIdentityRecordingProvider } from "./personal-identity-recording
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
 import { ProfessionalProfilePhotoProcessor } from "./professional-profile-photo.processor";
+import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { ProfessionalProfilePhotoProcessor } from "./professional-profile-photo.
     PersonalIdentityStatusService,
     ProfessionalProfilePhotoService,
     ProfessionalProfilePhotoProcessor,
+    ProfessionalProfilePhotoReadService,
   ],
-  exports: [UsersService],
+  exports: [UsersService, ProfessionalProfilePhotoReadService],
 })
 export class UsersModule {}

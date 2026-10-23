@@ -10,6 +10,7 @@ import {
 import { PublicProfessionalProfileResponseDto } from "./dto/public-professional-profile-response.dto";
 import { PublicCategoryNotFoundException } from "./errors/public-category-not-found.exception";
 import { PublicProfessionalNotFoundException } from "./errors/public-professional-not-found.exception";
+import { ProfessionalProfilePhotoReadService } from "../users/professional-profile-photo-read.service";
 
 const publicProfessionalSelect = {
   id: true,
@@ -26,6 +27,9 @@ const publicProfessionalSelect = {
     },
     orderBy: { category: { name: "asc" } },
   },
+  photo: {
+    select: { objectKey: true },
+  },
 } satisfies Prisma.ProfessionalProfileSelect;
 
 type PublicProfessionalRecord = Prisma.ProfessionalProfileGetPayload<{
@@ -34,7 +38,10 @@ type PublicProfessionalRecord = Prisma.ProfessionalProfileGetPayload<{
 
 @Injectable()
 export class ProfessionalDiscoveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly professionalProfilePhotoReadService: ProfessionalProfilePhotoReadService,
+  ) {}
 
   async findByCategory(
     categorySlug: string,
@@ -68,7 +75,9 @@ export class ProfessionalDiscoveryService {
       professionals.map((professional) => professional.id),
     );
     return new PublicProfessionalListResponseDto(
-      professionals.map((professional) => this.toListItem(professional, reputations)),
+      await Promise.all(
+        professionals.map((professional) => this.toListItem(professional, reputations)),
+      ),
       page,
       limit,
       total,
@@ -131,6 +140,9 @@ export class ProfessionalDiscoveryService {
       reviewsPage: page,
       reviewsLimit: limit,
       reviewsTotal,
+      photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
+        professional.photo?.objectKey,
+      ),
     });
   }
 
@@ -170,10 +182,10 @@ export class ProfessionalDiscoveryService {
     ]));
   }
 
-  private toListItem(
+  private async toListItem(
     professional: PublicProfessionalRecord,
     reputations: Map<string, { averageRating: number; reviewCount: number }>,
-  ): PublicProfessionalListItemProperties {
+  ): Promise<PublicProfessionalListItemProperties> {
     return {
       id: professional.id,
       displayName: professional.displayName,
@@ -184,6 +196,9 @@ export class ProfessionalDiscoveryService {
         averageRating: 0,
         reviewCount: 0,
       },
+      photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
+        professional.photo?.objectKey,
+      ),
     };
   }
 }

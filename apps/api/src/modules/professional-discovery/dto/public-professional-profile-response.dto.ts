@@ -1,8 +1,10 @@
 import {
   PublicProfessionalCategoryResponseDto,
   PublicProfessionalReputationResponseDto,
+  PublicProfessionalPhotoResponseDto,
   type PublicProfessionalCategoryProperties,
   type PublicProfessionalReputationProperties,
+  type PublicProfessionalPhotoProperties,
   PublicProfessionalsPaginationResponseDto,
 } from "./public-professional-list-response.dto";
 
@@ -24,6 +26,7 @@ export interface PublicProfessionalProfileProperties {
   reviewsPage: number;
   reviewsLimit: number;
   reviewsTotal: number;
+  photo: PublicProfessionalPhotoProperties | null;
 }
 
 export class PublicProfessionalReviewResponseDto {
@@ -50,6 +53,7 @@ export class PublicProfessionalProfileResponseDto {
     items: PublicProfessionalReviewResponseDto[];
     pagination: PublicProfessionalsPaginationResponseDto;
   };
+  readonly photo: PublicProfessionalPhotoResponseDto | null;
 
   constructor(properties: PublicProfessionalProfileProperties) {
     this.id = properties.id;
@@ -73,5 +77,8 @@ export class PublicProfessionalProfileResponseDto {
         properties.reviewsTotal,
       ),
     };
+    this.photo = properties.photo
+      ? new PublicProfessionalPhotoResponseDto(properties.photo)
+      : null;
   }
 }

@@ -5,6 +5,7 @@ import { PublicProfessionalDiscoveryQueryDto } from "./dto/public-professional-d
 import { PublicCategoryNotFoundException } from "./errors/public-category-not-found.exception";
 import { PublicProfessionalNotFoundException } from "./errors/public-professional-not-found.exception";
 import { ProfessionalDiscoveryService } from "./professional-discovery.service";
+import { ProfessionalProfilePhotoReadService } from "../users/professional-profile-photo-read.service";
 
 describe("ProfessionalDiscoveryService", () => {
   const category = { id: "category-id" };
@@ -23,8 +24,10 @@ describe("ProfessionalDiscoveryService", () => {
     $transaction: jest.Mock;
   };
   let service: ProfessionalDiscoveryService;
+  let photoReadServiceMock: { createTemporaryReadUrl: jest.Mock };
 
   beforeEach(() => {
+    (professional as { photo?: { objectKey: string } | null }).photo = null;
     prisma = {
       category: { findFirst: jest.fn().mockResolvedValue(category) },
       professionalProfile: {
@@ -40,7 +43,11 @@ describe("ProfessionalDiscoveryService", () => {
       },
       $transaction: jest.fn(async (operations: Promise<unknown>[]) => Promise.all(operations)),
     };
-    service = new ProfessionalDiscoveryService(prisma as unknown as PrismaService);
+    photoReadServiceMock = { createTemporaryReadUrl: jest.fn().mockResolvedValue(null) };
+    service = new ProfessionalDiscoveryService(
+      prisma as unknown as PrismaService,
+      photoReadServiceMock as unknown as ProfessionalProfilePhotoReadService,
+    );
   });
 
   it("rejeita categoria inexistente ou inativa", async () => {
@@ -76,6 +83,7 @@ describe("ProfessionalDiscoveryService", () => {
         serviceArea: professional.serviceArea,
         categories: [{ id: "category-id", name: "Elétrica", slug: "eletrica" }],
         reputation: { averageRating: 4.5, reviewCount: 2 },
+        photo: null,
       }],
       pagination: { page: 2, limit: 10, total: 1, totalPages: 1 },
     });
@@ -84,12 +92,32 @@ describe("ProfessionalDiscoveryService", () => {
     expect(prisma.professionalProfile.findMany.mock.calls[0][0].select).not.toHaveProperty("reviewCount");
   });
 
+  it("retorna somente URL temporária da foto sem campos internos", async () => {
+    (professional as { photo?: { objectKey: string } | null }).photo = {
+      objectKey: "private-object-key",
+    };
+    photoReadServiceMock.createTemporaryReadUrl.mockResolvedValue({
+      url: "https://storage.example/signed",
+      expiresAt: "2026-10-23T12:15:00.000Z",
+    });
+
+    const result = await service.findByCategory("eletrica", new PublicProfessionalDiscoveryQueryDto());
+
+    expect(result.items[0]?.photo).toEqual({
+      url: "https://storage.example/signed",
+      expiresAt: "2026-10-23T12:15:00.000Z",
+    });
+    expect(result.items[0]).not.toHaveProperty("objectKey");
+    expect(photoReadServiceMock.createTemporaryReadUrl).toHaveBeenCalledWith("private-object-key");
+  });
+
   it("retorna 404 para perfil inelegível", async () => {
     prisma.professionalProfile.findFirst.mockResolvedValue(null);
 
     await expect(service.findOne(professional.id, new PublicProfessionalDiscoveryQueryDto()))
       .rejects.toBeInstanceOf(PublicProfessionalNotFoundException);
     expect(prisma.review.findMany).not.toHaveBeenCalled();
+    expect(photoReadServiceMock.createTemporaryReadUrl).not.toHaveBeenCalled();
   });
 
   it("usa somente avaliações publicadas para reputação e página de avaliações", async () => {
@@ -116,7 +144,7 @@ describe("ProfessionalDiscoveryService", () => {
       pagination: { page: 2, limit: 5, total: 1, totalPages: 1 },
     });
     expect(Object.keys(result).sort()).toEqual([
-      "bio", "categories", "displayName", "id", "professionalTitle",
+      "bio", "categories", "displayName", "id", "photo", "professionalTitle",
       "reputation", "reviews", "serviceArea",
     ]);
     expect(Object.keys(result.reviews.items[0]).sort()).toEqual(["comment", "publishedAt", "rating"]);

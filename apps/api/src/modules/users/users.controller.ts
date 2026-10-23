@@ -240,6 +240,7 @@ export class UsersController {
   }
 
   @Get("me/professional-profile")
+  @Header("Cache-Control", "no-store")
   @Roles(Role.PROFESSIONAL)
   @UseGuards(AccessTokenGuard, RolesGuard)
   findCurrentProfessionalProfile(

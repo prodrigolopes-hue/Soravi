@@ -5,6 +5,7 @@ import { ServiceRequestOwnProfessionalCategoryException } from "../modules/servi
 import { ServiceRequestsService } from "../modules/service-requests/service-requests.service";
 import { ProfessionalCategoryOpenServiceRequestException } from "../modules/users/errors/professional-category-open-service-request.exception";
 import { CurrentProfessionalProfileService } from "../modules/users/current-professional-profile.service";
+import { ProfessionalProfilePhotoReadService } from "../modules/users/professional-profile-photo-read.service";
 import { deferred, queryRawSql, waitUntilPostgresConfirmsBlocking, wrapPrisma } from "./integration-concurrency";
 import { createIntegrationPrismaService } from "./integration-database";
 
@@ -17,6 +18,7 @@ describe("Proteção pessoal de categorias concorrente", () => {
   const createdUserIds = new Set<string>();
   const createdCategoryIds = new Set<string>();
   const pendingOperations = new Set<Promise<unknown>>();
+  const photoReadService = { createTemporaryReadUrl: jest.fn().mockResolvedValue(null) };
 
   beforeAll(async () => { await Promise.all([controlPrisma.$connect(), publishPrisma.$connect(), categoryPrisma.$connect()]); });
   afterEach(async () => {
@@ -57,7 +59,7 @@ describe("Proteção pessoal de categorias concorrente", () => {
     const release = deferred<void>();
     const blockedPid = deferred<number>();
     const publishing = publishingService(wrapPrisma(publishPrisma, { afterQueryRaw: async (args) => { if (queryRawSql(args).includes('FROM "users"')) { acquired.resolve(); await release.promise; } } }));
-    const profile = new CurrentProfessionalProfileService(wrapPrisma(categoryPrisma, { transactionStarted: (pid) => blockedPid.resolve(pid) }));
+    const profile = profileService(wrapPrisma(categoryPrisma, { transactionStarted: (pid) => blockedPid.resolve(pid) }));
     let publication: Promise<unknown> | undefined;
     let categoryUpdate: Promise<unknown> | undefined;
     try {
@@ -80,7 +82,7 @@ describe("Proteção pessoal de categorias concorrente", () => {
     const acquired = deferred<void>();
     const release = deferred<void>();
     const blockedPid = deferred<number>();
-    const profile = new CurrentProfessionalProfileService(wrapPrisma(categoryPrisma, { afterQueryRaw: async (args) => { if (queryRawSql(args).includes('FROM "users"')) { acquired.resolve(); await release.promise; } } }));
+    const profile = profileService(wrapPrisma(categoryPrisma, { afterQueryRaw: async (args) => { if (queryRawSql(args).includes('FROM "users"')) { acquired.resolve(); await release.promise; } } }));
     const publishing = publishingService(wrapPrisma(publishPrisma, { transactionStarted: (pid) => blockedPid.resolve(pid) }));
     let categoryUpdate: Promise<unknown> | undefined;
     let publication: Promise<unknown> | undefined;
@@ -117,6 +119,7 @@ describe("Proteção pessoal de categorias concorrente", () => {
   }
 
   function publishingService(prisma: PrismaService): ServiceRequestsService { return new ServiceRequestsService(prisma, {} as never, { distribute: jest.fn().mockResolvedValue(undefined) } as never); }
+  function profileService(prisma: PrismaService): CurrentProfessionalProfileService { return new CurrentProfessionalProfileService(prisma, photoReadService as unknown as ProfessionalProfilePhotoReadService); }
   function publish(fixture: Fixture, service: ServiceRequestsService) { return service.createServiceRequest(fixture.userId, { categoryId: fixture.requestCategoryId, title: "Preciso de ajuda", location: { country: "BR", state: "SP", city: "São Paulo", neighborhood: "Centro", postalCode: "01000-000", addressLine: "Rua A", addressNumber: "1" } }); }
   function addCategory(fixture: Fixture, service: CurrentProfessionalProfileService) { return service.updateCurrent(fixture.userId, { displayName: "Profissional concorrente", categorySlugs: [fixture.existingCategorySlug, fixture.requestCategorySlug], isAvailable: true }); }
   function requestCount(userId: string) { return controlPrisma.serviceRequest.count({ where: { customerProfile: { userId }, deletedAt: null } }); }

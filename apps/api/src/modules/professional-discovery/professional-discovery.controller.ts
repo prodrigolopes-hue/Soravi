@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from "@nestjs/common";
+import { Controller, Get, Header, Param, ParseUUIDPipe, Query } from "@nestjs/common";
 
 import { PublicProfessionalDiscoveryQueryDto } from "./dto/public-professional-discovery-query.dto";
 import { PublicProfessionalListResponseDto } from "./dto/public-professional-list-response.dto";
@@ -12,6 +12,7 @@ export class ProfessionalDiscoveryController {
   ) {}
 
   @Get("categories/:categorySlug/professionals")
+  @Header("Cache-Control", "no-store")
   findByCategory(
     @Param("categorySlug") categorySlug: string,
     @Query() query: PublicProfessionalDiscoveryQueryDto,
@@ -20,6 +21,7 @@ export class ProfessionalDiscoveryController {
   }
 
   @Get("professionals/:professionalProfileId")
+  @Header("Cache-Control", "no-store")
   findOne(
     @Param("professionalProfileId", new ParseUUIDPipe()) professionalProfileId: string,
     @Query() query: PublicProfessionalDiscoveryQueryDto,

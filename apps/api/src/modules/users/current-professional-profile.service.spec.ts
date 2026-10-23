@@ -7,11 +7,13 @@ import { CurrentProfessionalProfileNotFoundException } from "./errors/current-pr
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
 import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
 
 describe("CurrentProfessionalProfileService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const profileId = "725afb87-2b81-4de7-9606-8f382fff3341";
   let service: CurrentProfessionalProfileService;
+  let photoReadServiceMock: { createTemporaryReadUrl: jest.Mock };
   let prismaMock: {
     professionalProfile: { findFirst: jest.Mock };
     $transaction: jest.Mock;
@@ -51,7 +53,11 @@ describe("CurrentProfessionalProfileService", () => {
       professionalProfile: { findFirst: jest.fn().mockResolvedValue(profile()) },
       $transaction: jest.fn((callback: (transaction: typeof transactionMock) => unknown) => callback(transactionMock)),
     };
-    service = new CurrentProfessionalProfileService(prismaMock as unknown as PrismaService);
+    photoReadServiceMock = { createTemporaryReadUrl: jest.fn().mockResolvedValue(null) };
+    service = new CurrentProfessionalProfileService(
+      prismaMock as unknown as PrismaService,
+      photoReadServiceMock as unknown as ProfessionalProfilePhotoReadService,
+    );
   });
 
   it("GET retorna o perfil e suas categorias", async () => {
@@ -66,7 +72,20 @@ describe("CurrentProfessionalProfileService", () => {
       categories: [
         { id: "category-eletrica", name: "Elétrica", slug: "eletrica" },
       ],
+      photo: null,
     });
+  });
+
+  it("preserva os dados quando a assinatura da foto falha", async () => {
+    photoReadServiceMock.createTemporaryReadUrl.mockResolvedValue(null);
+
+    const result = await service.findCurrent(userId);
+
+    expect(result).toEqual(expect.objectContaining({
+      id: profileId,
+      photo: null,
+    }));
+    expect(result).not.toHaveProperty("objectKey");
   });
 
   it("PATCH atualiza os campos básicos sem alterar verificationStatus", async () => {

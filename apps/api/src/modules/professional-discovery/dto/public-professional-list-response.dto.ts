@@ -9,6 +9,11 @@ export interface PublicProfessionalReputationProperties {
   reviewCount: number;
 }
 
+export interface PublicProfessionalPhotoProperties {
+  url: string;
+  expiresAt: string;
+}
+
 export interface PublicProfessionalListItemProperties {
   id: string;
   displayName: string;
@@ -16,6 +21,7 @@ export interface PublicProfessionalListItemProperties {
   serviceArea: string | null;
   categories: PublicProfessionalCategoryProperties[];
   reputation: PublicProfessionalReputationProperties;
+  photo: PublicProfessionalPhotoProperties | null;
 }
 
 export class PublicProfessionalCategoryResponseDto {
@@ -40,6 +46,16 @@ export class PublicProfessionalReputationResponseDto {
   }
 }
 
+export class PublicProfessionalPhotoResponseDto {
+  readonly url: string;
+  readonly expiresAt: string;
+
+  constructor(properties: PublicProfessionalPhotoProperties) {
+    this.url = properties.url;
+    this.expiresAt = properties.expiresAt;
+  }
+}
+
 export class PublicProfessionalListItemResponseDto {
   readonly id: string;
   readonly displayName: string;
@@ -47,6 +63,7 @@ export class PublicProfessionalListItemResponseDto {
   readonly serviceArea: string | null;
   readonly categories: PublicProfessionalCategoryResponseDto[];
   readonly reputation: PublicProfessionalReputationResponseDto;
+  readonly photo: PublicProfessionalPhotoResponseDto | null;
 
   constructor(properties: PublicProfessionalListItemProperties) {
     this.id = properties.id;
@@ -59,6 +76,9 @@ export class PublicProfessionalListItemResponseDto {
     this.reputation = new PublicProfessionalReputationResponseDto(
       properties.reputation,
     );
+    this.photo = properties.photo
+      ? new PublicProfessionalPhotoResponseDto(properties.photo)
+      : null;
   }
 }
 
