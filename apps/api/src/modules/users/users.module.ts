@@ -16,6 +16,7 @@ import { UsersService } from "./users.service";
 import { personalIdentityRecordingProvider } from "./personal-identity-recording.provider";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalProfilePhotoProcessor } from "./professional-profile-photo.processor";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ProfessionalProfilePhotoService } from "./professional-profile-photo.se
     personalIdentityRecordingProvider,
     PersonalIdentityStatusService,
     ProfessionalProfilePhotoService,
+    ProfessionalProfilePhotoProcessor,
   ],
   exports: [UsersService],
 })

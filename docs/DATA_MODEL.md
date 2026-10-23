@@ -749,6 +749,12 @@ nunca o erro bruto do storage, credenciais ou URL assinada. Os índices por
 estado/data permitem que um worker futuro faça claim concorrente sem processar
 a mesma tarefa enquanto o lease estiver vigente.
 
+O processor da API executa a cada minuto lotes de até 25 tarefas de limpeza e
+de reconciliação. Ele preserva os locks, leases e `SKIP LOCKED` da outbox para
+concorrência entre instâncias. Os candidatos de upload são retidos para
+reconciliação contínua: enquanto a foto ainda estiver referenciada, o próximo
+check é reagendado; quando deixar de estar, o objeto pode ser removido.
+
 O serviço futuro de upload deve registrar e rastrear um candidato antes de
 enviá-lo ao storage, para recuperar quedas entre upload e persistência. A troca
 da foto deve atualizar a referência nova e registrar a exclusão da antiga na
