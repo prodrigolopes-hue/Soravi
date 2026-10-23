@@ -164,6 +164,24 @@ Rotas autenticadas, restritas a `PROFESSIONAL`:
 - `GET /api/v1/users/me/professional-profile` retorna o perfil atual;
 - `PATCH /api/v1/users/me/professional-profile` atualiza o perfil atual.
 
+### Foto do perfil profissional
+
+`PUT /api/v1/users/me/professional-profile/photo` e
+`DELETE /api/v1/users/me/professional-profile/photo` exigem sessão válida e o
+papel `PROFESSIONAL`. As mutações usam o usuário da sessão, são limitadas pela
+mesma proteção de throttle das mutações sensíveis e não alteram a aprovação
+profissional.
+
+O `PUT` aceita exclusivamente `multipart/form-data` com um único arquivo no
+campo `photo`, em memória, com no máximo 5 MiB. Campos adicionais e nomes de
+campo diferentes são rejeitados. O arquivo precisa ser uma imagem JPEG, PNG ou
+WebP válida dentro dos limites de processamento. A resposta é `200 OK` com
+`{ "recorded": true }`; ela não expõe `objectKey`, URL ou dados do storage.
+
+O `DELETE` retorna `204 No Content`. Repetir a remoção sem foto permanece
+idempotente. As respostas de erro para foto ausente ou inválida são públicas e
+sanitizadas; arquivo excedente retorna `413 Payload Too Large`.
+
 O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
 `categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
 bio aceitam `null`; `categorySlugs` deve conter de 1 a 3 slugs únicos de

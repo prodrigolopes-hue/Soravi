@@ -1,19 +1,27 @@
 import {
   Body,
+  BadRequestException,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
   HttpStatus,
   Inject,
+  PayloadTooLargeException,
   Patch,
   Param,
   Post,
   ParseUUIDPipe,
   Query,
+  Put,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { memoryStorage } from "multer";
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -48,6 +56,17 @@ import { PersonalIdentityRecordingDisabledException } from "./errors/personal-id
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
 import { PersonalIdentityStatusResult, PersonalIdentityStatusService } from "./personal-identity-status.service";
+import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import {
+  PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES,
+  ProfessionalProfilePhotoProcessingError,
+} from "./professional-profile-photo-image";
+
+interface UploadedProfessionalProfilePhoto {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
 
 @Controller("users")
 export class UsersController {
@@ -62,6 +81,7 @@ export class UsersController {
     private readonly customerProfileActivationService: CustomerProfileActivationService,
     private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
     private readonly personalIdentityStatusService: PersonalIdentityStatusService,
+    private readonly professionalProfilePhotoService: ProfessionalProfilePhotoService,
     @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
     private readonly personalIdentityRecordingService: PersonalIdentityRecordingService | undefined,
   ) {}
@@ -239,6 +259,102 @@ export class UsersController {
       currentUser.id,
       input,
     );
+  }
+
+  @Put("me/professional-profile/photo")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor("photo", {
+      storage: memoryStorage(),
+      limits: {
+        files: 1,
+        fields: 0,
+        fileSize: PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES,
+      },
+    }),
+  )
+  async replaceCurrentProfessionalProfilePhoto(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+  ): Promise<{ recorded: true }> {
+    if (!file) {
+      throw new BadRequestException({
+        code: "PROFESSIONAL_PROFILE_PHOTO_REQUIRED",
+        message: "Envie uma foto no campo photo.",
+      });
+    }
+
+    try {
+      await this.professionalProfilePhotoService.replaceCurrent(currentUser.id, {
+        buffer: file.buffer,
+        declaredMimeType: file.mimetype,
+      });
+    } catch (error: unknown) {
+      this.rethrowProfessionalProfilePhotoProcessingError(error);
+    }
+
+    return { recorded: true };
+  }
+
+  @Delete("me/professional-profile/photo")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeCurrentProfessionalProfilePhoto(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.professionalProfilePhotoService.removeCurrent(currentUser.id);
+  }
+
+  private rethrowProfessionalProfilePhotoProcessingError(error: unknown): never {
+    if (!(error instanceof ProfessionalProfilePhotoProcessingError)) {
+      throw error;
+    }
+
+    if (error.code === "PHOTO_TOO_LARGE") {
+      throw new PayloadTooLargeException({
+        code: "PROFESSIONAL_PROFILE_PHOTO_TOO_LARGE",
+        message: "A foto excede o tamanho permitido.",
+      });
+    }
+
+    const responseByCode = {
+      INVALID_PHOTO: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_INVALID",
+        message: "Não foi possível processar a foto enviada.",
+      },
+      UNSUPPORTED_PHOTO_FORMAT: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_UNSUPPORTED_FORMAT",
+        message: "Envie uma imagem JPEG, PNG ou WebP válida.",
+      },
+      ANIMATED_PHOTO: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_ANIMATED",
+        message: "A foto não pode ser animada.",
+      },
+      PHOTO_DIMENSIONS_OUT_OF_RANGE: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_DIMENSIONS_OUT_OF_RANGE",
+        message: "A foto deve ter dimensões entre os limites permitidos.",
+      },
+      PHOTO_TOO_LARGE: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_TOO_LARGE",
+        message: "A foto excede o tamanho permitido.",
+      },
+    } as const;
+
+    throw new BadRequestException(responseByCode[error.code]);
   }
 
   @Patch("admin/professionals/:userId/verification")

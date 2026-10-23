@@ -22,6 +22,7 @@ import { ProfessionalProfileActivationService } from "./professional-profile-act
 import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
 import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
+import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
 
 describe("UsersController", () => {
     const userId =
@@ -54,6 +55,10 @@ describe("UsersController", () => {
     let professionalProfileActivationServiceMock: { activateCurrentCustomer: jest.Mock };
     let personalIdentityRecordingServiceMock: { recordInitial: jest.Mock };
     let personalIdentityStatusServiceMock: { findCurrent: jest.Mock };
+    let professionalProfilePhotoServiceMock: {
+        replaceCurrent: jest.Mock;
+        removeCurrent: jest.Mock;
+    };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -78,6 +83,10 @@ describe("UsersController", () => {
         professionalProfileActivationServiceMock = { activateCurrentCustomer: jest.fn() };
         personalIdentityRecordingServiceMock = { recordInitial: jest.fn() };
         personalIdentityStatusServiceMock = { findCurrent: jest.fn() };
+        professionalProfilePhotoServiceMock = {
+            replaceCurrent: jest.fn(),
+            removeCurrent: jest.fn(),
+        };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -90,6 +99,7 @@ describe("UsersController", () => {
             customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
             professionalProfileActivationServiceMock as unknown as ProfessionalProfileActivationService,
             personalIdentityStatusServiceMock as unknown as PersonalIdentityStatusService,
+            professionalProfilePhotoServiceMock as unknown as ProfessionalProfilePhotoService,
             personalIdentityRecordingServiceMock as unknown as PersonalIdentityRecordingService,
         );
     });
