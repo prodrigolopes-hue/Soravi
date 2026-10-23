@@ -31,7 +31,7 @@ export class S3StorageService implements StorageService {
   }
 
   async upload(input: UploadObjectInput): Promise<StoredObject> {
-    const objectKey = `objects/${randomUUID()}`;
+    const objectKey = input.objectKey ?? `objects/${randomUUID()}`;
 
     await this.s3Client.send(
       new PutObjectCommand({

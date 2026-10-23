@@ -37,6 +37,11 @@ enum ProfessionalProfilePhotoDeletionStatus {
   FAILED
 }
 
+enum ProfessionalProfilePhotoTaskKind {
+  UPLOAD_CANDIDATE
+  PHOTO_DELETE
+}
+
 enum ProfessionalIdentityVerificationAttemptStatus {
   AWAITING_EVIDENCE
   UNDER_REVIEW
@@ -331,20 +336,29 @@ model ProfessionalProfilePhoto {
 }
 
 model ProfessionalProfilePhotoDeletionTask {
-  id             String                                 @id @default(uuid()) @db.Uuid
-  objectKey      String                                 @unique(map: "professional_profile_photo_deletion_tasks_object_key_key") @map("object_key") @db.VarChar(1024)
-  status         ProfessionalProfilePhotoDeletionStatus @default(PENDING)
-  attemptCount   Int                                    @default(0) @map("attempt_count")
-  nextAttemptAt  DateTime                               @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
-  claimedAt      DateTime?                              @map("claimed_at") @db.Timestamptz(3)
-  leaseExpiresAt DateTime?                              @map("lease_expires_at") @db.Timestamptz(3)
-  completedAt    DateTime?                              @map("completed_at") @db.Timestamptz(3)
-  lastError      String?                                @map("last_error") @db.VarChar(1000)
-  createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                      String                                 @id @default(uuid()) @db.Uuid
+  objectKey               String                                 @unique(map: "professional_profile_photo_deletion_tasks_object_key_key") @map("object_key") @db.VarChar(1024)
+  kind                    ProfessionalProfilePhotoTaskKind      @default(PHOTO_DELETE)
+  status                  ProfessionalProfilePhotoDeletionStatus @default(PENDING)
+  attemptCount            Int                                    @default(0) @map("attempt_count")
+  nextAttemptAt           DateTime                               @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  claimedAt               DateTime?                              @map("claimed_at") @db.Timestamptz(3)
+  leaseExpiresAt          DateTime?                              @map("lease_expires_at") @db.Timestamptz(3)
+  completedAt             DateTime?                              @map("completed_at") @db.Timestamptz(3)
+  lastError               String?                                @map("last_error") @db.VarChar(1000)
+  associationDeadlineAt   DateTime?                              @map("association_deadline_at") @db.Timestamptz(3)
+  reconcileNextAt         DateTime?                              @map("reconcile_next_at") @db.Timestamptz(3)
+  reconcileAttemptCount   Int                                    @default(0) @map("reconcile_attempt_count")
+  reconcileClaimedAt      DateTime?                              @map("reconcile_claimed_at") @db.Timestamptz(3)
+  reconcileLeaseExpiresAt DateTime?                              @map("reconcile_lease_expires_at") @db.Timestamptz(3)
+  reconcileLastError      String?                                @map("reconcile_last_error") @db.VarChar(1000)
+  createdAt               DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([status, nextAttemptAt], map: "professional_profile_photo_deletion_tasks_ready_idx")
   @@index([status, leaseExpiresAt], map: "professional_profile_photo_deletion_tasks_lease_idx")
+  @@index([kind, reconcileNextAt], map: "professional_profile_photo_tasks_reconcile_ready_idx")
+  @@index([kind, reconcileLeaseExpiresAt], map: "professional_profile_photo_tasks_reconcile_lease_idx")
   @@map("professional_profile_photo_deletion_tasks")
 }
 

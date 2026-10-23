@@ -2,6 +2,7 @@ export interface UploadObjectInput {
   body: Uint8Array;
   contentType: string;
   sizeBytes: number;
+  objectKey?: string;
 }
 
 export interface StoredObject {
