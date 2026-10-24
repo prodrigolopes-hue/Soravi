@@ -10,6 +10,11 @@ export interface ProfessionalCategory {
   slug: string;
 }
 
+export interface ProfessionalProfilePhoto {
+  url: string;
+  expiresAt: string;
+}
+
 export interface ProfessionalProfile {
   id: string;
   displayName: string;
@@ -19,6 +24,7 @@ export interface ProfessionalProfile {
   isAvailable: boolean;
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalCategory[];
+  photo: ProfessionalProfilePhoto | null;
 }
 
 export function parseProfessionalProfile(
@@ -37,7 +43,8 @@ export function parseProfessionalProfile(
     !isNullableString(root.bio) ||
     typeof root.isAvailable !== "boolean" ||
     !isProfessionalVerificationStatus(root.verificationStatus) ||
-    !Array.isArray(root.categories)
+    !Array.isArray(root.categories) ||
+    !isProfessionalProfilePhoto(root.photo)
   ) {
     return null;
   }
@@ -63,6 +70,7 @@ export function parseProfessionalProfile(
     isAvailable: root.isAvailable,
     verificationStatus: root.verificationStatus,
     categories,
+    photo: root.photo,
   };
 }
 
@@ -114,6 +122,26 @@ function isProfessionalVerificationStatus(
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
+}
+
+function isProfessionalProfilePhoto(
+  value: unknown,
+): value is ProfessionalProfilePhoto | null {
+  return value === null || (
+    isRecord(value) &&
+    typeof value.url === "string" &&
+    isValidAbsoluteUrl(value.url) &&
+    typeof value.expiresAt === "string" &&
+    !Number.isNaN(Date.parse(value.expiresAt))
+  );
+}
+
+function isValidAbsoluteUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

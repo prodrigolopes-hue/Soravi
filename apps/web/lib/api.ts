@@ -12,6 +12,7 @@ export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin
 export const professionalVerificationSubmissionUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-verification/submission`;
 
 export const currentProfessionalProfileUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-profile`;
+export const currentProfessionalProfilePhotoUrl = `${currentProfessionalProfileUrl}/photo`;
 
 export const customerProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/users/me/roles/customer`;
 

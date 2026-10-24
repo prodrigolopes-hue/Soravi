@@ -1,12 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, BriefcaseBusiness, LoaderCircle, MapPin, Save, ShieldCheck, UserRound } from "lucide-react";
+import { AlertCircle, BriefcaseBusiness, LoaderCircle, MapPin, Save, ShieldCheck, Trash2, Upload, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
+import { categoriesUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
 import { PersonalIdentityCollection } from "./personal-identity-collection";
 import {
   type ProfessionalCategory,
@@ -16,6 +16,7 @@ import {
 } from "../../lib/professional-profile";
 import { z } from "../../lib/zod";
 import { useAuth } from "../auth/auth-provider";
+import { ProfessionalAvatar } from "./professional-avatar";
 
 const profileFormSchema = z.object({
   displayName: z.string().trim().min(2, "Informe um nome público com pelo menos 2 caracteres.").max(120, "Use no máximo 120 caracteres."),
@@ -66,6 +67,19 @@ export function ProfessionalProfilePage() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [isReadyToResubmit, setIsReadyToResubmit] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [isPhotoMutating, setIsPhotoMutating] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const activeSessionRef = useRef("");
+  const photoQueryRef = useRef<AbortController | null>(null);
+  const photoMutationRef = useRef(false);
+  const photoConfirmationRequiredRef = useRef(false);
+  const photoOperationRef = useRef(0);
+  const sessionId = `${user?.id ?? "anonymous"}:${accessToken ?? ""}`;
   const {
     register,
     handleSubmit,
@@ -86,6 +100,8 @@ export function ProfessionalProfilePage() {
     if (!accessToken) {
       return;
     }
+
+    const requestToken = accessToken;
 
     setLoadState("loading");
     setLoadMessage(null);
@@ -117,6 +133,10 @@ export function ProfessionalProfilePage() {
         await categoriesResponse.json().catch(() => null),
       );
 
+      if (!mountedRef.current || activeSessionRef.current !== `${user?.id ?? "anonymous"}:${requestToken}`) {
+        return;
+      }
+
       if (!parsedProfile || !parsedCategories) {
         throw new Error("Não foi possível carregar seu perfil agora. Tente novamente.");
       }
@@ -127,6 +147,9 @@ export function ProfessionalProfilePage() {
       setIsEditing(false);
       setLoadState("ready");
     } catch (error) {
+      if (!mountedRef.current || activeSessionRef.current !== `${user?.id ?? "anonymous"}:${requestToken}`) {
+        return;
+      }
       setLoadState("error");
       setLoadMessage(
         error instanceof Error
@@ -134,13 +157,42 @@ export function ProfessionalProfilePage() {
           : "Não foi possível carregar seu perfil agora. Tente novamente.",
       );
     }
-  }, [accessToken, reset]);
+  }, [accessToken, reset, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && isProfessional && accessToken) {
       void loadProfile();
     }
   }, [accessToken, isAuthenticated, isProfessional, loadProfile]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      photoQueryRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    activeSessionRef.current = sessionId;
+    photoQueryRef.current?.abort();
+    photoMutationRef.current = false;
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    setPhotoFile(null);
+    setPhotoMessage(null);
+    setPhotoError(null);
+  }, [sessionId]);
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
+
+  useEffect(() => {
+    setPhotoFile(null); setPhotoMessage(null); setPhotoError(null);
+    if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; }
+    setPhotoPreviewUrl(null);
+  }, [accessToken]);
 
   const categoryOptions = useMemo(
     () => categories.filter((category, index, values) =>
@@ -262,6 +314,108 @@ export function ProfessionalProfilePage() {
     setIsEditing(false);
   }
 
+  function selectPhoto(file: File | undefined): void {
+    setPhotoError(null); setPhotoMessage(null);
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null; setPhotoPreviewUrl(null); setPhotoFile(null);
+      setPhotoError(file.size > 5 * 1024 * 1024 ? "A foto deve ter no máximo 5 MiB." : "Selecione uma imagem JPEG, PNG ou WebP.");
+      return;
+    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const preview = URL.createObjectURL(file);
+    previewUrlRef.current = preview;
+    setPhotoPreviewUrl(preview); setPhotoFile(file);
+  }
+
+  async function refreshPhotoState(expectedSession: string, clearSelection = false): Promise<boolean> {
+    if (!accessToken || activeSessionRef.current !== expectedSession) return false;
+    if (photoMutationRef.current) return false;
+    photoQueryRef.current?.abort();
+    const controller = new AbortController(); photoQueryRef.current = controller;
+    try {
+      const response = await fetch(currentProfessionalProfileUrl, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store", signal: controller.signal });
+      if (!response.ok) throw new Error("photo-state-unavailable");
+      const parsed = parseProfessionalProfile(await response.json().catch(() => null));
+      if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== expectedSession) return false;
+      if (!parsed) throw new Error("photo-state-invalid");
+      setProfile((current) => current ? { ...current, photo: parsed.photo } : current);
+      if (clearSelection) {
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null; setPhotoPreviewUrl(null); setPhotoFile(null);
+      }
+      return true;
+    } catch {
+      if (controller.signal.aborted) return false;
+      return false;
+    }
+  }
+
+  async function savePhoto(): Promise<void> {
+    if (!accessToken || !photoFile || isPhotoMutating || photoMutationRef.current || photoConfirmationRequiredRef.current) return;
+    const mutationSession = sessionId;
+    const operation = ++photoOperationRef.current;
+    const controller = new AbortController(); photoMutationRef.current = true;
+    setIsPhotoMutating(true); setPhotoError(null); setPhotoMessage(null);
+    let mutationError: string | null = null;
+    try {
+      const body = new FormData(); body.append("photo", photoFile);
+      const response = await fetch(currentProfessionalProfilePhotoUrl, { method: "PUT", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", body, signal: controller.signal });
+      if (!response.ok) throw new Error(photoErrorMessage(response.status));
+      const payload: unknown = await response.json().catch(() => null);
+      if (!isRecordedPhotoMutation(payload)) throw new Error("Não foi possível confirmar a atualização da foto.");
+    } catch (error) {
+      mutationError = error instanceof Error ? error.message : "Não foi possível atualizar a foto agora.";
+    }
+    if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    photoMutationRef.current = false;
+    const confirmed = await refreshPhotoState(mutationSession, !mutationError);
+    if (!mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    if (!confirmed) { photoConfirmationRequiredRef.current = true; setPhotoError("Não foi possível confirmar o estado da foto."); return; }
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    if (mutationError) setPhotoError(mutationError); else setPhotoMessage("Foto profissional atualizada.");
+  }
+
+  async function removePhoto(): Promise<void> {
+    if (!accessToken || isPhotoMutating || photoMutationRef.current || photoConfirmationRequiredRef.current || !window.confirm("Remover sua foto profissional?")) return;
+    const mutationSession = sessionId;
+    const operation = ++photoOperationRef.current;
+    const controller = new AbortController(); photoMutationRef.current = true;
+    setIsPhotoMutating(true); setPhotoError(null); setPhotoMessage(null);
+    let mutationError: string | null = null;
+    try {
+      const response = await fetch(currentProfessionalProfilePhotoUrl, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", signal: controller.signal });
+      if (response.status !== 204) throw new Error(photoErrorMessage(response.status));
+    } catch (error) {
+      mutationError = error instanceof Error ? error.message : "Não foi possível remover a foto agora.";
+    }
+    if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    photoMutationRef.current = false;
+    const confirmed = await refreshPhotoState(mutationSession, !mutationError);
+    if (!mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    if (!confirmed) { photoConfirmationRequiredRef.current = true; setPhotoError("Não foi possível confirmar o estado da foto."); return; }
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    if (mutationError) setPhotoError(mutationError); else setPhotoMessage("Foto profissional removida.");
+  }
+
+  async function confirmPhotoState(): Promise<void> {
+    if (!photoConfirmationRequiredRef.current) return;
+    const confirmationSession = sessionId;
+    const operation = photoOperationRef.current;
+    setIsPhotoMutating(true);
+    const confirmed = await refreshPhotoState(confirmationSession);
+    if (confirmed && mountedRef.current && activeSessionRef.current === confirmationSession && photoOperationRef.current === operation) {
+      photoConfirmationRequiredRef.current = false;
+      setPhotoError(null);
+      setIsPhotoMutating(false);
+      return;
+    }
+    if (mountedRef.current && activeSessionRef.current === confirmationSession && photoOperationRef.current === operation) setPhotoError("Não foi possível confirmar o estado da foto.");
+  }
+
   if (isLoading || (isAuthenticated && isProfessional && loadState === "loading")) {
     return <PageMessage title="Carregando seu perfil..." />;
   }
@@ -302,6 +456,15 @@ export function ProfessionalProfilePage() {
             userId={user.id}
           />
         ) : null}
+
+        <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="professional-photo-title">
+          <h2 id="professional-photo-title" className="text-xl font-bold text-slate-950">Foto profissional</h2>
+          <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
+            {photoPreviewUrl ? <img src={photoPreviewUrl} alt="Prévia da nova foto" className="size-24 rounded-full border border-slate-200 object-cover" /> : <ProfessionalAvatar name={profile.displayName} photo={profile.photo} className="size-24" onRefresh={() => { if (!photoMutationRef.current && !isPhotoMutating && !photoConfirmationRequiredRef.current) void refreshPhotoState(sessionId); }} />}
+            <div className="flex-1"><p className="text-sm leading-6 text-slate-600">JPEG, PNG ou WebP de até 5 MiB. A imagem terá corte central quadrado.</p><label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"><Upload aria-hidden="true" className="size-4" />Selecionar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isPhotoMutating} onChange={(event) => selectPhoto(event.target.files?.[0])} /></label>{photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void savePhoto()} className="mt-3 block min-h-11 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isPhotoMutating ? "Salvando..." : "Salvar foto"}</button> : null}{profile.photo && !photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void removePhoto()} className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700 disabled:opacity-60"><Trash2 aria-hidden="true" className="size-4" />Remover foto</button> : null}</div>
+          </div>
+          {photoError ? <p role="alert" className="mt-4 text-sm font-medium text-red-700">{photoError}</p> : null}{photoConfirmationRequiredRef.current ? <button type="button" onClick={() => void confirmPhotoState()} className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800">Consultar novamente</button> : null}{photoMessage ? <p role="status" className="mt-4 text-sm font-medium text-emerald-700">{photoMessage}</p> : null}
+        </section>
 
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="verification-status-title">
           <div className="flex items-start gap-3">
@@ -462,4 +625,17 @@ function mergeProfileCategories(categories: ProfessionalCategory[], profileCateg
   const values = new Map<string, ProfessionalCategory>();
   [...categories, ...profileCategories].forEach((category) => values.set(category.slug, category));
   return Array.from(values.values()).sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+}
+
+function photoErrorMessage(status: number): string {
+  if (status === 400) return "A foto enviada é inválida. Use JPEG, PNG ou WebP.";
+  if (status === 401 || status === 403) return "Sua sessão não permite alterar a foto. Entre novamente.";
+  if (status === 409) return "A foto não pôde ser atualizada agora. Tente novamente.";
+  if (status === 413) return "A foto excede o limite de 5 MiB.";
+  if (status === 429) return "Muitas tentativas. Aguarde um momento antes de tentar novamente.";
+  return "Não foi possível atualizar a foto agora. Tente novamente.";
+}
+
+function isRecordedPhotoMutation(value: unknown): value is { recorded: true } {
+  return typeof value === "object" && value !== null && "recorded" in value && value.recorded === true;
 }

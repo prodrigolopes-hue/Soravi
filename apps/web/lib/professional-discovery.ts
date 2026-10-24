@@ -13,6 +13,11 @@ export interface PublicReputation {
   reviewCount: number;
 }
 
+export interface PublicProfessionalPhoto {
+  url: string;
+  expiresAt: string;
+}
+
 export interface PublicProfessionalListItem {
   id: string;
   displayName: string;
@@ -20,6 +25,7 @@ export interface PublicProfessionalListItem {
   serviceArea: string | null;
   categories: PublicCategory[];
   reputation: PublicReputation;
+  photo: PublicProfessionalPhoto | null;
 }
 
 export interface PublicPagination {
@@ -119,7 +125,7 @@ export function parsePublicProfessionalProfile(payload: unknown): PublicProfessi
 }
 
 function parseProfessionalListItem(value: unknown): PublicProfessionalListItem | null {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || !isNullableString(value.professionalTitle) || !isNullableString(value.serviceArea) || !Array.isArray(value.categories) || !isRecord(value.reputation)) return null;
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || !isNullableString(value.professionalTitle) || !isNullableString(value.serviceArea) || !Array.isArray(value.categories) || !isRecord(value.reputation) || !isProfessionalPhoto(value.photo)) return null;
   const categories: PublicCategory[] = [];
   for (const item of value.categories) {
     const category = parseCategory(item);
@@ -135,6 +141,7 @@ function parseProfessionalListItem(value: unknown): PublicProfessionalListItem |
     serviceArea: value.serviceArea,
     categories,
     reputation: { averageRating: reputation.averageRating, reviewCount: reputation.reviewCount },
+    photo: value.photo,
   };
 }
 
@@ -158,6 +165,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
+}
+
+function isProfessionalPhoto(value: unknown): value is PublicProfessionalPhoto | null {
+  if (value === null) return true;
+  if (!isRecord(value) || typeof value.url !== "string" || typeof value.expiresAt !== "string" || Number.isNaN(Date.parse(value.expiresAt))) return false;
+  try {
+    return new URL(value.url).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isPositiveInteger(value: unknown): value is number {
