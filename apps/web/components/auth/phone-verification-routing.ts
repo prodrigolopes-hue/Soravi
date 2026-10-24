@@ -1,6 +1,14 @@
+import { safeDirectedRequestReturnTo, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
+
 export function phoneVerificationDestination(
   roles: readonly string[],
+  returnTo?: string | null,
 ): string {
+  const directedDestination = safeDirectedRequestReturnTo(returnTo);
+
+  if (directedDestination && roles.includes("CUSTOMER")) {
+    return directedDestination;
+  }
   if (roles.includes("ADMIN")) {
     return "/admin";
   }
@@ -23,6 +31,7 @@ interface PostLoginUser {
 
 export function postLoginDestination(
   user: PostLoginUser,
+  returnTo?: string | null,
 ): string {
   // ADMIN fica temporariamente fora da exigência de telefone no MVP.
   if (user.roles.includes("ADMIN")) {
@@ -30,10 +39,10 @@ export function postLoginDestination(
   }
 
   if (!user.phoneVerified) {
-    return "/verificar-telefone";
+    return withDirectedRequestReturnTo("/verificar-telefone", returnTo ?? null);
   }
 
-  return phoneVerificationDestination(user.roles);
+  return phoneVerificationDestination(user.roles, returnTo);
 }
 
 export type PhoneVerificationGuardDecision =

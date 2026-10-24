@@ -3,13 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "../../lib/zod";
 
 import { useAuth } from "./auth-provider";
 import { postLoginDestination } from "./phone-verification-routing";
+import { safeDirectedRequestReturnTo, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 const loginSchema = z.object({
   email: z
@@ -27,6 +28,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safeDirectedRequestReturnTo(searchParams.get("returnTo"));
   const { signIn, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formMessage, setFormMessage] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export function LoginForm() {
       }
 
       setFormMessage("Login realizado com sucesso. Redirecionando...");
-      router.replace(postLoginDestination(authenticatedUser));
+      router.replace(postLoginDestination(authenticatedUser, returnTo));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível entrar na Soravi.";
       setFormError(message);
@@ -201,7 +204,7 @@ export function LoginForm() {
       <p className="text-center text-sm text-slate-600">
         Ainda não possui uma conta?{" "}
         <Link
-          href="/cadastro"
+          href={withDirectedRequestReturnTo("/cadastro", returnTo)}
           className="font-semibold text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
         >
           Criar conta

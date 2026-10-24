@@ -490,7 +490,19 @@ A página de categoria da Soravi combinará descoberta direta de profissionais c
 
 Home, categoria, perfil público e filtros deverão evoluir como superfícies de descoberta e contratação complementares ao fluxo de solicitações e propostas. Esta decisão não cria rota, API, filtro, perfil público, migration ou alteração de código.
 
-O backend passou a suportar `targetProfessionalProfileId` opcional em solicitações: o destino é exclusivo, é revalidado no despacho e não possui fallback genérico. A experiência de seleção e apresentação no frontend continua pendente.
+`targetProfessionalProfileId` opcional mantém o destino exclusivo, é revalidado no despacho e não possui fallback genérico. O frontend inicia o fluxo no perfil público e conserva somente o retorno interno canonizado para `/solicitacoes/nova` com UUID v4 durante autenticação e confirmação de telefone.
+
+## Contato pré-proposta e visita técnica
+
+### Decisão planejada (ainda não implementada)
+
+O primeiro incremento de contato anterior à proposta será “Pedir mais detalhes”. Ele será privado, vinculado à solicitação e restrito ao cliente e ao profissional elegível que recebeu a oportunidade; outros profissionais não poderão acessar a troca. Em pedidos direcionados, somente o destinatário poderá iniciar o contato.
+
+“Solicitar visita técnica” ficará para incremento posterior. O profissional deverá informar motivo, sugestão de data e horário e se a visita é gratuita ou paga; se paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
+
+O endereço completo não será liberado automaticamente ao iniciar o contato. A regra que autoriza sua liberação para uma visita técnica deverá ser definida antes da implementação.
+
+Será avaliado o reaproveitamento do chat para “Pedir mais detalhes”, sem enfraquecer as permissões das conversas vinculadas a contratos. Esta decisão não cria código, schema, migration, variáveis de ambiente ou permissões novas nesta etapa.
 
 ## Histórico append-only e reenvio da verificação profissional
 

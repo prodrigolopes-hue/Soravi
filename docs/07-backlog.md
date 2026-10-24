@@ -76,7 +76,7 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
 - [x] `editableUntil` com janela inicial de 10 minutos e bloqueio de edição direta após a janela.
 - [x] `opportunitiesDispatchedAt` para controlar distribuição única.
-- [x] Backend de destinatário profissional opcional e distribuição exclusiva, sem fallback quando indisponível.
+- [x] Destinatário profissional opcional: backend, criação direcionada no frontend, retorno seguro após autenticação e distribuição exclusiva sem fallback quando indisponível.
 - [ ] Frontend para escolher, preservar e apresentar destinatário profissional na criação de solicitação.
 - [x] Edição direta durante a janela inicial.
 - [x] Cancelamento direto com preservação de histórico enquanto `OPEN` e não distribuída.
@@ -115,6 +115,10 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 -   Enviar mensagens
 -   Marcar como lida
 -   Notificações
+- [ ] Implementar primeiro “Pedir mais detalhes” antes da proposta: contato privado, vinculado à solicitação, entre cliente e profissional elegível que recebeu a oportunidade; outros profissionais não acessam a troca e, em pedido direcionado, somente o destinatário pode iniciá-la.
+- [ ] Avaliar o reaproveitamento do chat para “Pedir mais detalhes”, sem enfraquecer as permissões das conversas vinculadas a contratos.
+- [ ] Definir a regra de liberação de endereço para visita técnica; o endereço completo não pode ser liberado automaticamente ao iniciar o contato.
+- [ ] Incremento posterior: “Solicitar visita técnica”, com motivo, sugestão de data/horário e indicação de gratuidade ou valor explícito; exige aceite do cliente e não implica contratação do serviço principal.
 
 ------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "../../lib/zod";
@@ -20,6 +20,7 @@ import {
   phoneVerificationDestination,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
+import { safeDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const GENERIC_ERROR_MESSAGE =
@@ -53,6 +54,7 @@ function publicErrorMessage(error: unknown): string {
 
 export function PhoneVerificationForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     accessToken,
     isAuthenticated,
@@ -87,7 +89,10 @@ export function PhoneVerificationForm() {
   });
   const newPhoneField = registerPhoneChange("phone");
 
-  const destination = phoneVerificationDestination(user?.roles ?? []);
+  const destination = phoneVerificationDestination(
+    user?.roles ?? [],
+    safeDirectedRequestReturnTo(searchParams.get("returnTo")),
+  );
   const isAdmin = Boolean(user?.roles.includes("ADMIN"));
 
   useEffect(() => {

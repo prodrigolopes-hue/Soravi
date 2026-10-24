@@ -134,6 +134,8 @@ interface ServiceRequestDetails {
   title: string;
   description: string | null;
   status: ServiceRequestStatus;
+  targetProfessionalProfileId: string | null;
+  targetProfessionalUnavailableAt: string | null;
   visibleProposalLimit: number;
   location: {
     country: string;
@@ -475,7 +477,9 @@ function parseServiceRequestDetails(
     !isNullableString(root.location.addressComplement) ||
     typeof root.editableUntil !== "string" ||
     typeof root.createdAt !== "string" ||
-    !isNullableString(root.conversationId)
+    !isNullableString(root.conversationId) ||
+    (root.targetProfessionalProfileId !== undefined && !isNullableString(root.targetProfessionalProfileId)) ||
+    (root.targetProfessionalUnavailableAt !== undefined && !isNullableString(root.targetProfessionalUnavailableAt))
   ) {
     return null;
   }
@@ -558,6 +562,8 @@ function parseServiceRequestDetails(
     title: root.title,
     description: root.description,
     status: root.status,
+    targetProfessionalProfileId: typeof root.targetProfessionalProfileId === "string" ? root.targetProfessionalProfileId : null,
+    targetProfessionalUnavailableAt: typeof root.targetProfessionalUnavailableAt === "string" ? root.targetProfessionalUnavailableAt : null,
     visibleProposalLimit: root.visibleProposalLimit,
     location: {
       country: root.location.country,
@@ -1543,6 +1549,13 @@ export function ServiceRequestDetailsPage({
             Criada em{" "}
             {formatServiceRequestDate(request.createdAt)}
           </div>
+
+          {request.targetProfessionalProfileId ? (
+            <p className="mt-5 rounded-xl bg-blue-50 p-4 text-sm font-medium text-blue-900">Pedido direcionado a um profissional específico.</p>
+          ) : null}
+          {request.targetProfessionalUnavailableAt ? (
+            <p role="status" className="mt-3 rounded-xl bg-amber-50 p-4 text-sm font-medium text-amber-900">O profissional escolhido não está disponível para receber este pedido. O pedido não foi distribuído a outros profissionais.</p>
+          ) : null}
 
           <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">
             Esta solicitação já foi publicada e não pode

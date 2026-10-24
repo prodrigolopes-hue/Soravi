@@ -42,6 +42,8 @@ interface ServiceRequestItem {
     city: string;
   };
   createdAt: string;
+  targetProfessionalProfileId: string | null;
+  targetProfessionalUnavailableAt: string | null;
 }
 
 interface ServiceRequestsPagination {
@@ -71,7 +73,9 @@ function parseServiceRequest(value: unknown): ServiceRequestItem | null {
     !isServiceRequestStatus(value.status) ||
     typeof value.location.state !== "string" ||
     typeof value.location.city !== "string" ||
-    typeof value.createdAt !== "string"
+    typeof value.createdAt !== "string" ||
+    (value.targetProfessionalProfileId !== undefined && value.targetProfessionalProfileId !== null && typeof value.targetProfessionalProfileId !== "string") ||
+    (value.targetProfessionalUnavailableAt !== undefined && value.targetProfessionalUnavailableAt !== null && (typeof value.targetProfessionalUnavailableAt !== "string" || Number.isNaN(Date.parse(value.targetProfessionalUnavailableAt))))
   ) {
     return null;
   }
@@ -85,6 +89,8 @@ function parseServiceRequest(value: unknown): ServiceRequestItem | null {
       city: value.location.city,
     },
     createdAt: value.createdAt,
+    targetProfessionalProfileId: typeof value.targetProfessionalProfileId === "string" ? value.targetProfessionalProfileId : null,
+    targetProfessionalUnavailableAt: typeof value.targetProfessionalUnavailableAt === "string" ? value.targetProfessionalUnavailableAt : null,
   };
 }
 
@@ -328,6 +334,12 @@ export function MyServiceRequestsPage() {
                           <dd>Criada em {formatServiceRequestDate(request.createdAt)}</dd>
                         </div>
                       </dl>
+                      {request.targetProfessionalProfileId ? (
+                        <p className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">Pedido direcionado a um profissional específico.</p>
+                      ) : null}
+                      {request.targetProfessionalUnavailableAt ? (
+                        <p role="status" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">O profissional escolhido não está disponível para receber este pedido. Ele não foi redistribuído para outros profissionais.</p>
+                      ) : null}
                       <Link href={`/solicitacoes/${request.id}`} className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
                         Ver detalhes
                       </Link>

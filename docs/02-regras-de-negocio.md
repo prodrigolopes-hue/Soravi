@@ -10,7 +10,7 @@ Solicitações são preenchidas e revisadas no frontend antes do envio. A confir
 
 O dispatcher seleciona solicitações `OPEN` publicadas, não excluídas e ainda não despachadas; mantém lock, idempotência e `skipDuplicates`, alcançando somente profissionais aprovados, disponíveis e compatíveis com a categoria. Avaliações e favoritos não estão implementados; avaliações dependem de contrato `COMPLETED` em trabalho futuro.
 
-Solicitações podem ter um destinatário profissional opcional. Quando presente, a elegibilidade é revalidada na criação e no despacho: a conta deve estar `ACTIVE`, ter papel profissional, o perfil deve existir, estar aprovado e disponível, e atender à categoria ainda ativa. A oportunidade é exclusiva desse perfil; não há fallback para outros profissionais. Se o destinatário ficar inelegível no despacho, o solicitante recebe o resultado de indisponibilidade. O frontend para selecionar e apresentar esse destino permanece pendente.
+Solicitações podem ter um destinatário profissional opcional. Quando presente, a elegibilidade é revalidada na criação e no despacho: a conta deve estar `ACTIVE`, ter papel profissional, o perfil deve existir, estar aprovado e disponível, e atender à categoria ainda ativa. A oportunidade é exclusiva desse perfil; não há fallback para outros profissionais. A descoberta pública permite iniciar o pedido direcionado; login, cadastro de cliente e verificação de telefone preservam apenas o retorno interno seguro para esse fluxo. Se o destinatário ficar inelegível no despacho, o solicitante recebe o resultado de indisponibilidade, sem redistribuição automática.
 
 Este documento define as regras oficiais de funcionamento da plataforma
 Soravi.
@@ -268,9 +268,21 @@ A avaliação deve possuir:
 
 # Chat
 
-O chat somente é liberado após a contratação.
+No fluxo atual, o chat somente é liberado após a contratação.
 
 Todas as mensagens ficam registradas para fins de segurança e suporte.
+
+------------------------------------------------------------------------
+
+## Contato pré-proposta e visita técnica (planejado, ainda não implementado)
+
+“Pedir mais detalhes” será um contato privado, vinculado à solicitação, entre o cliente e o profissional elegível que recebeu a oportunidade, antes do envio de uma proposta. Outros profissionais não poderão acessar essa troca. Em pedidos direcionados, somente o destinatário poderá iniciar o contato.
+
+“Solicitar visita técnica” será um incremento posterior: o profissional deverá informar o motivo, uma sugestão de data e horário e se a visita é gratuita ou paga; quando paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
+
+O endereço completo não será liberado automaticamente ao iniciar o contato. A regra de liberação de endereço para visita técnica deverá ser definida antes da implementação.
+
+O primeiro incremento será “Pedir mais detalhes”. Poderá ser avaliado o reaproveitamento do chat, desde que não enfraqueça as permissões das conversas vinculadas a contratos.
 
 ------------------------------------------------------------------------
 
