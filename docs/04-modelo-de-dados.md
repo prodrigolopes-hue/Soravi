@@ -101,7 +101,11 @@ Uma categoria possui vários profissionais e várias solicitações.
 
 Campos: - título - descrição - categoria - localização - status - data
 
-Relacionamentos: - pertence a um cliente - recebe várias propostas
+Relacionamentos: - pertence a um cliente - pode apontar opcionalmente para um perfil profissional destinatário - recebe várias propostas
+
+`targetProfessionalProfileId` é opcional. Quando `NULL`, a solicitação representa a distribuição genérica. Quando preenchido, representa um destinatário profissional exclusivo. A chave estrangeira usa `ON DELETE RESTRICT`, para que a exclusão do destinatário nunca converta silenciosamente uma solicitação direcionada em genérica.
+
+Neste incremento, o campo é apenas persistido no modelo. Criação, distribuição, autorização de propostas e apresentação do destinatário ainda não estão implementadas.
 
 ------------------------------------------------------------------------
 

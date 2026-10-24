@@ -305,6 +305,7 @@ model ProfessionalProfile {
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
+  targetedServiceRequests ServiceRequest[] @relation("ServiceRequestTargetProfessional")
   proposals              Proposal[]
   contracts              Contract[]
   reviews                Review[]
@@ -571,6 +572,7 @@ model ServiceRequest {
   id                        String               @id @default(uuid()) @db.Uuid
   customerProfileId         String               @map("customer_profile_id") @db.Uuid
   categoryId                String               @map("category_id") @db.Uuid
+  targetProfessionalProfileId String?            @map("target_professional_profile_id") @db.Uuid
   title                     String               @db.VarChar(160)
   description               String?              @db.VarChar(2000)
   status                    ServiceRequestStatus @default(OPEN)
@@ -598,6 +600,7 @@ model ServiceRequest {
 
   customerProfile      CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
   category             Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  targetProfessionalProfile ProfessionalProfile? @relation("ServiceRequestTargetProfessional", fields: [targetProfessionalProfileId], references: [id], onDelete: Restrict)
   files                ServiceRequestFile[]
   serviceOpportunities ServiceOpportunity[]
   proposals            Proposal[]
@@ -605,6 +608,7 @@ model ServiceRequest {
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
+  @@index([targetProfessionalProfileId, status], map: "service_requests_target_professional_status_idx")
   @@index([status, createdAt], map: "service_requests_status_created_at_idx")
   @@map("service_requests")
 }
