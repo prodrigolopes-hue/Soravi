@@ -74,6 +74,7 @@ export class OpportunitiesService {
       professionalProfileId: professionalProfile.id,
       serviceRequest: {
         deletedAt: null,
+        OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfile.id }],
       },
     };
 
@@ -158,6 +159,7 @@ export class OpportunitiesService {
         viewedAt: null,
         serviceRequest: {
           deletedAt: null,
+          OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfile.id }],
         },
       },
       data: { viewedAt: new Date() },
@@ -179,6 +181,7 @@ export class OpportunitiesService {
         professionalProfileId,
         serviceRequest: {
           deletedAt: null,
+          OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfileId }],
         },
       },
       select: {

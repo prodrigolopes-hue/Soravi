@@ -439,6 +439,28 @@ describe("ProposalsService", () => {
     expect(transactionMock.proposal.create).not.toHaveBeenCalled();
   });
 
+  it("rejeita proposta de profissional diferente do destinatário direcionado", async () => {
+    transactionMock.serviceRequest.findFirst
+      .mockResolvedValueOnce({
+        id: serviceRequestId,
+        status: ServiceRequestStatus.OPEN,
+        visibleProposalLimit: 3,
+        customerProfile: { userId: customerUserId },
+      })
+      .mockResolvedValueOnce({
+        categoryId: "category-id",
+        targetProfessionalProfileId: "outro-perfil-profissional",
+        status: ServiceRequestStatus.OPEN,
+        visibleProposalLimit: 3,
+        customerProfile: { userId: customerUserId },
+      });
+
+    await expect(service.create(userId, serviceRequestId, createDto()))
+      .rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
+  });
+
   it("bloqueia perfil não aprovado pela consulta de elegibilidade", async () => {
     transactionMock.professionalProfile.findFirst.mockResolvedValue(null);
 

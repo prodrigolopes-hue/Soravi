@@ -44,6 +44,8 @@ export interface ServiceRequestResponseDtoProperties {
   title: string;
   description: string | null;
   status: ServiceRequestStatus;
+  targetProfessionalProfileId?: string | null;
+  targetProfessionalUnavailableAt?: Date | null;
   visibleProposalLimit?: number;
   location: ServiceRequestLocationResponseDto;
   editableUntil: Date;
@@ -59,6 +61,8 @@ export class ServiceRequestResponseDto {
   readonly title: string;
   readonly description: string | null;
   readonly status: ServiceRequestStatus;
+  readonly targetProfessionalProfileId: string | null;
+  readonly targetProfessionalUnavailableAt: Date | null;
   readonly visibleProposalLimit: number;
   readonly location: ServiceRequestLocationResponseDto;
   readonly editableUntil: Date;
@@ -73,6 +77,8 @@ export class ServiceRequestResponseDto {
     this.title = properties.title;
     this.description = properties.description;
     this.status = properties.status;
+    this.targetProfessionalProfileId = properties.targetProfessionalProfileId ?? null;
+    this.targetProfessionalUnavailableAt = properties.targetProfessionalUnavailableAt ?? null;
     this.visibleProposalLimit = properties.visibleProposalLimit ?? 3;
     this.location = properties.location;
     this.editableUntil = properties.editableUntil;

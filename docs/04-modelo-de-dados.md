@@ -105,7 +105,9 @@ Relacionamentos: - pertence a um cliente - pode apontar opcionalmente para um pe
 
 `targetProfessionalProfileId` é opcional. Quando `NULL`, a solicitação representa a distribuição genérica. Quando preenchido, representa um destinatário profissional exclusivo. A chave estrangeira usa `ON DELETE RESTRICT`, para que a exclusão do destinatário nunca converta silenciosamente uma solicitação direcionada em genérica.
 
-Neste incremento, o campo é apenas persistido no modelo. Criação, distribuição, autorização de propostas e apresentação do destinatário ainda não estão implementadas.
+`targetProfessionalUnavailableAt`, quando preenchido, registra que o despacho de uma solicitação direcionada encontrou o destinatário inelegível — inclusive conta não `ACTIVE` ou categoria inativa; nesse caso não há distribuição alternativa.
+
+Criação, distribuição e autorização de propostas para destino exclusivo são implementadas no backend. A seleção e apresentação do destinatário no frontend ainda não estão implementadas.
 
 ------------------------------------------------------------------------
 

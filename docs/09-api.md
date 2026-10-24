@@ -12,7 +12,7 @@ Avaliações: `POST /api/v1/contracts/:contractId/review` aceita `rating` de 1 a
 
 ## Estado atual dos contratos
 
-Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado.
+Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado. O POST aceita opcionalmente `targetProfessionalProfileId`: quando informado, o backend cria oportunidade exclusiva para o destinatário elegível (conta `ACTIVE`, papel e perfil profissional válidos e categoria ativa) ou registra indisponibilidade sem fallback; a escolha/apresentação pelo frontend permanece pendente.
 
 Também estão implementados `POST /api/v1/contracts/:contractId/start`, `POST /api/v1/contracts/:contractId/complete`, `POST /api/v1/contracts/:contractId/review`, `POST /api/v1/phone-verification/request`, `POST /api/v1/phone-verification/confirm`, os endpoints de favoritos e os recursos de conversa para listagem, detalhe, mensagens e leitura.
 

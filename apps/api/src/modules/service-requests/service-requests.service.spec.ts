@@ -1,7 +1,13 @@
 import "reflect-metadata";
 
+import { ConflictException } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
-import { ServiceRequestStatus } from "../../generated/prisma/client";
+import {
+  ProfessionalVerificationStatus,
+  Role,
+  ServiceRequestStatus,
+  UserStatus,
+} from "../../generated/prisma/client";
 import { StorageService } from "../../storage/storage.service";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
@@ -186,6 +192,87 @@ describe("ServiceRequestsService", () => {
     expect(prismaMock.professionalProfile.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ professionalCategories: { some: { categoryId: createInput().categoryId } } }),
     }));
+  });
+
+  it("persiste o destinatário profissional elegível informado", async () => {
+    const targetProfessionalProfileId = "925afb87-2b81-4de7-9606-8f382fff3341";
+    const input = Object.assign(createInput(), { targetProfessionalProfileId });
+    prismaMock.professionalProfile.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: targetProfessionalProfileId, userId: "outro-usuario" });
+    prismaMock.serviceRequest.create.mockResolvedValue({
+      ...createServiceRequestRecord(ServiceRequestStatus.OPEN),
+      targetProfessionalProfileId,
+      targetProfessionalUnavailableAt: null,
+    });
+
+    const result = await service.createServiceRequest(userId, input);
+
+    expect(prismaMock.professionalProfile.findFirst).toHaveBeenLastCalledWith({
+      where: {
+        id: targetProfessionalProfileId,
+        deletedAt: null,
+        isAvailable: true,
+        verificationStatus: ProfessionalVerificationStatus.APPROVED,
+        user: {
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+          roles: { some: { role: Role.PROFESSIONAL } },
+        },
+        professionalCategories: { some: { categoryId: input.categoryId } },
+      },
+      select: { id: true, userId: true },
+    });
+    expect(prismaMock.serviceRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ targetProfessionalProfileId }),
+      }),
+    );
+    expect(result.targetProfessionalProfileId).toBe(targetProfessionalProfileId);
+  });
+
+  it.each([
+    UserStatus.BLOCKED,
+    UserStatus.PENDING,
+    UserStatus.SUSPENDED,
+    UserStatus.DEACTIVATED,
+  ])("rejeita destinatário com conta %s sem criar solicitação", async () => {
+    const input = Object.assign(createInput(), {
+      targetProfessionalProfileId: "925afb87-2b81-4de7-9606-8f382fff3341",
+    });
+    prismaMock.professionalProfile.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    await expect(service.createServiceRequest(userId, input)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    expect(prismaMock.professionalProfile.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          user: expect.objectContaining({ status: UserStatus.ACTIVE }),
+        }),
+      }),
+    );
+    expect(prismaMock.serviceRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("inclui destino e indisponibilidade na resposta da solicitação do cliente", async () => {
+    const targetProfessionalProfileId = "925afb87-2b81-4de7-9606-8f382fff3341";
+    const unavailableAt = new Date("2026-08-17T12:00:00.000Z");
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({
+      ...createServiceRequestRecord(ServiceRequestStatus.OPEN),
+      targetProfessionalProfileId,
+      targetProfessionalUnavailableAt: unavailableAt,
+      files: [],
+      contract: null,
+    });
+
+    const result = await service.findOneMine(userId, serviceRequestId);
+
+    expect(result.targetProfessionalProfileId).toBe(targetProfessionalProfileId);
+    expect(result.targetProfessionalUnavailableAt).toEqual(unavailableAt);
   });
 
   it("lista somente solicitações do CustomerProfile autenticado", async () => {

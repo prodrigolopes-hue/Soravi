@@ -490,6 +490,8 @@ A página de categoria da Soravi combinará descoberta direta de profissionais c
 
 Home, categoria, perfil público e filtros deverão evoluir como superfícies de descoberta e contratação complementares ao fluxo de solicitações e propostas. Esta decisão não cria rota, API, filtro, perfil público, migration ou alteração de código.
 
+O backend passou a suportar `targetProfessionalProfileId` opcional em solicitações: o destino é exclusivo, é revalidado no despacho e não possui fallback genérico. A experiência de seleção e apresentação no frontend continua pendente.
+
 ## Histórico append-only e reenvio da verificação profissional
 
 ### Decisão (2026-09-30)

@@ -573,6 +573,7 @@ model ServiceRequest {
   customerProfileId         String               @map("customer_profile_id") @db.Uuid
   categoryId                String               @map("category_id") @db.Uuid
   targetProfessionalProfileId String?            @map("target_professional_profile_id") @db.Uuid
+  targetProfessionalUnavailableAt DateTime?      @map("target_professional_unavailable_at") @db.Timestamptz(3)
   title                     String               @db.VarChar(160)
   description               String?              @db.VarChar(2000)
   status                    ServiceRequestStatus @default(OPEN)

@@ -76,6 +76,8 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
 - [x] `editableUntil` com janela inicial de 10 minutos e bloqueio de edição direta após a janela.
 - [x] `opportunitiesDispatchedAt` para controlar distribuição única.
+- [x] Backend de destinatário profissional opcional e distribuição exclusiva, sem fallback quando indisponível.
+- [ ] Frontend para escolher, preservar e apresentar destinatário profissional na criação de solicitação.
 - [x] Edição direta durante a janela inicial.
 - [x] Cancelamento direto com preservação de histórico enquanto `OPEN` e não distribuída.
 - [x] `ServiceOpportunity` e matching inicial por categoria para profissionais aprovados, disponíveis, não excluídos e vinculados à categoria.

@@ -10,6 +10,8 @@ Solicitações são preenchidas e revisadas no frontend antes do envio. A confir
 
 O dispatcher seleciona solicitações `OPEN` publicadas, não excluídas e ainda não despachadas; mantém lock, idempotência e `skipDuplicates`, alcançando somente profissionais aprovados, disponíveis e compatíveis com a categoria. Avaliações e favoritos não estão implementados; avaliações dependem de contrato `COMPLETED` em trabalho futuro.
 
+Solicitações podem ter um destinatário profissional opcional. Quando presente, a elegibilidade é revalidada na criação e no despacho: a conta deve estar `ACTIVE`, ter papel profissional, o perfil deve existir, estar aprovado e disponível, e atender à categoria ainda ativa. A oportunidade é exclusiva desse perfil; não há fallback para outros profissionais. Se o destinatário ficar inelegível no despacho, o solicitante recebe o resultado de indisponibilidade. O frontend para selecionar e apresentar esse destino permanece pendente.
+
 Este documento define as regras oficiais de funcionamento da plataforma
 Soravi.
 

@@ -1,8 +1,8 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
-import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
+import { Prisma, ProfessionalVerificationStatus, Role, ServiceRequestStatus, UserStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
@@ -43,6 +43,8 @@ const SERVICE_REQUEST_RESPONSE_SELECT = {
   title: true,
   description: true,
   status: true,
+  targetProfessionalProfileId: true,
+  targetProfessionalUnavailableAt: true,
   visibleProposalLimit: true,
   country: true,
   state: true,
@@ -172,12 +174,35 @@ export class ServiceRequestsService {
       throw new ServiceRequestOwnProfessionalCategoryException();
     }
 
+    if (input.targetProfessionalProfileId) {
+      const target = await transaction.professionalProfile.findFirst({
+        where: {
+          id: input.targetProfessionalProfileId,
+          deletedAt: null,
+          isAvailable: true,
+          verificationStatus: ProfessionalVerificationStatus.APPROVED,
+          user: {
+            deletedAt: null,
+            status: UserStatus.ACTIVE,
+            roles: { some: { role: Role.PROFESSIONAL } },
+          },
+          professionalCategories: { some: { categoryId: category.id } },
+        },
+        select: { id: true, userId: true },
+      });
+      if (!target || target.userId === userId) {
+        throw new ConflictException("O profissional selecionado não está disponível para esta solicitação.");
+      }
+    }
+
     const publishedAt = new Date();
 
     return transaction.serviceRequest.create({
       data: {
         customerProfileId: customerProfile.id,
         categoryId: category.id,
+        targetProfessionalProfileId: input.targetProfessionalProfileId ?? null,
+        targetProfessionalUnavailableAt: null,
         title: input.title.trim(),
         description: input.description?.trim() || null,
         status: ServiceRequestStatus.OPEN,
@@ -558,6 +583,8 @@ function toServiceRequestResponseProperties(
     title: serviceRequest.title,
     description: serviceRequest.description,
     status: serviceRequest.status,
+    targetProfessionalProfileId: serviceRequest.targetProfessionalProfileId,
+    targetProfessionalUnavailableAt: serviceRequest.targetProfessionalUnavailableAt,
     visibleProposalLimit: serviceRequest.visibleProposalLimit,
     location: {
       country: serviceRequest.country,

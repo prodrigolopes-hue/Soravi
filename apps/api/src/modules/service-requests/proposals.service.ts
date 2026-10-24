@@ -196,6 +196,7 @@ export class ProposalsService {
           where: { id: serviceRequestId, deletedAt: null },
           select: {
             categoryId: true,
+            targetProfessionalProfileId: true,
             status: true,
             visibleProposalLimit: true,
             customerProfile: { select: { userId: true } },
@@ -234,6 +235,13 @@ export class ProposalsService {
         if (!professionalProfile.professionalCategories.some(
           (category) => category.categoryId === lockedServiceRequest.categoryId,
         )) {
+          throw new ProposalCreationUnavailableException();
+        }
+
+        if (
+          lockedServiceRequest.targetProfessionalProfileId != null &&
+          lockedServiceRequest.targetProfessionalProfileId !== professionalProfile.id
+        ) {
           throw new ProposalCreationUnavailableException();
         }
 

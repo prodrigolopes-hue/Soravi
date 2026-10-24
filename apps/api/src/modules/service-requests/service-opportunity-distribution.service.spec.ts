@@ -6,7 +6,9 @@ import {
   NotificationType,
   Prisma,
   ProfessionalVerificationStatus,
+  Role,
   ServiceRequestStatus,
+  UserStatus,
 } from "../../generated/prisma/client";
 import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
@@ -52,6 +54,7 @@ describe("ServiceOpportunityDistributionService", () => {
       serviceRequest: {
         findFirst: jest.fn().mockResolvedValue({
           categoryId,
+          category: { isActive: true },
           customerProfile: {
             userId: customerUserId,
           },
@@ -131,6 +134,12 @@ describe("ServiceOpportunityDistributionService", () => {
       },
       select: {
         categoryId: true,
+        targetProfessionalProfileId: true,
+        category: {
+          select: {
+            isActive: true,
+          },
+        },
         customerProfile: {
           select: {
             userId: true,
@@ -188,8 +197,16 @@ describe("ServiceOpportunityDistributionService", () => {
         deletedAt: null,
         isAvailable: true,
         verificationStatus: ProfessionalVerificationStatus.APPROVED,
+        user: {
+          deletedAt: null,
+          status: UserStatus.ACTIVE,
+          roles: { some: { role: Role.PROFESSIONAL } },
+        },
         professionalCategories: {
-          some: { categoryId },
+          some: {
+            categoryId,
+            category: { isActive: true },
+          },
         },
       },
       select: { id: true, userId: true },
@@ -199,6 +216,7 @@ describe("ServiceOpportunityDistributionService", () => {
   it("não cria oportunidade para o próprio usuário quando ele também possui perfil profissional", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
       categoryId,
+      category: { isActive: true },
       customerProfile: {
         userId: firstProfessionalUserId,
       },
@@ -254,6 +272,58 @@ describe("ServiceOpportunityDistributionService", () => {
       transactionMock.serviceOpportunity.createManyAndReturn,
     ).not.toHaveBeenCalled();
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("registra indisponibilidade sem oportunidade quando o destinatário deixa de estar ACTIVE", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId,
+      targetProfessionalProfileId: firstProfessionalProfileId,
+      category: { isActive: true },
+      customerProfile: { userId: customerUserId },
+    });
+    transactionMock.professionalProfile.findMany.mockResolvedValue([]);
+
+    const result = await service.distribute(serviceRequestId);
+
+    expect(transactionMock.professionalProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: firstProfessionalProfileId,
+          user: expect.objectContaining({ status: UserStatus.ACTIVE }),
+        }),
+      }),
+    );
+    expect(transactionMock.serviceOpportunity.createManyAndReturn).not.toHaveBeenCalled();
+    expect(transactionMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: {
+        opportunitiesDispatchedAt: expect.any(Date),
+        targetProfessionalUnavailableAt: expect.any(Date),
+      },
+    });
+    expect(result).toEqual({ dispatched: true, opportunitiesCreated: 0 });
+  });
+
+  it("não cria oportunidade para solicitação direcionada cuja categoria foi inativada", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId,
+      targetProfessionalProfileId: firstProfessionalProfileId,
+      category: { isActive: false },
+      customerProfile: { userId: customerUserId },
+    });
+
+    const result = await service.distribute(serviceRequestId);
+
+    expect(transactionMock.professionalProfile.findMany).not.toHaveBeenCalled();
+    expect(transactionMock.serviceOpportunity.createManyAndReturn).not.toHaveBeenCalled();
+    expect(transactionMock.serviceRequest.update).toHaveBeenCalledWith({
+      where: { id: serviceRequestId },
+      data: {
+        opportunitiesDispatchedAt: expect.any(Date),
+        targetProfessionalUnavailableAt: expect.any(Date),
+      },
+    });
+    expect(result).toEqual({ dispatched: true, opportunitiesCreated: 0 });
   });
 
   it("cria oportunidades idempotentes e marca o instante da distribuição", async () => {
@@ -383,6 +453,7 @@ describe("ServiceOpportunityDistributionService", () => {
     transactionMock.serviceRequest.findFirst
       .mockResolvedValueOnce({
         categoryId,
+        category: { isActive: true },
         customerProfile: { userId: customerUserId },
       })
       .mockResolvedValueOnce(null);
@@ -417,6 +488,27 @@ describe("ServiceOpportunityDistributionService", () => {
 
     expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
     expect(outboundNotificationsServiceMock.createPending).not.toHaveBeenCalled();
+    expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("mantém solicitação direcionada reprocessável quando ocorre falha técnica", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId,
+      targetProfessionalProfileId: firstProfessionalProfileId,
+      category: { isActive: true },
+      customerProfile: { userId: customerUserId },
+    });
+    transactionMock.professionalProfile.findMany.mockResolvedValue([
+      { id: firstProfessionalProfileId, userId: firstProfessionalUserId },
+    ]);
+    transactionMock.serviceOpportunity.createManyAndReturn.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    await expect(service.distribute(serviceRequestId)).rejects.toThrow(
+      "database unavailable",
+    );
+
     expect(transactionMock.serviceRequest.update).not.toHaveBeenCalled();
   });
 
