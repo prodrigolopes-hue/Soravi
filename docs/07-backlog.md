@@ -2,6 +2,8 @@
 
 # Objetivo
 
+> Atualização: concluída a conversão de conversa contínua para pedidos privados separados, com pergunta do profissional, uma resposta final do cliente e fotos opcionais. A recuperação persistente de uploads órfãos também está implementada por candidato de upload, lease e reconciliação; a migration correspondente ainda precisa ser aplicada nos ambientes que não a receberam.
+
 - [x] Avaliacoes bilaterais cegas: `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, janela de sete dias, publicacao coordenada e reputacao somente publicada; validadas localmente.
 - [x] Lembretes idempotentes `D1`, `D4` e `D6` somente para quem ainda nao avaliou; em atraso, somente o marco mais recente e usado. D+7 publica pendentes e nao gera lembrete.
 - [x] Staging: migrations e validação E2E das avaliações bilaterais cegas concluídas na regressão final de 03/10/2026.
@@ -115,8 +117,9 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 -   Enviar mensagens
 -   Marcar como lida
 -   Notificações
-- [ ] Implementar primeiro “Pedir mais detalhes” antes da proposta: contato privado, vinculado à solicitação, entre cliente e profissional elegível que recebeu a oportunidade; outros profissionais não acessam a troca e, em pedido direcionado, somente o destinatário pode iniciá-la.
-- [ ] Avaliar o reaproveitamento do chat para “Pedir mais detalhes”, sem enfraquecer as permissões das conversas vinculadas a contratos.
+- [x] “Pedir mais detalhes” antes da proposta: pedidos privados e independentes, vinculados à oportunidade e à solicitação, entre cliente e profissional elegível. Cada pedido contém pergunta do profissional e uma única resposta final do cliente, com até cinco fotos opcionais; encerra após a resposta, preserva consulta autorizada e permite outro pedido separado. As interfaces de profissional e cliente carregam o histórico após recarregar e não exibem chat contínuo.
+- [x] Recuperação de fotos de resposta pré-proposta: candidato persistente antes do upload, bloqueio e associação transacional, proteção de objeto referenciado, processamento limitado com `SKIP LOCKED` e lease, e reagendamento de falhas e de verificações para upload tardio. Requer a migration `20261027000100_create_pre_proposal_photo_upload_candidates` onde ainda não aplicada.
+- [x] Decisão histórica substituída: pedidos de esclarecimento não reutilizam o chat contratual; o chat permanece restrito ao período posterior à contratação.
 - [ ] Definir a regra de liberação de endereço para visita técnica; o endereço completo não pode ser liberado automaticamente ao iniciar o contato.
 - [ ] Incremento posterior: “Solicitar visita técnica”, com motivo, sugestão de data/horário e indicação de gratuidade ou valor explícito; exige aceite do cliente e não implica contratação do serviço principal.
 

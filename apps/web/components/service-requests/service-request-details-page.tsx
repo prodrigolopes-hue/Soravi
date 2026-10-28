@@ -33,6 +33,7 @@ import {
 import { useAuth } from "../auth/auth-provider";
 import { FavoriteProfessionalButton } from "../favorites/favorite-professional-button";
 import { ImageLightbox } from "../shared/image-lightbox";
+import { PreProposalConversationsPanel } from "./pre-proposal-conversations-panel";
 import {
   serviceRequestSchema,
   type ServiceRequestFormData,
@@ -2397,6 +2398,11 @@ export function ServiceRequestDetailsPage({
                 Ir para conversa
               </Link>
             ) : null}
+
+            <PreProposalConversationsPanel
+              serviceRequestId={request.id}
+              serviceRequestStatus={request.status}
+            />
 
             {contract ? (
               <section

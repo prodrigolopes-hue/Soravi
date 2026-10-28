@@ -2,6 +2,10 @@
 
 # Objetivo
 
+> Decisão implementada: esclarecimentos pré-proposta são pedidos privados independentes, não chat contratual; uma pergunta, uma resposta final opcionalmente com até cinco fotos e encerramento para consulta. Outro esclarecimento exige outro pedido.
+
+> Decisão implementada: a recuperação de anexos órfãos usa candidato de upload persistente específico para esclarecimentos, e não reutiliza diretamente o reconciliador de fotos de perfil. A implementação usa migration, processador próprio, `FOR UPDATE SKIP LOCKED`, lease, proteção de objeto referenciado e reagendamento para falhas e upload tardio.
+
 ## Decisões operacionais atuais
 
 Solicitações são revisadas antes da publicação; não se persistem rascunhos no fluxo atual. A dependência operacional da janela de dez minutos foi removida e oportunidades são despachadas imediatamente após a publicação. Início e conclusão de contrato pertencem às telas de oportunidade e solicitação, respectivamente; conversa é somente status e comunicação. Staging usa API em subdomínio próprio e permanece separado de Production. O MVP mantém monólito modular, sem pagamentos internos e sem microserviços prematuros.
@@ -494,15 +498,17 @@ Home, categoria, perfil público e filtros deverão evoluir como superfícies de
 
 ## Contato pré-proposta e visita técnica
 
-### Decisão planejada (ainda não implementada)
+### Decisão implementada (substitui a decisão anterior de conversa contínua)
 
-O primeiro incremento de contato anterior à proposta será “Pedir mais detalhes”. Ele será privado, vinculado à solicitação e restrito ao cliente e ao profissional elegível que recebeu a oportunidade; outros profissionais não poderão acessar a troca. Em pedidos direcionados, somente o destinatário poderá iniciar o contato.
+O contato anterior à proposta é “Pedir mais detalhes”, implementado como pedido privado independente, vinculado à solicitação e à oportunidade. Somente o cliente e o profissional elegível da oportunidade o acessam; em pedidos direcionados, somente o destinatário exclusivo pode criá-lo e consultá-lo. A pergunta do profissional recebe uma única resposta final do cliente, com fotos opcionais, e o pedido é encerrado para consulta. Novos esclarecimentos exigem novos pedidos.
+
+As interfaces de cliente e profissional estão implementadas e apresentam histórico de pedidos, sem comportamento ou aparência de chat contínuo. Fotos são autorizadas somente aos participantes por URL temporária, e não revelam chave de storage ou dados privados.
 
 “Solicitar visita técnica” ficará para incremento posterior. O profissional deverá informar motivo, sugestão de data e horário e se a visita é gratuita ou paga; se paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
 
 O endereço completo não será liberado automaticamente ao iniciar o contato. A regra que autoriza sua liberação para uma visita técnica deverá ser definida antes da implementação.
 
-Será avaliado o reaproveitamento do chat para “Pedir mais detalhes”, sem enfraquecer as permissões das conversas vinculadas a contratos. Esta decisão não cria código, schema, migration, variáveis de ambiente ou permissões novas nesta etapa.
+Registro histórico: a decisão anterior previa avaliar o reaproveitamento do chat para “Pedir mais detalhes”. Ela foi substituída pela separação definitiva entre pedidos pré-proposta e chat contratual; o chat permanece sem alteração e disponível apenas após contratação.
 
 ## Histórico append-only e reenvio da verificação profissional
 

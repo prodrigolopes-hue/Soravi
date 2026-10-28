@@ -252,6 +252,32 @@ export function opportunityViewedUrl(opportunityId: string): string {
   return `${opportunityByIdUrl(opportunityId)}/viewed`;
 }
 
+export function opportunityPreProposalConversationMessagesUrl(
+  opportunityId: string,
+): string {
+  return `${opportunitiesUrl}/${encodeURIComponent(opportunityId)}/pre-proposal-conversation/messages`;
+}
+
+export function opportunityPreProposalConversationsUrl(opportunityId: string): string {
+  return `${opportunityByIdUrl(opportunityId)}/pre-proposal-conversations`;
+}
+
+export function preProposalConversationMessagesUrl(
+  conversationId: string,
+): string {
+  return `${normalizedApiBaseUrl}/api/v1/pre-proposal-conversations/${encodeURIComponent(conversationId)}/messages`;
+}
+
+export function preProposalConversationResponseUrl(conversationId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/pre-proposal-conversations/${encodeURIComponent(conversationId)}/response`;
+}
+
+export function serviceRequestPreProposalConversationsUrl(
+  serviceRequestId: string,
+): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/pre-proposal-conversations`;
+}
+
 export function serviceRequestByIdUrl(serviceRequestId: string): string {
   return `${serviceRequestsUrl}/${encodeURIComponent(serviceRequestId)}`;
 }

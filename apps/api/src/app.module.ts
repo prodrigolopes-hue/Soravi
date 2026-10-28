@@ -19,6 +19,7 @@ import { PhoneVerificationModule } from "./modules/phone-verification/phone-veri
 import { ServiceRequestsModule } from "./modules/service-requests/service-requests.module";
 import { FavoritesModule } from "./modules/favorites/favorites.module";
 import { ProfessionalDiscoveryModule } from "./modules/professional-discovery/professional-discovery.module";
+import { PreProposalConversationsModule } from "./modules/pre-proposal-conversations/pre-proposal-conversations.module";
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ProfessionalDiscoveryModule } from "./modules/professional-discovery/pr
     ServiceRequestsModule,
     FavoritesModule,
     ProfessionalDiscoveryModule,
+    PreProposalConversationsModule,
   ],
   controllers: [HealthController],
 })

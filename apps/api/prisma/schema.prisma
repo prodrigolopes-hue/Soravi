@@ -42,6 +42,11 @@ enum ProfessionalProfilePhotoTaskKind {
   PHOTO_DELETE
 }
 
+enum PreProposalPhotoCandidateStatus {
+  PENDING
+  PROCESSING
+}
+
 enum ProfessionalIdentityVerificationAttemptStatus {
   AWAITING_EVIDENCE
   UNDER_REVIEW
@@ -211,6 +216,7 @@ model User {
   reviewedProfessionalVerificationReviews ProfessionalVerificationReview[] @relation("ProfessionalVerificationReviewReviewer")
   identityVerificationDecisions           IdentityVerificationDecision[]   @relation("IdentityVerificationDecisionOperator")
   messages                                Message[]
+  preProposalMessages                     PreProposalMessage[]
   conversationReadStates                  ConversationReadState[]
   notifications                           Notification[]
   communicationPreferences                CommunicationPreference[]
@@ -293,6 +299,7 @@ model CustomerProfile {
   reviews         Review[]
   customerReviews CustomerReview[]
   favorites       Favorite[]
+  preProposalConversations PreProposalConversation[] @relation("PreProposalConversationCustomer")
 
   @@map("customer_profiles")
 }
@@ -331,6 +338,7 @@ model ProfessionalProfile {
   verificationReviews    ProfessionalVerificationReview[]
   identityVerificationAttempts ProfessionalIdentityVerificationAttempt[]
   photo                  ProfessionalProfilePhoto?
+  preProposalConversations PreProposalConversation[] @relation("PreProposalConversationProfessional")
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
@@ -656,6 +664,7 @@ model ServiceOpportunity {
 
   serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  preProposalConversations PreProposalConversation[]
 
   @@unique([serviceRequestId, professionalProfileId], map: "service_opportunities_service_request_professional_key")
   @@index([professionalProfileId], map: "service_opportunities_professional_profile_id_idx")
@@ -791,6 +800,73 @@ model Conversation {
   readStates ConversationReadState[]
 
   @@map("conversations")
+}
+
+model PreProposalConversation {
+  id                    String   @id @default(uuid()) @db.Uuid
+  serviceOpportunityId  String   @map("service_opportunity_id") @db.Uuid
+  customerProfileId     String   @map("customer_profile_id") @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt              DateTime? @map("closed_at") @db.Timestamptz(3)
+
+  serviceOpportunity  ServiceOpportunity  @relation(fields: [serviceOpportunityId], references: [id], onDelete: Restrict)
+  customerProfile     CustomerProfile     @relation("PreProposalConversationCustomer", fields: [customerProfileId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation("PreProposalConversationProfessional", fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  messages            PreProposalMessage[]
+
+  @@index([customerProfileId, updatedAt], map: "pre_proposal_conversations_customer_updated_idx")
+  @@index([professionalProfileId, updatedAt], map: "pre_proposal_conversations_professional_updated_idx")
+  @@index([serviceOpportunityId, createdAt], map: "pre_proposal_conversations_opportunity_created_idx")
+  @@map("pre_proposal_conversations")
+}
+
+model PreProposalMessage {
+  id                        String   @id @default(uuid()) @db.Uuid
+  preProposalConversationId String   @map("pre_proposal_conversation_id") @db.Uuid
+  senderUserId              String   @map("sender_user_id") @db.Uuid
+  content                   String   @db.VarChar(4000)
+  sentAt                    DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  preProposalConversation PreProposalConversation @relation(fields: [preProposalConversationId], references: [id], onDelete: Restrict)
+  sender                  User                    @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  responsePhotos          PreProposalResponsePhoto[]
+
+  @@index([preProposalConversationId, sentAt, id], map: "pre_proposal_messages_conversation_sent_idx")
+  @@index([senderUserId, sentAt], map: "pre_proposal_messages_sender_sent_idx")
+  @@map("pre_proposal_messages")
+}
+
+model PreProposalResponsePhoto {
+  id                   String   @id @default(uuid()) @db.Uuid
+  preProposalMessageId String   @map("pre_proposal_message_id") @db.Uuid
+  objectKey            String   @unique(map: "pre_proposal_response_photos_object_key_key") @map("object_key") @db.VarChar(1024)
+  originalName         String   @map("original_name") @db.VarChar(255)
+  mimeType             String   @map("mime_type") @db.VarChar(127)
+  sizeBytes            Int      @map("size_bytes")
+  position             Int
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  preProposalMessage PreProposalMessage @relation(fields: [preProposalMessageId], references: [id], onDelete: Restrict)
+
+  @@unique([preProposalMessageId, position], map: "pre_proposal_response_photos_message_position_key")
+  @@map("pre_proposal_response_photos")
+}
+
+model PreProposalResponsePhotoUploadCandidate {
+  id String @id @default(uuid()) @db.Uuid
+  objectKey String @unique @map("object_key") @db.VarChar(1024)
+  status PreProposalPhotoCandidateStatus @default(PENDING)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  attemptCount Int @default(0) @map("attempt_count")
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  lastError String? @map("last_error") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@index([status, nextAttemptAt])
+  @@map("pre_proposal_response_photo_upload_candidates")
 }
 
 model Message {

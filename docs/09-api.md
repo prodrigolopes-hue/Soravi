@@ -2,6 +2,22 @@
 
 # Objetivo
 
+> Atualização: `POST /api/v1/opportunities/:opportunityId/pre-proposal-conversation/messages` cria um pedido separado. `POST /api/v1/pre-proposal-conversations/:conversationId/response` recebe a resposta única do cliente em `multipart/form-data` (`content` e até cinco `photos`) e encerra o pedido.
+
+`GET /api/v1/opportunities/:opportunityId/pre-proposal-conversations` retorna somente ao profissional proprietário da oportunidade os pedidos que ele criou, incluindo a resposta e URLs temporárias das fotos autorizadas.
+
+O conteúdo do pedido continua sendo o campo `content`; a interface profissional consolida as opções selecionadas e o texto obrigatório de “Outra dúvida” nesse único campo, sem mudança de contrato ou migration.
+
+Anexos pré-proposta registram candidato persistente antes do upload e usam a chave registrada. A associação bloqueia o candidato com `FOR UPDATE` e exige candidato `PENDING` sem tentativa anterior; assim, candidato já reivindicado pela limpeza não pode ser associado mesmo se for reagendado para reconciliação. Após associar a foto, o candidato é removido na mesma transação. Um processador periódico limitado reivindica candidatos com `FOR UPDATE SKIP LOCKED` na mesma transação, usa lease, protege fotos referenciadas e reagenda falhas de exclusão e verificações posteriores para capturar upload tardio. O mecanismo requer a migration `20261027000100_create_pre_proposal_photo_upload_candidates` nos ambientes ainda não migrados.
+
+## Contato pré-proposta
+
+O backend implementa `POST /api/v1/opportunities/:opportunityId/pre-proposal-conversation/messages`, `GET /api/v1/opportunities/:opportunityId/pre-proposal-conversations`, `GET /api/v1/service-requests/:serviceRequestId/pre-proposal-conversations`, `GET /api/v1/pre-proposal-conversations/:conversationId`, `GET /api/v1/pre-proposal-conversations/:conversationId/messages` e `POST /api/v1/pre-proposal-conversations/:conversationId/response`.
+
+Cada `POST` de criação abre um pedido independente; não há reaproveitamento por oportunidade nem endpoint para continuar uma conversa. O `POST .../response` aceita `content` obrigatório e até cinco imagens em `photos`, cada uma limitada a 5 MiB e validada como imagem suportada pelo mecanismo de fotos de solicitações. A primeira resposta válida encerra o pedido; repetição ou concorrência não cria segunda resposta. A listagem da oportunidade é restrita ao profissional proprietário; a da solicitação, ao cliente proprietário. As leituras de um pedido são restritas aos seus dois participantes e devolvem fotos somente por URL temporária, sem `objectKey`, endereço completo, CEP, telefone ou e-mail.
+
+O texto de criação permanece no campo `content`: a interface profissional pode consolidar opções selecionadas e a explicação obrigatória de “Outra dúvida” nesse campo. A interface de cliente responde uma única vez e mantém o pedido encerrado para consulta. Visita técnica continua pendente e não compartilha endereço automaticamente.
+
 ## Avaliacoes bilaterais cegas
 
 `POST /api/v1/contracts/:contractId/review` permite ao cliente criar `Review` (cliente -> profissional). `POST /api/v1/contracts/:contractId/customer-review` permite ao profissional criar `CustomerReview` (profissional -> cliente). Ambos aceitam `rating` inteiro de 1 a 5 e `comment` opcional, somente apos `COMPLETED` e ate sete dias de `completedAt`; apos o prazo, retornam `REVIEW_WINDOW_EXPIRED`.

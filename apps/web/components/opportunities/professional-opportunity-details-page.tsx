@@ -18,7 +18,10 @@ import {
   contractCustomerReviewUrl,
   contractStartUrl,
   opportunityByIdUrl,
+  opportunityPreProposalConversationMessagesUrl,
+  opportunityPreProposalConversationsUrl,
   opportunityViewedUrl,
+  preProposalConversationMessagesUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import { ImageLightbox } from "../shared/image-lightbox";
@@ -95,7 +98,23 @@ interface ProfessionalOpportunityDetailsPageProps {
   opportunityId: string;
 }
 
+interface PreProposalMessage {
+  id: string;
+  senderUserId: string;
+  content: string;
+  sentAt: string;
+}
+
+interface PreProposalRequestSummary { id: string; status: "CLOSED" | "AWAITING_RESPONSE"; messages: Array<PreProposalMessage & { responsePhotos?: Array<{ id: string; originalName: string; url: string }> }>; }
+
 const REVIEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DETAIL_REQUEST_OPTIONS = [
+  "Mais detalhes sobre o serviço",
+  "Fotos do local ou do problema",
+  "Medidas ou quantidade",
+  "Prazo desejado",
+  "Outra dúvida",
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -103,6 +122,76 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
+}
+
+function parsePreProposalMessage(value: unknown): PreProposalMessage | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.senderUserId !== "string" ||
+    typeof value.content !== "string" ||
+    typeof value.sentAt !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    senderUserId: value.senderUserId,
+    content: value.content,
+    sentAt: value.sentAt,
+  };
+}
+
+function responseData(payload: unknown): Record<string, unknown> | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  return isRecord(payload.data) ? payload.data : payload;
+}
+
+function parseStartedPreProposalConversation(payload: unknown): {
+  conversationId: string;
+  message: PreProposalMessage | null;
+} | null {
+  const root = responseData(payload);
+
+  if (!root || typeof root.conversationId !== "string") {
+    return null;
+  }
+
+  if (root.message === null) {
+    return { conversationId: root.conversationId, message: null };
+  }
+
+  const message = parsePreProposalMessage(root.message);
+  return message ? { conversationId: root.conversationId, message } : null;
+}
+
+function parseSentPreProposalMessage(payload: unknown): PreProposalMessage | null {
+  const root = responseData(payload);
+  return root ? parsePreProposalMessage(root.message) : null;
+}
+
+function parsePreProposalMessages(payload: unknown): PreProposalMessage[] | null {
+  const root = responseData(payload);
+
+  if (!root || !Array.isArray(root.items)) {
+    return null;
+  }
+
+  const messages: PreProposalMessage[] = [];
+
+  for (const item of root.items) {
+    const message = parsePreProposalMessage(item);
+    if (!message) {
+      return null;
+    }
+    messages.push(message);
+  }
+
+  return messages;
 }
 
 function isContractStatus(value: unknown): value is ContractStatus {
@@ -309,10 +398,141 @@ export function ProfessionalOpportunityDetailsPage({
   const [customerReviewError, setCustomerReviewError] = useState<string | null>(
     null,
   );
+  const [preProposalConversationId, setPreProposalConversationId] = useState<string | null>(null);
+  const [preProposalMessage, setPreProposalMessage] = useState("");
+  const [selectedDetailOptions, setSelectedDetailOptions] = useState<string[]>([]);
+  const [otherDetailQuestion, setOtherDetailQuestion] = useState("");
+  const [isSendingPreProposalMessage, setIsSendingPreProposalMessage] = useState(false);
+  const [preProposalMessageFeedback, setPreProposalMessageFeedback] = useState<string | null>(null);
+  const [preProposalMessages, setPreProposalMessages] = useState<PreProposalMessage[]>([]);
+  const [preProposalRequests, setPreProposalRequests] = useState<PreProposalRequestSummary[]>([]);
+  const [isLoadingPreProposalMessages, setIsLoadingPreProposalMessages] = useState(false);
 
   const viewedOpportunityIdRef = useRef<string | null>(null);
+  const preProposalRequestRef = useRef<string | null>(null);
+  const preProposalConversationIdRef = useRef<string | null>(null);
+  const preProposalHistoryRequestRef = useRef(0);
+  const preProposalSendRequestRef = useRef<number | null>(null);
+  const preProposalSendSequenceRef = useRef(0);
+  const restoredPreProposalStorageKeyRef = useRef<string | null>(null);
 
   const isProfessional = Boolean(user?.roles.includes("PROFESSIONAL"));
+  const preProposalScopeKey = `${opportunityId}:${user?.id ?? "anonymous"}`;
+  const preProposalSessionKey = `${preProposalScopeKey}:${accessToken ?? ""}`;
+  const preProposalStorageKey = `soravi:pre-proposal-conversation:${opportunityId}:${user?.id ?? "anonymous"}`;
+
+  preProposalRequestRef.current = preProposalSessionKey;
+
+  useEffect(() => {
+    preProposalRequestRef.current = preProposalSessionKey;
+    preProposalConversationIdRef.current = null;
+    preProposalHistoryRequestRef.current += 1;
+    preProposalSendRequestRef.current = null;
+    setPreProposalConversationId(null);
+    setPreProposalMessages([]);
+    setPreProposalMessage("");
+    setSelectedDetailOptions([]);
+    setOtherDetailQuestion("");
+    setPreProposalMessageFeedback(null);
+    setIsSendingPreProposalMessage(false);
+    setIsLoadingPreProposalMessages(false);
+  }, [preProposalScopeKey]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isProfessional || !accessToken) {
+      return;
+    }
+
+    if (restoredPreProposalStorageKeyRef.current === preProposalStorageKey) {
+      return;
+    }
+
+    restoredPreProposalStorageKeyRef.current = preProposalStorageKey;
+
+    let storedConversationId: string | null;
+
+    try {
+      storedConversationId = window.sessionStorage.getItem(preProposalStorageKey);
+    } catch {
+      return;
+    }
+
+    if (!storedConversationId) {
+      return;
+    }
+
+    preProposalConversationIdRef.current = storedConversationId;
+    setPreProposalConversationId(storedConversationId);
+  }, [accessToken, isAuthenticated, isProfessional, preProposalStorageKey]);
+
+  useEffect(() => {
+    if (!accessToken || !preProposalConversationId) {
+      return;
+    }
+
+    const requestKey = preProposalSessionKey;
+    const conversationId = preProposalConversationId;
+    const historyRequestId = preProposalHistoryRequestRef.current + 1;
+    preProposalHistoryRequestRef.current = historyRequestId;
+    setIsLoadingPreProposalMessages(true);
+
+    async function loadPreProposalMessages(): Promise<void> {
+      try {
+        const response = await fetch(preProposalConversationMessagesUrl(conversationId), {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          credentials: "include",
+          cache: "no-store",
+        });
+        const payload: unknown = await response.json().catch(() => null);
+        const messages = response.ok ? parsePreProposalMessages(payload) : null;
+
+        if (
+          preProposalRequestRef.current !== requestKey ||
+          preProposalConversationIdRef.current !== conversationId ||
+          preProposalHistoryRequestRef.current !== historyRequestId
+        ) {
+          return;
+        }
+
+        if (!messages) {
+          setPreProposalMessageFeedback("Não foi possível carregar a conversa agora.");
+          return;
+        }
+
+        setPreProposalMessages(messages);
+      } catch {
+        if (
+          preProposalRequestRef.current === requestKey &&
+          preProposalConversationIdRef.current === conversationId &&
+          preProposalHistoryRequestRef.current === historyRequestId
+        ) {
+          setPreProposalMessageFeedback("Não foi possível carregar a conversa agora.");
+        }
+      } finally {
+        if (
+          preProposalRequestRef.current === requestKey &&
+          preProposalConversationIdRef.current === conversationId &&
+          preProposalHistoryRequestRef.current === historyRequestId
+        ) {
+          setIsLoadingPreProposalMessages(false);
+        }
+      }
+    }
+
+    void loadPreProposalMessages();
+  }, [accessToken, preProposalConversationId, preProposalSessionKey]);
+
+  useEffect(() => {
+    if (!accessToken || !isProfessional) return;
+    let active = true;
+    void fetch(opportunityPreProposalConversationsUrl(opportunityId), { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" })
+      .then(async (response) => response.ok ? responseData(await response.json().catch(() => null)) : null)
+      .then((data) => { if (active && data && Array.isArray(data.items)) setPreProposalRequests(data.items as PreProposalRequestSummary[]); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [accessToken, isProfessional, opportunityId, preProposalConversationId]);
 
   const loadOpportunity = useCallback(async (): Promise<void> => {
     if (!accessToken) {
@@ -614,6 +834,116 @@ export function ProfessionalOpportunityDetailsPage({
       setCustomerReviewError("Não foi possível enviar a avaliação agora.");
     } finally {
       setIsSubmittingCustomerReview(false);
+    }
+  }
+
+  async function sendPreProposalMessage(): Promise<void> {
+    const otherSelected = selectedDetailOptions.includes("Outra dúvida");
+    const selected = selectedDetailOptions.filter((option) => option !== "Outra dúvida");
+    const content = [
+      selected.length ? `Gostaria de esclarecimentos sobre:\n- ${selected.join("\n- ")}` : "",
+      otherSelected ? `Outra dúvida:\n${otherDetailQuestion.trim()}` : "",
+    ].filter(Boolean).join("\n\n");
+    const currentOpportunityId = opportunity?.opportunityId;
+    if (
+      !accessToken ||
+      !currentOpportunityId ||
+      !content ||
+      isSendingPreProposalMessage ||
+      preProposalSendRequestRef.current !== null
+    ) {
+      return;
+    }
+
+    const requestKey = preProposalSessionKey;
+    // Cada envio abre um pedido independente; nunca reutiliza um histórico como chat.
+    const currentConversationId: string | null = null;
+    const sendRequestId = preProposalSendSequenceRef.current + 1;
+    preProposalSendSequenceRef.current = sendRequestId;
+    preProposalSendRequestRef.current = sendRequestId;
+    setIsSendingPreProposalMessage(true);
+    setPreProposalMessageFeedback(null);
+
+    try {
+      const response = await fetch(
+        opportunityPreProposalConversationMessagesUrl(currentOpportunityId),
+        {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ content }),
+        },
+      );
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error("pre-proposal message failed");
+      }
+
+      if (preProposalRequestRef.current !== requestKey) {
+        return;
+      }
+
+      if (!currentConversationId) {
+        const startedConversation = parseStartedPreProposalConversation(payload);
+
+        if (!startedConversation) {
+          throw new Error("invalid pre-proposal start response");
+        }
+
+        preProposalConversationIdRef.current = startedConversation.conversationId;
+        setPreProposalConversationId(startedConversation.conversationId);
+        try {
+          window.sessionStorage.setItem(
+            preProposalStorageKey,
+            startedConversation.conversationId,
+          );
+        } catch {
+          // A conversa continua disponível nesta página mesmo sem armazenamento da sessão.
+        }
+        setPreProposalMessages(
+          startedConversation.message ? [startedConversation.message] : [],
+        );
+        setPreProposalMessageFeedback(
+          startedConversation.message === null
+            ? "A conversa já estava aberta. Agora você pode enviar uma nova mensagem."
+            : "Mensagem enviada ao cliente.",
+        );
+        if (startedConversation.message) {
+      setPreProposalMessage("");
+      setSelectedDetailOptions([]);
+      setOtherDetailQuestion("");
+        }
+      } else {
+        const sentMessage = parseSentPreProposalMessage(payload);
+
+        if (!sentMessage) {
+          throw new Error("invalid pre-proposal send response");
+        }
+
+        preProposalHistoryRequestRef.current += 1;
+        setPreProposalMessages((messages) =>
+          messages.some((message) => message.id === sentMessage.id)
+            ? messages
+            : [...messages, sentMessage],
+        );
+        setPreProposalMessageFeedback("Mensagem enviada ao cliente.");
+        setPreProposalMessage("");
+      }
+    } catch {
+      if (preProposalRequestRef.current === requestKey) {
+        setPreProposalMessageFeedback(
+          "Não foi possível enviar a mensagem agora. Tente novamente.",
+        );
+      }
+    } finally {
+      if (preProposalSendRequestRef.current === sendRequestId) {
+        preProposalSendRequestRef.current = null;
+        setIsSendingPreProposalMessage(false);
+      }
     }
   }
 
@@ -957,6 +1287,53 @@ export function ProfessionalOpportunityDetailsPage({
             </p>
           </div>
         </section>
+
+        {canSubmitProposal ? (
+          <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="pre-proposal-contact-title">
+            <div className="flex items-center gap-3">
+              <MessageCircle aria-hidden="true" className="size-5 text-blue-600" />
+              <h2 id="pre-proposal-contact-title" className="text-xl font-bold text-slate-950">
+                Pedir mais detalhes
+              </h2>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Envie uma pergunta privada. Cada pedido recebe uma única resposta e não funciona como chat.
+            </p>
+            {false && isLoadingPreProposalMessages ? (
+              <p className="mt-4 text-sm text-slate-600">Carregando conversa...</p>
+            ) : null}
+            {false && preProposalMessages.length > 0 ? (
+              <ol className="mt-4 space-y-3" aria-label="Mensagens da conversa">
+                {preProposalMessages.map((message) => (
+                  <li key={message.id} className="rounded-xl bg-slate-50 p-3 text-sm text-slate-800">
+                    <p className="font-semibold text-slate-700">
+                      {message.senderUserId === user?.id ? "Você" : "Cliente"}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap">{message.content}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+            {preProposalRequests.length > 0 ? <ol className="mt-4 space-y-3" aria-label="Pedidos de esclarecimento">{preProposalRequests.map((request) => <li key={request.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800"><p className="font-semibold">{request.status === "CLOSED" ? "Encerrado" : "Aguardando resposta"}</p>{request.messages.map((message, index) => <div key={message.id} className="mt-2"><p className="font-medium text-slate-700">{index === 0 ? "Sua pergunta" : "Resposta do cliente"}</p><p className="whitespace-pre-wrap">{message.content}</p>{message.responsePhotos?.map((photo) => <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" className="mt-1 block font-semibold text-blue-700">{photo.originalName}</a>)}</div>)}</li>)}</ol> : null}
+            <fieldset className="mt-5">
+              <legend className="text-sm font-medium text-slate-800">O que você precisa esclarecer?</legend>
+              <div className="mt-2 space-y-2">{DETAIL_REQUEST_OPTIONS.map((option) => <label key={option} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={selectedDetailOptions.includes(option)} disabled={isSendingPreProposalMessage} onChange={(event) => setSelectedDetailOptions((current) => event.target.checked ? [...current, option] : current.filter((item) => item !== option))} />{option}</label>)}</div>
+              {selectedDetailOptions.includes("Outra dúvida") ? <><label className="mt-3 block text-sm font-medium text-slate-800" htmlFor="pre-proposal-other-question">Descreva sua dúvida</label><textarea id="pre-proposal-other-question" value={otherDetailQuestion} onChange={(event) => setOtherDetailQuestion(event.target.value)} required maxLength={4000} rows={3} disabled={isSendingPreProposalMessage} className="mt-1 block w-full rounded-xl border border-slate-300 p-3 text-slate-900" /></> : null}
+            </fieldset>
+            <button
+              type="button"
+              onClick={() => void sendPreProposalMessage()}
+              disabled={!selectedDetailOptions.length || (selectedDetailOptions.includes("Outra dúvida") && !otherDetailQuestion.trim()) || isSendingPreProposalMessage}
+              className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {isSendingPreProposalMessage ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : <MessageCircle aria-hidden="true" className="size-4" />}
+              Pedir esclarecimento
+            </button>
+            {preProposalMessageFeedback ? (
+              <p role="status" className="mt-3 text-sm font-medium text-slate-700">{preProposalMessageFeedback}</p>
+            ) : null}
+          </section>
+        ) : null}
 
         {canSubmitProposal ? (
           <ProfessionalProposalForm

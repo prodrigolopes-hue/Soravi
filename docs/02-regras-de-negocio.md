@@ -2,6 +2,12 @@
 
 # Objetivo
 
+> Atualização: “Pedir mais detalhes” é um pedido privado e separado: o profissional elegível pergunta, o cliente responde uma única vez com fotos opcionais e o pedido é encerrado para consulta. Não é chat; outro esclarecimento exige outro pedido. Permanecem a exclusividade do pedido direcionado e as proteções de endereço.
+
+O profissional consulta, na própria oportunidade, todos os pedidos que criou, com pergunta, status, resposta e fotos temporariamente autorizadas.
+
+Na abertura de um novo pedido, o profissional pode combinar temas predefinidos (serviço, fotos, medidas/quantidade e prazo). “Outra dúvida” exige texto complementar; os temas são enviados juntos em um único pedido privado.
+
 Avaliações estão implementadas nos dois sentidos após contrato `COMPLETED`: cliente avalia profissional e profissional vinculado avalia cliente, uma vez por contrato, com nota inteira de 1 a 5 e comentário opcional. As reputações correspondentes são atualizadas transacionalmente.
 
 ## Estado atual do MVP
@@ -274,15 +280,21 @@ Todas as mensagens ficam registradas para fins de segurança e suporte.
 
 ------------------------------------------------------------------------
 
-## Contato pré-proposta e visita técnica (planejado, ainda não implementado)
+## Contato pré-proposta e visita técnica
 
-“Pedir mais detalhes” será um contato privado, vinculado à solicitação, entre o cliente e o profissional elegível que recebeu a oportunidade, antes do envio de uma proposta. Outros profissionais não poderão acessar essa troca. Em pedidos direcionados, somente o destinatário poderá iniciar o contato.
+“Pedir mais detalhes” está implementado como pedido privado, independente e vinculado à oportunidade e à solicitação. O profissional elegível cria uma pergunta; o cliente participante responde uma única vez, opcionalmente com até cinco fotos, e o pedido é encerrado para consulta. Não há continuação de mensagens nesse pedido: nova dúvida exige novo pedido.
+
+O profissional consulta, no detalhe da própria oportunidade, os pedidos que criou, com pergunta, status, resposta e fotos autorizadas. O cliente consulta e responde seus pedidos no detalhe da própria solicitação. A interface não representa esse fluxo como chat; o chat contratual continua separado e só é liberado após a contratação.
+
+Outros profissionais não podem acessar pedidos alheios. Em solicitações direcionadas, somente o destinatário exclusivo pode criar e consultar pedidos. Endereço completo, CEP, telefone, e-mail, chaves de storage e outros dados privados não são devolvidos por esse fluxo; as fotos são entregues apenas aos participantes autorizados por URL temporária.
+
+Para cada foto de resposta, o backend cria antes do upload um candidato persistente com chave própria. A associação bloqueia esse candidato e só o aceita enquanto ainda não foi reivindicado pela manutenção; a associação da foto e a remoção do candidato ocorrem na mesma transação. Um processador limitado usa `FOR UPDATE SKIP LOCKED`, lease e novas tentativas para limpar objetos órfãos, inclusive uploads que terminem após uma tentativa de exclusão. Uma foto já referenciada é protegida contra exclusão.
 
 “Solicitar visita técnica” será um incremento posterior: o profissional deverá informar o motivo, uma sugestão de data e horário e se a visita é gratuita ou paga; quando paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
 
 O endereço completo não será liberado automaticamente ao iniciar o contato. A regra de liberação de endereço para visita técnica deverá ser definida antes da implementação.
 
-O primeiro incremento será “Pedir mais detalhes”. Poderá ser avaliado o reaproveitamento do chat, desde que não enfraqueça as permissões das conversas vinculadas a contratos.
+O histórico de decisão que previa avaliar o reaproveitamento do chat foi substituído: pedidos de esclarecimento não reutilizam nem alteram as permissões do chat de contratos.
 
 ------------------------------------------------------------------------
 
