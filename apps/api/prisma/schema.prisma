@@ -217,10 +217,27 @@ model User {
   outboundNotifications                   OutboundNotification[]
   phoneVerificationChallenges             PhoneVerificationChallenge[]
   reviewReminders                         ReviewReminder[]
+  adminActivationAudits                   AdminActivationAudit[]
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
   @@map("users")
+}
+
+model AdminActivationAudit {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @unique(map: "admin_activation_audits_user_id_key") @map("user_id") @db.Uuid
+  action         String     @db.VarChar(64)
+  previousStatus UserStatus @map("previous_status")
+  newStatus      UserStatus @map("new_status")
+  justification  String     @db.VarChar(1000)
+  activatedAt    DateTime   @default(now()) @map("activated_at") @db.Timestamptz(3)
+  executionId    String     @unique(map: "admin_activation_audits_execution_id_key") @map("execution_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([activatedAt], map: "admin_activation_audits_activated_at_idx")
+  @@map("admin_activation_audits")
 }
 
 model PersonalIdentity {

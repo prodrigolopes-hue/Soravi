@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "admin:set-password": "tsx scripts/set-admin-password.ts",
+    "admin:activate-initial": "tsx scripts/activate-initial-admin.ts",
     "start:dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/src/main.js",
