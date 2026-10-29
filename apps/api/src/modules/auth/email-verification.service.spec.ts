@@ -71,7 +71,7 @@ describe("EmailVerificationService", () => {
       { id: tokenId, userId, tokenHash, expiresAt: new Date(Date.now() + 60_000), usedAt: null },
     ]);
 
-    await expect(service.confirm(rawToken)).resolves.toBeUndefined();
+    await expect(service.confirm(rawToken)).resolves.toBe(userId);
     const transaction = (prisma.$transaction as jest.Mock).mock.calls[0][0];
     expect(transaction).toBeDefined();
   });

@@ -62,7 +62,7 @@ export class EmailVerificationService {
     }
   }
 
-  async confirm(rawToken: string): Promise<void> {
+  async confirm(rawToken: string): Promise<string> {
     const tokenHash = this.hashToken(rawToken);
     const candidate = await this.prisma.emailVerificationToken.findUnique({
       where: { tokenHash },
@@ -73,7 +73,7 @@ export class EmailVerificationService {
       throw new EmailVerificationInvalidOrExpiredException();
     }
 
-    await this.prisma.$transaction(async (transaction) => {
+    return this.prisma.$transaction(async (transaction) => {
       const user = await this.lockUser(transaction, candidate.userId);
       const token = await this.lockToken(transaction, candidate.id);
       const now = new Date();
@@ -104,6 +104,7 @@ export class EmailVerificationService {
         where: { userId: user.id, id: { not: token.id }, usedAt: null },
         data: { usedAt: now },
       });
+      return user.id;
     });
   }
 

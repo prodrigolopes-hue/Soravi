@@ -117,6 +117,16 @@ export function AccountDataPage() {
           <dl className="mt-6 divide-y divide-slate-200">
             <DataRow label="Nome completo" value={user.name} />
             <DataRow label="E-mail" value={user.email} />
+            <div className="grid gap-2 py-4 sm:grid-cols-3 sm:gap-4">
+              <dt className="text-sm font-semibold text-slate-700">Verificação do e-mail</dt>
+              <dd className="sm:col-span-2">
+                <span className={"inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold " + (user.emailVerified ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800")}>
+                  <ShieldCheck aria-hidden="true" className="size-4" />
+                  {user.emailVerified ? "E-mail verificado" : "E-mail pendente de verificação"}
+                </span>
+                {!user.emailVerified ? <Link href="/verificar-email" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Verificar e-mail</Link> : null}
+              </dd>
+            </div>
             <DataRow label="Telefone" value={user.phone ?? "Não informado"} valueClassName={user.phone ? undefined : "text-slate-500"} />
             <PersonalIdentityStatusRow
               status={visiblePersonalIdentityStatus}

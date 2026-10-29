@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   HttpCode,
   HttpStatus,
   Post,
@@ -27,6 +28,7 @@ import { RegisterUserDto } from "./dto/register-user.dto";
 import { PasswordResetService } from "./password-reset.service";
 import { EmailVerificationService } from "./email-verification.service";
 import { EmailVerificationConfirmDto } from "./dto/email-verification-confirm.dto";
+import { AccessTokenAuthService } from "./access-token-auth.service";
 
 const PASSWORD_RESET_REQUEST_RESPONSE = {
   message: "Se existir uma conta com este e-mail, enviaremos as instruções.",
@@ -43,6 +45,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly passwordResetService: PasswordResetService,
     private readonly emailVerificationService: EmailVerificationService,
+    private readonly accessTokenAuthService: AccessTokenAuthService,
   ) { }
 
   @Post("password-reset/request")
@@ -69,13 +72,20 @@ export class AuthController {
   }
 
   @Post("email-verification/confirm")
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 900_000 } })
-  confirmEmailVerification(
+  async confirmEmailVerification(
     @Body() input: EmailVerificationConfirmDto,
-  ): Promise<void> {
-    return this.emailVerificationService.confirm(input.token);
+    @Headers("authorization") authorization: string | undefined,
+  ): Promise<{ data: { currentSessionMatches: boolean | null } }> {
+    const currentUser = await this.authenticateCurrentSession(authorization);
+    const confirmedUserId = await this.emailVerificationService.confirm(input.token);
+    return {
+      data: {
+        currentSessionMatches: currentUser === null ? null : currentUser.id === confirmedUserId,
+      },
+    };
   }
 
   @Post("password-reset/confirm")
@@ -213,6 +223,19 @@ export class AuthController {
 
     try {
       return decodeURIComponent(rawValue);
+    } catch {
+      return null;
+    }
+  }
+
+  private async authenticateCurrentSession(
+    authorization: string | undefined,
+  ): Promise<{ id: string } | null> {
+    const accessToken = this.accessTokenAuthService.extractBearerToken(authorization);
+    if (!accessToken) return null;
+
+    try {
+      return await this.accessTokenAuthService.authenticateAccessToken(accessToken);
     } catch {
       return null;
     }

@@ -432,7 +432,7 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Frontend `/recuperar-senha` integrado ao endpoint real, com resposta neutra e erros sanitizados.
 - [x] Frontend `/redefinir-senha` seguro, com token no fragmento mantido somente em memória e sem auto-login.
 - [x] Validação manual ponta a ponta pela interface, incluindo Resend, expiração, redefinição e novo login.
-- [ ] Confirmação de e-mail.
+- [x] Confirmação de e-mail.
 - [ ] Encerramento de todas as sessões.
 - [ ] Listagem de sessões ativas.
 
@@ -506,7 +506,8 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
   aprovados, sem confundir validação de dígitos com identidade verificada;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
 - [ ] evidências profissionais;
-- [ ] portfólio/fotos;
+- [ ] Portfólio de fotos de trabalhos no perfil profissional, com regras de
+  privacidade, autorização de acesso, limites de arquivo e moderação ainda a definir.
 - [ ] questionário curto por categoria;
 - [ ] checklist de curadoria;
 - [ ] classificação operacional de risco;

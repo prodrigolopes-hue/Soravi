@@ -25,7 +25,7 @@ import {
   REGISTRATION_CONTACT_CONFLICT_MESSAGE,
 } from "./registration-conflict";
 import { apiBaseUrl } from "../../lib/api";
-import { safeDirectedRequestReturnTo, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
+import { safeDirectedRequestReturnTo } from "../../lib/directed-service-request";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
   PASSWORD_HELP_TEXT,
@@ -200,7 +200,7 @@ export function CustomerRegistrationForm() {
       );
 
       setSubmissionState("success");
-      setFormMessage("Conta criada com sucesso. Você já pode entrar na Soravi.");
+      setFormMessage("Conta criada. Confira seu e-mail e a caixa de spam para confirmar o acesso.");
       reset({
         name: "",
         email: "",
@@ -209,7 +209,7 @@ export function CustomerRegistrationForm() {
         passwordConfirmation: "",
         acceptedTerms: false,
       });
-      router.replace(withDirectedRequestReturnTo("/entrar", returnTo));
+      router.replace(`/verificar-email?from=registration${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`);
     } catch {
       setSubmissionState("error");
       setFormError("Não foi possível conectar à Soravi. Tente novamente em instantes.");

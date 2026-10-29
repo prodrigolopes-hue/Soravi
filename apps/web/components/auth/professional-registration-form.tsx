@@ -361,9 +361,9 @@ export function ProfessionalRegistrationForm() {
       );
 
       setFormMessage(
-        "Cadastro profissional enviado com sucesso. Você já pode entrar na Soravi.",
+        "Cadastro profissional concluído. Confira seu e-mail e a caixa de spam para confirmar o acesso.",
       );
-      router.replace("/entrar");
+      router.replace("/verificar-email?from=registration");
     } catch {
       setFormMessage(null);
       setFormError(

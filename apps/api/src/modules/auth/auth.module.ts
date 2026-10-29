@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { PrismaModule } from "../../database/prisma.module";
 import { UsersModule } from "../users/users.module";
+import { AccessTokenModule } from "./access-token.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AuthTokensService } from "./auth-tokens.service";
@@ -62,6 +63,7 @@ export function createEmailVerificationDeliveryPort(
   imports: [
     PrismaModule,
     UsersModule,
+    AccessTokenModule,
     JwtModule.register({}),
   ],
   controllers: [AuthController],

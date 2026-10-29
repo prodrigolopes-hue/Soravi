@@ -847,9 +847,18 @@ POST /api/v1/auth/email-verification/confirm
 
 ### Resposta
 
-```text
-204 No Content
+```json
+{
+  "data": {
+    "currentSessionMatches": true
+  }
+}
 ```
+
+Retorna `200 OK`. O campo é `true` ou `false` somente quando um access token
+válido foi apresentado e informa apenas se a sessão atual corresponde ao token
+confirmado; sem sessão, é `null`. Não expõe identificadores, e-mail ou outros
+dados da conta confirmada.
 
 ---
 
@@ -861,7 +870,7 @@ POST /api/v1/auth/email-verification/request
 
 ### Autenticação
 
-Obrigatória.
+Não. A resposta permanece neutra para não revelar a existência da conta.
 
 ### Resposta
 

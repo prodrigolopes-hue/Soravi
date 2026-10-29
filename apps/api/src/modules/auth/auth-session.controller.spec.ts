@@ -8,6 +8,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { PasswordResetService } from "./password-reset.service";
 import { EmailVerificationService } from "./email-verification.service";
+import { AccessTokenAuthService } from "./access-token-auth.service";
 
 describe("AuthController sessions", () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -20,6 +21,7 @@ describe("AuthController sessions", () => {
     authServiceMock as unknown as AuthService,
     {} as PasswordResetService,
     {} as EmailVerificationService,
+    {} as AccessTokenAuthService,
   );
 
   afterEach(() => {
