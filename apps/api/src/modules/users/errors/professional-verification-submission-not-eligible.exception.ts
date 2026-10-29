@@ -4,6 +4,7 @@ export type ProfessionalVerificationSubmissionIneligibilityReason =
   | "DISPLAY_NAME_MISSING"
   | "PHONE_MISSING"
   | "PHONE_NOT_VERIFIED"
+  | "EMAIL_NOT_VERIFIED"
   | "ACTIVE_CATEGORY_MISSING"
   | "PROFESSIONAL_TITLE_MISSING"
   | "SERVICE_AREA_MISSING"
@@ -16,6 +17,7 @@ const messages: Record<ProfessionalVerificationSubmissionIneligibilityReason, st
   DISPLAY_NAME_MISSING: "Informe um nome de exibi\u00e7\u00e3o antes de enviar o perfil para an\u00e1lise.",
   PHONE_MISSING: "Informe um telefone antes de enviar o perfil para an\u00e1lise.",
   PHONE_NOT_VERIFIED: "Verifique seu telefone antes de enviar o perfil para an\u00e1lise.",
+  EMAIL_NOT_VERIFIED: "Verifique seu e-mail antes de enviar o perfil para an\u00e1lise.",
   ACTIVE_CATEGORY_MISSING: "Selecione ao menos uma categoria ativa antes de enviar o perfil para an\u00e1lise.",
 };
 

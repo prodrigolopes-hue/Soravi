@@ -748,7 +748,8 @@ POST /api/v1/auth/logout-all
 
 ### Autenticação
 
-Obrigatória.
+Não. A resposta é neutra para permitir que contas existentes peçam novo link
+sem autenticação e sem revelar se o e-mail possui conta.
 
 ### Resposta
 
@@ -833,7 +834,7 @@ Sim, com token.
 ## 14.8 Verificar e-mail
 
 ```text
-POST /api/v1/auth/verify-email
+POST /api/v1/auth/email-verification/confirm
 ```
 
 ### Entrada
@@ -855,7 +856,7 @@ POST /api/v1/auth/verify-email
 ## 14.9 Reenviar verificação de e-mail
 
 ```text
-POST /api/v1/auth/resend-email-verification
+POST /api/v1/auth/email-verification/request
 ```
 
 ### Autenticação
@@ -870,9 +871,13 @@ Obrigatória.
 
 ### Regras
 
-- aplicar limite de frequência;
-- não emitir novos tokens indefinidamente;
-- invalidar token anterior quando necessário.
+- limite de 3 solicitações por 15 minutos, pelo `ThrottlerGuard` com storage
+  Redis compartilhado da API;
+- token aleatório é persistido apenas como hash, vale 24 horas e é de uso único;
+- cada reenvio invalida tokens ativos anteriores; contas inexistentes, excluídas
+  ou já confirmadas recebem a mesma resposta `202` sem envio;
+- o link aponta para `FRONTEND_PUBLIC_URL/verificar-email#token`; o token não
+  deve ser registrado, colocado em query string ou exposto em respostas.
 
 ---
 

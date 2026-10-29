@@ -25,9 +25,14 @@ import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { RegisterResponseDto } from "./dto/register-response.dto";
 import { RegisterUserDto } from "./dto/register-user.dto";
 import { PasswordResetService } from "./password-reset.service";
+import { EmailVerificationService } from "./email-verification.service";
+import { EmailVerificationConfirmDto } from "./dto/email-verification-confirm.dto";
 
 const PASSWORD_RESET_REQUEST_RESPONSE = {
   message: "Se existir uma conta com este e-mail, enviaremos as instruções.",
+} as const;
+const EMAIL_VERIFICATION_REQUEST_RESPONSE = {
+  message: "Se existir uma conta nao confirmada com este e-mail, enviaremos as instrucoes.",
 } as const;
 
 @Controller("auth")
@@ -37,6 +42,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly emailVerificationService: EmailVerificationService,
   ) { }
 
   @Post("password-reset/request")
@@ -49,6 +55,27 @@ export class AuthController {
     await this.passwordResetService.requestReset(input.email);
 
     return PASSWORD_RESET_REQUEST_RESPONSE;
+  }
+
+  @Post("email-verification/request")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 900_000 } })
+  async requestEmailVerification(
+    @Body() input: PasswordResetRequestDto,
+  ): Promise<{ message: string }> {
+    await this.emailVerificationService.requestVerification(input.email);
+    return EMAIL_VERIFICATION_REQUEST_RESPONSE;
+  }
+
+  @Post("email-verification/confirm")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 900_000 } })
+  confirmEmailVerification(
+    @Body() input: EmailVerificationConfirmDto,
+  ): Promise<void> {
+    return this.emailVerificationService.confirm(input.token);
   }
 
   @Post("password-reset/confirm")
@@ -67,10 +94,16 @@ export class AuthController {
   @Post("register")
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 900_000 } })
-  register(
+  async register(
     @Body() input: RegisterUserDto,
   ): Promise<RegisterResponseDto> {
-    return this.authService.register(input);
+    const result = await this.authService.register(input);
+    // A conta criada continua utilizavel mesmo se a entrega ainda nao estiver
+    // configurada ou falhar; o usuario pode pedir novo link posteriormente.
+    await this.emailVerificationService
+      .sendForRegisteredUser(result.data.id)
+      .catch(() => undefined);
+    return result;
   }
 
   @Post("login")

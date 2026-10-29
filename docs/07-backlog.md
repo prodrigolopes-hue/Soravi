@@ -335,6 +335,13 @@ Cada tarefa somente será considerada concluída quando:
   telefone e e-mail confirmados e CEP de referência privado, separado da
   região de atendimento. CPF válido, documento enviado e CEP não bastam para
   afirmar identidade verificada.
+- [x] Confirmacao de e-mail: apos o cadastro, criar token aleatorio com hash
+  persistido, validade de 24 horas e uso unico; enviar link pelo provedor
+  configurado e permitir reenvio com resposta neutra e rate limit. Login segue
+  permitido sem confirmacao, mas a submissao ou reenvio da verificacao
+  profissional exige e-mail confirmado. Falha de entrega invalida o token sem
+  expor o valor; CPF nao bloqueia enquanto o fluxo acessivel de cadastro nao
+  estiver definido.
 - [ ] Definir selfie, método de conferência de titularidade e critérios de
   aprovação; não bloquear login nem excluir histórico por pendências.
 - [ ] Implementar foto de perfil vinculada ao profissional individual cuja

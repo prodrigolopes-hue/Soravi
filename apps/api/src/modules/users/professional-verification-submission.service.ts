@@ -21,6 +21,7 @@ interface LockedProfessionalProfile {
   verificationStatus: ProfessionalVerificationStatus;
   phone: string | null;
   phoneVerifiedAt: Date | null;
+  emailVerifiedAt: Date | null;
 }
 
 @Injectable()
@@ -57,6 +58,12 @@ export class ProfessionalVerificationSubmissionService {
       if (!profile.phoneVerifiedAt) {
         throw new ProfessionalVerificationSubmissionNotEligibleException(
           "PHONE_NOT_VERIFIED",
+        );
+      }
+
+      if (!profile.emailVerifiedAt) {
+        throw new ProfessionalVerificationSubmissionNotEligibleException(
+          "EMAIL_NOT_VERIFIED",
         );
       }
 
@@ -118,7 +125,8 @@ export class ProfessionalVerificationSubmissionService {
           "professional_profiles"."bio",
           "professional_profiles"."verification_status" AS "verificationStatus",
           "users"."phone",
-          "users"."phone_verified_at" AS "phoneVerifiedAt"
+          "users"."phone_verified_at" AS "phoneVerifiedAt",
+          "users"."email_verified_at" AS "emailVerifiedAt"
         FROM "professional_profiles"
         INNER JOIN "users" ON "users"."id" = "professional_profiles"."user_id"
         WHERE "professional_profiles"."user_id" = ${userId}::uuid
