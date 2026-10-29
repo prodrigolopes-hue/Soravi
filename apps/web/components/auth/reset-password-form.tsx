@@ -3,11 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { z } from "../../lib/zod";
-import { confirmPasswordReset, extractPasswordResetToken, PasswordResetApiError, passwordConfirmationMessage, passwordValidationMessage } from "../../lib/password-reset";
+import { completePasswordReset, extractPasswordResetToken, PasswordResetApiError, passwordConfirmationMessage, passwordValidationMessage } from "../../lib/password-reset";
+import { useAuth } from "./auth-provider";
 
 const schema = z.object({
   password: z.string().superRefine((value, context) => { const message = passwordValidationMessage(value); if (message) context.addIssue({ code: "custom", message }); }),
@@ -18,7 +18,7 @@ type TokenStatus = "capturing" | "ready" | "unavailable";
 const unavailableLinkMessage = "Este link de redefinição é inválido ou não está mais disponível.";
 
 export function ResetPasswordForm() {
-  const router = useRouter();
+  const { signOut } = useAuth();
   const tokenRef = useRef<string | null>(null);
   const capturedRef = useRef(false);
   const submittingRef = useRef(false);
@@ -28,6 +28,7 @@ export function ResetPasswordForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [resetComplete, setResetComplete] = useState(false);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { password: "", passwordConfirmation: "" }, mode: "onSubmit" });
 
   useEffect(() => {
@@ -47,10 +48,10 @@ export function ResetPasswordForm() {
     submittingRef.current = true;
     setFormError(null);
     try {
-      await confirmPasswordReset(token, data.password);
+      await completePasswordReset(token, data.password, signOut);
       reset();
       tokenRef.current = null;
-      router.replace("/entrar");
+      setResetComplete(true);
     } catch (error) {
       const apiError = error instanceof PasswordResetApiError ? error : null;
       const message = apiError?.message ?? "Não foi possível redefinir sua senha agora. Tente novamente em instantes.";
@@ -65,6 +66,7 @@ export function ResetPasswordForm() {
 
   if (tokenStatus === "capturing") return <p className="mt-8 text-sm text-slate-600" role="status" aria-live="polite">Validando link...</p>;
   if (tokenStatus === "unavailable") return <div className="mt-8"><div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{unavailableMessage}</div><Link href="/recuperar-senha" className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Solicitar novo link</Link></div>;
+  if (resetComplete) return <div className="mt-8"><div role="status" aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">Senha alterada com sucesso. A sessão deste navegador foi encerrada. Entre novamente com sua nova senha.</div><Link href="/entrar" className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Ir para entrar</Link></div>;
 
   return <form className="mt-8 space-y-5" onSubmit={handleSubmit(submit, () => setFormError(null))} noValidate>
     <PasswordField id="password" label="Nova senha" placeholder="Crie uma nova senha" show={showPassword} setShow={setShowPassword} error={errors.password?.message} describedBy="password-help" registration={register("password")} />

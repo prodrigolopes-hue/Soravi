@@ -67,6 +67,23 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
   }
 }
 
+/**
+ * Finaliza o reset e encerra somente a sessão mantida neste navegador.
+ *
+ * A API revoga transacionalmente as sessões da conta cuja senha foi
+ * redefinida. O encerramento local acontece apenas depois do 204 para que um
+ * link inválido, expirado ou qualquer outra falha não desconecte quem já está
+ * usando este navegador (inclusive se for outra conta).
+ */
+export async function completePasswordReset(
+  token: string,
+  newPassword: string,
+  closeBrowserSession: () => Promise<void>,
+): Promise<void> {
+  await confirmPasswordReset(token, newPassword);
+  await closeBrowserSession();
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   try {
     const response = await fetch(requestUrl, {

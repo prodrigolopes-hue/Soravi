@@ -362,8 +362,9 @@ de produto.
 - a nova senha deve ter de 12 a 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo;
 - qualquer composição entre 12 e 128 caracteres é permitida, exceto senhas comuns bloqueadas pelo backend;
 - a senha nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação;
-- a redefinição válida revoga todas as sessões e invalida os demais tokens pendentes;
-- a redefinição não autentica o usuário automaticamente; o acesso exige novo login;
+- a redefinição válida revoga todas as sessões da conta cuja senha foi redefinida e invalida os demais tokens pendentes;
+- após uma redefinição válida, o navegador encerra somente sua sessão local atual (mesmo se ela for de outra conta), informa que a senha foi alterada e oferece acesso à tela de login; o reset não autentica o usuário automaticamente;
+- links inválidos, expirados ou outros erros não alteram a sessão atual do navegador;
 - uma troca administrativa de senha também invalida tokens de reset pendentes.
 
 ## Autenticação e sessões
