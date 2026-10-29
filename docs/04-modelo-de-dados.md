@@ -86,6 +86,13 @@ registro nessa entidade na mesma transação que atualiza o snapshot do
 Há índice por `professionalProfileId, createdAt`; o perfil é removido em cascade
 e o revisor é preservado por referência opcional com `onDelete: SetNull`.
 
+`ProfessionalIdentityVerificationAttempt` e
+`IdentityVerificationEvidenceReference` mantêm a evidência privada de identidade.
+O primeiro associa perfil profissional e identidade pessoal; o segundo armazena
+somente uma chave opaca de objeto privado e nunca uma URL pública, CPF ou bytes
+do documento. O envio atual registra evidência `DOCUMENT` e move a tentativa para
+`UNDER_REVIEW`; não altera o snapshot de `ProfessionalProfile`.
+
 Os campos editáveis do profissional estão disponíveis localmente e validados:
 `displayName` (até 120), `professionalTitle` (até 80), `serviceArea` (até 100),
 `bio` (até 1000), de uma a três categorias ativas e `isAvailable`.

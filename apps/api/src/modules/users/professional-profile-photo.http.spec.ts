@@ -171,6 +171,18 @@ describe("Professional profile photo HTTP endpoints", () => {
     expect(await response.text()).toBe("");
   });
 
+  it.each([
+    ["GET", "/api/v1/users/admin/professional-identity-verifications"],
+    ["GET", "/api/v1/users/admin/professional-identity-verifications/525afb87-2b81-4de7-9606-8f382fff3341/evidence"],
+    ["POST", "/api/v1/users/admin/professional-identity-verifications/525afb87-2b81-4de7-9606-8f382fff3341/decision"],
+  ])("denies %s %s without authentication and to CUSTOMER", async (method, path) => {
+    const url = `${await app!.getUrl()}${path}`;
+    const anonymous = await fetch(url, { method });
+    const customer = await fetch(url, { method, headers: { authorization: "Bearer customer", "Content-Type": "application/json" }, body: method === "POST" ? JSON.stringify({}) : undefined });
+    expect(anonymous.status).toBe(401);
+    expect(customer.status).toBe(403);
+  });
+
   async function uploadPhoto(
     fieldName = "photo",
     includeExtraField = false,

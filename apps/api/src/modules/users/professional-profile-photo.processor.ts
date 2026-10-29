@@ -7,6 +7,7 @@ import {
 import { SchedulerRegistry } from "@nestjs/schedule";
 
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
 
 export const PROFESSIONAL_PROFILE_PHOTO_PROCESSOR_INTERVAL_MS = 60_000;
 export const PROFESSIONAL_PROFILE_PHOTO_PROCESSOR_BATCH_SIZE = 25;
@@ -23,6 +24,7 @@ export class ProfessionalProfilePhotoProcessor
   constructor(
     private readonly professionalProfilePhotoService: ProfessionalProfilePhotoService,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly professionalIdentityDocumentService?: ProfessionalIdentityDocumentService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -57,6 +59,11 @@ export class ProfessionalProfilePhotoProcessor
         this.logger.error(
           "Falha sanitizada no processamento de limpeza de fotos profissionais.",
         );
+      }
+      try {
+        await this.professionalIdentityDocumentService?.processCleanupBatch(new Date(), PROFESSIONAL_PROFILE_PHOTO_PROCESSOR_BATCH_SIZE);
+      } catch {
+        this.logger.error("Falha sanitizada na limpeza de documentos de identidade.");
       }
 
       try {

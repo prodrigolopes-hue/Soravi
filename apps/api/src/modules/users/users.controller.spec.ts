@@ -24,6 +24,7 @@ import { PersonalIdentityRecordingService } from "./personal-identity-recording.
 import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
 
 describe("UsersController", () => {
     const userId =
@@ -60,6 +61,7 @@ describe("UsersController", () => {
         replaceCurrent: jest.Mock;
         removeCurrent: jest.Mock;
     };
+    let professionalIdentityDocumentServiceMock: { submitCurrent: jest.Mock };
 
     beforeEach(() => {
         usersServiceMock = {
@@ -88,6 +90,7 @@ describe("UsersController", () => {
             replaceCurrent: jest.fn(),
             removeCurrent: jest.fn(),
         };
+        professionalIdentityDocumentServiceMock = { submitCurrent: jest.fn() };
 
         controller = new UsersController(
             usersServiceMock as unknown as UsersService,
@@ -102,6 +105,7 @@ describe("UsersController", () => {
             personalIdentityStatusServiceMock as unknown as PersonalIdentityStatusService,
             professionalProfilePhotoServiceMock as unknown as ProfessionalProfilePhotoService,
             personalIdentityRecordingServiceMock as unknown as PersonalIdentityRecordingService,
+            professionalIdentityDocumentServiceMock as unknown as ProfessionalIdentityDocumentService,
         );
     });
 
@@ -540,6 +544,24 @@ describe("UsersController", () => {
 
         expect(guards).toEqual([AccessTokenGuard, RolesGuard]);
         expect(roles).toEqual([Role.PROFESSIONAL]);
+    });
+
+    it("envia o documento somente para o usuário autenticado e não retorna referência privada", async () => {
+        const currentUser: AuthenticatedUser = { id: userId, sessionId, roles: [Role.PROFESSIONAL], phoneVerifiedAt: null };
+        professionalIdentityDocumentServiceMock.submitCurrent.mockResolvedValue(undefined);
+
+        await expect(controller.submitCurrentProfessionalIdentityDocument(currentUser, {
+            buffer: Buffer.from("image"), mimetype: "image/png", size: 5,
+        })).resolves.toEqual({ submitted: true });
+        expect(professionalIdentityDocumentServiceMock.submitCurrent).toHaveBeenCalledWith(userId, {
+            buffer: Buffer.from("image"), declaredMimeType: "image/png",
+        });
+    });
+
+    it("protege envio de documento com autenticação, papel PROFESSIONAL e throttle", () => {
+        const method = UsersController.prototype.submitCurrentProfessionalIdentityDocument;
+        expect(Reflect.getMetadata("__guards__", method)).toEqual([AccessTokenGuard, RolesGuard, ThrottlerGuard]);
+        expect(Reflect.getMetadata("roles", method)).toEqual([Role.PROFESSIONAL]);
     });
 
     it("protege a revisao com autenticacao e papel ADMIN", () => {

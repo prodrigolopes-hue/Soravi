@@ -126,6 +126,20 @@ denunciar divergência de identidade ou comportamento, sujeito a análise intern
 e eventual suspensão. “Identidade verificada” descreve uma checagem concluída;
 não garante conduta futura nem qualidade do serviço.
 
+**Incremento implementado:** o profissional autenticado com papel `PROFESSIONAL`
+pode enviar uma imagem JPEG ou PNG da CIN, RG ou CNH por
+`POST /api/v1/users/me/professional-identity-verification/document`. O envio
+exige CPF pessoal já registrado; nenhuma conta existente recebe CPF fictício.
+O arquivo tem limite de 5 MiB, é validado pelo conteúdo (não apenas pelo MIME),
+tem metadados removidos e é armazenado como objeto privado sem rota pública ou
+URL retornada. A evidência cria ou completa uma tentativa privada em
+`UNDER_REVIEW`; ela não aprova o perfil, não altera `ProfessionalVerificationStatus`
+e não muda as regras atuais de oportunidades ou propostas. Somente a análise
+interna futura poderá decidir a identidade. A fila/tela administrativa para essa
+análise ainda não existe e está registrada no backlog. Candidatos de upload que
+não forem associados mantêm tarefa privada de limpeza e reconciliação; a
+migration correspondente precisa ser aplicada antes de habilitar este endpoint.
+
 **Implementação atual:**
 
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,

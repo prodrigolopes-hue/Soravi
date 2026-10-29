@@ -154,6 +154,10 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 ### Pendente
 
+- [x] Verificação de identidade profissional: API administrativa restrita a `ADMIN` lista tentativas pendentes, emite URL temporária privada e registra decisão append-only (`MANUAL`, resultado, motivo e critério), fechando somente a tentativa. O envio ou decisão não concede aprovação nem libera oportunidades/propostas.
+- [ ] Decisões operacionais para análise privada de identidade: definir papéis administrativos autorizados e revisão de acesso; duração e revogação de URLs temporárias; prazo de retenção e descarte seguro de documentos, tentativas e decisões; taxonomia/versionamento dos motivos; procedimento de segunda revisão, contestação e incidentes. A decisão de identidade deve permanecer separada da aprovação profissional e de oportunidades/propostas até regra explícita posterior.
+- [ ] Interface administrativa para análise privada de identidade: consumir as rotas administrativas existentes para listar tentativas, abrir evidência temporária e registrar decisão manual. A API já existe; não há tela administrativa dedicada ainda.
+- [ ] Aplicar, em ambiente controlado, a migration `20261029000100_create_identity_document_cleanup_tasks` antes de habilitar o envio de documentos; ela mantém candidatos de upload e a limpeza/reconciliação de objetos privados órfãos após falhas de storage ou concorrência.
 - [ ] Dashboard administrativo completo.
 - [ ] Gerenciamento de usuários (edição, exclusão, suspensão, filtros, busca e exportação).
 - [ ] Gerenciamento completo de profissionais.

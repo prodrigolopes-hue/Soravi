@@ -18,6 +18,8 @@ import { PersonalIdentityStatusService } from "./personal-identity-status.servic
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
 import { ProfessionalProfilePhotoProcessor } from "./professional-profile-photo.processor";
 import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { ProfessionalProfilePhotoReadService } from "./professional-profile-phot
     ProfessionalProfilePhotoService,
     ProfessionalProfilePhotoProcessor,
     ProfessionalProfilePhotoReadService,
+    ProfessionalIdentityDocumentService,
+    ProfessionalIdentityReviewService,
   ],
   exports: [UsersService, ProfessionalProfilePhotoReadService],
 })

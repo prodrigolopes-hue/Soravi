@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 
 import { categoriesUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
 import { PersonalIdentityCollection } from "./personal-identity-collection";
+import { ProfessionalIdentityDocumentUpload } from "./professional-identity-document-upload";
 import {
   type ProfessionalCategory,
   type ProfessionalProfile,
@@ -456,6 +457,8 @@ export function ProfessionalProfilePage() {
             userId={user.id}
           />
         ) : null}
+
+        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} /> : null}
 
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="professional-photo-title">
           <h2 id="professional-photo-title" className="text-xl font-bold text-slate-950">Foto profissional</h2>
