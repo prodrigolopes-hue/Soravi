@@ -142,6 +142,8 @@ migration correspondente precisa ser aplicada antes de habilitar este endpoint.
 
 **Estado e reenvio de documento de identidade:** `GET /api/v1/users/me/professional-identity-verification` retorna o estado da tentativa mais recente, separado de `ProfessionalVerificationStatus`. Sem tentativa, o envio é permitido; em `UNDER_REVIEW`, a interface mostra “Documento enviado — aguardando análise” e o backend rejeita novo envio; em `CLOSED/CONFIRMED`, mostra “Identidade confirmada” e também bloqueia novo envio; em `CLOSED/NOT_CONFIRMED` ou `CLOSED/INCONCLUSIVE`, orienta a revisão e permite reenvio. A decisão e as evidências de cada tentativa permanecem append-only no histórico. O bloqueio é validado dentro da transação protegida pelo lock do perfil, inclusive para requisições concorrentes. Isso não altera a aprovação do perfil profissional, oportunidades ou propostas.
 
+**Decisão administrativa de identidade:** a revisão privada exige um motivo compatível com o resultado: `DOCUMENT_CHECKED` para `CONFIRMED`; `DATA_MISMATCH`, `UNSUPPORTED_DOCUMENT` ou `SUSPECTED_TAMPERING` para `NOT_CONFIRMED`; e `DOCUMENT_UNREADABLE`, `DOCUMENT_INCOMPLETE` ou `INSUFFICIENT_INFORMATION` para `INCONCLUSIVE`. A interface exige confirmação antes do registro e evita duplo envio enquanto processa; o backend aplica a mesma validação antes de fechar a tentativa. Decisões já gravadas — inclusive códigos legados como `001` — são preservadas sem releitura, conversão ou alteração.
+
 **Implementação atual:**
 
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,

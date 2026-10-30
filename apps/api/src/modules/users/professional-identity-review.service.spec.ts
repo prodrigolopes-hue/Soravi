@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 
 describe("ProfessionalIdentityReviewService", () => {
@@ -18,12 +18,16 @@ describe("ProfessionalIdentityReviewService", () => {
   });
   it("registra decisão manual sem tocar no perfil profissional", async () => {
     tx.$queryRaw.mockResolvedValue([{ id: "attempt" }]);
-    await service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "MATCH", criteriaVersion: "v1" });
+    await service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", criteriaVersion: "v1" });
     expect(tx.identityVerificationDecision.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ operatorUserId: "admin", source: "MANUAL", result: "CONFIRMED" }) }));
     expect(tx.professionalIdentityVerificationAttempt.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "attempt" }, data: expect.objectContaining({ status: "CLOSED", result: "CONFIRMED" }) }));
   });
   it("rejeita a segunda decisão quando o lock não encontra UNDER_REVIEW", async () => {
     tx.$queryRaw.mockResolvedValue([]);
-    await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "MATCH", criteriaVersion: "v1" })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", criteriaVersion: "v1" })).rejects.toBeInstanceOf(ConflictException);
+  });
+  it("rejeita combinações novas de resultado e motivo que não são permitidas", async () => {
+    await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DATA_MISMATCH", criteriaVersion: "v1" })).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
 });

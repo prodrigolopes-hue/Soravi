@@ -473,7 +473,7 @@ export function ProfessionalProfilePage() {
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" />
             <div>
-              <h2 id="verification-status-title" className="font-bold text-slate-950">{profile.verificationStatus === "REJECTED" ? "Perfil não aprovado" : profile.verificationStatus === "PENDING" ? "Perfil em análise" : "Status da verificação"}</h2>
+              <h2 id="verification-status-title" className="font-bold text-slate-950">{profile.verificationStatus === "REJECTED" ? "Perfil profissional não aprovado" : profile.verificationStatus === "PENDING" ? "Verificação do perfil profissional em análise" : "Verificação do perfil profissional"}</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">{profile.verificationStatus === "REJECTED" ? "Revise as informações abaixo antes de reenviar seu perfil para uma nova análise." : profile.verificationStatus === "PENDING" ? "Seu perfil foi reenviado e está aguardando uma nova análise da Soravi." : "Este status é somente leitura nesta tela."}</p>
               <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verificationStyles[profile.verificationStatus]}`}>{verificationLabels[profile.verificationStatus]}</span>
               {profile.verificationStatus === "REJECTED" && user?.professionalProfile?.reviewNotes ? <p className="mt-3 text-sm leading-6 text-red-800"><span className="font-semibold">Motivo da revisão:</span> {user.professionalProfile.reviewNotes}</p> : null}

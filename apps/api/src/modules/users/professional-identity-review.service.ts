@@ -1,10 +1,15 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, IdentityVerificationDecisionSource, ProfessionalIdentityVerificationAttemptStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { Inject } from "@nestjs/common";
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
 const URL_TTL_SECONDS = 60;
+const REASON_CODES_BY_RESULT = {
+  CONFIRMED: ["DOCUMENT_CHECKED"],
+  NOT_CONFIRMED: ["DATA_MISMATCH", "UNSUPPORTED_DOCUMENT", "SUSPECTED_TAMPERING"],
+  INCONCLUSIVE: ["DOCUMENT_UNREADABLE", "DOCUMENT_INCOMPLETE", "INSUFFICIENT_INFORMATION"],
+} as const;
 
 @Injectable()
 export class ProfessionalIdentityReviewService {
@@ -18,6 +23,7 @@ export class ProfessionalIdentityReviewService {
     return { url: await this.storage.createTemporaryReadUrl(evidence.reference, URL_TTL_SECONDS), expiresInSeconds: URL_TTL_SECONDS };
   }
   async decide(adminUserId: string, attemptId: string, input: DecideProfessionalIdentityDto) {
+    this.ensureReasonCodeMatchesResult(input);
     return this.prisma.$transaction(async (tx) => {
       const [attempt] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "professional_identity_verification_attempts" WHERE "id" = ${attemptId}::uuid AND "status" = 'UNDER_REVIEW'::"ProfessionalIdentityVerificationAttemptStatus" FOR UPDATE`);
       if (!attempt) throw new ConflictException({ code: "IDENTITY_REVIEW_NOT_AVAILABLE", message: "A tentativa não está disponível para decisão." });
@@ -26,5 +32,15 @@ export class ProfessionalIdentityReviewService {
       await tx.professionalIdentityVerificationAttempt.update({ where: { id: attemptId }, data: { status: ProfessionalIdentityVerificationAttemptStatus.CLOSED, result: input.result, closedAt } });
       return { attemptId, result: input.result, decidedAt: closedAt };
     });
+  }
+
+  private ensureReasonCodeMatchesResult(input: DecideProfessionalIdentityDto): void {
+    const validCodes = REASON_CODES_BY_RESULT[input.result];
+    if (!validCodes?.includes(input.reasonCode as never)) {
+      throw new BadRequestException({
+        code: "IDENTITY_REVIEW_REASON_CODE_INVALID",
+        message: "O motivo não é válido para o resultado informado.",
+      });
+    }
   }
 }
