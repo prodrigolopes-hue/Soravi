@@ -27,6 +27,7 @@ export interface AuthUser {
   roles: string[];
   emailVerified: boolean;
   phoneVerified: boolean;
+  professionalRegistrationCompleted: boolean;
   createdAt: string;
   customerProfile: {
     id: string;
@@ -93,6 +94,7 @@ function isAuthUser(value: unknown): value is AuthUser {
     Array.isArray(candidate.roles) &&
     typeof candidate.emailVerified === "boolean" &&
     typeof candidate.phoneVerified === "boolean" &&
+    typeof candidate.professionalRegistrationCompleted === "boolean" &&
     typeof candidate.createdAt === "string"
   );
 }

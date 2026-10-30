@@ -265,6 +265,8 @@ describe("UsersService", () => {
             id: true,
             displayName: true,
             verificationStatus: true,
+            reviewedAt: true,
+            reviewNotes: true,
             isAvailable: true,
           },
         },

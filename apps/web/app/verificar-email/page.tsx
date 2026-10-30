@@ -4,6 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../../components/auth/auth-provider";
+import { phoneVerificationDestination } from "../../components/auth/phone-verification-routing";
 import { apiBaseUrl } from "../../lib/api";
 import { safeDirectedRequestReturnTo, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
 import {
@@ -21,12 +22,14 @@ export default function VerifyEmailPage() {
   const [sessionState, setSessionState] = useState<ConfirmationSessionState | null>(null);
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
   const [loginHref, setLoginHref] = useState("/entrar");
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const hasStartedConfirmation = useRef(false);
 
   useEffect(() => {
     const receivedToken = new URLSearchParams(window.location.hash.slice(1)).get("token");
     const fromRegistration = new URLSearchParams(window.location.search).get("from") === "registration";
     const returnTo = safeDirectedRequestReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
+    setReturnTo(returnTo);
     setLoginHref(withDirectedRequestReturnTo("/entrar", returnTo));
     window.history.replaceState(null, "", window.location.pathname);
     if (!receivedToken || !/^[A-Za-z0-9_-]{43}$/u.test(receivedToken)) {
@@ -88,7 +91,7 @@ export default function VerifyEmailPage() {
         {state === "registration" ? <p className="mt-3 leading-6 text-slate-700">Cadastro concluído. Confira seu e-mail e a caixa de spam para encontrar o link de confirmação. Se não o receber, solicite um novo link abaixo.</p> : null}
         {state === "invalid" ? <p className="mt-3 text-red-700">Este link é inválido ou expirou. Solicite um novo link.</p> : null}
         {state === "missing" ? <p className="mt-3 text-slate-700">Abra o link completo enviado para seu e-mail.</p> : null}
-        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Sua sessão foi mantida.</p><ResultLink href="/conta" label="Ir para minha conta" /></> : null}
+        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Sua sessão foi mantida.</p>{user?.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false ? <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"><h2 className="font-semibold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto para a análise privada. Isso não significa aprovação automática da identidade.</p><div className="mt-4 flex flex-wrap gap-3"><ResultLink href="/profissional/perfil" label="Completar cadastro" compact /><ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Fazer depois" compact /></div></div> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
         {state === "success" && sessionState === "other-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Para proteger as contas, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente.</p><ResultLink href={loginHref} label="Entrar" /></> : null}
         {state === "success" && sessionState === "signed-out" ? <><p className="mt-3 text-emerald-800">E-mail confirmado.</p><ResultLink href={loginHref} label="Entrar" /></> : null}
         {state !== "success" ? (
@@ -112,6 +115,6 @@ function getCurrentSessionMatches(payload: unknown): boolean | null {
   return typeof data.currentSessionMatches === "boolean" ? data.currentSessionMatches : null;
 }
 
-function ResultLink({ href, label }: { href: string; label: string }) {
-  return <Link href={href} className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white">{label}</Link>;
+function ResultLink({ href, label, compact = false }: { href: string; label: string; compact?: boolean }) {
+  return <Link href={href} className={`${compact ? "" : "mt-6 "}inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white`}>{label}</Link>;
 }

@@ -31,6 +31,11 @@ const safeUserSelect = {
       id: true,
     },
   },
+  personalIdentity: {
+    select: {
+      id: true,
+    },
+  },
   professionalProfile: {
     select: {
       id: true,
@@ -38,6 +43,15 @@ const safeUserSelect = {
       verificationStatus: true,
       reviewNotes: true,
       isAvailable: true,
+      identityVerificationAttempts: {
+        where: {
+          evidenceReferences: {
+            some: { kind: "DOCUMENT" },
+          },
+        },
+        select: { id: true },
+        take: 1,
+      },
     },
   },
 } satisfies Prisma.UserSelect;
@@ -208,7 +222,18 @@ export class UsersService {
       emailVerified: user.emailVerifiedAt !== null,
       phoneVerified: user.phoneVerifiedAt !== null,
       customerProfile: user.customerProfile,
-      professionalProfile: user.professionalProfile,
+      professionalProfile: user.professionalProfile
+        ? {
+            id: user.professionalProfile.id,
+            displayName: user.professionalProfile.displayName,
+            verificationStatus: user.professionalProfile.verificationStatus,
+            reviewNotes: user.professionalProfile.reviewNotes,
+            isAvailable: user.professionalProfile.isAvailable,
+          }
+        : null,
+      professionalRegistrationCompleted:
+        user.personalIdentity !== null &&
+        (user.professionalProfile?.identityVerificationAttempts.length ?? 0) > 0,
       createdAt: user.createdAt,
     });
   }

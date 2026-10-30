@@ -44,6 +44,36 @@ test("login exige telefone dos papeis comuns e libera ADMIN", () => {
   );
 });
 
+test("profissional incompleto recebe a orientacao sem usar a aprovacao do perfil", () => {
+  assert.equal(
+    postLoginDestination({
+      phoneVerified: true,
+      roles: ["PROFESSIONAL"],
+      professionalRegistrationCompleted: false,
+    }),
+    "/profissional?completeProfessional=1",
+  );
+  assert.equal(
+    postLoginDestination({
+      phoneVerified: true,
+      roles: ["PROFESSIONAL"],
+      professionalRegistrationCompleted: true,
+    }),
+    "/profissional",
+  );
+  assert.equal(
+    postLoginDestination(
+      {
+        phoneVerified: true,
+        roles: ["PROFESSIONAL", "CUSTOMER"],
+        professionalRegistrationCompleted: false,
+      },
+      "/solicitacoes/nova?professionalProfileId=123e4567-e89b-42d3-a456-426614174000",
+    ),
+    "/solicitacoes/nova?professionalProfileId=123e4567-e89b-42d3-a456-426614174000",
+  );
+});
+
 test("bootstrap e refresh ficam pendentes sem redirect prematuro", () => {
   assert.deepEqual(
     phoneVerificationGuardDecision({
