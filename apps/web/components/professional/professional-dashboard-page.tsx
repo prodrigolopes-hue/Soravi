@@ -12,6 +12,12 @@ type Dashboard = { opportunitiesAvailable: number; proposalsSent: number; servic
 type LoadState = "loading" | "success" | "empty" | "error";
 type SubmissionState = "idle" | "submitting" | "error";
 
+export function shouldShowProfessionalRegistrationPrompt(
+  professionalRegistrationCompleted: boolean | undefined,
+): boolean {
+  return professionalRegistrationCompleted === false;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 function parseDashboard(payload: unknown): Dashboard | null {
   const root = isRecord(payload) && isRecord(payload.data) ? payload.data : payload;
@@ -62,6 +68,7 @@ export function ProfessionalDashboardPage() {
 function ProfessionalVerificationCard({ status, phoneVerified, isSubmitting, error, onSubmit }: { status: string | undefined; phoneVerified: boolean; isSubmitting: boolean; error: string | null; onSubmit: () => void }) {
   const { user } = useAuth();
   const reviewNotes = user?.professionalProfile?.reviewNotes;
+  if (shouldShowProfessionalRegistrationPrompt(user?.professionalRegistrationCompleted)) return <section className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-blue-950"><h2 className="font-bold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto para a análise privada.</p><div className="mt-4 flex flex-wrap gap-3"><Link href="/profissional/perfil" className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white">Completar cadastro</Link><Link href="/profissional" className="inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-900">Fazer depois</Link></div></section>;
   if (status === "PENDING") return <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5"><h2 className="font-bold text-amber-950">Perfil em analise</h2><p className="mt-2 text-sm text-amber-900">Seu perfil foi enviado para analise administrativa.</p></section>;
   if (status === "APPROVED") return <section className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><h2 className="font-bold text-emerald-950">Perfil aprovado</h2><p className="mt-2 text-sm text-emerald-900">Seu perfil profissional esta verificado.</p></section>;
   if (status === "REJECTED") return <section className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5"><h2 className="font-bold text-red-950">Perfil nao aprovado</h2><p className="mt-2 text-sm text-red-900">Revise seu perfil e reenvie-o para uma nova analise.</p>{reviewNotes ? <p className="mt-3 text-sm text-red-950"><span className="font-semibold">Motivo da revisao:</span> {reviewNotes}</p> : null}{error ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{error}</p> : null}<div className="mt-4 flex gap-3"><Link href="/profissional/perfil" className="inline-flex min-h-11 items-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-900">Editar perfil</Link><button type="button" disabled={isSubmitting} onClick={onSubmit} className="inline-flex min-h-11 items-center rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmitting ? "Reenviando..." : "Reenviar para analise"}</button></div></section>;
