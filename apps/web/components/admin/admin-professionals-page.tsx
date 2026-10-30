@@ -24,6 +24,7 @@ interface AdminProfessionalProfile {
   reviewedAt: string | null;
   reviewNotes: string | null;
   isAvailable: boolean;
+  identityVerification: { id: string; status: string; result: string } | null;
 }
 
 interface AdminProfessional {
@@ -89,6 +90,7 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     !isNullableString(candidate.reviewedAt) ||
     !isNullableString(candidate.reviewNotes) ||
     typeof candidate.isAvailable !== "boolean"
+    || (candidate.identityVerification !== null && (!isRecord(candidate.identityVerification) || typeof candidate.identityVerification.id !== "string" || typeof candidate.identityVerification.status !== "string" || typeof candidate.identityVerification.result !== "string"))
   ) {
     return null;
   }
@@ -100,6 +102,7 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     reviewedAt: candidate.reviewedAt,
     reviewNotes: candidate.reviewNotes,
     isAvailable: candidate.isAvailable,
+    identityVerification: candidate.identityVerification as AdminProfessionalProfile["identityVerification"],
   };
 }
 
@@ -256,6 +259,15 @@ function formatVerificationStatus(status: string): string {
 
 function formatAvailability(isAvailable: boolean): string {
   return isAvailable ? "Disponível" : "Indisponível";
+}
+
+function formatIdentityStatus(identity: AdminProfessionalProfile["identityVerification"]): string {
+  if (!identity) return "Não enviada";
+  if (identity.status === "UNDER_REVIEW") return "Em análise";
+  if (identity.status === "CLOSED" && identity.result === "CONFIRMED") return "Confirmada";
+  if (identity.status === "CLOSED" && identity.result === "NOT_CONFIRMED") return "Não confirmada";
+  if (identity.status === "CLOSED" && identity.result === "INCONCLUSIVE") return "Inconclusiva";
+  return "Não enviada";
 }
 
 function buildErrorMessage(state: RequestState): string {
@@ -533,8 +545,9 @@ export function AdminProfessionalsPage() {
                         </span>
                       </p>
                       <p>
-                        <span className="font-medium text-slate-900">Verificação profissional:</span> {formatVerificationStatus(item.professionalProfile.verificationStatus)}
+                        <span className="font-medium text-slate-900">Perfil profissional:</span> {formatVerificationStatus(item.professionalProfile.verificationStatus)}
                       </p>
+                      <p><span className="font-medium text-slate-900">Identidade:</span> {formatIdentityStatus(item.professionalProfile.identityVerification)}</p>
                       {item.professionalProfile.reviewNotes ? <p><span className="font-medium text-slate-900">Nota da revisão:</span> {item.professionalProfile.reviewNotes}</p> : null}
                       <p>
                         <span className="font-medium text-slate-900">Disponibilidade:</span> {formatAvailability(item.professionalProfile.isAvailable)}
@@ -548,6 +561,7 @@ export function AdminProfessionalsPage() {
                     </div>
                     <div className="mt-4 border-t border-slate-200 pt-4">
                       <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
+                      {item.professionalProfile.identityVerification?.status === "UNDER_REVIEW" ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">Analisar documentos</Link> : null}
                       <AdminUserStatusAction
                         userId={item.id}
                         userName={item.professionalProfile.displayName}
@@ -575,8 +589,9 @@ export function AdminProfessionalsPage() {
                         Conta
                       </th>
                       <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
-                        Verificação
+                        Perfil profissional
                       </th>
+                      <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Identidade</th>
                       <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">
                         Disponibilidade
                       </th>
@@ -617,6 +632,7 @@ export function AdminProfessionalsPage() {
                           {formatVerificationStatus(item.professionalProfile.verificationStatus)}
                           {item.professionalProfile.reviewNotes ? <p className="mt-2 text-xs text-slate-600">{item.professionalProfile.reviewNotes}</p> : null}
                         </td>
+                        <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatIdentityStatus(item.professionalProfile.identityVerification)}</td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {formatAvailability(item.professionalProfile.isAvailable)}
                         </td>
@@ -625,6 +641,7 @@ export function AdminProfessionalsPage() {
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
+                          {item.professionalProfile.identityVerification?.status === "UNDER_REVIEW" ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">Analisar documentos</Link> : null}
                           <AdminUserStatusAction
                             userId={item.id}
                             userName={item.professionalProfile.displayName}

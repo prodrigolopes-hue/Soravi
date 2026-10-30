@@ -60,6 +60,7 @@ import { PersonalIdentityStatusResult, PersonalIdentityStatusService } from "./p
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
 import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
+import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
 import {
   PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES,
@@ -96,6 +97,7 @@ export class UsersController {
     private readonly professionalIdentityDocumentService?: ProfessionalIdentityDocumentService,
     @Optional()
     private readonly professionalIdentityReviewService?: ProfessionalIdentityReviewService,
+    private readonly professionalIdentityVerificationStatusService?: ProfessionalIdentityVerificationStatusService,
   ) {}
 
   @Get("me")
@@ -365,6 +367,19 @@ export class UsersController {
       throw error;
     }
     return { submitted: true };
+  }
+
+  @Get("me/professional-identity-verification")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findCurrentProfessionalIdentityVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<ProfessionalIdentityVerificationStatusResult> {
+    if (!this.professionalIdentityVerificationStatusService) {
+      throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_VERIFICATION_UNAVAILABLE", message: "A consulta de identidade está indisponível." });
+    }
+    return this.professionalIdentityVerificationStatusService.findCurrent(currentUser.id);
   }
 
   @Get("admin/professional-identity-verifications")

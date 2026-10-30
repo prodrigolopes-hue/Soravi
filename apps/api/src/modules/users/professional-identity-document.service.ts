@@ -48,18 +48,24 @@ export class ProfessionalIdentityDocumentService {
           });
         }
 
-        const activeAttempt = await transaction.professionalIdentityVerificationAttempt.findFirst({
-          where: { professionalProfileId: profile.id, status: { in: [ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE, ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW] } },
-          select: { id: true, status: true },
+        const latestAttempt = await transaction.professionalIdentityVerificationAttempt.findFirst({
+          where: { professionalProfileId: profile.id },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { id: true, status: true, result: true },
         });
-        if (activeAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW) {
+        if (latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW) {
           throw new ConflictException({
             code: "PROFESSIONAL_IDENTITY_DOCUMENT_ALREADY_SUBMITTED",
             message: "Seu documento já está em análise.",
           });
         }
+        if (latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.CLOSED && latestAttempt.result === "CONFIRMED") {
+          throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_ALREADY_CONFIRMED", message: "Sua identidade já foi confirmada." });
+        }
 
-        const attempt = activeAttempt ?? await transaction.professionalIdentityVerificationAttempt.create({
+        const attempt = latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE
+          ? latestAttempt
+          : await transaction.professionalIdentityVerificationAttempt.create({
           data: { professionalProfileId: profile.id, personalIdentityId: identity.id },
           select: { id: true },
         });

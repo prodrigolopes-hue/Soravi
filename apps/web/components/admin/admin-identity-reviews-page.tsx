@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { apiBaseUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 
@@ -7,8 +8,9 @@ type Attempt = { id: string; createdAt: string; professionalProfile: { userId: s
 const base = apiBaseUrl.replace(/\/+$/u, "");
 export function AdminIdentityReviewsPage() {
   const { accessToken, user, isLoading } = useAuth(); const [items, setItems] = useState<Attempt[]>([]); const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null); const [reasonCode, setReasonCode] = useState(""); const [result, setResult] = useState("CONFIRMED");
+  const searchParams = useSearchParams(); const requestedAttemptId = searchParams.get("attemptId"); const [selected, setSelected] = useState<string | null>(null); const [reasonCode, setReasonCode] = useState(""); const [result, setResult] = useState("CONFIRMED");
   useEffect(() => { if (!accessToken || !user?.roles.includes("ADMIN")) return; void fetch(`${base}/api/v1/users/admin/professional-identity-verifications`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" }).then(async r => { if (!r.ok) throw new Error(); const data = await r.json(); setItems(Array.isArray(data) ? data : []); }).catch(() => setError("Não foi possível carregar as tentativas.")); }, [accessToken, user?.roles]);
+  useEffect(() => { if (requestedAttemptId && items.some((item) => item.id === requestedAttemptId)) setSelected(requestedAttemptId); }, [items, requestedAttemptId]);
   if (isLoading) return <p>Carregando…</p>; if (!user?.roles.includes("ADMIN")) return <p>Acesso restrito à administração.</p>;
   async function openEvidence(id: string) { const r = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${id}/evidence`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" }); const body = await r.json(); if (!r.ok || typeof body.url !== "string") { setError("Não foi possível abrir a evidência."); return; } window.open(body.url, "_blank", "noopener,noreferrer"); }
   async function decide() { if (!selected || !reasonCode.trim()) return; const r = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${selected}/decision`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ result, reasonCode: reasonCode.trim(), criteriaVersion: "manual-v1" }) }); if (!r.ok) { setError("A decisão não pôde ser registrada."); return; } setItems(v => v.filter(x => x.id !== selected)); setSelected(null); setReasonCode(""); }

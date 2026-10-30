@@ -84,6 +84,12 @@ const adminProfessionalsSelect = {
       reviewedAt: true,
       reviewNotes: true,
       isAvailable: true,
+      identityVerificationAttempts: {
+        where: { evidenceReferences: { some: { kind: "DOCUMENT" } } },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 1,
+        select: { id: true, status: true, result: true },
+      },
     },
   },
 } satisfies Prisma.UserSelect;
@@ -185,6 +191,7 @@ export class UsersService {
           reviewedAt: item.professionalProfile.reviewedAt,
           reviewNotes: item.professionalProfile.reviewNotes,
           isAvailable: item.professionalProfile.isAvailable,
+          identityVerification: item.professionalProfile.identityVerificationAttempts?.[0] ?? null,
         },
       });
 

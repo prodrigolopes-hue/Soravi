@@ -268,6 +268,12 @@ describe("UsersService", () => {
             reviewedAt: true,
             reviewNotes: true,
             isAvailable: true,
+            identityVerificationAttempts: {
+              where: { evidenceReferences: { some: { kind: "DOCUMENT" } } },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              take: 1,
+              select: { id: true, status: true, result: true },
+            },
           },
         },
       },
@@ -321,6 +327,7 @@ describe("UsersService", () => {
         id: "46c03da3-548b-4de6-bf75-783b1fade999",
         displayName: "Profissional A",
         verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
+        identityVerification: null,
         isAvailable: true,
       },
     });
