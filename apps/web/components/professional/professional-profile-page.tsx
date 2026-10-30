@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { categoriesUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
 import { PersonalIdentityCollection } from "./personal-identity-collection";
 import { ProfessionalIdentityDocumentUpload } from "./professional-identity-document-upload";
+import { ProfessionalContactVerification } from "./professional-contact-verification";
 import {
   type ProfessionalCategory,
   type ProfessionalProfile,
@@ -266,14 +267,14 @@ export function ProfessionalProfilePage() {
     }
   }
 
-  async function resubmitForVerification(): Promise<void> {
-    if (!accessToken || profile?.verificationStatus !== "REJECTED" || isSubmittingVerification) return;
+  async function submitForVerification(): Promise<void> {
+    if (!accessToken || !profile || !["NOT_STARTED", "REJECTED"].includes(profile.verificationStatus) || isSubmittingVerification) return;
     setIsSubmittingVerification(true); setSubmissionError(null); setSubmissionMessage(null);
     try {
       const response = await fetch(professionalVerificationSubmissionUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
-      if (!response.ok) { const payload: unknown = await response.json().catch(() => null); throw new Error(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" ? payload.message : "Não foi possível reenviar seu perfil agora."); }
-      await refreshSession(); await loadProfile(); setSubmissionMessage("Perfil reenviado para análise com sucesso.");
-    } catch (error) { setSubmissionError(error instanceof Error ? error.message : "Não foi possível reenviar seu perfil agora."); } finally { setIsSubmittingVerification(false); }
+      if (!response.ok) { const payload: unknown = await response.json().catch(() => null); throw new Error(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" ? payload.message : "Não foi possível enviar seu perfil agora."); }
+      await refreshSession(); await loadProfile(); setSubmissionMessage("Perfil enviado para análise. O próximo passo é aguardar a revisão da Soravi.");
+    } catch (error) { setSubmissionError(error instanceof Error ? error.message : "Não foi possível enviar seu perfil agora."); } finally { setIsSubmittingVerification(false); }
   }
 
   function toggleCategory(slug: string): void {
@@ -450,6 +451,14 @@ export function ProfessionalProfilePage() {
           <p className="mt-3 max-w-2xl leading-7 text-slate-600">Mantenha suas informações atualizadas para apresentar melhor seu trabalho na Soravi.</p>
         </header>
 
+        {accessToken && user ? <ProfessionalContactVerification accessToken={accessToken} email={user.email} phone={user.phone} emailVerified={user.emailVerified} phoneVerified={user.phoneVerified} onPhoneVerified={refreshSession} /> : null}
+
+        <section className="mt-7 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="registration-summary-title">
+          <h2 id="registration-summary-title" className="font-bold text-blue-950">Resumo do cadastro profissional</h2>
+          <ul className="mt-3 space-y-1 text-sm leading-6 text-blue-900"><li>E-mail: {user?.emailVerified ? "confirmado" : "pendente"}</li><li>Telefone: {user?.phoneVerified ? "confirmado" : "pendente"}</li><li>CPF e documento privado: {user?.professionalRegistrationCompleted ? "enviados" : "pendentes"}</li><li>Informações e categorias: {profile.categories.length > 0 ? "preenchidas" : "pendentes"}</li></ul>
+          <p className="mt-3 text-sm leading-6 text-blue-900">A análise de identidade confirma seu documento. A verificação do perfil profissional é uma decisão separada e não libera oportunidades automaticamente.</p>
+        </section>
+
         {accessToken && user ? (
           <PersonalIdentityCollection
             key={`${user.id}:${accessToken}`}
@@ -477,7 +486,7 @@ export function ProfessionalProfilePage() {
               <p className="mt-1 text-sm leading-6 text-slate-600">{profile.verificationStatus === "REJECTED" ? "Revise as informações abaixo antes de reenviar seu perfil para uma nova análise." : profile.verificationStatus === "PENDING" ? "Seu perfil foi reenviado e está aguardando uma nova análise da Soravi." : "Este status é somente leitura nesta tela."}</p>
               <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verificationStyles[profile.verificationStatus]}`}>{verificationLabels[profile.verificationStatus]}</span>
               {profile.verificationStatus === "REJECTED" && user?.professionalProfile?.reviewNotes ? <p className="mt-3 text-sm leading-6 text-red-800"><span className="font-semibold">Motivo da revisão:</span> {user.professionalProfile.reviewNotes}</p> : null}
-              {profile.verificationStatus === "REJECTED" && !isEditing && isReadyToResubmit ? <button type="button" disabled={isSubmittingVerification} onClick={() => void resubmitForVerification()} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmittingVerification ? "Reenviando..." : "Reenviar para análise"}</button> : null}
+              {["NOT_STARTED", "REJECTED"].includes(profile.verificationStatus) && !isEditing ? <button type="button" disabled={isSubmittingVerification || (profile.verificationStatus === "REJECTED" && !isReadyToResubmit)} onClick={() => void submitForVerification()} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmittingVerification ? "Enviando..." : profile.verificationStatus === "REJECTED" ? "Reenviar perfil para análise" : "Enviar perfil para análise"}</button> : null}
               {submissionError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{submissionError}</p> : null}
               {submissionMessage ? <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{submissionMessage}</p> : null}
             </div>

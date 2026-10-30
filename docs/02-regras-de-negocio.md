@@ -146,6 +146,8 @@ migration correspondente precisa ser aplicada antes de habilitar este endpoint.
 
 **Implementação atual:**
 
+O fluxo de conclusão do cadastro profissional é centralizado em `/profissional/perfil`: a página mostra os contatos existentes e seus estados, permite reenviar e confirmar o código de telefone, direciona a confirmação/reenvio de e-mail com retorno ao perfil, mantém CPF, documento privado, dados e categorias, e reutiliza a submissão existente do perfil. A confirmação de identidade e a aprovação do perfil profissional continuam processos distintos; nenhum deles altera automaticamente oportunidades ou propostas.
+
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,
 `APPROVED` e `REJECTED`. `NOT_STARTED` identifica o profissional que ainda não
 enviou o perfil para análise; `PENDING`, o perfil em análise administrativa.

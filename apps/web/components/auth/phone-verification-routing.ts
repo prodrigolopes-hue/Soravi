@@ -166,6 +166,10 @@ export function phoneVerificationGuardDecision({
       return { type: "allow" };
     }
 
+    if (pathname === "/profissional/perfil" && user.roles.includes("PROFESSIONAL")) {
+      return { type: "allow" };
+    }
+
     return isProtectedRoute(pathname)
       ? redirectDecision(
           pathname,
