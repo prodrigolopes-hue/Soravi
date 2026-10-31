@@ -20,8 +20,16 @@ export class ProfessionalIdentityReviewService {
     return this.prisma.professionalIdentityVerificationAttempt.findMany({ where: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW }, select: { id: true, createdAt: true, professionalProfile: { select: { userId: true, displayName: true } } }, orderBy: { createdAt: "asc" } });
   }
   async evidence(attemptId: string) {
-    const evidence = await this.prisma.identityVerificationEvidenceReference.findFirst({ where: { attemptId, kind: "DOCUMENT", attempt: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW } }, select: { reference: true } });
-    if (!evidence) throw new NotFoundException({ code: "IDENTITY_EVIDENCE_NOT_FOUND", message: "Evidência não encontrada." });
+    const evidence = await this.prisma.identityVerificationEvidenceReference.findFirst({
+      where: { attemptId, kind: "DOCUMENT" },
+      select: { reference: true, expiresAt: true },
+    });
+    if (!evidence || (evidence.expiresAt !== null && evidence.expiresAt <= new Date())) {
+      throw new NotFoundException({
+        code: "IDENTITY_EVIDENCE_UNAVAILABLE",
+        message: "Documento não está mais disponível.",
+      });
+    }
     return { url: await this.storage.createTemporaryReadUrl(evidence.reference, URL_TTL_SECONDS), expiresInSeconds: URL_TTL_SECONDS };
   }
   async decide(adminUserId: string, attemptId: string, input: DecideProfessionalIdentityDto) {

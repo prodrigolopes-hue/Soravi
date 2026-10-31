@@ -391,6 +391,7 @@ export class UsersController {
   }
 
   @Get("admin/professional-identity-verifications/:attemptId/evidence")
+  @Header("Cache-Control", "no-store")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
   professionalIdentityEvidence(@Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
