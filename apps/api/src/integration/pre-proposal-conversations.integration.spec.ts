@@ -11,6 +11,7 @@ import { createIntegrationPrismaService } from "./integration-database";
 import { PreProposalConversationsService } from "../modules/pre-proposal-conversations/pre-proposal-conversations.service";
 import type { StorageService } from "../storage/storage.service";
 import { PreProposalPhotoMaintenanceService } from "../modules/pre-proposal-conversations/pre-proposal-photo-maintenance.service";
+import { reserveServiceRequestPublicCode } from "../modules/service-requests/service-request-public-code";
 
 describe("PreProposalConversationsService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
@@ -39,7 +40,32 @@ describe("PreProposalConversationsService (PostgreSQL integration)", () => {
       data: { name: "Profissional Integração", email: `professional-${suffix}@example.test`, emailNormalized: `professional-${suffix}@example.test`, passwordHash: "hash", status: UserStatus.ACTIVE, roles: { create: { role: Role.PROFESSIONAL } }, professionalProfile: { create: { displayName: "Profissional Integração", verificationStatus: ProfessionalVerificationStatus.APPROVED, isAvailable: true, professionalCategories: { create: { categoryId: category.id } } } } },
       include: { professionalProfile: true },
     });
-    const request = await prisma.serviceRequest.create({ data: { customerProfileId: customer.customerProfile!.id, categoryId: category.id, title: "Pedido de integração", status: ServiceRequestStatus.OPEN, country: "BR", state: "SP", city: "São Paulo", neighborhood: "Centro", postalCode: "01000-000", addressLine: "Rua privada", addressNumber: "1", editableUntil: new Date(), publishedAt: new Date() } });
+    const request = await prisma.$transaction(async (transaction) => {
+      const publishedAt = new Date();
+      const publicCode = await reserveServiceRequestPublicCode(
+        transaction,
+        publishedAt,
+      );
+
+      return transaction.serviceRequest.create({
+        data: {
+          publicCode,
+          customerProfileId: customer.customerProfile!.id,
+          categoryId: category.id,
+          title: "Pedido de integração",
+          status: ServiceRequestStatus.OPEN,
+          country: "BR",
+          state: "SP",
+          city: "São Paulo",
+          neighborhood: "Centro",
+          postalCode: "01000-000",
+          addressLine: "Rua privada",
+          addressNumber: "1",
+          editableUntil: publishedAt,
+          publishedAt,
+        },
+      });
+    });
     const opportunity = await prisma.serviceOpportunity.create({ data: { serviceRequestId: request.id, professionalProfileId: professional.professionalProfile!.id } });
     ids = { customerUserId: customer.id, professionalUserId: professional.id, customerProfileId: customer.customerProfile!.id, professionalProfileId: professional.professionalProfile!.id, serviceRequestId: request.id, opportunityId: opportunity.id, categoryId: category.id };
   });

@@ -95,6 +95,7 @@ export interface ConversationListItem {
   updatedAt: string;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
   };
   contract: {

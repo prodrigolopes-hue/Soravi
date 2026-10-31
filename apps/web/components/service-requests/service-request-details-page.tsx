@@ -131,6 +131,7 @@ interface ReviewSummary {
 
 interface ServiceRequestDetails {
   id: string;
+  publicCode: string;
   categoryId: string;
   title: string;
   description: string | null;
@@ -462,6 +463,7 @@ function parseServiceRequestDetails(
 
   if (
     typeof root.id !== "string" ||
+    typeof root.publicCode !== "string" ||
     typeof root.categoryId !== "string" ||
     typeof root.title !== "string" ||
     !isNullableString(root.description) ||
@@ -559,6 +561,7 @@ function parseServiceRequestDetails(
 
   return {
     id: root.id,
+    publicCode: root.publicCode,
     categoryId: root.categoryId,
     title: root.title,
     description: root.description,
@@ -1532,7 +1535,7 @@ export function ServiceRequestDetailsPage({
 
           <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
             <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-              {request.title}
+              <span className="block text-base font-semibold text-blue-700">{request.publicCode}</span>{request.title}
             </h1>
 
             <span

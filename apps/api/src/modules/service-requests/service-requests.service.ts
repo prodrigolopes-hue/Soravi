@@ -25,6 +25,7 @@ import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-
 import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
 import { ServiceRequestOwnProfessionalCategoryException } from "./errors/service-request-own-professional-category.exception";
 import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
+import { reserveServiceRequestPublicCode } from "./service-request-public-code";
 import {
   detectServiceRequestPhotoMimeType,
   SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
@@ -39,6 +40,7 @@ interface UploadedPhoto {
 
 const SERVICE_REQUEST_RESPONSE_SELECT = {
   id: true,
+  publicCode: true,
   categoryId: true,
   title: true,
   description: true,
@@ -127,6 +129,25 @@ export class ServiceRequestsService {
     );
   }
 
+  async findAdmin(publicCode?: string) {
+    const normalizedCode = publicCode?.trim().toUpperCase();
+    const where: Prisma.ServiceRequestWhereInput = {
+      ...(normalizedCode ? { publicCode: { contains: normalizedCode, mode: "insensitive" } } : {}),
+    };
+    const groupByStatusArgs = {
+      by: ["status"],
+      orderBy: { status: "asc" },
+      where,
+      _count: { _all: true },
+    } satisfies Prisma.ServiceRequestGroupByArgs;
+    const [total, byStatus, items] = await this.prisma.$transaction([
+      this.prisma.serviceRequest.count({ where }),
+      this.prisma.serviceRequest.groupBy(groupByStatusArgs),
+      this.prisma.serviceRequest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100, select: { id: true, publicCode: true, title: true, status: true, createdAt: true, customerProfile: { select: { user: { select: { name: true } } } } } }),
+    ]);
+    return { total, byStatus: byStatus.map((item) => ({ status: item.status, total: item._count._all })), items: items.map((item) => ({ id: item.id, publicCode: item.publicCode, title: item.title, status: item.status, createdAt: item.createdAt, customerName: item.customerProfile.user.name })) };
+  }
+
   async createServiceRequest(
     userId: string,
     input: CreateServiceRequestDto,
@@ -196,9 +217,11 @@ export class ServiceRequestsService {
     }
 
     const publishedAt = new Date();
+    const publicCode = await reserveServiceRequestPublicCode(transaction, publishedAt);
 
     return transaction.serviceRequest.create({
       data: {
+        publicCode,
         customerProfileId: customerProfile.id,
         categoryId: category.id,
         targetProfessionalProfileId: input.targetProfessionalProfileId ?? null,
@@ -579,6 +602,7 @@ function toServiceRequestResponseProperties(
 ) {
   return {
     id: serviceRequest.id,
+    publicCode: serviceRequest.publicCode,
     categoryId: serviceRequest.categoryId,
     title: serviceRequest.title,
     description: serviceRequest.description,

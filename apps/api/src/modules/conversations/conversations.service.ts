@@ -64,6 +64,7 @@ const CONVERSATION_SELECT = {
       serviceRequest: {
         select: {
           id: true,
+          publicCode: true,
           title: true,
           status: true,
         },
@@ -125,6 +126,7 @@ export class ConversationsService {
               serviceRequest: {
                 select: {
                   id: true,
+                  publicCode: true,
                   title: true,
                 },
               },
@@ -238,6 +240,7 @@ export class ConversationsService {
       },
       serviceRequest: {
         id: contract.serviceRequest.id,
+        publicCode: contract.serviceRequest.publicCode,
         title: contract.serviceRequest.title,
         status: contract.serviceRequest.status,
       },

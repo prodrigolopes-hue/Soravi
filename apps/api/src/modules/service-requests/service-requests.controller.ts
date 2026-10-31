@@ -53,6 +53,13 @@ export class ServiceRequestsController {
     return this.serviceRequestsService.findMine(currentUser.id, query);
   }
 
+  @Get("admin")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findAdmin(@Query("code") code?: string): Promise<unknown> {
+    return this.serviceRequestsService.findAdmin(code);
+  }
+
   @Get(":serviceRequestId")
   @Roles(Role.CUSTOMER)
   @UseGuards(AccessTokenGuard, RolesGuard)

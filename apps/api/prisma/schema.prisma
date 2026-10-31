@@ -634,6 +634,7 @@ model Category {
 
 model ServiceRequest {
   id                        String               @id @default(uuid()) @db.Uuid
+  publicCode                String               @unique(map: "service_requests_public_code_key") @map("public_code") @db.VarChar(32)
   customerProfileId         String               @map("customer_profile_id") @db.Uuid
   categoryId                String               @map("category_id") @db.Uuid
   targetProfessionalProfileId String?            @map("target_professional_profile_id") @db.Uuid
@@ -676,6 +677,14 @@ model ServiceRequest {
   @@index([targetProfessionalProfileId, status], map: "service_requests_target_professional_status_idx")
   @@index([status, createdAt], map: "service_requests_status_created_at_idx")
   @@map("service_requests")
+}
+
+model ServiceRequestPublicCodeCounter {
+  year         Int      @id
+  lastSequence Int      @map("last_sequence")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("service_request_public_code_counters")
 }
 
 model ServiceRequestFile {

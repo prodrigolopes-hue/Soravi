@@ -55,6 +55,7 @@ interface ConversationDetails {
   };
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     status: string;
   };
@@ -128,6 +129,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     !isNullableString(root.contract.completedAt) ||
     !isRecord(root.serviceRequest) ||
     typeof root.serviceRequest.id !== "string" ||
+    typeof root.serviceRequest.publicCode !== "string" ||
     typeof root.serviceRequest.title !== "string" ||
     typeof root.serviceRequest.status !== "string" ||
     !isParticipantRole(root.participantRole)
@@ -154,6 +156,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     },
     serviceRequest: {
       id: root.serviceRequest.id,
+      publicCode: root.serviceRequest.publicCode,
       title: root.serviceRequest.title,
       status: root.serviceRequest.status,
     },
@@ -673,7 +676,7 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
                 Conversa da contratação
               </p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                {conversation.serviceRequest.title}
+                <span className="block text-sm font-semibold text-blue-700">{conversation.serviceRequest.publicCode}</span>{conversation.serviceRequest.title}
               </h1>
               {conversation.otherParticipantName ? (
                 <p className="mt-2 text-sm text-slate-600">

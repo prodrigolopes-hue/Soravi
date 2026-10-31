@@ -554,3 +554,10 @@ Critérios conceituais:
 ### Priorização
 
 Este épico não altera a prioridade geral do MVP sem aprovação do fundador e permanece fora do MVP imediato.
+# Consolidated pending work
+
+- Professional work portfolio.
+- Content moderation and operational flows.
+- Contact and campaign management, including channel preferences, promotional authorization, and unsubscribe.
+- Identity-document retention/disposal and appeals.
+- Real integration-database validation of CPF-reveal audit persistence.

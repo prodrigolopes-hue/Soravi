@@ -78,6 +78,7 @@ interface OpportunityDetails {
   } | null;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     status: ServiceRequestStatus;
@@ -298,6 +299,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     !isNullableString(root.customerFirstName) ||
     contract === undefined ||
     typeof serviceRequest.id !== "string" ||
+    typeof serviceRequest.publicCode !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
     !isServiceRequestStatus(serviceRequest.status) ||
@@ -354,6 +356,7 @@ function parseOpportunityDetails(payload: unknown): OpportunityDetails | null {
     contract,
     serviceRequest: {
       id: serviceRequest.id,
+      publicCode: serviceRequest.publicCode,
       title: serviceRequest.title,
       description: serviceRequest.description,
       status: serviceRequest.status,
@@ -966,7 +969,7 @@ export function ProfessionalOpportunityDetailsPage({
               </p>
 
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-                {serviceRequest.title}
+                <span className="block text-base font-semibold text-blue-700">{serviceRequest.publicCode}</span>{serviceRequest.title}
               </h1>
 
               <p className="mt-2 text-sm text-slate-500">

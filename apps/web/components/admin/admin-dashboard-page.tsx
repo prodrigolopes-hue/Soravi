@@ -16,6 +16,14 @@ type AdminModule = {
 
 const adminModules: AdminModule[] = [
   {
+    title: "Solicitações",
+    description: "Busque códigos públicos e acompanhe os totais operacionais.",
+    status: "Disponível",
+    href: "/admin/solicitacoes",
+    icon: Wrench,
+    tone: "available",
+  },
+  {
     title: "Interessados",
     description: "Acompanhe os contatos recebidos no lançamento.",
     status: "Disponível",

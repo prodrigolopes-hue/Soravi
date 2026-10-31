@@ -35,6 +35,7 @@ type RequestState =
 
 interface ServiceRequestItem {
   id: string;
+  publicCode: string;
   title: string;
   status: ServiceRequestStatus;
   location: {
@@ -69,6 +70,7 @@ function parseServiceRequest(value: unknown): ServiceRequestItem | null {
 
   if (
     typeof value.id !== "string" ||
+    typeof value.publicCode !== "string" ||
     typeof value.title !== "string" ||
     !isServiceRequestStatus(value.status) ||
     typeof value.location.state !== "string" ||
@@ -82,6 +84,7 @@ function parseServiceRequest(value: unknown): ServiceRequestItem | null {
 
   return {
     id: value.id,
+    publicCode: value.publicCode,
     title: value.title,
     status: value.status,
     location: {
@@ -319,7 +322,7 @@ export function MyServiceRequestsPage() {
                   return (
                     <article key={request.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                       <div className="flex items-start justify-between gap-4">
-                        <h2 className="text-lg font-bold leading-7 text-slate-950">{request.title}</h2>
+                        <p className="text-sm font-semibold text-blue-700">{request.publicCode}</p><h2 className="text-lg font-bold leading-7 text-slate-950">{request.title}</h2>
                         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
                       </div>
                       <dl className="mt-5 space-y-3 text-sm text-slate-600">

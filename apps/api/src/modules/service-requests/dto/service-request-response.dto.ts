@@ -40,6 +40,7 @@ export class ServiceRequestPhotoDetailResponseDto {
 
 export interface ServiceRequestResponseDtoProperties {
   id: string;
+  publicCode: string;
   categoryId: string;
   title: string;
   description: string | null;
@@ -57,6 +58,7 @@ export interface ServiceRequestResponseDtoProperties {
 
 export class ServiceRequestResponseDto {
   readonly id: string;
+  readonly publicCode: string;
   readonly categoryId: string;
   readonly title: string;
   readonly description: string | null;
@@ -73,6 +75,7 @@ export class ServiceRequestResponseDto {
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
     this.id = properties.id;
+    this.publicCode = properties.publicCode;
     this.categoryId = properties.categoryId;
     this.title = properties.title;
     this.description = properties.description;

@@ -7,6 +7,7 @@ export interface OpportunityListItemProperties {
   customerFirstName: string | null;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     status: ServiceRequestStatus;
@@ -27,6 +28,7 @@ export class OpportunityListItemResponseDto {
   customerFirstName!: string | null;
   serviceRequest!: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     status: ServiceRequestStatus;
@@ -48,6 +50,7 @@ export class OpportunityListItemResponseDto {
     this.customerFirstName = properties.customerFirstName;
     this.serviceRequest = {
       id: properties.serviceRequest.id,
+      publicCode: properties.serviceRequest.publicCode,
       title: properties.serviceRequest.title,
       description: properties.serviceRequest.description,
       status: properties.serviceRequest.status,

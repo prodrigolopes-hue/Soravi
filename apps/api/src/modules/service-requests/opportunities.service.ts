@@ -27,6 +27,7 @@ const OPPORTUNITY_SELECT = {
   serviceRequest: {
     select: {
       id: true,
+      publicCode: true,
       title: true,
       description: true,
       status: true,
@@ -272,6 +273,7 @@ export class OpportunitiesService {
           : null,
       serviceRequest: {
         id: serviceRequest.id,
+        publicCode: serviceRequest.publicCode,
         title: serviceRequest.title,
         description: serviceRequest.description,
         status: serviceRequest.status,

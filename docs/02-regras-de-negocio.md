@@ -658,3 +658,8 @@ Na curadoria inicial, reforçar:
 - transparência ao titular.
 
 Verificações avançadas como antecedentes criminais, certificações extensas e verificações de alto custo não fazem parte automaticamente do piloto e dependerão de análise jurídica, proporcionalidade e decisão específica futura.
+# Public service-request code
+
+Each service request keeps its internal UUID and receives a permanent public code in the form `SOYYYY999`, for example `SO2026001` and `SO2027001`. The annual sequence uses `America/Sao_Paulo`, begins at `001`, and has no maximum after `999`. The backend reserves the next value atomically in the creation transaction. Cancellation and deletion never release or reuse a code.
+
+Existing records are backfilled by Sao Paulo year, then by `created_at` and UUID as a stable tie breaker. The code is shown in related requests, opportunities, proposals, and conversations without changing existing permissions. Administrative totals must be calculated from request records, not from annual counters.

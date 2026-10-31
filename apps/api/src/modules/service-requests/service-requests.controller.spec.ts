@@ -41,6 +41,7 @@ describe("ServiceRequestsController", () => {
     const input = createInput();
     const response = new ServiceRequestResponseDto({
       id: "request-id",
+      publicCode: "SO2026001",
       categoryId: input.categoryId,
       title: input.title,
       description: input.description ?? null,
@@ -104,6 +105,7 @@ describe("ServiceRequestsController", () => {
     };
     const response = new ServiceRequestResponseDto({
       id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      publicCode: "SO2026001",
       categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
       title: "Instalar uma tomada",
       description: null,
@@ -158,6 +160,7 @@ describe("ServiceRequestsController", () => {
     };
     const response = new ServiceRequestResponseDto({
       id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      publicCode: "SO2026001",
       categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
       title: input.title!,
       description: null,
@@ -217,6 +220,7 @@ describe("ServiceRequestsController", () => {
     };
     const response = new ServiceRequestResponseDto({
       id: "725afb87-2b81-4de7-9606-8f382fff3341",
+      publicCode: "SO2026001",
       categoryId: "825afb87-2b81-4de7-9606-8f382fff3341",
       title: "Instalar uma tomada",
       description: null,
