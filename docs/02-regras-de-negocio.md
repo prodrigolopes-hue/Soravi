@@ -148,6 +148,8 @@ migration correspondente precisa ser aplicada antes de habilitar este endpoint.
 
 O fluxo de conclusão do cadastro profissional é centralizado em `/profissional/perfil`: a página mostra os contatos existentes e seus estados, permite reenviar e confirmar o código de telefone, direciona a confirmação/reenvio de e-mail com retorno ao perfil, mantém CPF, documento privado, dados e categorias, e reutiliza a submissão existente do perfil. A confirmação de identidade e a aprovação do perfil profissional continuam processos distintos; nenhum deles altera automaticamente oportunidades ou propostas.
 
+O portfólio de trabalhos também é gerenciado em `/profissional/perfil`. Cada profissional pode publicar e remover somente as próprias fotos; elas são públicas no perfil profissional e permanecem separadas do documento privado de identidade. São aceitos JPEG, PNG e WebP de até 5 MiB, processados para WebP, com no máximo 12 fotos e legenda opcional de até 280 caracteres.
+
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,
 `APPROVED` e `REJECTED`. `NOT_STARTED` identifica o profissional que ainda não
 enviou o perfil para análise; `PENDING`, o perfil em análise administrativa.

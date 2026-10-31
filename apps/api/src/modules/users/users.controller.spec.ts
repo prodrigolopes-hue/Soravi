@@ -2,6 +2,7 @@ import { HttpStatus } from "@nestjs/common";
 import { HEADERS_METADATA } from "@nestjs/common/constants";
 import { ProfessionalVerificationStatus, Role, UserStatus, } from "../../generated/prisma/client";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { Test, type TestingModule } from "@nestjs/testing";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -20,11 +21,13 @@ import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
-import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
 import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 
 describe("UsersController", () => {
     const userId =
@@ -34,6 +37,7 @@ describe("UsersController", () => {
         "725afb87-2b81-4de7-9606-8f382fff3341";
 
     let controller: UsersController;
+    let moduleRef: TestingModule | undefined;
 
     let usersServiceMock: {
         findSafeById: jest.Mock;
@@ -61,9 +65,10 @@ describe("UsersController", () => {
         replaceCurrent: jest.Mock;
         removeCurrent: jest.Mock;
     };
+    let professionalPortfolioServiceMock: Pick<ProfessionalPortfolioService, "addCurrent" | "removeCurrent">;
     let professionalIdentityDocumentServiceMock: { submitCurrent: jest.Mock };
 
-    beforeEach(() => {
+    beforeEach(async () => {
         usersServiceMock = {
             findSafeById: jest.fn(),
             findAllAdminCustomers: jest.fn(),
@@ -90,23 +95,34 @@ describe("UsersController", () => {
             replaceCurrent: jest.fn(),
             removeCurrent: jest.fn(),
         };
+        professionalPortfolioServiceMock = { addCurrent: jest.fn(), removeCurrent: jest.fn() };
         professionalIdentityDocumentServiceMock = { submitCurrent: jest.fn() };
 
-        controller = new UsersController(
-            usersServiceMock as unknown as UsersService,
-            usersPhoneServiceMock as unknown as UsersPhoneService,
-            usersPasswordServiceMock as unknown as UsersPasswordService,
-            usersAdminStatusServiceMock as unknown as UsersAdminStatusService,
-            professionalVerificationSubmissionServiceMock as unknown as ProfessionalVerificationSubmissionService,
-            professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
-            currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
-            customerProfileActivationServiceMock as unknown as CustomerProfileActivationService,
-            professionalProfileActivationServiceMock as unknown as ProfessionalProfileActivationService,
-            personalIdentityStatusServiceMock as unknown as PersonalIdentityStatusService,
-            professionalProfilePhotoServiceMock as unknown as ProfessionalProfilePhotoService,
-            personalIdentityRecordingServiceMock as unknown as PersonalIdentityRecordingService,
-            professionalIdentityDocumentServiceMock as unknown as ProfessionalIdentityDocumentService,
-        );
+        const testingModule = Test.createTestingModule({
+            controllers: [UsersController],
+            providers: [
+                { provide: UsersService, useValue: usersServiceMock },
+                { provide: UsersPhoneService, useValue: usersPhoneServiceMock },
+                { provide: UsersPasswordService, useValue: usersPasswordServiceMock },
+                { provide: UsersAdminStatusService, useValue: usersAdminStatusServiceMock },
+                { provide: ProfessionalVerificationSubmissionService, useValue: professionalVerificationSubmissionServiceMock },
+                { provide: ProfessionalVerificationReviewService, useValue: professionalVerificationReviewServiceMock },
+                { provide: CurrentProfessionalProfileService, useValue: currentProfessionalProfileServiceMock },
+                { provide: CustomerProfileActivationService, useValue: customerProfileActivationServiceMock },
+                { provide: ProfessionalProfileActivationService, useValue: professionalProfileActivationServiceMock },
+                { provide: PersonalIdentityStatusService, useValue: personalIdentityStatusServiceMock },
+                { provide: ProfessionalProfilePhotoService, useValue: professionalProfilePhotoServiceMock },
+                { provide: ProfessionalPortfolioService, useValue: professionalPortfolioServiceMock },
+                { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: personalIdentityRecordingServiceMock },
+                { provide: ProfessionalIdentityDocumentService, useValue: professionalIdentityDocumentServiceMock },
+                { provide: ProfessionalIdentityVerificationStatusService, useValue: { findCurrent: jest.fn() } },
+            ],
+        })
+            .overrideGuard(AccessTokenGuard).useValue({ canActivate: jest.fn(() => true) })
+            .overrideGuard(RolesGuard).useValue({ canActivate: jest.fn(() => true) })
+            .overrideGuard(ThrottlerGuard).useValue({ canActivate: jest.fn(() => true) });
+        moduleRef = await testingModule.compile();
+        controller = moduleRef.get(UsersController);
     });
 
     it("ativa perfil cliente somente para o usuário autenticado", async () => {
@@ -141,7 +157,8 @@ describe("UsersController", () => {
             .toEqual([Role.PROFESSIONAL]);
     });
 
-    afterEach(() => {
+    afterEach(async () => {
+        await moduleRef?.close();
         jest.clearAllMocks();
     });
 

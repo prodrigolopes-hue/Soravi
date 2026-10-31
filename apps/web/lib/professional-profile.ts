@@ -14,6 +14,7 @@ export interface ProfessionalProfilePhoto {
   url: string;
   expiresAt: string;
 }
+export interface ProfessionalPortfolioItem extends ProfessionalProfilePhoto { id: string; caption: string | null; }
 
 export interface ProfessionalProfile {
   id: string;
@@ -25,6 +26,7 @@ export interface ProfessionalProfile {
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalCategory[];
   photo: ProfessionalProfilePhoto | null;
+  portfolio: ProfessionalPortfolioItem[];
 }
 
 export function parseProfessionalProfile(
@@ -44,12 +46,17 @@ export function parseProfessionalProfile(
     typeof root.isAvailable !== "boolean" ||
     !isProfessionalVerificationStatus(root.verificationStatus) ||
     !Array.isArray(root.categories) ||
-    !isProfessionalProfilePhoto(root.photo)
+    !isProfessionalProfilePhoto(root.photo) || !Array.isArray(root.portfolio)
   ) {
     return null;
   }
 
   const categories: ProfessionalCategory[] = [];
+  const portfolio: ProfessionalPortfolioItem[] = [];
+  for (const value of root.portfolio) {
+    if (!isRecord(value) || typeof value.id !== "string" || !isNullableString(value.caption) || !isProfessionalProfilePhoto(value)) return null;
+    portfolio.push({ id: value.id, caption: value.caption, url: value.url, expiresAt: value.expiresAt });
+  }
 
   for (const value of root.categories) {
     const category = parseProfessionalCategory(value);
@@ -71,6 +78,7 @@ export function parseProfessionalProfile(
     verificationStatus: root.verificationStatus,
     categories,
     photo: root.photo,
+    portfolio,
   };
 }
 

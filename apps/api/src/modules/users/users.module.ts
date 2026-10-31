@@ -21,6 +21,7 @@ import { ProfessionalProfilePhotoReadService } from "./professional-profile-phot
 import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ProfessionalIdentityVerificationStatusService } from "./professional-id
     ProfessionalIdentityDocumentService,
     ProfessionalIdentityReviewService,
     ProfessionalIdentityVerificationStatusService,
+    ProfessionalPortfolioService,
   ],
   exports: [UsersService, ProfessionalProfilePhotoReadService],
 })

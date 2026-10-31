@@ -18,6 +18,7 @@
 - [x] Favoritos e avaliações.
 - [x] Painéis, administração e moderação básica: CUSTOMER, PROFESSIONAL e ADMIN validados em staging na regressão final de 03/10/2026.
 - [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente e em staging.
+- [x] Portfólio público de trabalhos: gestão pelo próprio profissional em `/profissional/perfil`, até 12 imagens processadas e galeria responsiva no perfil público.
 - [x] Área Conta: `/conta`, `/conta/telefone`, `/conta/seguranca` e acesso profissional a `/profissional/perfil`; a troca segura de telefone reutiliza o backend existente.
 - [x] Cadastro profissional persiste `professionalTitle`, `serviceArea` e `description -> bio`.
 - [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; validada localmente e em staging, inclusive persistência após F5, edição e nova aprovação.
@@ -275,7 +276,7 @@ Os demais hardenings de segurança já registrados acima permanecem pendentes.
 - [ ] Profissionalizar a Home a partir da pergunta “Como podemos ajudar você hoje?”, com os caminhos “Buscar profissionais” e “Descrever o que preciso”, busca, categorias em destaque, sinais de confiança e CTA para profissionais.
 - [ ] Integrar o caminho “Descrever o que preciso” ao fluxo de criação de solicitação e recebimento de propostas, sem assumir novas APIs além das já existentes.
 - [ ] Criar a página de categoria conceitualmente prevista em `/servicos/[categorySlug]`, combinando descoberta e escolha de profissional com criação de solicitação para receber propostas; não tratá-la como simples lista de profissionais.
-- [ ] Criar perfil público profissional futuro, com definição posterior da rota final, dos dados expostos e das regras de privacidade.
+- [ ] Evoluir a moderação de conteúdo do portfólio e alterações públicas do perfil profissional.
 - [ ] Implementar filtros avançados planejados por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação.
 - [ ] Definir e implementar os critérios de exibição pública: perfil ativo, `verificationStatus = APPROVED`, disponibilidade e categoria compatível. Incluir localização ou área de atendimento somente quando a regra correspondente existir.
 
@@ -510,8 +511,8 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
   aprovados, sem confundir validação de dígitos com identidade verificada;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
 - [ ] evidências profissionais;
-- [ ] Portfólio de fotos de trabalhos no perfil profissional, com regras de
-  privacidade, autorização de acesso, limites de arquivo e moderação ainda a definir.
+- [x] Portfólio de fotos de trabalhos no perfil profissional, com autorização de proprietário, limite de 12 fotos JPEG/PNG/WebP de até 5 MiB e legenda opcional.
+- [ ] Moderação de conteúdo do portfólio, denúncias e fluxo operacional de revisão.
 - [ ] questionário curto por categoria;
 - [ ] checklist de curadoria;
 - [ ] classificação operacional de risco;
@@ -556,8 +557,7 @@ Critérios conceituais:
 Este épico não altera a prioridade geral do MVP sem aprovação do fundador e permanece fora do MVP imediato.
 # Consolidated pending work
 
-- Professional work portfolio.
-- Content moderation and operational flows.
+- Content moderation and operational flows, incluindo o portfólio profissional.
 - Contact and campaign management, including channel preferences, promotional authorization, and unsubscribe.
 - Identity-document retention/disposal and appeals.
 - Real integration-database validation of CPF-reveal audit persistence.

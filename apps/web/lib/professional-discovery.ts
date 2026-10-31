@@ -48,6 +48,7 @@ export interface PublicProfessionalReview {
 
 export interface PublicProfessionalProfile extends PublicProfessionalListItem {
   bio: string | null;
+  portfolio: { id: string; url: string; expiresAt: string; caption: string | null }[];
   reviews: {
     items: PublicProfessionalReview[];
     pagination: PublicPagination;
@@ -110,7 +111,7 @@ export function parsePublicProfessionalsResponse(payload: unknown): PublicProfes
 
 export function parsePublicProfessionalProfile(payload: unknown): PublicProfessionalProfile | null {
   const root = unwrapData(payload);
-  if (!isRecord(root) || !isNullableString(root.bio) || !isRecord(root.reviews)) return null;
+  if (!isRecord(root) || !isNullableString(root.bio) || !isRecord(root.reviews) || !Array.isArray(root.portfolio)) return null;
   const base = parseProfessionalListItem(root);
   const reviewsRoot = root.reviews;
   if (!base || !Array.isArray(reviewsRoot.items)) return null;
@@ -121,7 +122,9 @@ export function parsePublicProfessionalProfile(payload: unknown): PublicProfessi
     if (!isRecord(value) || !isIntegerInRange(value.rating, 1, 5) || !isNullableString(value.comment) || typeof value.publishedAt !== "string" || Number.isNaN(Date.parse(value.publishedAt))) return null;
     reviews.push({ rating: value.rating, comment: value.comment, publishedAt: value.publishedAt });
   }
-  return { ...base, bio: root.bio, reviews: { items: reviews, pagination } };
+  const portfolio = root.portfolio.map((item) => isRecord(item) && typeof item.id === "string" && isNullableString(item.caption) && isProfessionalPhoto(item) ? { id: item.id, url: item.url, expiresAt: item.expiresAt, caption: item.caption } : null);
+  if (portfolio.some((item) => item === null)) return null;
+  return { ...base, bio: root.bio, portfolio: portfolio as { id: string; url: string; expiresAt: string; caption: string | null }[], reviews: { items: reviews, pagination } };
 }
 
 function parseProfessionalListItem(value: unknown): PublicProfessionalListItem | null {

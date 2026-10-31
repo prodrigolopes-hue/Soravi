@@ -58,6 +58,7 @@ import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recordi
 import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
 import { PersonalIdentityStatusResult, PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
 import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
@@ -91,6 +92,7 @@ export class UsersController {
     private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
     private readonly personalIdentityStatusService: PersonalIdentityStatusService,
     private readonly professionalProfilePhotoService: ProfessionalProfilePhotoService,
+    private readonly professionalPortfolioService: ProfessionalPortfolioService,
     @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
     private readonly personalIdentityRecordingService: PersonalIdentityRecordingService | undefined,
     @Optional()
@@ -332,6 +334,39 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ): Promise<void> {
     await this.professionalProfilePhotoService.removeCurrent(currentUser.id);
+  }
+
+  @Post("me/professional-profile/portfolio")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 12, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor("photo", { storage: memoryStorage(), limits: { files: 1, fields: 1, fileSize: PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES } }))
+  async addCurrentProfessionalPortfolioItem(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+    @Body("caption") caption: unknown,
+  ): Promise<{ recorded: true }> {
+    if (!file) throw new BadRequestException({ code: "PROFESSIONAL_PORTFOLIO_PHOTO_REQUIRED", message: "Envie uma foto no campo photo." });
+    if (caption !== undefined && typeof caption !== "string") throw new BadRequestException({ code: "PROFESSIONAL_PORTFOLIO_CAPTION_INVALID", message: "A legenda deve ser texto." });
+    try {
+      await this.professionalPortfolioService.addCurrent(currentUser.id, { buffer: file.buffer, declaredMimeType: file.mimetype, caption });
+    } catch (error: unknown) {
+      if (error instanceof ProfessionalProfilePhotoProcessingError) this.rethrowProfessionalProfilePhotoProcessingError(error);
+      throw error;
+    }
+    return { recorded: true };
+  }
+
+  @Delete("me/professional-profile/portfolio/:itemId")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 12, ttl: 3_600_000 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeCurrentProfessionalPortfolioItem(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("itemId", new ParseUUIDPipe()) itemId: string,
+  ): Promise<void> {
+    return this.professionalPortfolioService.removeCurrent(currentUser.id, itemId);
   }
 
   @Post("me/professional-identity-verification/document")

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
+import { categoriesUrl, currentProfessionalPortfolioItemUrl, currentProfessionalPortfolioUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
 import { PersonalIdentityCollection } from "./personal-identity-collection";
 import { ProfessionalIdentityDocumentUpload } from "./professional-identity-document-upload";
 import { ProfessionalContactVerification } from "./professional-contact-verification";
@@ -74,6 +74,11 @@ export function ProfessionalProfilePage() {
   const [isPhotoMutating, setIsPhotoMutating] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
+  const [portfolioCaption, setPortfolioCaption] = useState("");
+  const [portfolioMessage, setPortfolioMessage] = useState<string | null>(null);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [isPortfolioMutating, setIsPortfolioMutating] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
   const mountedRef = useRef(false);
   const activeSessionRef = useRef("");
@@ -417,6 +422,26 @@ export function ProfessionalProfilePage() {
     }
     if (mountedRef.current && activeSessionRef.current === confirmationSession && photoOperationRef.current === operation) setPhotoError("Não foi possível confirmar o estado da foto.");
   }
+  async function addPortfolioItem(): Promise<void> {
+    if (!accessToken || !portfolioFile || isPortfolioMutating) return;
+    if (portfolioFile.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(portfolioFile.type)) { setPortfolioError("Use JPEG, PNG ou WebP de até 5 MiB."); return; }
+    setIsPortfolioMutating(true); setPortfolioError(null); setPortfolioMessage(null);
+    try {
+      const body = new FormData(); body.append("photo", portfolioFile); body.append("caption", portfolioCaption.trim());
+      const response = await fetch(currentProfessionalPortfolioUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", body });
+      if (!response.ok || !isRecordedPhotoMutation(await response.json())) throw new Error();
+      setPortfolioFile(null); setPortfolioCaption(""); await loadProfile(); setPortfolioMessage("Foto adicionada ao portfólio.");
+    } catch { setPortfolioError("Não foi possível adicionar a foto ao portfólio."); } finally { setIsPortfolioMutating(false); }
+  }
+  async function removePortfolioItem(itemId: string): Promise<void> {
+    if (!accessToken || isPortfolioMutating || !window.confirm("Remover esta foto do portfólio?")) return;
+    setIsPortfolioMutating(true); setPortfolioError(null); setPortfolioMessage(null);
+    try {
+      const response = await fetch(currentProfessionalPortfolioItemUrl(itemId), { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      if (!response.ok) throw new Error();
+      await loadProfile(); setPortfolioMessage("Foto removida do portfólio.");
+    } catch { setPortfolioError("Não foi possível remover a foto do portfólio."); } finally { setIsPortfolioMutating(false); }
+  }
 
   if (isLoading || (isAuthenticated && isProfessional && loadState === "loading")) {
     return <PageMessage title="Carregando seu perfil..." />;
@@ -476,6 +501,15 @@ export function ProfessionalProfilePage() {
             <div className="flex-1"><p className="text-sm leading-6 text-slate-600">JPEG, PNG ou WebP de até 5 MiB. A imagem terá corte central quadrado.</p><label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"><Upload aria-hidden="true" className="size-4" />Selecionar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isPhotoMutating} onChange={(event) => selectPhoto(event.target.files?.[0])} /></label>{photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void savePhoto()} className="mt-3 block min-h-11 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isPhotoMutating ? "Salvando..." : "Salvar foto"}</button> : null}{profile.photo && !photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void removePhoto()} className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700 disabled:opacity-60"><Trash2 aria-hidden="true" className="size-4" />Remover foto</button> : null}</div>
           </div>
           {photoError ? <p role="alert" className="mt-4 text-sm font-medium text-red-700">{photoError}</p> : null}{photoConfirmationRequiredRef.current ? <button type="button" onClick={() => void confirmPhotoState()} className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800">Consultar novamente</button> : null}{photoMessage ? <p role="status" className="mt-4 text-sm font-medium text-emerald-700">{photoMessage}</p> : null}
+        </section>
+
+        <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="portfolio-title">
+          <h2 id="portfolio-title" className="text-xl font-bold text-slate-950">Portfólio de trabalhos</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Adicione até 12 fotos públicas de trabalhos. JPEG, PNG ou WebP de até 5 MiB; as imagens são processadas e não têm relação com seu documento de identidade.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]"><label className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800">{portfolioFile?.name ?? "Selecionar foto"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isPortfolioMutating || profile.portfolio.length >= 12} onChange={(event) => setPortfolioFile(event.target.files?.[0] ?? null)} /></label><button type="button" disabled={!portfolioFile || isPortfolioMutating || profile.portfolio.length >= 12} onClick={() => void addPortfolioItem()} className="min-h-11 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-60">{isPortfolioMutating ? "Enviando..." : "Adicionar foto"}</button></div>
+          <label className="mt-3 block text-sm font-semibold text-slate-800" htmlFor="portfolio-caption">Legenda opcional</label><input id="portfolio-caption" value={portfolioCaption} maxLength={280} disabled={isPortfolioMutating} onChange={(event) => setPortfolioCaption(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3" />
+          {portfolioError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{portfolioError}</p> : null}{portfolioMessage ? <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{portfolioMessage}</p> : null}
+          <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">{profile.portfolio.map((item) => <li key={item.id} className="overflow-hidden rounded-xl border border-slate-200"><img src={item.url} alt={item.caption ?? "Trabalho no portfólio"} className="aspect-square w-full object-cover" /><div className="p-3"><p className="min-h-5 text-sm text-slate-700">{item.caption ?? "Sem legenda"}</p><button type="button" disabled={isPortfolioMutating} onClick={() => void removePortfolioItem(item.id)} className="mt-2 text-sm font-semibold text-red-700 disabled:opacity-60">Remover</button></div></li>)}</ul>
         </section>
 
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="verification-status-title">

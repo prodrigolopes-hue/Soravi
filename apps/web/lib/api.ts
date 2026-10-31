@@ -13,6 +13,8 @@ export const professionalVerificationSubmissionUrl = `${normalizedApiBaseUrl}/ap
 
 export const currentProfessionalProfileUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-profile`;
 export const currentProfessionalProfilePhotoUrl = `${currentProfessionalProfileUrl}/photo`;
+export const currentProfessionalPortfolioUrl = `${currentProfessionalProfileUrl}/portfolio`;
+export function currentProfessionalPortfolioItemUrl(itemId: string): string { return `${currentProfessionalPortfolioUrl}/${encodeURIComponent(itemId)}`; }
 
 export const customerProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/users/me/roles/customer`;
 

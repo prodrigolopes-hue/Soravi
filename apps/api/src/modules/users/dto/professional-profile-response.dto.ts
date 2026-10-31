@@ -16,6 +16,7 @@ interface ProfessionalProfileResponseProperties {
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalProfileCategoryResponseProperties[];
   photo: ProfessionalProfilePhotoResponseProperties | null;
+  portfolio: ProfessionalPortfolioItemResponseProperties[];
 }
 
 export interface ProfessionalProfilePhotoResponseProperties {
@@ -44,6 +45,11 @@ export class ProfessionalProfilePhotoResponseDto {
     this.expiresAt = properties.expiresAt;
   }
 }
+export interface ProfessionalPortfolioItemResponseProperties { id: string; url: string; expiresAt: string; caption: string | null; }
+export class ProfessionalPortfolioItemResponseDto {
+  readonly id: string; readonly url: string; readonly expiresAt: string; readonly caption: string | null;
+  constructor(properties: ProfessionalPortfolioItemResponseProperties) { this.id = properties.id; this.url = properties.url; this.expiresAt = properties.expiresAt; this.caption = properties.caption; }
+}
 
 export class ProfessionalProfileResponseDto {
   readonly id: string;
@@ -55,6 +61,7 @@ export class ProfessionalProfileResponseDto {
   readonly verificationStatus: ProfessionalVerificationStatus;
   readonly categories: ProfessionalProfileCategoryResponseDto[];
   readonly photo: ProfessionalProfilePhotoResponseDto | null;
+  readonly portfolio: ProfessionalPortfolioItemResponseDto[];
 
   constructor(properties: ProfessionalProfileResponseProperties) {
     this.id = properties.id;
@@ -70,5 +77,6 @@ export class ProfessionalProfileResponseDto {
     this.photo = properties.photo
       ? new ProfessionalProfilePhotoResponseDto(properties.photo)
       : null;
+    this.portfolio = properties.portfolio.map((item) => new ProfessionalPortfolioItemResponseDto(item));
   }
 }

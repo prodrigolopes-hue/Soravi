@@ -346,6 +346,7 @@ model ProfessionalProfile {
   verificationReviews    ProfessionalVerificationReview[]
   identityVerificationAttempts ProfessionalIdentityVerificationAttempt[]
   photo                  ProfessionalProfilePhoto?
+  portfolioItems         ProfessionalPortfolioItem[]
   preProposalConversations PreProposalConversation[] @relation("PreProposalConversationProfessional")
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
@@ -367,6 +368,22 @@ model ProfessionalProfilePhoto {
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
 
   @@map("professional_profile_photos")
+}
+
+model ProfessionalPortfolioItem {
+  id                    String              @id @default(uuid()) @db.Uuid
+  professionalProfileId String              @map("professional_profile_id") @db.Uuid
+  objectKey             String              @unique(map: "professional_portfolio_items_object_key_key") @map("object_key") @db.VarChar(1024)
+  mimeType              String              @map("mime_type") @db.VarChar(32)
+  width                 Int
+  height                Int
+  caption               String?             @db.VarChar(280)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([professionalProfileId, createdAt], map: "professional_portfolio_items_profile_created_idx")
+  @@map("professional_portfolio_items")
 }
 
 model ProfessionalProfilePhotoDeletionTask {

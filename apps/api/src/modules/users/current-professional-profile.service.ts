@@ -37,6 +37,7 @@ const professionalProfileSelect = {
   photo: {
     select: { objectKey: true },
   },
+  portfolioItems: { select: { id: true, objectKey: true, caption: true }, orderBy: { createdAt: "desc" } },
 } satisfies Prisma.ProfessionalProfileSelect;
 
 type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
@@ -193,6 +194,10 @@ export class CurrentProfessionalProfileService {
       photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
         profile.photo?.objectKey,
       ),
+      portfolio: (await Promise.all(profile.portfolioItems.map(async (item) => {
+        const photo = await this.professionalProfilePhotoReadService.createTemporaryReadUrl(item.objectKey);
+        return photo ? { id: item.id, ...photo, caption: item.caption } : null;
+      }))).filter((item): item is { id: string; url: string; expiresAt: string; caption: string | null } => item !== null),
     });
   }
 }

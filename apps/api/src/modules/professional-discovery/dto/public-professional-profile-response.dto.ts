@@ -27,6 +27,7 @@ export interface PublicProfessionalProfileProperties {
   reviewsLimit: number;
   reviewsTotal: number;
   photo: PublicProfessionalPhotoProperties | null;
+  portfolio: { id: string; url: string; expiresAt: string; caption: string | null }[];
 }
 
 export class PublicProfessionalReviewResponseDto {
@@ -54,6 +55,7 @@ export class PublicProfessionalProfileResponseDto {
     pagination: PublicProfessionalsPaginationResponseDto;
   };
   readonly photo: PublicProfessionalPhotoResponseDto | null;
+  readonly portfolio: { id: string; url: string; expiresAt: string; caption: string | null }[];
 
   constructor(properties: PublicProfessionalProfileProperties) {
     this.id = properties.id;
@@ -80,5 +82,6 @@ export class PublicProfessionalProfileResponseDto {
     this.photo = properties.photo
       ? new PublicProfessionalPhotoResponseDto(properties.photo)
       : null;
+    this.portfolio = properties.portfolio;
   }
 }
