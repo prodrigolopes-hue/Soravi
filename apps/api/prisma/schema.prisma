@@ -222,6 +222,7 @@ model User {
   reviewedProfessionalProfiles            ProfessionalProfile[]            @relation("ProfessionalProfileReviewer")
   reviewedProfessionalVerificationReviews ProfessionalVerificationReview[] @relation("ProfessionalVerificationReviewReviewer")
   identityVerificationDecisions           IdentityVerificationDecision[]   @relation("IdentityVerificationDecisionOperator")
+  identityCpfAccessAudits                 IdentityCpfAccessAudit[]         @relation("IdentityCpfAccessAuditOperator")
   messages                                Message[]
   preProposalMessages                     PreProposalMessage[]
   conversationReadStates                  ConversationReadState[]
@@ -423,6 +424,7 @@ model ProfessionalIdentityVerificationAttempt {
   professionalProfile ProfessionalProfile                    @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict, map: "piv_attempts_professional_profile_fkey")
   personalIdentity    PersonalIdentity                       @relation(fields: [personalIdentityId], references: [id], onDelete: Restrict, map: "piv_attempts_personal_identity_fkey")
   decisions           IdentityVerificationDecision[]
+  cpfAccessAudits     IdentityCpfAccessAudit[]
   evidenceReferences  IdentityVerificationEvidenceReference[]
 
   @@index([professionalProfileId, createdAt], map: "piv_attempts_profile_created_idx")
@@ -447,6 +449,21 @@ model IdentityVerificationDecision {
   @@index([attemptId, createdAt], map: "identity_verification_decisions_attempt_created_at_idx")
   @@index([operatorUserId], map: "identity_verification_decisions_operator_idx")
   @@map("identity_verification_decisions")
+}
+
+model IdentityCpfAccessAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  operatorUserId String   @map("operator_user_id") @db.Uuid
+  action         String   @db.VarChar(64)
+  accessedAt     DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User                                     @relation("IdentityCpfAccessAuditOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, accessedAt], map: "identity_cpf_access_audits_attempt_accessed_at_idx")
+  @@index([operatorUserId, accessedAt], map: "identity_cpf_access_audits_operator_accessed_at_idx")
+  @@map("identity_cpf_access_audits")
 }
 
 model IdentityVerificationEvidenceReference {

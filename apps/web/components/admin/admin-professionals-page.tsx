@@ -561,7 +561,7 @@ export function AdminProfessionalsPage() {
                     </div>
                     <div className="mt-4 border-t border-slate-200 pt-4">
                       <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
-                      {item.professionalProfile.identityVerification?.status === "UNDER_REVIEW" ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">Analisar documentos</Link> : null}
+                      {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
                       <AdminUserStatusAction
                         userId={item.id}
                         userName={item.professionalProfile.displayName}
@@ -641,7 +641,7 @@ export function AdminProfessionalsPage() {
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
-                          {item.professionalProfile.identityVerification?.status === "UNDER_REVIEW" ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">Analisar documentos</Link> : null}
+                          {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
                           <AdminUserStatusAction
                             userId={item.id}
                             userName={item.professionalProfile.displayName}

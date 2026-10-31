@@ -398,6 +398,24 @@ export class UsersController {
     return this.professionalIdentityReviewService.evidence(attemptId);
   }
 
+  @Get("admin/professional-identity-verifications/:attemptId/details")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDetails(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.details(attemptId);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/cpf-reveal")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  revealProfessionalIdentityCpf(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.revealCpf(currentUser.id, attemptId);
+  }
+
   @Post("admin/professional-identity-verifications/:attemptId/decision")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)

@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { createPersonalIdentityRecordingConfigurationFromEnvironment } from "../../config/environment.validation";
 import { PrismaService } from "../../database/prisma.service";
 import { Prisma, IdentityVerificationDecisionSource, ProfessionalIdentityVerificationAttemptStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
@@ -13,7 +15,7 @@ const REASON_CODES_BY_RESULT = {
 
 @Injectable()
 export class ProfessionalIdentityReviewService {
-  constructor(private readonly prisma: PrismaService, @Inject(STORAGE_SERVICE) private readonly storage: StorageService) {}
+  constructor(private readonly prisma: PrismaService, @Inject(STORAGE_SERVICE) private readonly storage: StorageService, private readonly config?: ConfigService) {}
   async listPending() {
     return this.prisma.professionalIdentityVerificationAttempt.findMany({ where: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW }, select: { id: true, createdAt: true, professionalProfile: { select: { userId: true, displayName: true } } }, orderBy: { createdAt: "asc" } });
   }
@@ -32,6 +34,24 @@ export class ProfessionalIdentityReviewService {
       await tx.professionalIdentityVerificationAttempt.update({ where: { id: attemptId }, data: { status: ProfessionalIdentityVerificationAttemptStatus.CLOSED, result: input.result, closedAt } });
       return { attemptId, result: input.result, decidedAt: closedAt };
     });
+  }
+
+  async details(attemptId: string) {
+    const attempt = await this.prisma.professionalIdentityVerificationAttempt.findUnique({ where: { id: attemptId }, include: { professionalProfile: { include: { identityVerificationAttempts: { include: { decisions: { include: { operator: { select: { name: true, email: true } } } } } } } } } });
+    if (!attempt) throw new NotFoundException({ code: "IDENTITY_REVIEW_NOT_FOUND", message: "Análise não encontrada." });
+    return { attempt: { id: attempt.id, status: attempt.status, result: attempt.result, createdAt: attempt.createdAt, closedAt: attempt.closedAt }, professionalName: attempt.professionalProfile.displayName, history: attempt.professionalProfile.identityVerificationAttempts };
+  }
+
+  async revealCpf(adminUserId: string, attemptId: string) {
+    const attempt = await this.prisma.$transaction(async (tx) => {
+      const found = await tx.professionalIdentityVerificationAttempt.findUnique({ where: { id: attemptId }, select: { personalIdentity: { select: { cpfEnvelope: true } } } });
+      if (!found) throw new NotFoundException({ code: "IDENTITY_REVIEW_NOT_FOUND", message: "Análise não encontrada." });
+      await tx.identityCpfAccessAudit.create({ data: { attemptId, operatorUserId: adminUserId, action: "ADMIN_IDENTITY_CPF_REVEAL", accessedAt: new Date() } });
+      return found;
+    });
+    const configuration = createPersonalIdentityRecordingConfigurationFromEnvironment({ PERSONAL_IDENTITY_RECORDING_ENABLED: this.config?.get("PERSONAL_IDENTITY_RECORDING_ENABLED"), CPF_ENCRYPTION_KEY: this.config?.get("CPF_ENCRYPTION_KEY"), CPF_ENCRYPTION_KEY_ID: this.config?.get("CPF_ENCRYPTION_KEY_ID"), CPF_HMAC_KEY: this.config?.get("CPF_HMAC_KEY"), CPF_HMAC_KEY_ID: this.config?.get("CPF_HMAC_KEY_ID") });
+    if (!configuration) throw new ServiceUnavailableException({ code: "IDENTITY_CPF_REVEAL_UNAVAILABLE", message: "A consulta de CPF não está disponível." });
+    return { cpf: configuration.cpfProtector.decrypt(attempt.personalIdentity.cpfEnvelope) };
   }
 
   private ensureReasonCodeMatchesResult(input: DecideProfessionalIdentityDto): void {
