@@ -26,6 +26,7 @@ import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-resp
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { AdminServiceRequestDetailResponseDto } from "./dto/admin-service-request-detail-response.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
@@ -58,6 +59,19 @@ export class ServiceRequestsController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   findAdmin(@Query("code") code?: string): Promise<unknown> {
     return this.serviceRequestsService.findAdmin(code);
+  }
+
+  @Get("admin/by-code/:publicCode")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findAdminDetailByPublicCode(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("publicCode") publicCode: string,
+  ): Promise<AdminServiceRequestDetailResponseDto> {
+    return this.serviceRequestsService.findAdminDetailByPublicCode(
+      currentUser.id,
+      publicCode,
+    );
   }
 
   @Get(":serviceRequestId")

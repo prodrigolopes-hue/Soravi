@@ -239,6 +239,7 @@ model User {
   reviewReminders                         ReviewReminder[]
   adminActivationAudits                   AdminActivationAudit[]
   portfolioModerationDecisions            ProfessionalPortfolioModerationDecision[] @relation("ProfessionalPortfolioModerationOperator")
+  commercialDataAccessAudits              AdminCommercialDataAccessAudit[] @relation("AdminCommercialDataAccessAuditOperator")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -714,12 +715,28 @@ model ServiceRequest {
   serviceOpportunities ServiceOpportunity[]
   proposals            Proposal[]
   contract             Contract?
+  commercialDataAccessAudits AdminCommercialDataAccessAudit[]
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
   @@index([targetProfessionalProfileId, status], map: "service_requests_target_professional_status_idx")
   @@index([status, createdAt], map: "service_requests_status_created_at_idx")
   @@map("service_requests")
+}
+
+model AdminCommercialDataAccessAudit {
+  id               String   @id @default(uuid()) @db.Uuid
+  serviceRequestId String   @map("service_request_id") @db.Uuid
+  operatorUserId   String   @map("operator_user_id") @db.Uuid
+  action           String   @db.VarChar(64)
+  accessedAt       DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+  operator       User           @relation("AdminCommercialDataAccessAuditOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([serviceRequestId, accessedAt], map: "admin_commercial_data_access_audits_request_accessed_at_idx")
+  @@index([operatorUserId, accessedAt], map: "admin_commercial_data_access_audits_operator_accessed_at_idx")
+  @@map("admin_commercial_data_access_audits")
 }
 
 model ServiceRequestPublicCodeCounter {

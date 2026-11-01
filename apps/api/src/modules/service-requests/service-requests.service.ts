@@ -13,6 +13,7 @@ import {
 } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { AdminServiceRequestDetailResponseDto } from "./dto/admin-service-request-detail-response.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
@@ -146,6 +147,51 @@ export class ServiceRequestsService {
       this.prisma.serviceRequest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100, select: { id: true, publicCode: true, title: true, status: true, createdAt: true, customerProfile: { select: { user: { select: { name: true } } } } } }),
     ]);
     return { total, byStatus: byStatus.map((item) => ({ status: item.status, total: item._count._all })), items: items.map((item) => ({ id: item.id, publicCode: item.publicCode, title: item.title, status: item.status, createdAt: item.createdAt, customerName: item.customerProfile.user.name })) };
+  }
+
+  async findAdminDetailByPublicCode(adminUserId: string, publicCode: string): Promise<AdminServiceRequestDetailResponseDto> {
+    const normalizedCode = publicCode.trim().toUpperCase();
+    if (!normalizedCode) throw new ServiceRequestNotFoundException();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const serviceRequest = await transaction.serviceRequest.findFirst({
+        where: { publicCode: normalizedCode, deletedAt: null },
+        select: {
+          id: true, publicCode: true, title: true, description: true, status: true,
+          country: true, state: true, city: true, neighborhood: true,
+          createdAt: true, publishedAt: true, hiredAt: true, startedAt: true, completedAt: true, cancelledAt: true, cancellationReason: true,
+          category: { select: { id: true, name: true, slug: true } },
+          customerProfile: { select: { id: true, user: { select: { name: true } } } },
+          targetProfessionalProfile: { select: { id: true, displayName: true } },
+          serviceOpportunities: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { createdAt: true, viewedAt: true, professionalProfile: { select: { id: true, displayName: true } } } },
+          proposals: { orderBy: [{ submittedAt: "asc" }, { id: "asc" }], select: { id: true, amountInCents: true, estimatedDurationValue: true, estimatedDurationUnit: true, message: true, status: true, isVisible: true, submittedAt: true, acceptedAt: true, rejectedAt: true, withdrawnAt: true, expiredAt: true, professionalProfile: { select: { id: true, displayName: true } } } },
+          contract: { select: { id: true, status: true, acceptedProposalId: true, agreedAmountInCents: true, agreedDurationValue: true, agreedDurationUnit: true, agreedMessage: true, acceptedAt: true, startedAt: true, completedAt: true, cancelledAt: true, cancellationReason: true, professionalProfile: { select: { id: true, displayName: true } } } },
+        },
+      });
+
+      if (!serviceRequest) throw new ServiceRequestNotFoundException();
+
+      await transaction.adminCommercialDataAccessAudit.create({
+        data: { serviceRequestId: serviceRequest.id, operatorUserId: adminUserId, action: "SERVICE_REQUEST_DETAIL_VIEW", accessedAt: new Date() },
+      });
+
+      return new AdminServiceRequestDetailResponseDto({
+        id: serviceRequest.id,
+        publicCode: serviceRequest.publicCode,
+        title: serviceRequest.title,
+        description: serviceRequest.description,
+        status: serviceRequest.status,
+        category: serviceRequest.category,
+        region: { country: serviceRequest.country, state: serviceRequest.state, city: serviceRequest.city, neighborhood: serviceRequest.neighborhood },
+        customer: { id: serviceRequest.customerProfile.id, name: serviceRequest.customerProfile.user.name },
+        targetProfessional: serviceRequest.targetProfessionalProfile,
+        dates: { createdAt: serviceRequest.createdAt, publishedAt: serviceRequest.publishedAt, hiredAt: serviceRequest.hiredAt, startedAt: serviceRequest.startedAt, completedAt: serviceRequest.completedAt, cancelledAt: serviceRequest.cancelledAt },
+        cancellationReason: serviceRequest.cancellationReason,
+        opportunities: serviceRequest.serviceOpportunities.map((opportunity) => ({ professional: opportunity.professionalProfile, createdAt: opportunity.createdAt, viewedAt: opportunity.viewedAt })),
+        proposals: serviceRequest.proposals.map((proposal) => ({ id: proposal.id, professional: proposal.professionalProfile, amountInCents: proposal.amountInCents, estimatedDurationValue: proposal.estimatedDurationValue, estimatedDurationUnit: proposal.estimatedDurationUnit, conditions: proposal.message, status: proposal.status, isVisible: proposal.isVisible, submittedAt: proposal.submittedAt, acceptedAt: proposal.acceptedAt, rejectedAt: proposal.rejectedAt, withdrawnAt: proposal.withdrawnAt, expiredAt: proposal.expiredAt })),
+        contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, acceptedProposalId: serviceRequest.contract.acceptedProposalId, professional: serviceRequest.contract.professionalProfile, agreedAmountInCents: serviceRequest.contract.agreedAmountInCents, agreedDurationValue: serviceRequest.contract.agreedDurationValue, agreedDurationUnit: serviceRequest.contract.agreedDurationUnit, conditions: serviceRequest.contract.agreedMessage, acceptedAt: serviceRequest.contract.acceptedAt, startedAt: serviceRequest.contract.startedAt, completedAt: serviceRequest.contract.completedAt, cancelledAt: serviceRequest.contract.cancelledAt, cancellationReason: serviceRequest.contract.cancellationReason } : null,
+      });
+    });
   }
 
   async createServiceRequest(
