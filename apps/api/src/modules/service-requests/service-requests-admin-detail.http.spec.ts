@@ -12,7 +12,7 @@ import { ServiceRequestsService } from "./service-requests.service";
 
 describe("administrative service request detail HTTP authorization", () => {
   const detail = { publicCode: "SO2026001", proposals: [], contract: null };
-  const service = { findAdmin: jest.fn(), findAdminDetailByPublicCode: jest.fn().mockResolvedValue(detail) };
+  const service = { findAdmin: jest.fn().mockResolvedValue({ total: 0, byStatus: [], items: [], pagination: { page: 1, limit: 20, totalPages: 0 } }), findAdminDetailByPublicCode: jest.fn().mockResolvedValue(detail) };
   let app: Awaited<ReturnType<typeof createApp>>;
 
   beforeAll(async () => {
@@ -42,6 +42,18 @@ describe("administrative service request detail HTTP authorization", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(detail);
     expect(service.findAdminDetailByPublicCode).toHaveBeenCalledWith("admin-id", "so2026001");
+  });
+
+  it("combines the validated status filter and public code for an ADMIN", async () => {
+    const response = await request(app.url, "/api/v1/service-requests/admin?code=so2026001&status=HIRED&page=2&limit=20", "admin");
+    expect(response.status).toBe(200);
+    expect(service.findAdmin).toHaveBeenCalledWith("so2026001", "HIRED", 2, 20);
+  });
+
+  it("rejects an unsupported administrative status filter", async () => {
+    const response = await request(app.url, "/api/v1/service-requests/admin?status=OPEN", "admin");
+    expect(response.status).toBe(400);
+    expect(service.findAdmin).not.toHaveBeenCalled();
   });
 });
 

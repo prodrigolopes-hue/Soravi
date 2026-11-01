@@ -130,10 +130,12 @@ export class ServiceRequestsService {
     );
   }
 
-  async findAdmin(publicCode?: string) {
+  async findAdmin(publicCode?: string, status?: Extract<ServiceRequestStatus, "HIRED" | "COMPLETED" | "CANCELLED">, page = 1, limit = 20) {
     const normalizedCode = publicCode?.trim().toUpperCase();
     const where: Prisma.ServiceRequestWhereInput = {
+      deletedAt: null,
       ...(normalizedCode ? { publicCode: { contains: normalizedCode, mode: "insensitive" } } : {}),
+      ...(status ? { status } : {}),
     };
     const groupByStatusArgs = {
       by: ["status"],
@@ -144,9 +146,9 @@ export class ServiceRequestsService {
     const [total, byStatus, items] = await this.prisma.$transaction([
       this.prisma.serviceRequest.count({ where }),
       this.prisma.serviceRequest.groupBy(groupByStatusArgs),
-      this.prisma.serviceRequest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100, select: { id: true, publicCode: true, title: true, status: true, createdAt: true, customerProfile: { select: { user: { select: { name: true } } } } } }),
+      this.prisma.serviceRequest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * limit, take: limit, select: { id: true, publicCode: true, title: true, status: true, createdAt: true, customerProfile: { select: { user: { select: { name: true } } } } } }),
     ]);
-    return { total, byStatus: byStatus.map((item) => ({ status: item.status, total: item._count._all })), items: items.map((item) => ({ id: item.id, publicCode: item.publicCode, title: item.title, status: item.status, createdAt: item.createdAt, customerName: item.customerProfile.user.name })) };
+    return { total, byStatus: byStatus.map((item) => ({ status: item.status, total: item._count._all })), items: items.map((item) => ({ id: item.id, publicCode: item.publicCode, title: item.title, status: item.status, createdAt: item.createdAt, customerName: item.customerProfile.user.name })), pagination: { page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
   async findAdminDetailByPublicCode(adminUserId: string, publicCode: string): Promise<AdminServiceRequestDetailResponseDto> {

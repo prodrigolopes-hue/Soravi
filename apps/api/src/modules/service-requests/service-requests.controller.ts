@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,7 +14,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 
-import { Role } from "../../generated/prisma/client";
+import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -57,8 +58,12 @@ export class ServiceRequestsController {
   @Get("admin")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
-  findAdmin(@Query("code") code?: string): Promise<unknown> {
-    return this.serviceRequestsService.findAdmin(code);
+  findAdmin(@Query("code") code?: string, @Query("status") status?: string, @Query("page") page?: string, @Query("limit") limit?: string): Promise<unknown> {
+    const parsedPage = page === undefined ? 1 : Number(page);
+    const parsedLimit = limit === undefined ? 20 : Number(limit);
+    if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_PAGINATION_INVALID", message: "Paginação inválida." });
+    if (status !== undefined && status !== ServiceRequestStatus.HIRED && status !== ServiceRequestStatus.COMPLETED && status !== ServiceRequestStatus.CANCELLED) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_STATUS_INVALID", message: "Status inválido." });
+    return this.serviceRequestsService.findAdmin(code, status, parsedPage, parsedLimit);
   }
 
   @Get("admin/by-code/:publicCode")

@@ -4,10 +4,15 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { apiBaseUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import {
+  isServiceRequestStatus,
+  serviceRequestStatusPresentation,
+} from "../service-requests/service-request-presentation";
 
 type ListResult = {
   total: number;
   byStatus: Array<{ status: string; total: number }>;
+  pagination: { page: number; limit: number; totalPages: number };
   items: Array<{
     id: string;
     publicCode: string;
@@ -35,6 +40,12 @@ type Detail = {
 };
 
 const base = apiBaseUrl.replace(/\/+$/u, "");
+const statusFilters = [
+  { value: "", label: "Todas" },
+  { value: "HIRED", label: "Contratadas" },
+  { value: "COMPLETED", label: "Concluídas" },
+  { value: "CANCELLED", label: "Canceladas" },
+];
 
 function formatDate(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString("pt-BR") : "Não registrado";
@@ -44,9 +55,50 @@ function formatAmount(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value / 100);
 }
 
+function formatServiceRequestStatus(status: string): string {
+  return isServiceRequestStatus(status)
+    ? serviceRequestStatusPresentation[status].label
+    : "Outro status";
+}
+
+function formatProposalStatus(status: string): string {
+  const labels: Record<string, string> = {
+    ACTIVE: "Ativa",
+    ACCEPTED: "Aceita",
+    REJECTED: "Rejeitada",
+    WITHDRAWN: "Retirada",
+    EXPIRED: "Expirada",
+  };
+  return labels[status] ?? "Outro status";
+}
+
+function formatContractStatus(status: string): string {
+  const labels: Record<string, string> = {
+    ACCEPTED: "Aceito",
+    IN_PROGRESS: "Em andamento",
+    COMPLETED: "Concluído",
+    CANCELLED: "Cancelado",
+  };
+  return labels[status] ?? "Outro status";
+}
+
+function formatDuration(value: number, unit: string): string {
+  const labels: Record<string, [string, string]> = {
+    HOUR: ["hora", "horas"],
+    DAY: ["dia", "dias"],
+    WEEK: ["semana", "semanas"],
+    MONTH: ["mês", "meses"],
+  };
+  const label = labels[unit];
+  if (!label) return `${value} unidade(s)`;
+  return `${value} ${value === 1 ? label[0] : label[1]}`;
+}
+
 export function AdminServiceRequestsPage() {
   const { accessToken, user } = useAuth();
   const [code, setCode] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [result, setResult] = useState<ListResult | null>(null);
   const [error, setError] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -54,13 +106,15 @@ export function AdminServiceRequestsPage() {
   const detailInFlight = useRef<string | null>(null);
   const admin = Boolean(user?.roles.includes("ADMIN"));
 
-  const load = useCallback(async (search: string) => {
+  const load = useCallback(async (search: string, status: string, requestedPage: number) => {
     if (!accessToken || !admin) return;
 
     setError(false);
     try {
       const url = new URL(`${base}/api/v1/service-requests/admin`);
       if (search.trim()) url.searchParams.set("code", search.trim());
+      if (status) url.searchParams.set("status", status);
+      url.searchParams.set("page", String(requestedPage));
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${accessToken}` },
         credentials: "include",
@@ -98,7 +152,7 @@ export function AdminServiceRequestsPage() {
   }, [accessToken, detail?.publicCode]);
 
   useEffect(() => {
-    void load("");
+    void load("", "", 1);
   }, [load]);
 
   if (!admin) return <p className="p-6">Acesso restrito à administração.</p>;
@@ -137,8 +191,8 @@ export function AdminServiceRequestsPage() {
 
         <section className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="text-xl font-bold">{detail.title}</h2>
-          <p className="mt-2 text-sm text-slate-700">{detail.status} · {detail.category.name}</p>
-          {detail.description ? <p className="mt-4 whitespace-pre-wrap text-slate-700">{detail.description}</p> : null}
+          <p className="mt-2 text-sm text-slate-700">{formatServiceRequestStatus(detail.status)} · {detail.category.name}</p>
+          {detail.description ? <p className="mt-4 break-words whitespace-pre-wrap text-slate-700">{detail.description}</p> : null}
           <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div><dt className="text-sm text-slate-600">Cliente</dt><dd className="font-semibold">{detail.customer.name}</dd></div>
             <div><dt className="text-sm text-slate-600">Região</dt><dd className="font-semibold">{detail.region.neighborhood}, {detail.region.city} · {detail.region.state}, {detail.region.country}</dd></div>
@@ -160,12 +214,12 @@ export function AdminServiceRequestsPage() {
 
         <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="text-xl font-bold">Propostas</h2>
-          {detail.proposals.length ? <div className="mt-4 space-y-3">{detail.proposals.map((proposal) => <article key={proposal.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap justify-between gap-2"><strong>{proposal.professional.displayName}</strong><span className="text-sm font-semibold">{proposal.status}</span></div><p className="mt-2 text-sm">{formatAmount(proposal.amountInCents)} · {proposal.estimatedDurationValue} {proposal.estimatedDurationUnit}</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">Condições: {proposal.conditions}</p><p className="mt-2 text-xs text-slate-600">Enviada: {formatDate(proposal.submittedAt)} · Aceita: {formatDate(proposal.acceptedAt)} · Rejeitada: {formatDate(proposal.rejectedAt)} · Retirada: {formatDate(proposal.withdrawnAt)} · Expirada: {formatDate(proposal.expiredAt)}</p></article>)}</div> : <p className="mt-4 text-sm text-slate-600">Nenhuma proposta vinculada.</p>}
+          {detail.proposals.length ? <div className="mt-4 space-y-3">{detail.proposals.map((proposal) => <article key={proposal.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap justify-between gap-2"><strong className="break-words">{proposal.professional.displayName}</strong><span className="text-sm font-semibold">{formatProposalStatus(proposal.status)}</span></div><p className="mt-2 text-sm">{formatAmount(proposal.amountInCents)} · {formatDuration(proposal.estimatedDurationValue, proposal.estimatedDurationUnit)}</p><p className="mt-2 break-words whitespace-pre-wrap text-sm text-slate-700">Condições: {proposal.conditions}</p><p className="mt-2 break-words text-xs text-slate-600">Enviada: {formatDate(proposal.submittedAt)} · Aceita: {formatDate(proposal.acceptedAt)} · Rejeitada: {formatDate(proposal.rejectedAt)} · Retirada: {formatDate(proposal.withdrawnAt)} · Expirada: {formatDate(proposal.expiredAt)}</p></article>)}</div> : <p className="mt-4 text-sm text-slate-600">Nenhuma proposta vinculada.</p>}
         </section>
 
         <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="text-xl font-bold">Contrato e proposta aceita</h2>
-          {detail.contract ? <div className="mt-4 text-sm text-slate-700"><p><strong>{detail.contract.professional.displayName}</strong> · {detail.contract.status}</p><p className="mt-2">{formatAmount(detail.contract.agreedAmountInCents)} · {detail.contract.agreedDurationValue} {detail.contract.agreedDurationUnit}</p><p className="mt-2 whitespace-pre-wrap">Condições acordadas: {detail.contract.conditions}</p><p className="mt-2">Aceita: {formatDate(detail.contract.acceptedAt)} · Início: {formatDate(detail.contract.startedAt)} · Conclusão: {formatDate(detail.contract.completedAt)} · Cancelamento: {formatDate(detail.contract.cancelledAt)}</p>{detail.contract.cancellationReason ? <p className="mt-2">Motivo do cancelamento: {detail.contract.cancellationReason}</p> : null}</div> : <p className="mt-4 text-sm text-slate-600">Não há contrato vinculado.</p>}
+          {detail.contract ? <div className="mt-4 text-sm text-slate-700"><p><strong className="break-words">{detail.contract.professional.displayName}</strong> · {formatContractStatus(detail.contract.status)}</p><p className="mt-2">{formatAmount(detail.contract.agreedAmountInCents)} · {formatDuration(detail.contract.agreedDurationValue, detail.contract.agreedDurationUnit)}</p><p className="mt-2 break-words whitespace-pre-wrap">Condições acordadas: {detail.contract.conditions}</p><p className="mt-2 break-words">Aceita: {formatDate(detail.contract.acceptedAt)} · Início: {formatDate(detail.contract.startedAt)} · Conclusão: {formatDate(detail.contract.completedAt)} · Cancelamento: {formatDate(detail.contract.cancelledAt)}</p>{detail.contract.cancellationReason ? <p className="mt-2 break-words">Motivo do cancelamento: {detail.contract.cancellationReason}</p> : null}</div> : <p className="mt-4 text-sm text-slate-600">Não há contrato vinculado.</p>}
         </section>
       </main>
     );
@@ -175,12 +229,16 @@ export function AdminServiceRequestsPage() {
     <main className="mx-auto max-w-6xl p-6">
       <h1 className="text-3xl font-bold">Solicitações</h1>
       <p className="mt-2 text-slate-600">Total geral e contagens por status são calculados diretamente das solicitações.</p>
-      <form className="mt-6 flex flex-wrap gap-3" onSubmit={(event: FormEvent) => { event.preventDefault(); void load(code); }}>
+      <form className="mt-6 flex flex-wrap gap-3" onSubmit={(event: FormEvent) => { event.preventDefault(); setPage(1); void load(code, statusFilter, 1); }}>
         <input value={code} onChange={(event) => setCode(event.target.value)} placeholder="Buscar código, ex.: SO2026001" className="min-h-11 min-w-0 flex-1 rounded-xl border px-3" />
+        <label className="sr-only" htmlFor="admin-service-request-status">Status</label>
+        <select id="admin-service-request-status" value={statusFilter} className="min-h-11 rounded-xl border px-3" onChange={(event) => { const nextStatus = event.target.value; setStatusFilter(nextStatus); setPage(1); void load(code, nextStatus, 1); }}>
+          {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
+        </select>
         <button className="min-h-11 rounded-xl bg-blue-600 px-4 font-semibold text-white">Buscar</button>
       </form>
       {error ? <p role="alert" className="mt-4 text-red-700">Não foi possível carregar as solicitações.</p> : null}
-      {result ? <><div className="mt-6 rounded-xl border p-4"><strong>Total geral: {result.total}</strong><p className="mt-2 text-sm text-slate-600">{result.byStatus.map((item) => `${item.status}: ${item.total}`).join(" · ") || "Sem solicitações"}</p></div><ul className="mt-5 space-y-3">{result.items.map((item) => <li key={item.id} className="rounded-xl border p-4"><p className="font-semibold text-blue-700">{item.publicCode}</p><p className="font-semibold">{item.title}</p><p className="text-sm text-slate-600">{item.status} · {item.customerName}</p><button type="button" className="mt-3 min-h-11 rounded-xl border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800" onClick={() => void openDetail(item.publicCode)}>Ver detalhes</button></li>)}</ul></> : null}
+      {result ? <><div className="mt-6 rounded-xl border p-4"><strong>Total {statusFilter || code.trim() ? "filtrado" : "geral"}: {result.total}</strong><p className="mt-2 text-sm text-slate-600">{result.byStatus.map((item) => `${formatServiceRequestStatus(item.status)}: ${item.total}`).join(" · ") || "Sem solicitações"}</p></div><ul className="mt-5 space-y-3">{result.items.map((item) => <li key={item.id} className="rounded-xl border p-4"><p className="font-semibold text-blue-700">{item.publicCode}</p><p className="break-words font-semibold">{item.title}</p><p className="text-sm text-slate-600">{formatServiceRequestStatus(item.status)} · {item.customerName}</p><button type="button" className="mt-3 min-h-11 rounded-xl border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800" onClick={() => void openDetail(item.publicCode)}>Ver detalhes</button></li>)}</ul><nav className="mt-6 flex flex-wrap items-center justify-between gap-3"><button type="button" className="min-h-11 rounded-xl border px-4 py-2 font-semibold disabled:opacity-50" disabled={result.pagination.page <= 1} onClick={() => { const nextPage = page - 1; setPage(nextPage); void load(code, statusFilter, nextPage); }}>Anterior</button><span className="text-sm text-slate-600">Página {result.pagination.page} de {Math.max(1, result.pagination.totalPages)}</span><button type="button" className="min-h-11 rounded-xl border px-4 py-2 font-semibold disabled:opacity-50" disabled={result.pagination.page >= result.pagination.totalPages} onClick={() => { const nextPage = page + 1; setPage(nextPage); void load(code, statusFilter, nextPage); }}>Próxima</button></nav></> : null}
     </main>
   );
 }
