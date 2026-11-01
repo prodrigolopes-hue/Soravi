@@ -43,6 +43,18 @@ export class ProfessionalPortfolioService {
   }
 
   async listPending() { return this.prisma.professionalPortfolioItem.findMany({ where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { id: true, caption: true, moderationVersion: true, professionalProfile: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } }); }
+  async listPendingGrouped(page = 1, limit = 5) {
+    const boundedPage = Math.max(1, page); const boundedLimit = Math.max(1, Math.min(limit, 20));
+    const where = { portfolioItems: { some: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING } } };
+    const [totalProfessionals, totalPhotos, groupIds] = await this.prisma.$transaction([
+      this.prisma.professionalProfile.count({ where }),
+      this.prisma.professionalPortfolioItem.count({ where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING } }),
+      this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "professional_profile_id" AS "id" FROM "professional_portfolio_items" WHERE "deleted_at" IS NULL AND "moderation_status" = 'PENDING'::"ProfessionalPortfolioModerationStatus" GROUP BY "professional_profile_id" ORDER BY MIN("created_at") ASC, "professional_profile_id" ASC OFFSET ${(boundedPage - 1) * boundedLimit} LIMIT ${boundedLimit}`),
+    ]);
+    const professionals = await this.prisma.professionalProfile.findMany({ where: { id: { in: groupIds.map(({ id }) => id) } }, select: { id: true, displayName: true, portfolioItems: { where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { id: true, caption: true, createdAt: true, moderationVersion: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] } } });
+    const positions = new Map(groupIds.map(({ id }, index) => [id, index])); professionals.sort((left, right) => (positions.get(left.id) ?? 0) - (positions.get(right.id) ?? 0));
+    return { items: professionals, pagination: { page: boundedPage, limit: boundedLimit, totalProfessionals, totalPendingPhotos: totalPhotos, totalPages: Math.ceil(totalProfessionals / boundedLimit) } };
+  }
   async privateEvidence(itemId: string) {
     const item = await this.prisma.professionalPortfolioItem.findFirst({ where: { id: itemId, deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { objectKey: true } });
     if (!item) throw new NotFoundException({ code: "PORTFOLIO_ITEM_NOT_AVAILABLE", message: "Foto não disponível para análise." });

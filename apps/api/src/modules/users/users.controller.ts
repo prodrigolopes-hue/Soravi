@@ -374,6 +374,15 @@ export class UsersController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   listPendingProfessionalPortfolioItems(): Promise<unknown> { return this.professionalPortfolioService.listPending(); }
 
+  @Get("admin/professional-portfolios/grouped")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  listPendingProfessionalPortfolioGroups(@Query("page") page?: string, @Query("limit") limit?: string): Promise<unknown> {
+    const parsedPage = page === undefined ? 1 : Number(page); const parsedLimit = limit === undefined ? 5 : Number(limit);
+    if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1) throw new BadRequestException({ code: "PORTFOLIO_MODERATION_PAGINATION_INVALID", message: "Paginação inválida." });
+    return this.professionalPortfolioService.listPendingGrouped(parsedPage, parsedLimit);
+  }
+
   @Get("admin/professional-portfolios/:itemId/evidence")
   @Header("Cache-Control", "no-store")
   @Roles(Role.ADMIN)
