@@ -6,12 +6,9 @@ import { useEffect, useState } from "react";
 
 import { apiBaseUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { isDetails, type Details } from "./admin-identity-review-details";
 
 type Attempt = { id: string; createdAt: string; professionalProfile: { displayName: string } };
-type Decision = { result: string; reasonCode: string; createdAt: string; operator: { name: string; email: string } | null };
-type History = { id: string; status: string; result: string; createdAt: string; closedAt: string | null; decisions: Decision[] };
-type DetailAttempt = Omit<History, "decisions"> & { hasActiveSelfie: boolean };
-type Details = { attempt: DetailAttempt; professionalName: string; history: History[] };
 type DecisionResult = "CONFIRMED" | "NOT_CONFIRMED" | "INCONCLUSIVE";
 const base = apiBaseUrl.replace(/\/+$/u, "");
 const decisionReasons: Record<DecisionResult, readonly { value: string; label: string }[]> = {
@@ -33,18 +30,8 @@ const decisionReasons: Record<DecisionResult, readonly { value: string; label: s
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
-function isNullableString(value: unknown): value is string | null { return typeof value === "string" || value === null; }
 function isAttempt(value: unknown): value is Attempt {
   return isRecord(value) && typeof value.id === "string" && typeof value.createdAt === "string" && isRecord(value.professionalProfile) && typeof value.professionalProfile.displayName === "string";
-}
-function isDecision(value: unknown): value is Decision {
-  return isRecord(value) && typeof value.result === "string" && typeof value.reasonCode === "string" && typeof value.createdAt === "string" && (value.operator === null || (isRecord(value.operator) && typeof value.operator.name === "string" && typeof value.operator.email === "string"));
-}
-function isHistory(value: unknown): value is History {
-  return isRecord(value) && typeof value.id === "string" && typeof value.status === "string" && typeof value.result === "string" && typeof value.createdAt === "string" && isNullableString(value.closedAt) && Array.isArray(value.decisions) && value.decisions.every(isDecision);
-}
-function isDetails(value: unknown): value is Details {
-  return isRecord(value) && typeof value.professionalName === "string" && isHistory({ ...(isRecord(value.attempt) ? value.attempt : {}), decisions: [] }) && isRecord(value.attempt) && typeof value.attempt.hasActiveSelfie === "boolean" && Array.isArray(value.history) && value.history.every(isHistory);
 }
 
 export function AdminIdentityReviewsPage() {

@@ -66,7 +66,7 @@ describe("ProfessionalIdentityReviewService", () => {
           createdAt: new Date(),
           closedAt: new Date(),
           requiresSelfie: false,
-          decisions: [],
+          decisions: [{ result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", createdAt: new Date("2026-10-31T12:00:00.000Z"), operator: { name: "Administradora" } }],
           evidenceReferences: [],
         }],
       },
@@ -76,6 +76,21 @@ describe("ProfessionalIdentityReviewService", () => {
     expect(JSON.stringify(result)).not.toContain("cpfEnvelope");
     expect(prisma.professionalIdentityVerificationAttempt.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.not.objectContaining({ personalIdentity: expect.anything() }) }));
     expect(result.attempt.hasActiveSelfie).toBe(false);
+    const legacyResponse = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
+    expect(legacyResponse).toMatchObject({
+      attempt: { status: "CLOSED", result: "CONFIRMED", requiresSelfie: false, hasActiveSelfie: false },
+      professionalName: "Ana",
+      history: [{
+        id: "legacy-attempt",
+        status: "CLOSED",
+        result: "CONFIRMED",
+        requiresSelfie: false,
+        documentSubmitted: false,
+        selfieSubmitted: false,
+        decisions: [{ result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", operator: { name: "Administradora" } }],
+      }],
+    });
+    expect(JSON.stringify(legacyResponse)).not.toContain("email");
   });
   it("details indica somente a existência de selfie ativa", async () => {
     prisma.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({ id: "attempt", status: "UNDER_REVIEW", result: "PENDING", createdAt: new Date(), closedAt: null, requiresSelfie: true, evidenceReferences: [{ id: "active-selfie" }], professionalProfile: { displayName: "Ana", identityVerificationAttempts: [] } });
