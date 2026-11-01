@@ -15,6 +15,7 @@ describe("ProfessionalDiscoveryService", () => {
     professionalTitle: "Eletricista",
     serviceArea: "Niterói",
     bio: "Atendimento residencial.",
+    portfolioItems: [],
     professionalCategories: [{ category: { id: "category-id", name: "Elétrica", slug: "eletrica" } }],
   };
   let prisma: {
@@ -111,6 +112,14 @@ describe("ProfessionalDiscoveryService", () => {
     expect(photoReadServiceMock.createTemporaryReadUrl).toHaveBeenCalledWith("private-object-key");
   });
 
+  it("exclui itens pendentes, rejeitados e removidos antes de assinar URLs públicas", async () => {
+    const result = await service.findOne(professional.id, new PublicProfessionalDiscoveryQueryDto());
+    expect(result.portfolio).toEqual([]);
+    const select = prisma.professionalProfile.findFirst.mock.calls[0][0].select;
+    expect(select.portfolioItems.where).toEqual({ deletedAt: null, moderationStatus: "APPROVED" });
+    expect(photoReadServiceMock.createTemporaryReadUrl).not.toHaveBeenCalledWith(expect.stringMatching(/pending|rejected|removed/));
+  });
+
   it("retorna 404 para perfil inelegível", async () => {
     prisma.professionalProfile.findFirst.mockResolvedValue(null);
 
@@ -144,7 +153,7 @@ describe("ProfessionalDiscoveryService", () => {
       pagination: { page: 2, limit: 5, total: 1, totalPages: 1 },
     });
     expect(Object.keys(result).sort()).toEqual([
-      "bio", "categories", "displayName", "id", "photo", "professionalTitle",
+      "bio", "categories", "displayName", "id", "photo", "portfolio", "professionalTitle",
       "reputation", "reviews", "serviceArea",
     ]);
     expect(Object.keys(result.reviews.items[0]).sort()).toEqual(["comment", "publishedAt", "rating"]);

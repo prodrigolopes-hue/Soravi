@@ -45,10 +45,10 @@ export class ProfessionalProfilePhotoResponseDto {
     this.expiresAt = properties.expiresAt;
   }
 }
-export interface ProfessionalPortfolioItemResponseProperties { id: string; url: string; expiresAt: string; caption: string | null; }
+export interface ProfessionalPortfolioItemResponseProperties { id: string; url: string | null; expiresAt: string | null; caption: string | null; status: string; rejectionReasonCode: string | null; }
 export class ProfessionalPortfolioItemResponseDto {
-  readonly id: string; readonly url: string; readonly expiresAt: string; readonly caption: string | null;
-  constructor(properties: ProfessionalPortfolioItemResponseProperties) { this.id = properties.id; this.url = properties.url; this.expiresAt = properties.expiresAt; this.caption = properties.caption; }
+  readonly id: string; readonly url: string | null; readonly expiresAt: string | null; readonly caption: string | null; readonly status: string; readonly rejectionReasonCode: string | null;
+  constructor(properties: ProfessionalPortfolioItemResponseProperties) { this.id = properties.id; this.url = properties.url; this.expiresAt = properties.expiresAt; this.caption = properties.caption; this.status = properties.status; this.rejectionReasonCode = properties.rejectionReasonCode; }
 }
 
 export class ProfessionalProfileResponseDto {

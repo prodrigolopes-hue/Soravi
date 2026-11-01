@@ -369,6 +369,27 @@ export class UsersController {
     return this.professionalPortfolioService.removeCurrent(currentUser.id, itemId);
   }
 
+  @Get("admin/professional-portfolios")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  listPendingProfessionalPortfolioItems(): Promise<unknown> { return this.professionalPortfolioService.listPending(); }
+
+  @Get("admin/professional-portfolios/:itemId/evidence")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalPortfolioEvidence(@Param("itemId", new ParseUUIDPipe()) itemId: string): Promise<unknown> { return this.professionalPortfolioService.privateEvidence(itemId); }
+
+  @Get("admin/professional-portfolios/:itemId/history")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalPortfolioHistory(@Param("itemId", new ParseUUIDPipe()) itemId: string): Promise<unknown> { return this.professionalPortfolioService.history(itemId); }
+
+  @Post("admin/professional-portfolios/:itemId/decision")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  decideProfessionalPortfolioItem(@CurrentUser() user: AuthenticatedUser, @Param("itemId", new ParseUUIDPipe()) itemId: string, @Body() input: { result: unknown; reasonCode?: unknown; version: unknown }): Promise<void> { return this.professionalPortfolioService.decide(user.id, itemId, input.result, input.reasonCode, input.version); }
+
   @Post("me/professional-identity-verification/document")
   @Roles(Role.PROFESSIONAL)
   @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)

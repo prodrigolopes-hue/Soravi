@@ -42,6 +42,12 @@ enum ProfessionalProfilePhotoTaskKind {
   PHOTO_DELETE
 }
 
+enum ProfessionalPortfolioModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum PreProposalPhotoCandidateStatus {
   PENDING
   PROCESSING
@@ -232,6 +238,7 @@ model User {
   phoneVerificationChallenges             PhoneVerificationChallenge[]
   reviewReminders                         ReviewReminder[]
   adminActivationAudits                   AdminActivationAudit[]
+  portfolioModerationDecisions            ProfessionalPortfolioModerationDecision[] @relation("ProfessionalPortfolioModerationOperator")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -378,12 +385,31 @@ model ProfessionalPortfolioItem {
   width                 Int
   height                Int
   caption               String?             @db.VarChar(280)
+  moderationStatus      ProfessionalPortfolioModerationStatus @default(PENDING) @map("moderation_status")
+  moderationVersion     Int                 @default(1) @map("moderation_version")
+  rejectionReasonCode   String?             @map("rejection_reason_code") @db.VarChar(64)
+  deletedAt             DateTime?           @map("deleted_at") @db.Timestamptz(3)
   createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
 
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  moderationDecisions ProfessionalPortfolioModerationDecision[]
 
-  @@index([professionalProfileId, createdAt], map: "professional_portfolio_items_profile_created_idx")
+  @@index([professionalProfileId, deletedAt, createdAt], map: "professional_portfolio_items_profile_created_idx")
   @@map("professional_portfolio_items")
+}
+
+model ProfessionalPortfolioModerationDecision {
+  id              String   @id @default(uuid()) @db.Uuid
+  portfolioItemId String   @map("portfolio_item_id") @db.Uuid
+  operatorUserId  String   @map("operator_user_id") @db.Uuid
+  result          ProfessionalPortfolioModerationStatus
+  reasonCode      String?  @map("reason_code") @db.VarChar(64)
+  contentVersion  Int     @map("content_version")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  portfolioItem ProfessionalPortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+  operator User @relation("ProfessionalPortfolioModerationOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+  @@index([portfolioItemId, createdAt])
+  @@map("professional_portfolio_moderation_decisions")
 }
 
 model ProfessionalProfilePhotoDeletionTask {

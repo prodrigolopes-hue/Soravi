@@ -30,7 +30,7 @@ const publicProfessionalSelect = {
   photo: {
     select: { objectKey: true },
   },
-  portfolioItems: { select: { id: true, objectKey: true, caption: true }, orderBy: { createdAt: "desc" } },
+  portfolioItems: { where: { deletedAt: null, moderationStatus: "APPROVED" }, select: { id: true, objectKey: true, caption: true }, orderBy: { createdAt: "desc" } },
 } satisfies Prisma.ProfessionalProfileSelect;
 
 type PublicProfessionalRecord = Prisma.ProfessionalProfileGetPayload<{
