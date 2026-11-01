@@ -37,6 +37,8 @@ type History = {
   operator: { name: string };
 };
 
+type ModerationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 const base = apiBaseUrl.replace(/\/+$/u, "");
 const reasons = [
   "INAPPROPRIATE_CONTENT",
@@ -44,12 +46,18 @@ const reasons = [
   "NOT_A_WORK_PHOTO",
   "LOW_QUALITY",
 ];
+const tabs: { status: ModerationStatus; label: string }[] = [
+  { status: "PENDING", label: "Pendentes" },
+  { status: "APPROVED", label: "Aprovadas" },
+  { status: "REJECTED", label: "Rejeitadas" },
+];
 
 export function AdminPortfolioModerationPage() {
   const { accessToken, user, isLoading } = useAuth();
   const admin = Boolean(user?.roles.includes("ADMIN"));
   const [queue, setQueue] = useState<Queue | null>(null);
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<ModerationStatus>("PENDING");
   const [urls, setUrls] = useState<Record<string, string | null | undefined>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<{ group: Group; index: number } | null>(null);
@@ -72,7 +80,7 @@ export function AdminPortfolioModerationPage() {
     generation.current += 1;
 
     const response = await fetch(
-      `${base}/api/v1/users/admin/professional-portfolios/grouped?page=${page}&limit=5`,
+      `${base}/api/v1/users/admin/professional-portfolios/grouped?page=${page}&limit=5&status=${status}`,
       { headers: headers(), credentials: "include", cache: "no-store" },
     );
     const body: unknown = await response.json();
@@ -101,7 +109,7 @@ export function AdminPortfolioModerationPage() {
     setQueue(nextQueue);
     setSelected(new Set());
     setUrls({});
-  }, [accessToken, headers, page]);
+  }, [accessToken, headers, page, status]);
 
   useEffect(() => {
     if (!admin) return;
@@ -208,7 +216,7 @@ export function AdminPortfolioModerationPage() {
   };
 
   const decide = async () => {
-    if (!queue || !selected.size || saving) return;
+    if (!queue || !selected.size || saving || status === "REJECTED") return;
 
     setSaving(true);
     setMessage(null);
@@ -225,17 +233,19 @@ export function AdminPortfolioModerationPage() {
         const photo = photos[cursor++];
 
         try {
+          const endpoint = status === "APPROVED"
+            ? `${base}/api/v1/users/admin/professional-portfolios/${photo.id}/withdraw-publication`
+            : `${base}/api/v1/users/admin/professional-portfolios/${photo.id}/decision`;
+          const body = status === "APPROVED"
+            ? { reasonCode: reason, version: photo.moderationVersion }
+            : { result: decision, reasonCode: decision === "REJECTED" ? reason : undefined, version: photo.moderationVersion };
           const response = await fetch(
-            `${base}/api/v1/users/admin/professional-portfolios/${photo.id}/decision`,
+            endpoint,
             {
               method: "POST",
               headers: { ...headers(), "Content-Type": "application/json" },
               credentials: "include",
-              body: JSON.stringify({
-                result: decision,
-                reasonCode: decision === "REJECTED" ? reason : undefined,
-                version: photo.moderationVersion,
-              }),
+              body: JSON.stringify(body),
             },
           );
 
@@ -255,7 +265,7 @@ export function AdminPortfolioModerationPage() {
     setConfirming(false);
     setSaving(false);
     setMessage(
-      `${successes.length} decisão(ões) registrada(s).${
+      `${successes.length} ${status === "APPROVED" ? "retirada(s) de publicação registrada(s)" : "decisão(ões) registrada(s)"}.${
         failures.length
           ? ` ${failures.length} foto(s) precisam de nova análise.`
           : ""
@@ -317,8 +327,29 @@ export function AdminPortfolioModerationPage() {
       <h1 className="mt-4 text-3xl font-bold">Moderação do portfólio</h1>
       <p className="mt-2 text-slate-600">
         {queue.pagination.totalProfessionals} profissionais ·{" "}
-        {queue.pagination.totalPendingPhotos} fotos pendentes
+        {queue.pagination.totalPendingPhotos} fotos {tabs.find((tab) => tab.status === status)?.label.toLocaleLowerCase("pt-BR")}
       </p>
+
+      <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Status da moderação">
+        {tabs.map((tab) => (
+          <button
+            key={tab.status}
+            type="button"
+            role="tab"
+            aria-selected={status === tab.status}
+            disabled={saving}
+            className={status === tab.status ? "rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" : "rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-800"}
+            onClick={() => {
+              setStatus(tab.status);
+              setPage(1);
+              setSelected(new Set());
+              setMessage(null);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {message ? (
         <p role="status" className="mt-3 text-sm text-slate-700">
@@ -328,14 +359,12 @@ export function AdminPortfolioModerationPage() {
 
       {queue.items.length === 0 ? (
         <section className="mt-6 rounded-2xl border bg-white p-8 text-slate-600">
-          Não há fotos pendentes nesta página.
+          Não há fotos {tabs.find((tab) => tab.status === status)?.label.toLocaleLowerCase("pt-BR")} nesta página.
         </section>
       ) : (
         <div className="mt-6 space-y-5">
           {queue.items.map((group) => {
-            const selectable = group.portfolioItems.filter(
-              (photo) => typeof urls[photo.id] === "string",
-            );
+            const selectable = status === "REJECTED" ? [] : group.portfolioItems.filter((photo) => typeof urls[photo.id] === "string");
             const allSelected =
               selectable.length > 0 &&
               selectable.every((photo) => selected.has(photo.id));
@@ -349,7 +378,7 @@ export function AdminPortfolioModerationPage() {
                   <div>
                     <h2 className="text-xl font-bold">{group.displayName}</h2>
                     <p className="text-sm text-slate-600">
-                      {group.portfolioItems.length} pendente(s) · mais antiga em{" "}
+                      {group.portfolioItems.length} foto(s) · mais antiga em{" "}
                       {new Date(
                         group.portfolioItems[0].createdAt,
                       ).toLocaleString("pt-BR")}
@@ -360,7 +389,7 @@ export function AdminPortfolioModerationPage() {
                     <input
                       type="checkbox"
                       checked={allSelected}
-                      disabled={!selectable.length || saving}
+                      disabled={!selectable.length || saving || status === "REJECTED"}
                       onChange={() => {
                         setSelected((old) => {
                           const next = new Set(old);
@@ -430,7 +459,7 @@ export function AdminPortfolioModerationPage() {
                               type="checkbox"
                               checked={selected.has(photo.id)}
                               disabled={
-                                saving || typeof photoUrl !== "string"
+                                saving || status === "REJECTED" || typeof photoUrl !== "string"
                               }
                               onChange={() => toggle(photo.id)}
                             />{" "}
@@ -475,30 +504,42 @@ export function AdminPortfolioModerationPage() {
         </button>
       </nav>
 
-      {selectedCount ? (
+      {selectedCount && status !== "REJECTED" ? (
         <section className="sticky bottom-4 mt-6 rounded-2xl border bg-white p-4 shadow-lg">
           <p>{selectedCount} foto(s) selecionada(s)</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => {
-                setDecision("APPROVED");
-                setConfirming(true);
-              }}
-            >
-              Aprovar selecionadas
-            </button>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => {
-                setDecision("REJECTED");
-                setConfirming(true);
-              }}
-            >
-              Rejeitar selecionadas
-            </button>
+            {status === "PENDING" ? (
+              <>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setDecision("APPROVED");
+                    setConfirming(true);
+                  }}
+                >
+                  Aprovar selecionadas
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setDecision("REJECTED");
+                    setConfirming(true);
+                  }}
+                >
+                  Rejeitar selecionadas
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setConfirming(true)}
+              >
+                Retirar de publicação
+              </button>
+            )}
           </div>
         </section>
       ) : null}
@@ -510,12 +551,12 @@ export function AdminPortfolioModerationPage() {
           className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4"
         >
           <section className="w-full max-w-md rounded-2xl bg-white p-5">
-            <h2 className="text-xl font-bold">Confirmar decisão</h2>
+            <h2 className="text-xl font-bold">{status === "APPROVED" ? "Confirmar retirada de publicação" : "Confirmar decisão"}</h2>
             <p className="mt-2">
-              {decision === "APPROVED" ? "Aprovar" : "Rejeitar"}{" "}
+              {status === "APPROVED" ? "Retirar de publicação" : decision === "APPROVED" ? "Aprovar" : "Rejeitar"}{" "}
               {selectedCount} foto(s)?
             </p>
-            {decision === "REJECTED" ? (
+            {decision === "REJECTED" || status === "APPROVED" ? (
               <select
                 className="mt-3 w-full border p-2"
                 value={reason}

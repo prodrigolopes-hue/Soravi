@@ -40,6 +40,13 @@ const professionalProfileSelect = {
   portfolioItems: { where: { deletedAt: null }, select: { id: true, objectKey: true, caption: true, moderationStatus: true, rejectionReasonCode: true }, orderBy: { createdAt: "desc" } },
 } satisfies Prisma.ProfessionalProfileSelect;
 
+const rejectionReasonLabels: Record<string, string> = {
+  INAPPROPRIATE_CONTENT: "Conteúdo inadequado para o portfólio.",
+  PERSONAL_DATA_EXPOSED: "A imagem expõe dados pessoais.",
+  NOT_A_WORK_PHOTO: "A imagem não mostra um trabalho realizado.",
+  LOW_QUALITY: "A qualidade da imagem não permite a publicação.",
+};
+
 type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
   select: typeof professionalProfileSelect;
 }>;
@@ -196,7 +203,7 @@ export class CurrentProfessionalProfileService {
       ),
       portfolio: await Promise.all(profile.portfolioItems.map(async (item) => {
         const photo = await this.professionalProfilePhotoReadService.createTemporaryReadUrl(item.objectKey);
-        return { id: item.id, url: photo?.url ?? null, expiresAt: photo?.expiresAt ?? null, caption: item.caption, status: item.moderationStatus, rejectionReasonCode: item.rejectionReasonCode };
+        return { id: item.id, url: photo?.url ?? null, expiresAt: photo?.expiresAt ?? null, caption: item.caption, status: item.moderationStatus, rejectionReasonCode: item.rejectionReasonCode, rejectionReason: item.rejectionReasonCode ? (rejectionReasonLabels[item.rejectionReasonCode] ?? "A imagem não foi aprovada para publicação.") : null };
       })),
     });
   }

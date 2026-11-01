@@ -377,10 +377,10 @@ export class UsersController {
   @Get("admin/professional-portfolios/grouped")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
-  listPendingProfessionalPortfolioGroups(@Query("page") page?: string, @Query("limit") limit?: string): Promise<unknown> {
+  listPendingProfessionalPortfolioGroups(@Query("page") page?: string, @Query("limit") limit?: string, @Query("status") status?: string): Promise<unknown> {
     const parsedPage = page === undefined ? 1 : Number(page); const parsedLimit = limit === undefined ? 5 : Number(limit);
     if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1) throw new BadRequestException({ code: "PORTFOLIO_MODERATION_PAGINATION_INVALID", message: "Paginação inválida." });
-    return this.professionalPortfolioService.listPendingGrouped(parsedPage, parsedLimit);
+    return this.professionalPortfolioService.listGrouped(status ?? "PENDING", parsedPage, parsedLimit);
   }
 
   @Get("admin/professional-portfolios/:itemId/evidence")
@@ -398,6 +398,11 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
   decideProfessionalPortfolioItem(@CurrentUser() user: AuthenticatedUser, @Param("itemId", new ParseUUIDPipe()) itemId: string, @Body() input: { result: unknown; reasonCode?: unknown; version: unknown }): Promise<void> { return this.professionalPortfolioService.decide(user.id, itemId, input.result, input.reasonCode, input.version); }
+
+  @Post("admin/professional-portfolios/:itemId/withdraw-publication")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  withdrawProfessionalPortfolioPublication(@CurrentUser() user: AuthenticatedUser, @Param("itemId", new ParseUUIDPipe()) itemId: string, @Body() input: { reasonCode: unknown; version: unknown }): Promise<void> { return this.professionalPortfolioService.withdrawPublication(user.id, itemId, input.reasonCode, input.version); }
 
   @Post("me/professional-identity-verification/document")
   @Roles(Role.PROFESSIONAL)

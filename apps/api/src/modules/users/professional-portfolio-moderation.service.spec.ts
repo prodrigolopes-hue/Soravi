@@ -16,6 +16,23 @@ describe("ProfessionalPortfolioService moderation", () => {
     expect(transaction.professionalPortfolioModerationDecision.create).not.toHaveBeenCalled();
   });
 
+  it("withdraws an approved publication atomically and records the same reviewed version", async () => {
+    const transaction = { professionalPortfolioItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, professionalPortfolioModerationDecision: { create: jest.fn() } };
+    const prisma = { $transaction: jest.fn((callback: (client: typeof transaction) => unknown) => callback(transaction)) };
+    const service = new ProfessionalPortfolioService(prisma as never, {} as never);
+    await service.withdrawPublication("admin", "item", "NOT_A_WORK_PHOTO", 3);
+    expect(transaction.professionalPortfolioItem.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ moderationStatus: "APPROVED", moderationVersion: 3, deletedAt: null }), data: expect.objectContaining({ moderationStatus: "REJECTED", rejectionReasonCode: "NOT_A_WORK_PHOTO" }) }));
+    expect(transaction.professionalPortfolioModerationDecision.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ operatorUserId: "admin", result: "REJECTED", reasonCode: "NOT_A_WORK_PHOTO", contentVersion: 3 }) }));
+  });
+
+  it("rejects a stale withdrawal without creating history", async () => {
+    const transaction = { professionalPortfolioItem: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) }, professionalPortfolioModerationDecision: { create: jest.fn() } };
+    const prisma = { $transaction: jest.fn((callback: (client: typeof transaction) => unknown) => callback(transaction)) };
+    const service = new ProfessionalPortfolioService(prisma as never, {} as never);
+    await expect(service.withdrawPublication("admin", "item", "LOW_QUALITY", 2)).rejects.toHaveProperty("status", 409);
+    expect(transaction.professionalPortfolioModerationDecision.create).not.toHaveBeenCalled();
+  });
+
   it("does not issue a private URL for a removed or decided item", async () => {
     const prisma = { professionalPortfolioItem: { findFirst: jest.fn().mockResolvedValue(null) } };
     const storage = { createTemporaryReadUrl: jest.fn() };

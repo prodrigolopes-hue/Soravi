@@ -10,6 +10,7 @@ import { processProfessionalProfilePhoto, type ProcessProfessionalProfilePhotoIn
 export const PROFESSIONAL_PORTFOLIO_MAX_ITEMS = 12;
 export const PROFESSIONAL_PORTFOLIO_CAPTION_MAX_LENGTH = 280;
 const OBJECT_KEY_PREFIX = "professional-portfolios";
+export const PROFESSIONAL_PORTFOLIO_REJECTION_REASONS = ["INAPPROPRIATE_CONTENT", "PERSONAL_DATA_EXPOSED", "NOT_A_WORK_PHOTO", "LOW_QUALITY"] as const;
 
 @Injectable()
 export class ProfessionalPortfolioService {
@@ -44,28 +45,38 @@ export class ProfessionalPortfolioService {
 
   async listPending() { return this.prisma.professionalPortfolioItem.findMany({ where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { id: true, caption: true, moderationVersion: true, professionalProfile: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } }); }
   async listPendingGrouped(page = 1, limit = 5) {
-    const boundedPage = Math.max(1, page); const boundedLimit = Math.max(1, Math.min(limit, 20));
-    const where = { portfolioItems: { some: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING } } };
+    return this.listGrouped(ProfessionalPortfolioModerationStatus.PENDING, page, limit);
+  }
+
+  async listGrouped(status: unknown, page = 1, limit = 5) {
+    if (!this.isModerationStatus(status)) {
+      throw new BadRequestException({ code: "PORTFOLIO_MODERATION_STATUS_INVALID", message: "Status de moderação inválido." });
+    }
+
+    const boundedPage = Math.max(1, page);
+    const boundedLimit = Math.max(1, Math.min(limit, 20));
+    const where = { portfolioItems: { some: { deletedAt: null, moderationStatus: status } } };
     const [totalProfessionals, totalPhotos, groupIds] = await this.prisma.$transaction([
       this.prisma.professionalProfile.count({ where }),
-      this.prisma.professionalPortfolioItem.count({ where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING } }),
-      this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "professional_profile_id" AS "id" FROM "professional_portfolio_items" WHERE "deleted_at" IS NULL AND "moderation_status" = 'PENDING'::"ProfessionalPortfolioModerationStatus" GROUP BY "professional_profile_id" ORDER BY MIN("created_at") ASC, "professional_profile_id" ASC OFFSET ${(boundedPage - 1) * boundedLimit} LIMIT ${boundedLimit}`),
+      this.prisma.professionalPortfolioItem.count({ where: { deletedAt: null, moderationStatus: status } }),
+      this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "professional_profile_id" AS "id" FROM "professional_portfolio_items" WHERE "deleted_at" IS NULL AND "moderation_status" = CAST(${status} AS "ProfessionalPortfolioModerationStatus") GROUP BY "professional_profile_id" ORDER BY MIN("created_at") ASC, "professional_profile_id" ASC OFFSET ${(boundedPage - 1) * boundedLimit} LIMIT ${boundedLimit}`),
     ]);
-    const professionals = await this.prisma.professionalProfile.findMany({ where: { id: { in: groupIds.map(({ id }) => id) } }, select: { id: true, displayName: true, portfolioItems: { where: { deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { id: true, caption: true, createdAt: true, moderationVersion: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] } } });
-    const positions = new Map(groupIds.map(({ id }, index) => [id, index])); professionals.sort((left, right) => (positions.get(left.id) ?? 0) - (positions.get(right.id) ?? 0));
+    const professionals = await this.prisma.professionalProfile.findMany({ where: { id: { in: groupIds.map(({ id }) => id) } }, select: { id: true, displayName: true, portfolioItems: { where: { deletedAt: null, moderationStatus: status }, select: { id: true, caption: true, createdAt: true, moderationVersion: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] } } });
+    const positions = new Map(groupIds.map(({ id }, index) => [id, index]));
+    professionals.sort((left, right) => (positions.get(left.id) ?? 0) - (positions.get(right.id) ?? 0));
     return { items: professionals, pagination: { page: boundedPage, limit: boundedLimit, totalProfessionals, totalPendingPhotos: totalPhotos, totalPages: Math.ceil(totalProfessionals / boundedLimit) } };
   }
+
   async privateEvidence(itemId: string) {
-    const item = await this.prisma.professionalPortfolioItem.findFirst({ where: { id: itemId, deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.PENDING }, select: { objectKey: true } });
+    const item = await this.prisma.professionalPortfolioItem.findFirst({ where: { id: itemId, deletedAt: null }, select: { objectKey: true } });
     if (!item) throw new NotFoundException({ code: "PORTFOLIO_ITEM_NOT_AVAILABLE", message: "Foto não disponível para análise." });
     return { url: await this.storage.createTemporaryReadUrl(item.objectKey, 60), expiresInSeconds: 60 };
   }
   async history(itemId: string) { return this.prisma.professionalPortfolioModerationDecision.findMany({ where: { portfolioItemId: itemId }, select: { result: true, reasonCode: true, contentVersion: true, createdAt: true, operator: { select: { name: true, email: true } } }, orderBy: { createdAt: "desc" } }); }
   async decide(adminUserId: string, itemId: string, result: unknown, reasonCode: unknown, version: unknown): Promise<void> {
-    const rejectionReasons = ["INAPPROPRIATE_CONTENT", "PERSONAL_DATA_EXPOSED", "NOT_A_WORK_PHOTO", "LOW_QUALITY"];
     if ((result !== "APPROVED" && result !== "REJECTED") || typeof version !== "number" || !Number.isSafeInteger(version) || version < 1 || (reasonCode !== undefined && typeof reasonCode !== "string")) throw new BadRequestException({ code: "PORTFOLIO_DECISION_INVALID", message: "Decisão inválida." });
     const reviewedVersion = version;
-    if (result === "REJECTED" && !rejectionReasons.includes(reasonCode ?? "")) throw new BadRequestException({ code: "PORTFOLIO_REJECTION_REASON_INVALID", message: "Informe um motivo padronizado para a rejeição." });
+    if (result === "REJECTED" && !this.isRejectionReason(reasonCode)) throw new BadRequestException({ code: "PORTFOLIO_REJECTION_REASON_INVALID", message: "Informe um motivo padronizado para a rejeição." });
     if (result === "APPROVED" && reasonCode) throw new BadRequestException({ code: "PORTFOLIO_APPROVAL_REASON_INVALID", message: "A aprovação não aceita motivo de rejeição." });
     await this.prisma.$transaction(async (tx) => {
       const item = await tx.professionalPortfolioItem.findFirst({ where: { id: itemId, deletedAt: null }, select: { id: true, moderationVersion: true } });
@@ -74,6 +85,30 @@ export class ProfessionalPortfolioService {
       if (updated.count !== 1) throw new ConflictException({ code: "PORTFOLIO_DECISION_NOT_AVAILABLE", message: "A foto foi removida, substituída ou já recebeu decisão." });
       await tx.professionalPortfolioModerationDecision.create({ data: { portfolioItemId: item.id, operatorUserId: adminUserId, result: result as ProfessionalPortfolioModerationStatus, reasonCode: reasonCode ?? null, contentVersion: reviewedVersion } });
     });
+  }
+
+  async withdrawPublication(adminUserId: string, itemId: string, reasonCode: unknown, version: unknown): Promise<void> {
+    const reviewedVersion = this.validateWithdrawalVersion(version);
+    if (typeof reasonCode !== "string" || !this.isRejectionReason(reasonCode)) throw new BadRequestException({ code: "PORTFOLIO_WITHDRAWAL_INVALID", message: "Retirada de publicação inválida." });
+    const reviewedReasonCode = reasonCode;
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.professionalPortfolioItem.updateMany({ where: { id: itemId, deletedAt: null, moderationStatus: ProfessionalPortfolioModerationStatus.APPROVED, moderationVersion: reviewedVersion }, data: { moderationStatus: ProfessionalPortfolioModerationStatus.REJECTED, rejectionReasonCode: reviewedReasonCode } });
+      if (updated.count !== 1) throw new ConflictException({ code: "PORTFOLIO_WITHDRAWAL_NOT_AVAILABLE", message: "A foto foi removida, alterada ou não está publicada." });
+      await tx.professionalPortfolioModerationDecision.create({ data: { portfolioItemId: itemId, operatorUserId: adminUserId, result: ProfessionalPortfolioModerationStatus.REJECTED, reasonCode: reviewedReasonCode, contentVersion: reviewedVersion } });
+    });
+  }
+
+  private validateWithdrawalVersion(version: unknown): number {
+    if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1) throw new BadRequestException({ code: "PORTFOLIO_WITHDRAWAL_INVALID", message: "Retirada de publicação inválida." });
+    return version;
+  }
+
+  private isRejectionReason(value: unknown): value is (typeof PROFESSIONAL_PORTFOLIO_REJECTION_REASONS)[number] {
+    return PROFESSIONAL_PORTFOLIO_REJECTION_REASONS.some((reason) => reason === value);
+  }
+
+  private isModerationStatus(value: unknown): value is ProfessionalPortfolioModerationStatus {
+    return value === ProfessionalPortfolioModerationStatus.PENDING || value === ProfessionalPortfolioModerationStatus.APPROVED || value === ProfessionalPortfolioModerationStatus.REJECTED;
   }
 
   private async ensurePortfolioCapacity(userId: string, professionalProfileId: string, transaction?: Prisma.TransactionClient): Promise<void> {

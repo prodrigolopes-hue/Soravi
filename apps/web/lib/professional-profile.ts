@@ -14,7 +14,7 @@ export interface ProfessionalProfilePhoto {
   url: string;
   expiresAt: string;
 }
-export interface ProfessionalPortfolioItem { id: string; url: string | null; expiresAt: string | null; caption: string | null; status: "PENDING" | "APPROVED" | "REJECTED"; rejectionReasonCode: string | null; }
+export interface ProfessionalPortfolioItem { id: string; url: string | null; expiresAt: string | null; caption: string | null; status: "PENDING" | "APPROVED" | "REJECTED"; rejectionReasonCode: string | null; rejectionReason: string | null; }
 
 export interface ProfessionalProfile {
   id: string;
@@ -54,8 +54,8 @@ export function parseProfessionalProfile(
   const categories: ProfessionalCategory[] = [];
   const portfolio: ProfessionalPortfolioItem[] = [];
   for (const value of root.portfolio) {
-    if (!isRecord(value) || typeof value.id !== "string" || !isNullableString(value.caption) || !isNullableString(value.rejectionReasonCode) || !isNullableString(value.url) || !isNullableString(value.expiresAt) || !isProfessionalPortfolioStatus(value.status)) return null;
-    portfolio.push({ id: value.id, caption: value.caption, url: value.url, expiresAt: value.expiresAt, status: value.status, rejectionReasonCode: value.rejectionReasonCode });
+    if (!isRecord(value) || typeof value.id !== "string" || !isNullableString(value.caption) || !isNullableString(value.rejectionReasonCode) || !isNullableString(value.rejectionReason) || !isNullableString(value.url) || !isNullableString(value.expiresAt) || !isProfessionalPortfolioStatus(value.status)) return null;
+    portfolio.push({ id: value.id, caption: value.caption, url: value.url, expiresAt: value.expiresAt, status: value.status, rejectionReasonCode: value.rejectionReasonCode, rejectionReason: value.rejectionReason });
   }
 
   for (const value of root.categories) {
