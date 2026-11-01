@@ -522,16 +522,16 @@ export function AdminProfessionalsPage() {
 
           {requestState === "success" && response ? (
             <>
-              <div className="mt-6 space-y-4 md:hidden">
+              <div className="mt-6 space-y-4 xl:hidden">
                 {response.items.map((item) => (
                   <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <h3 className="text-base font-semibold text-slate-950">{item.professionalProfile.displayName}</h3>
+                    <h3 className="break-words text-base font-semibold text-slate-950">{item.professionalProfile.displayName}</h3>
                     <div className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
                       <p>
-                        <span className="font-medium text-slate-900">Nome cadastral:</span> {item.name}
+                        <span className="font-medium text-slate-900">Nome cadastral:</span> <span className="break-words">{item.name}</span>
                       </p>
                       <p>
-                        <span className="font-medium text-slate-900">E-mail:</span> {item.email}
+                        <span className="font-medium text-slate-900">E-mail:</span> <span className="break-all">{item.email}</span>
                       </p>
                       <p>
                         <span className="font-medium text-slate-900">Telefone:</span> {item.phone ?? "Não informado"}
@@ -559,7 +559,7 @@ export function AdminProfessionalsPage() {
                         <span className="font-medium text-slate-900">Cadastro:</span> {formatRegistrationDate(item.createdAt)}
                       </p>
                     </div>
-                    <div className="mt-4 border-t border-slate-200 pt-4">
+                    <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
                       <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
                       {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
                       <AdminUserStatusAction
@@ -574,7 +574,7 @@ export function AdminProfessionalsPage() {
                 ))}
               </div>
 
-              <div className="mt-6 hidden md:block">
+              <div className="mt-6 hidden xl:block">
                 <table className="min-w-full border-separate border-spacing-0">
                   <caption className="sr-only">Lista administrativa de profissionais</caption>
                   <thead>
@@ -607,10 +607,10 @@ export function AdminProfessionalsPage() {
                   <tbody>
                     {response.items.map((item) => (
                       <tr key={item.id} className="align-top">
-                        <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-900">
+                        <td className="max-w-xs break-words border-b border-slate-100 px-3 py-4 text-sm text-slate-900">
                           <p className="font-semibold">{item.professionalProfile.displayName}</p>
-                          <p className="mt-1 text-slate-700">{item.name}</p>
-                          <p className="mt-1 text-slate-700">{item.email}</p>
+                          <p className="mt-1">{item.name}</p>
+                          <p className="mt-1 break-all text-slate-700">{item.email}</p>
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {item.phone ?? "Não informado"}
@@ -639,7 +639,7 @@ export function AdminProfessionalsPage() {
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {formatRegistrationDate(item.createdAt)}
                         </td>
-                        <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
+                        <td className="space-y-3 border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
                           {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
                           <AdminUserStatusAction

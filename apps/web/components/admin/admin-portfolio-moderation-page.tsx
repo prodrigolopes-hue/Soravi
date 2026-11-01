@@ -46,6 +46,17 @@ const reasons = [
   "NOT_A_WORK_PHOTO",
   "LOW_QUALITY",
 ];
+const reasonLabels: Record<string, string> = {
+  INAPPROPRIATE_CONTENT: "Conteúdo inadequado",
+  PERSONAL_DATA_EXPOSED: "Dados pessoais expostos",
+  NOT_A_WORK_PHOTO: "Não é uma foto de trabalho",
+  LOW_QUALITY: "Baixa qualidade",
+};
+
+function formatReason(reasonCode: string | null): string {
+  if (!reasonCode) return "Sem motivo";
+  return reasonLabels[reasonCode] ?? "Outro motivo";
+}
 const tabs: { status: ModerationStatus; label: string }[] = [
   { status: "PENDING", label: "Pendentes" },
   { status: "APPROVED", label: "Aprovadas" },
@@ -563,7 +574,7 @@ export function AdminPortfolioModerationPage() {
                 onChange={(event) => setReason(event.target.value)}
               >
                 {reasons.map((value) => (
-                  <option key={value}>{value}</option>
+                  <option key={value} value={value}>{reasonLabels[value]}</option>
                 ))}
               </select>
             ) : null}
@@ -653,7 +664,7 @@ export function AdminPortfolioModerationPage() {
             <h2 className="font-bold">Histórico</h2>
             {history.items.map((entry, index) => (
               <p key={index} className="mt-2 text-sm">
-                {entry.result} · {entry.reasonCode ?? "sem motivo"} · v
+                {entry.result} · {formatReason(entry.reasonCode)} · v
                 {entry.contentVersion} · {entry.operator.name} ·{" "}
                 {new Date(entry.createdAt).toLocaleString("pt-BR")}
               </p>
