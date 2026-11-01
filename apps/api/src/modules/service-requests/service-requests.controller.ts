@@ -32,6 +32,23 @@ import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
 
+const ADMIN_SERVICE_REQUEST_STATUSES = [
+  ServiceRequestStatus.DRAFT,
+  ServiceRequestStatus.OPEN,
+  ServiceRequestStatus.RECEIVING_PROPOSALS,
+  ServiceRequestStatus.IN_NEGOTIATION,
+  ServiceRequestStatus.HIRED,
+  ServiceRequestStatus.IN_PROGRESS,
+  ServiceRequestStatus.COMPLETED,
+  ServiceRequestStatus.CANCELLED,
+] as const;
+
+function isAdminServiceRequestStatus(
+  value: string,
+): value is ServiceRequestStatus {
+  return ADMIN_SERVICE_REQUEST_STATUSES.some((status) => status === value);
+}
+
 interface UploadedPhoto {
   buffer: Buffer;
   originalname: string;
@@ -58,11 +75,16 @@ export class ServiceRequestsController {
   @Get("admin")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
-  findAdmin(@Query("code") code?: string, @Query("status") status?: string, @Query("page") page?: string, @Query("limit") limit?: string): Promise<unknown> {
+  findAdmin(
+    @Query("code") code?: string,
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ): Promise<unknown> {
     const parsedPage = page === undefined ? 1 : Number(page);
     const parsedLimit = limit === undefined ? 20 : Number(limit);
     if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_PAGINATION_INVALID", message: "Paginação inválida." });
-    if (status !== undefined && status !== ServiceRequestStatus.HIRED && status !== ServiceRequestStatus.COMPLETED && status !== ServiceRequestStatus.CANCELLED) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_STATUS_INVALID", message: "Status inválido." });
+    if (status !== undefined && !isAdminServiceRequestStatus(status)) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_STATUS_INVALID", message: "Status inválido." });
     return this.serviceRequestsService.findAdmin(code, status, parsedPage, parsedLimit);
   }
 

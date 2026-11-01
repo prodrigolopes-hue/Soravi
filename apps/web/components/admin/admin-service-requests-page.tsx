@@ -6,6 +6,7 @@ import { apiBaseUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
 import {
   isServiceRequestStatus,
+  serviceRequestStatuses,
   serviceRequestStatusPresentation,
 } from "../service-requests/service-request-presentation";
 
@@ -42,9 +43,10 @@ type Detail = {
 const base = apiBaseUrl.replace(/\/+$/u, "");
 const statusFilters = [
   { value: "", label: "Todas" },
-  { value: "HIRED", label: "Contratadas" },
-  { value: "COMPLETED", label: "Concluídas" },
-  { value: "CANCELLED", label: "Canceladas" },
+  ...serviceRequestStatuses.map((status) => ({
+    value: status,
+    label: serviceRequestStatusPresentation[status].label,
+  })),
 ];
 
 function formatDate(value: string | null | undefined): string {

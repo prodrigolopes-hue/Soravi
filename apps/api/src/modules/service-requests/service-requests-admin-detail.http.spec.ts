@@ -3,7 +3,7 @@ import { Test } from "@nestjs/testing";
 import { request as httpRequest } from "node:http";
 import { AddressInfo } from "node:net";
 
-import { Role } from "../../generated/prisma/client";
+import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { AccessTokenAuthService } from "../auth/access-token-auth.service";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -50,8 +50,28 @@ describe("administrative service request detail HTTP authorization", () => {
     expect(service.findAdmin).toHaveBeenCalledWith("so2026001", "HIRED", 2, 20);
   });
 
+  it.each([
+    ServiceRequestStatus.DRAFT,
+    ServiceRequestStatus.OPEN,
+    ServiceRequestStatus.RECEIVING_PROPOSALS,
+    ServiceRequestStatus.IN_NEGOTIATION,
+    ServiceRequestStatus.HIRED,
+    ServiceRequestStatus.IN_PROGRESS,
+    ServiceRequestStatus.COMPLETED,
+    ServiceRequestStatus.CANCELLED,
+  ])("accepts %s as an administrative status filter", async (status) => {
+    const response = await request(
+      app.url,
+      `/api/v1/service-requests/admin?status=${status}`,
+      "admin",
+    );
+
+    expect(response.status).toBe(200);
+    expect(service.findAdmin).toHaveBeenCalledWith(undefined, status, 1, 20);
+  });
+
   it("rejects an unsupported administrative status filter", async () => {
-    const response = await request(app.url, "/api/v1/service-requests/admin?status=OPEN", "admin");
+    const response = await request(app.url, "/api/v1/service-requests/admin?status=UNKNOWN", "admin");
     expect(response.status).toBe(400);
     expect(service.findAdmin).not.toHaveBeenCalled();
   });

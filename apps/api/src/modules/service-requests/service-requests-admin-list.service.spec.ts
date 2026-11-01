@@ -19,4 +19,42 @@ describe("ServiceRequestsService administrative list filters", () => {
     expect(prisma.serviceRequest.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where }));
     expect(prisma.serviceRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where, skip: 20, take: 20 }));
   });
+
+  it.each([
+    ServiceRequestStatus.DRAFT,
+    ServiceRequestStatus.OPEN,
+    ServiceRequestStatus.RECEIVING_PROPOSALS,
+    ServiceRequestStatus.IN_NEGOTIATION,
+    ServiceRequestStatus.HIRED,
+    ServiceRequestStatus.IN_PROGRESS,
+    ServiceRequestStatus.COMPLETED,
+    ServiceRequestStatus.CANCELLED,
+  ])("applies %s as an administrative status filter", async (status) => {
+    const where = { deletedAt: null, status };
+    const prisma = {
+      serviceRequest: {
+        count: jest.fn().mockResolvedValue(0),
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      $transaction: jest.fn(async (operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+      ),
+    };
+    const service = new ServiceRequestsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.findAdmin(undefined, status);
+
+    expect(prisma.serviceRequest.count).toHaveBeenCalledWith({ where });
+    expect(prisma.serviceRequest.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+    expect(prisma.serviceRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+  });
 });

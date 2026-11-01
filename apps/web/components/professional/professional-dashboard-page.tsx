@@ -10,11 +10,43 @@ import { formatServiceRequestDate } from "../service-requests/service-request-pr
 
 type Dashboard = { opportunitiesAvailable: number; proposalsSent: number; servicesContractedOrInProgress: number; servicesCompleted: number; averageRating: number; reviewCount: number; recentOpportunities: Array<{ id: string; createdAt: string; title: string; categoryName: string; city: string; state: string }>; recentServices: Array<{ id: string; status: string; title: string; completedAt: string | null }> };
 type LoadState = "loading" | "success" | "empty" | "error";
+type ProfessionalVerificationCardContent = {
+  actionLabel: string;
+  text: string;
+};
 
 export function shouldShowProfessionalRegistrationPrompt(
   professionalRegistrationCompleted: boolean | undefined,
 ): boolean {
   return professionalRegistrationCompleted === false;
+}
+
+export function getProfessionalVerificationCardContent(
+  status: string | undefined,
+  professionalRegistrationCompleted: boolean | undefined,
+): ProfessionalVerificationCardContent | null {
+  if (status === "PENDING") {
+    return {
+      actionLabel: "Acompanhar verificação",
+      text: "Seu perfil está em análise. Acompanhe o estado e os próximos passos na página do perfil.",
+    };
+  }
+
+  if (status === "REJECTED") {
+    return {
+      actionLabel: "Ver pendências",
+      text: "Seu perfil profissional não foi aprovado. Consulte a orientação e os próximos passos na página do perfil.",
+    };
+  }
+
+  if (shouldShowProfessionalRegistrationPrompt(professionalRegistrationCompleted)) {
+    return {
+      actionLabel: "Completar cadastro",
+      text: "Complete e envie seu cadastro na página central do perfil profissional.",
+    };
+  }
+
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
@@ -47,13 +79,15 @@ export function ProfessionalDashboardPage() {
   if (!isProfessional) return <PageMessage title="Acesso exclusivo para profissionais" description="Esta pagina requer uma conta com perfil profissional." />;
   if (state === "error") return <PageMessage title="Nao foi possivel carregar seu painel" action={{ href: "/profissional", label: "Tentar novamente" }} />;
   const quickActions = [{ href: "/profissional/oportunidades", label: "Ver oportunidades", icon: BriefcaseBusiness }, { href: "/conversas", label: "Conversas", icon: MessageCircle }, { href: "/profissional/perfil", label: "Meu perfil", icon: UserRound }];
-  return <main className="min-h-full bg-slate-50"><div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><header><p className="font-semibold text-blue-600">Area do profissional</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Ola, {user?.professionalProfile?.displayName ?? user?.name}</h1><p className="mt-3 text-slate-600">Acompanhe oportunidades, servicos e sua reputacao.</p></header><ProfessionalVerificationCard status={user?.professionalProfile?.verificationStatus} completed={user?.professionalRegistrationCompleted ?? false} /><section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Resumo profissional"><SummaryCard label="Oportunidades" value={data?.opportunitiesAvailable ?? 0} /><SummaryCard label="Propostas enviadas" value={data?.proposalsSent ?? 0} /><SummaryCard label="Contratados / em andamento" value={data?.servicesContractedOrInProgress ?? 0} /><SummaryCard label="Concluidos" value={data?.servicesCompleted ?? 0} /></section><section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Reputacao"><p className="text-sm text-slate-600">Avaliacao</p><p className="mt-1 flex items-center gap-2 text-xl font-bold text-slate-950"><Star aria-hidden="true" className="size-5 fill-amber-400 text-amber-400" />{(data?.averageRating ?? 0).toFixed(1)} <span className="text-sm font-normal text-slate-600">({data?.reviewCount ?? 0} avaliacoes)</span></p></section><section className="mt-8" aria-labelledby="professional-quick-actions"><h2 id="professional-quick-actions" className="text-xl font-bold text-slate-950">Ações rápidas</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{quickActions.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 font-semibold text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"><Icon aria-hidden="true" className="size-5 text-blue-600" />{label}</Link>)}</div></section><section className="mt-8 grid gap-8 lg:grid-cols-2"><RecentOpportunities items={data?.recentOpportunities ?? []} empty={state === "empty"} /><RecentServices items={data?.recentServices ?? []} empty={state === "empty"} /></section></div></main>;
+  return <main className="min-h-full bg-slate-50"><div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"><header><p className="font-semibold text-blue-600">Area do profissional</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Ola, {user?.professionalProfile?.displayName ?? user?.name}</h1><p className="mt-3 text-slate-600">Acompanhe oportunidades, servicos e sua reputacao.</p></header><ProfessionalVerificationCard status={user?.professionalProfile?.verificationStatus} completed={user?.professionalRegistrationCompleted} /><section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Resumo profissional"><SummaryCard label="Oportunidades" value={data?.opportunitiesAvailable ?? 0} /><SummaryCard label="Propostas enviadas" value={data?.proposalsSent ?? 0} /><SummaryCard label="Contratados / em andamento" value={data?.servicesContractedOrInProgress ?? 0} /><SummaryCard label="Concluidos" value={data?.servicesCompleted ?? 0} /></section><section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Reputacao"><p className="text-sm text-slate-600">Avaliacao</p><p className="mt-1 flex items-center gap-2 text-xl font-bold text-slate-950"><Star aria-hidden="true" className="size-5 fill-amber-400 text-amber-400" />{(data?.averageRating ?? 0).toFixed(1)} <span className="text-sm font-normal text-slate-600">({data?.reviewCount ?? 0} avaliacoes)</span></p></section><section className="mt-8" aria-labelledby="professional-quick-actions"><h2 id="professional-quick-actions" className="text-xl font-bold text-slate-950">Ações rápidas</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{quickActions.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="flex min-h-20 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 font-semibold text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"><Icon aria-hidden="true" className="size-5 text-blue-600" />{label}</Link>)}</div></section><section className="mt-8 grid gap-8 lg:grid-cols-2"><RecentOpportunities items={data?.recentOpportunities ?? []} empty={state === "empty"} /><RecentServices items={data?.recentServices ?? []} empty={state === "empty"} /></section></div></main>;
 }
 
-function ProfessionalVerificationCard({ status, completed }: { status: string | undefined; completed: boolean }) {
-  const actionLabel = completed && status === "PENDING" ? "Acompanhar verificação" : "Completar cadastro";
-  const text = completed && status === "PENDING" ? "Seu perfil está em análise. Acompanhe o estado e os próximos passos na página do perfil." : "Complete e envie seu cadastro na página central do perfil profissional.";
-  return <section className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5"><h2 className="font-bold text-blue-950">Perfil profissional</h2><p className="mt-2 text-sm text-blue-900">{text}</p><Link href="/profissional/perfil" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white">{actionLabel}</Link></section>;
+function ProfessionalVerificationCard({ status, completed }: { status: string | undefined; completed: boolean | undefined }) {
+  const content = getProfessionalVerificationCardContent(status, completed);
+
+  if (!content) return null;
+
+  return <section className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5"><h2 className="font-bold text-blue-950">Perfil profissional</h2><p className="mt-2 text-sm text-blue-900">{content.text}</p><Link href="/profissional/perfil" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white">{content.actionLabel}</Link></section>;
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) { return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm leading-5 text-slate-600">{label}</p><p className="mt-2 text-3xl font-bold text-slate-950">{value}</p></div>; }

@@ -130,7 +130,12 @@ export class ServiceRequestsService {
     );
   }
 
-  async findAdmin(publicCode?: string, status?: Extract<ServiceRequestStatus, "HIRED" | "COMPLETED" | "CANCELLED">, page = 1, limit = 20) {
+  async findAdmin(
+    publicCode?: string,
+    status?: ServiceRequestStatus,
+    page = 1,
+    limit = 20,
+  ) {
     const normalizedCode = publicCode?.trim().toUpperCase();
     const where: Prisma.ServiceRequestWhereInput = {
       deletedAt: null,
