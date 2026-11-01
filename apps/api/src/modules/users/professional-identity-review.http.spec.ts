@@ -17,6 +17,7 @@ import { ProfessionalIdentityReviewService } from "./professional-identity-revie
 import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
 import { UsersAdminStatusService } from "./users-admin-status.service";
@@ -27,7 +28,7 @@ import { UsersService } from "./users.service";
 
 describe("administrative identity review HTTP endpoints", () => {
   const attemptId = "a9f1d53e-60d0-4f56-af8f-7809e7e1cc93";
-  const reviewService = { details: jest.fn(), revealCpf: jest.fn() };
+  const reviewService = { details: jest.fn(), revealCpf: jest.fn(), selfieEvidence: jest.fn() };
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
 
   beforeAll(async () => { app = await createApp(reviewService); });
@@ -63,9 +64,32 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(reviewService.revealCpf).toHaveBeenCalledWith("admin-user-id", attemptId);
   });
+
+  it("returns 401 without authentication when reading a selfie", async () => {
+    const response = await request(app!.url, "GET", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/selfie`);
+
+    expect(response.status).toBe(401);
+    expect(reviewService.selfieEvidence).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 to a non-admin when reading a selfie", async () => {
+    const response = await request(app!.url, "GET", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/selfie`, "customer-token");
+
+    expect(response.status).toBe(403);
+    expect(reviewService.selfieEvidence).not.toHaveBeenCalled();
+  });
+
+  it("allows an admin to reach the selfie reading service", async () => {
+    reviewService.selfieEvidence.mockResolvedValue({ url: "https://private.example/selfie", expiresInSeconds: 60 });
+
+    const response = await request(app!.url, "GET", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/selfie`, "admin-token");
+
+    expect(response.status).toBe(200);
+    expect(reviewService.selfieEvidence).toHaveBeenCalledWith("admin-user-id", attemptId);
+  });
 });
 
-async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock }) {
+async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock }) {
   const accessTokenAuthService = {
     extractBearerToken: (header: string | undefined) => header?.replace("Bearer ", "") ?? null,
     authenticateAccessToken: jest.fn(async (token: string) => ({
@@ -86,6 +110,7 @@ async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mo
       { provide: CurrentProfessionalProfileService, useValue: empty }, { provide: CustomerProfileActivationService, useValue: empty },
       { provide: ProfessionalProfileActivationService, useValue: empty }, { provide: PersonalIdentityStatusService, useValue: empty },
       { provide: ProfessionalProfilePhotoService, useValue: empty }, { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: undefined },
+      { provide: ProfessionalPortfolioService, useValue: empty },
       { provide: ProfessionalIdentityVerificationStatusService, useValue: empty },
       { provide: ProfessionalIdentityReviewService, useValue: reviewService },
       AccessTokenGuard, RolesGuard, { provide: AccessTokenAuthService, useValue: accessTokenAuthService },

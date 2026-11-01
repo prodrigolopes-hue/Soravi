@@ -56,6 +56,7 @@ type CpfProtectionEnvironment = Partial<
 
 type PersonalIdentityRecordingEnvironment = CpfProtectionEnvironment & {
   PERSONAL_IDENTITY_RECORDING_ENABLED?: unknown;
+  PROFESSIONAL_IDENTITY_SELFIE_ENABLED?: unknown;
 };
 
 const CPF_PROTECTION_CONFIGURATION_ERROR =
@@ -117,6 +118,10 @@ class EnvironmentVariables {
   @IsIn(["true", "false"])
   @IsOptional()
   PERSONAL_IDENTITY_RECORDING_ENABLED?: string;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  PROFESSIONAL_IDENTITY_SELFIE_ENABLED?: string;
 
   @Type(() => Number)
   @IsInt()

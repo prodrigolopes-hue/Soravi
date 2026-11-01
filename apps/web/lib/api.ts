@@ -25,6 +25,7 @@ export const personalIdentityStatusUrl = `${normalizedApiBaseUrl}/api/v1/users/m
 export const personalIdentityRecordingUrl = personalIdentityStatusUrl;
 
 export const professionalIdentityDocumentUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification/document`;
+export const professionalIdentitySelfieUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification/selfie`;
 export const professionalIdentityVerificationStatusUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification`;
 
 export function adminProfessionalVerificationUrl(userId: string): string {

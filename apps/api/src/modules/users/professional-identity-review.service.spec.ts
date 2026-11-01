@@ -3,11 +3,11 @@ import { createCpfProtector } from "../../common/cpf/cpf-protection";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 
 describe("ProfessionalIdentityReviewService", () => {
-  const tx = { $queryRaw: jest.fn(), identityVerificationDecision: { create: jest.fn() }, identityCpfAccessAudit: { create: jest.fn() }, professionalIdentityVerificationAttempt: { update: jest.fn(), findUnique: jest.fn() } };
+  const tx = { $queryRaw: jest.fn(), identityVerificationDecision: { create: jest.fn() }, identityCpfAccessAudit: { create: jest.fn() }, identitySelfieAccessAudit: { create: jest.fn() }, identityVerificationEvidenceReference: { findMany: jest.fn(), findFirst: jest.fn() }, professionalIdentityVerificationAttempt: { update: jest.fn(), findUnique: jest.fn() } };
   const prisma = { professionalIdentityVerificationAttempt: { findMany: jest.fn(), findUnique: jest.fn() }, identityVerificationEvidenceReference: { findFirst: jest.fn() }, $transaction: jest.fn((fn) => fn(tx)) };
   const storage = { createTemporaryReadUrl: jest.fn().mockResolvedValue("https://private.example/temporary") };
   const service = new ProfessionalIdentityReviewService(prisma as never, storage as never);
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); tx.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]); });
   it("emite somente URL temporária para evidência UNDER_REVIEW", async () => {
     prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/key" });
     await expect(service.evidence("attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
@@ -16,6 +16,17 @@ describe("ProfessionalIdentityReviewService", () => {
   it("rejeita evidência inexistente ou fora de análise", async () => {
     prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue(null);
     await expect(service.evidence("attempt")).rejects.toBeInstanceOf(NotFoundException);
+  });
+  it("audita o acesso à selfie antes de emitir URL temporária", async () => {
+    tx.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/selfie", expiresAt: null });
+    await expect(service.selfieEvidence("admin", "attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
+    expect(tx.identitySelfieAccessAudit.create).toHaveBeenCalledWith({ data: expect.objectContaining({ attemptId: "attempt", operatorUserId: "admin", action: "ADMIN_IDENTITY_SELFIE_VIEW" }) });
+  });
+  it("não emite URL de selfie se a auditoria falhar", async () => {
+    tx.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/selfie", expiresAt: null });
+    tx.identitySelfieAccessAudit.create.mockRejectedValue(new Error("audit failed"));
+    await expect(service.selfieEvidence("admin", "attempt")).rejects.toThrow("audit failed");
+    expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
   });
   it("registra decisão manual sem tocar no perfil profissional", async () => {
     tx.$queryRaw.mockResolvedValue([{ id: "attempt" }]);
@@ -27,14 +38,53 @@ describe("ProfessionalIdentityReviewService", () => {
     tx.$queryRaw.mockResolvedValue([]);
     await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", criteriaVersion: "v1" })).rejects.toBeInstanceOf(ConflictException);
   });
+  it("não registra decisão quando falta selfie ativa exigida", async () => {
+    tx.$queryRaw.mockResolvedValue([{ id: "attempt", requiresSelfie: true }]);
+    tx.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]);
+    await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DOCUMENT_CHECKED", criteriaVersion: "v1" })).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.identityVerificationDecision.create).not.toHaveBeenCalled();
+  });
   it("rejeita combinações novas de resultado e motivo que não são permitidas", async () => {
     await expect(service.decide("admin", "attempt", { result: "CONFIRMED", reasonCode: "DATA_MISMATCH", criteriaVersion: "v1" })).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
   it("details não busca envelope nem retorna CPF", async () => {
-    prisma.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({ id: "attempt", status: "CLOSED", result: "CONFIRMED", createdAt: new Date(), closedAt: new Date(), professionalProfile: { displayName: "Ana", identityVerificationAttempts: [] } });
+    prisma.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({
+      id: "attempt",
+      status: "CLOSED",
+      result: "CONFIRMED",
+      createdAt: new Date(),
+      closedAt: new Date(),
+      requiresSelfie: false,
+      evidenceReferences: [],
+      professionalProfile: {
+        displayName: "Ana",
+        identityVerificationAttempts: [{
+          id: "legacy-attempt",
+          status: "CLOSED",
+          result: "CONFIRMED",
+          createdAt: new Date(),
+          closedAt: new Date(),
+          requiresSelfie: false,
+          decisions: [],
+          evidenceReferences: [],
+        }],
+      },
+    });
     const result = await service.details("attempt");
     expect(JSON.stringify(result)).not.toContain("cpf");
+    expect(JSON.stringify(result)).not.toContain("cpfEnvelope");
+    expect(prisma.professionalIdentityVerificationAttempt.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.not.objectContaining({ personalIdentity: expect.anything() }) }));
+    expect(result.attempt.hasActiveSelfie).toBe(false);
+  });
+  it("details indica somente a existência de selfie ativa", async () => {
+    prisma.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({ id: "attempt", status: "UNDER_REVIEW", result: "PENDING", createdAt: new Date(), closedAt: null, requiresSelfie: true, evidenceReferences: [{ id: "active-selfie" }], professionalProfile: { displayName: "Ana", identityVerificationAttempts: [] } });
+    await expect(service.details("attempt")).resolves.toMatchObject({ attempt: { hasActiveSelfie: true } });
+    expect(prisma.professionalIdentityVerificationAttempt.findUnique).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ evidenceReferences: expect.objectContaining({ where: { kind: "SELFIE", supersededAt: null }, select: { id: true } }) }) }));
+  });
+  it.each(["ausente", "substituída"])('não indica selfie ativa quando ela está %s', async () => {
+    prisma.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({ id: "attempt", status: "UNDER_REVIEW", result: "PENDING", createdAt: new Date(), closedAt: null, requiresSelfie: true, evidenceReferences: [], professionalProfile: { displayName: "Ana", identityVerificationAttempts: [] } });
+    await expect(service.details("attempt")).resolves.toMatchObject({ attempt: { hasActiveSelfie: false } });
   });
   it("não descriptografa nem retorna CPF se a auditoria falhar", async () => {
     tx.professionalIdentityVerificationAttempt.findUnique.mockResolvedValue({ personalIdentity: { cpfEnvelope: {} } });

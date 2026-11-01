@@ -1,4 +1,5 @@
 import { ConflictException, Inject, Injectable, UnprocessableEntityException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
@@ -15,9 +16,32 @@ export class ProfessionalIdentityDocumentService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
+    private readonly config?: ConfigService,
   ) {}
 
   async submitCurrent(userId: string, input: ProcessProfessionalIdentityDocumentInput): Promise<void> {
+    return this.submitCurrentEvidence(userId, "DOCUMENT", input);
+  }
+
+  async submitSelfie(userId: string, input: ProcessProfessionalIdentityDocumentInput): Promise<void> {
+    if (!this.isSelfieEnabled()) {
+      const profile = await this.prisma.professionalProfile.findFirst({
+        where: { userId, deletedAt: null },
+        select: { identityVerificationAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { status: true, requiresSelfie: true } } },
+      });
+      const attempt = profile?.identityVerificationAttempts[0];
+      if (!attempt || attempt.status !== ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE || !attempt.requiresSelfie) {
+        throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE", message: "O envio de selfie não está disponível para esta tentativa." });
+      }
+    }
+    return this.submitCurrentEvidence(userId, "SELFIE", input);
+  }
+
+  isSelfieEnabled(): boolean {
+    return this.config?.get("PROFESSIONAL_IDENTITY_SELFIE_ENABLED") === "true";
+  }
+
+  private async submitCurrentEvidence(userId: string, kind: "DOCUMENT" | "SELFIE", input: ProcessProfessionalIdentityDocumentInput): Promise<void> {
     const document = await processProfessionalIdentityDocument(input);
     const objectKey = `${OBJECT_KEY_PREFIX}/${randomUUID()}.webp`;
     await this.createCleanupCandidate(objectKey);
@@ -51,7 +75,7 @@ export class ProfessionalIdentityDocumentService {
         const latestAttempt = await transaction.professionalIdentityVerificationAttempt.findFirst({
           where: { professionalProfileId: profile.id },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          select: { id: true, status: true, result: true },
+          select: { id: true, status: true, result: true, requiresSelfie: true },
         });
         if (latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW) {
           throw new ConflictException({
@@ -63,18 +87,28 @@ export class ProfessionalIdentityDocumentService {
           throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_ALREADY_CONFIRMED", message: "Sua identidade já foi confirmada." });
         }
 
+        const selfieEnabled = this.isSelfieEnabled();
         const attempt = latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE
           ? latestAttempt
           : await transaction.professionalIdentityVerificationAttempt.create({
-          data: { professionalProfileId: profile.id, personalIdentityId: identity.id },
-          select: { id: true },
+          data: { professionalProfileId: profile.id, personalIdentityId: identity.id, requiresSelfie: selfieEnabled },
+          select: { id: true, requiresSelfie: true },
+        });
+        if (kind === "SELFIE" && !attempt.requiresSelfie) {
+          throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_SELFIE_NOT_REQUIRED", message: "Esta tentativa não aceita selfie." });
+        }
+        const now = new Date();
+        await transaction.identityVerificationEvidenceReference.updateMany({
+          where: { attemptId: attempt.id, kind, supersededAt: null },
+          data: { supersededAt: now },
         });
         await transaction.identityVerificationEvidenceReference.create({
-          data: { attemptId: attempt.id, kind: "DOCUMENT", reference: objectKey },
+          data: { attemptId: attempt.id, kind, reference: objectKey },
         });
-        await transaction.professionalIdentityVerificationAttempt.update({
-          where: { id: attempt.id }, data: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW },
-        });
+        const activeEvidence = await transaction.identityVerificationEvidenceReference.findMany({ where: { attemptId: attempt.id, supersededAt: null }, select: { kind: true } });
+        const hasDocument = activeEvidence.some((evidence) => evidence.kind === "DOCUMENT");
+        const hasSelfie = activeEvidence.some((evidence) => evidence.kind === "SELFIE");
+        if (hasDocument && (!attempt.requiresSelfie || hasSelfie)) await transaction.professionalIdentityVerificationAttempt.update({ where: { id: attempt.id }, data: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW } });
         await transaction.$executeRaw(Prisma.sql`DELETE FROM "identity_document_cleanup_tasks" WHERE "object_key" = ${objectKey}`);
       });
     } catch (error) {

@@ -9,8 +9,8 @@ import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identit
 const URL_TTL_SECONDS = 60;
 const REASON_CODES_BY_RESULT = {
   CONFIRMED: ["DOCUMENT_CHECKED"],
-  NOT_CONFIRMED: ["DATA_MISMATCH", "UNSUPPORTED_DOCUMENT", "SUSPECTED_TAMPERING"],
-  INCONCLUSIVE: ["DOCUMENT_UNREADABLE", "DOCUMENT_INCOMPLETE", "INSUFFICIENT_INFORMATION"],
+  NOT_CONFIRMED: ["DATA_MISMATCH", "UNSUPPORTED_DOCUMENT", "SUSPECTED_TAMPERING", "SELFIE_DOCUMENT_MISMATCH"],
+  INCONCLUSIVE: ["DOCUMENT_UNREADABLE", "DOCUMENT_INCOMPLETE", "INSUFFICIENT_INFORMATION", "SELFIE_UNREADABLE", "FACE_OBSCURED", "INADEQUATE_EVIDENCE"],
 } as const;
 
 @Injectable()
@@ -35,8 +35,10 @@ export class ProfessionalIdentityReviewService {
   async decide(adminUserId: string, attemptId: string, input: DecideProfessionalIdentityDto) {
     this.ensureReasonCodeMatchesResult(input);
     return this.prisma.$transaction(async (tx) => {
-      const [attempt] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "professional_identity_verification_attempts" WHERE "id" = ${attemptId}::uuid AND "status" = 'UNDER_REVIEW'::"ProfessionalIdentityVerificationAttemptStatus" FOR UPDATE`);
+      const [attempt] = await tx.$queryRaw<{ id: string; requiresSelfie: boolean }[]>(Prisma.sql`SELECT "id", "requires_selfie" AS "requiresSelfie" FROM "professional_identity_verification_attempts" WHERE "id" = ${attemptId}::uuid AND "status" = 'UNDER_REVIEW'::"ProfessionalIdentityVerificationAttemptStatus" FOR UPDATE`);
       if (!attempt) throw new ConflictException({ code: "IDENTITY_REVIEW_NOT_AVAILABLE", message: "A tentativa não está disponível para decisão." });
+      const activeEvidence = await tx.identityVerificationEvidenceReference.findMany({ where: { attemptId, supersededAt: null }, select: { kind: true } });
+      if (!activeEvidence.some((evidence) => evidence.kind === "DOCUMENT") || (attempt.requiresSelfie && !activeEvidence.some((evidence) => evidence.kind === "SELFIE"))) throw new ConflictException({ code: "IDENTITY_REVIEW_EVIDENCE_INCOMPLETE", message: "As evidências obrigatórias não estão disponíveis para decisão." });
       const closedAt = new Date();
       await tx.identityVerificationDecision.create({ data: { attemptId, source: IdentityVerificationDecisionSource.MANUAL, result: input.result, reasonCode: input.reasonCode, criteriaVersion: input.criteriaVersion, operatorUserId: adminUserId } });
       await tx.professionalIdentityVerificationAttempt.update({ where: { id: attemptId }, data: { status: ProfessionalIdentityVerificationAttemptStatus.CLOSED, result: input.result, closedAt } });
@@ -44,10 +46,61 @@ export class ProfessionalIdentityReviewService {
     });
   }
 
+  async selfieEvidence(adminUserId: string, attemptId: string) {
+    const evidence = await this.prisma.$transaction(async (tx) => {
+      const found = await tx.identityVerificationEvidenceReference.findFirst({ where: { attemptId, kind: "SELFIE", supersededAt: null }, select: { reference: true, expiresAt: true } });
+      if (!found || (found.expiresAt !== null && found.expiresAt <= new Date())) throw new NotFoundException({ code: "IDENTITY_SELFIE_UNAVAILABLE", message: "Selfie não está disponível." });
+      await tx.identitySelfieAccessAudit.create({ data: { attemptId, operatorUserId: adminUserId, action: "ADMIN_IDENTITY_SELFIE_VIEW", accessedAt: new Date() } });
+      return found;
+    });
+    return { url: await this.storage.createTemporaryReadUrl(evidence.reference, URL_TTL_SECONDS), expiresInSeconds: URL_TTL_SECONDS };
+  }
+
   async details(attemptId: string) {
-    const attempt = await this.prisma.professionalIdentityVerificationAttempt.findUnique({ where: { id: attemptId }, include: { professionalProfile: { include: { identityVerificationAttempts: { include: { decisions: { include: { operator: { select: { name: true, email: true } } } } } } } } } });
+    const attempt = await this.prisma.professionalIdentityVerificationAttempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        id: true,
+        status: true,
+        result: true,
+        createdAt: true,
+        closedAt: true,
+        requiresSelfie: true,
+        evidenceReferences: {
+          where: { kind: "SELFIE", supersededAt: null },
+          select: { id: true },
+        },
+        professionalProfile: {
+          select: {
+            displayName: true,
+            identityVerificationAttempts: {
+              select: {
+                id: true,
+                status: true,
+                result: true,
+                createdAt: true,
+                closedAt: true,
+                requiresSelfie: true,
+                decisions: {
+                  select: {
+                    result: true,
+                    reasonCode: true,
+                    createdAt: true,
+                    operator: { select: { name: true } },
+                  },
+                },
+                evidenceReferences: {
+                  where: { supersededAt: null },
+                  select: { kind: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
     if (!attempt) throw new NotFoundException({ code: "IDENTITY_REVIEW_NOT_FOUND", message: "Análise não encontrada." });
-    return { attempt: { id: attempt.id, status: attempt.status, result: attempt.result, createdAt: attempt.createdAt, closedAt: attempt.closedAt }, professionalName: attempt.professionalProfile.displayName, history: attempt.professionalProfile.identityVerificationAttempts };
+    return { attempt: { id: attempt.id, status: attempt.status, result: attempt.result, createdAt: attempt.createdAt, closedAt: attempt.closedAt, requiresSelfie: attempt.requiresSelfie, hasActiveSelfie: attempt.evidenceReferences.length > 0 }, professionalName: attempt.professionalProfile.displayName, history: attempt.professionalProfile.identityVerificationAttempts.map((item) => ({ id: item.id, status: item.status, result: item.result, createdAt: item.createdAt, closedAt: item.closedAt, requiresSelfie: item.requiresSelfie, documentSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT"), selfieSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "SELFIE"), decisions: item.decisions })) };
   }
 
   async revealCpf(adminUserId: string, attemptId: string) {

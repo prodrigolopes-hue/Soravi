@@ -439,6 +439,29 @@ export class UsersController {
     return { submitted: true };
   }
 
+  @Post("me/professional-identity-verification/selfie")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor("selfie", {
+    storage: memoryStorage(),
+    limits: { files: 1, fields: 0, fileSize: PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES },
+  }))
+  async submitCurrentProfessionalIdentitySelfie(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+  ): Promise<{ submitted: true }> {
+    if (!file) throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_SELFIE_REQUIRED", message: "Envie a selfie no campo selfie." });
+    if (!this.professionalIdentityDocumentService) throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE", message: "O envio de selfie está indisponível." });
+    try {
+      await this.professionalIdentityDocumentService.submitSelfie(currentUser.id, { buffer: file.buffer, declaredMimeType: file.mimetype });
+    } catch (error: unknown) {
+      if (error instanceof ProfessionalIdentityDocumentError) this.rethrowProfessionalIdentityDocumentError(error);
+      throw error;
+    }
+    return { submitted: true };
+  }
+
   @Get("me/professional-identity-verification")
   @Header("Cache-Control", "no-store")
   @Roles(Role.PROFESSIONAL)
@@ -467,6 +490,15 @@ export class UsersController {
   professionalIdentityEvidence(@Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
     if (!this.professionalIdentityReviewService) throw new BadRequestException();
     return this.professionalIdentityReviewService.evidence(attemptId);
+  }
+
+  @Get("admin/professional-identity-verifications/:attemptId/selfie")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentitySelfieEvidence(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.selfieEvidence(currentUser.id, attemptId);
   }
 
   @Get("admin/professional-identity-verifications/:attemptId/details")
