@@ -80,6 +80,68 @@ describe("identity evidence disposal worker", () => {
     await expect(stateFor(fixture.evidenceId)).resolves.toMatchObject({ reference: fixture.objectKey, discardRequestedAt: null });
   });
 
+  it("previews exact eligibility, suspension, pagination and no sensitive storage reference without writes", async () => {
+    const now = new Date("2026-11-01T12:00:00.000Z");
+    const eligible = await createSupersededFixture(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+    const suspended = await createSupersededFixture(new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000));
+    const underReview = await createSupersededFixture(new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000));
+    await prisma.professionalIdentityVerificationAttempt.update({ where: { id: underReview.attemptId }, data: { status: "UNDER_REVIEW" } });
+    await new ProfessionalIdentityReviewService(prisma, storage(async () => undefined)).suspendEvidenceDisposal(suspended.adminUserId, suspended.attemptId, "Investigação");
+    const previewService = workerWith(false, async () => { throw new Error("preview must not call storage"); });
+
+    const firstPage = await previewService.preview(now, 1, 2);
+    const secondPage = await previewService.preview(now, 2, 2);
+
+    expect(firstPage).toMatchObject({ policyVersion: "identity-media-v1", referenceAt: now, executionEnabled: false, pagination: { page: 1, pageSize: 2, total: 3, totalPages: 2 }, totalsByReason: { SUPERSEDED: 3 } });
+    expect([...firstPage.items, ...secondPage.items].map((item) => item.evidenceId)).toEqual(expect.arrayContaining([eligible.evidenceId, suspended.evidenceId, underReview.evidenceId]));
+    const eligibleItem = [...firstPage.items, ...secondPage.items].find((item) => item.evidenceId === eligible.evidenceId);
+    const suspendedItem = [...firstPage.items, ...secondPage.items].find((item) => item.evidenceId === suspended.evidenceId);
+    const underReviewItem = [...firstPage.items, ...secondPage.items].find((item) => item.evidenceId === underReview.evidenceId);
+    expect(eligibleItem).toMatchObject({ policyEligible: true, executionEligible: true, eligibleAt: now, impediments: [] });
+    expect(suspendedItem).toMatchObject({ policyEligible: true, executionEligible: false, impediments: ["DISPOSAL_SUSPENDED"] });
+    expect(underReviewItem).toMatchObject({ policyEligible: true, executionEligible: false, impediments: ["UNDER_REVIEW"] });
+    expect(JSON.stringify(firstPage)).not.toContain(eligible.objectKey);
+    expect(JSON.stringify(firstPage)).not.toContain(suspended.objectKey);
+    await expect(taskCount(eligible.evidenceId)).resolves.toBe(0);
+    await expect(stateFor(eligible.evidenceId)).resolves.toMatchObject({ discardRequestedAt: null, discardedAt: null });
+  });
+
+  it("uses the exact 30-day incomplete-attempt boundary and restarts it after a new upload", async () => {
+    const now = new Date("2026-11-01T12:00:00.000Z");
+    const exact = await createActiveFixture(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+    const renewed = await createActiveFixture(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+    await prisma.identityVerificationEvidenceReference.create({ data: { attemptId: renewed.attemptId, kind: "SELFIE", reference: `integration/${randomUUID()}`, createdAt: new Date(now.getTime() - 1) } });
+    const worker = workerWith(true, async () => undefined);
+
+    await expect(worker.preview(new Date(now.getTime() - 1), 1, 50)).resolves.toMatchObject({ pagination: { total: 0 } });
+    const atBoundary = await worker.preview(now, 1, 50);
+    expect(atBoundary.items.find((item) => item.evidenceId === exact.evidenceId)).toMatchObject({ reason: "INCOMPLETE_ATTEMPT", eligibleAt: now, policyEligible: true, executionEligible: false, impediments: ["ATTEMPT_EXPIRATION_REQUIRED"] });
+    expect(atBoundary.items.find((item) => item.attemptId === renewed.attemptId)).toBeUndefined();
+
+    await worker.processBatch(new Date(now.getTime() - 1), 25);
+    await expect(taskCount(exact.evidenceId)).resolves.toBe(0);
+    await worker.processBatch(now, 25);
+    await expect(stateFor(exact.evidenceId)).resolves.toMatchObject({ reference: null, discardedAt: now });
+    await expect(taskCount(renewed.evidenceId)).resolves.toBe(0);
+    await expect(prisma.professionalIdentityVerificationAttempt.findUniqueOrThrow({ where: { id: renewed.attemptId }, select: { status: true } })).resolves.toMatchObject({ status: "AWAITING_EVIDENCE" });
+  });
+
+  it("uses the exact 90-day closed-attempt boundary consistently in preview and worker", async () => {
+    const now = new Date("2026-11-01T12:00:00.000Z");
+    const fixture = await createClosedFixture(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000));
+    const deleted: string[] = [];
+    const worker = workerWith(true, async (key) => { deleted.push(key); });
+
+    await expect(worker.preview(new Date(now.getTime() - 1), 1, 20)).resolves.toMatchObject({ pagination: { total: 0 } });
+    const atBoundary = await worker.preview(now, 1, 20);
+    expect(atBoundary.items.find((item) => item.evidenceId === fixture.evidenceId)).toMatchObject({ reason: "CLOSED_ATTEMPT", eligibleAt: now, policyEligible: true, executionEligible: true, impediments: [] });
+    await worker.processBatch(new Date(now.getTime() - 1), 25);
+    await expect(taskCount(fixture.evidenceId)).resolves.toBe(0);
+    await worker.processBatch(now, 25);
+    expect(deleted).toEqual([fixture.objectKey]);
+    await expect(stateFor(fixture.evidenceId)).resolves.toMatchObject({ reference: null, discardedAt: now });
+  });
+
   it("retries storage failures and makes a concurrent suspension explicitly conflict after the irreversible point", async () => {
     const now = new Date("2026-11-01T12:00:00.000Z");
     const fixture = await createSupersededFixture(new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000));
@@ -114,7 +176,7 @@ describe("identity evidence disposal worker", () => {
     return { upload: async () => ({ objectKey: "unused" }), delete: remove, createTemporaryReadUrl: async () => "https://storage.example.test/unused" };
   }
 
-  async function createSupersededFixture(supersededAt: Date) {
+  async function createSupersededFixture(supersededAt: Date | null) {
     const userId = randomUUID(), adminUserId = randomUUID(), profileId = randomUUID(), identityId = randomUUID();
     createdUserIds.add(userId); createdUserIds.add(adminUserId); createdProfileIds.add(profileId); createdIdentityIds.add(identityId);
     await createUser(userId, "professional"); await createUser(adminUserId, "admin");
@@ -125,6 +187,19 @@ describe("identity evidence disposal worker", () => {
     const objectKey = `integration/${randomUUID()}`;
     const evidence = await prisma.identityVerificationEvidenceReference.create({ data: { attemptId: attempt.id, kind: "DOCUMENT", reference: objectKey, supersededAt } });
     return { adminUserId, attemptId: attempt.id, evidenceId: evidence.id, objectKey };
+  }
+
+  async function createActiveFixture(createdAt: Date) {
+    const fixture = await createSupersededFixture(null);
+    await prisma.$executeRaw(Prisma.sql`UPDATE "identity_verification_evidence_references" SET "superseded_at" = NULL, "created_at" = ${createdAt} WHERE "id" = ${fixture.evidenceId}::uuid`);
+    return fixture;
+  }
+
+  async function createClosedFixture(decisionAt: Date) {
+    const fixture = await createActiveFixture(decisionAt);
+    await prisma.professionalIdentityVerificationAttempt.update({ where: { id: fixture.attemptId }, data: { status: "CLOSED", result: "NOT_CONFIRMED", closedAt: decisionAt } });
+    await prisma.identityVerificationDecision.create({ data: { attemptId: fixture.attemptId, source: "MANUAL", result: "NOT_CONFIRMED", reasonCode: "DATA_MISMATCH", criteriaVersion: "integration", operatorUserId: fixture.adminUserId, createdAt: decisionAt } });
+    return fixture;
   }
 
   async function createUser(id: string, name: string) {

@@ -1,6 +1,7 @@
 import "reflect-metadata";
 
 import { Test } from "@nestjs/testing";
+import { ValidationPipe } from "@nestjs/common";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { request as httpRequest } from "node:http";
 import { AddressInfo } from "node:net";
@@ -14,6 +15,7 @@ import { CustomerProfileActivationService } from "./customer-profile-activation.
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
 import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
@@ -29,9 +31,10 @@ import { UsersService } from "./users.service";
 describe("administrative identity review HTTP endpoints", () => {
   const attemptId = "a9f1d53e-60d0-4f56-af8f-7809e7e1cc93";
   const reviewService = { details: jest.fn(), revealCpf: jest.fn(), selfieEvidence: jest.fn(), suspendEvidenceDisposal: jest.fn(), releaseEvidenceDisposalSuspension: jest.fn() };
+  const disposalService = { preview: jest.fn() };
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
 
-  beforeAll(async () => { app = await createApp(reviewService); });
+  beforeAll(async () => { app = await createApp(reviewService, disposalService); });
   afterAll(async () => { await app?.close(); });
   beforeEach(() => jest.clearAllMocks());
 
@@ -40,6 +43,7 @@ describe("administrative identity review HTTP endpoints", () => {
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/cpf-reveal`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
+    ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview"],
   ])("returns 401 without authentication for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path);
     expect(response.status).toBe(401);
@@ -47,6 +51,7 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(reviewService.revealCpf).not.toHaveBeenCalled();
     expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
     expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
+    expect(disposalService.preview).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -54,6 +59,7 @@ describe("administrative identity review HTTP endpoints", () => {
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/cpf-reveal`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
+    ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview"],
   ])("returns 403 to a non-admin for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path, "customer-token");
     expect(response.status).toBe(403);
@@ -61,6 +67,7 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(reviewService.revealCpf).not.toHaveBeenCalled();
     expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
     expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
+    expect(disposalService.preview).not.toHaveBeenCalled();
   });
 
   it("returns the explicit no-store directive when an admin reveals a CPF", async () => {
@@ -95,9 +102,23 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(response.status).toBe(200);
     expect(reviewService.selfieEvidence).toHaveBeenCalledWith("admin-user-id", attemptId);
   });
+
+  it("allows an admin to read the disposal preview with validated pagination", async () => {
+    disposalService.preview.mockResolvedValue({ policyVersion: "identity-media-v1", items: [] });
+    const response = await request(app!.url, "GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview?page=2&pageSize=10", "admin-token");
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(disposalService.preview).toHaveBeenCalledWith(expect.any(Date), 2, 10);
+  });
+
+  it("rejects invalid disposal-preview pagination before calling the service", async () => {
+    const response = await request(app!.url, "GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview?page=0", "admin-token");
+    expect(response.status).toBe(400);
+    expect(disposalService.preview).not.toHaveBeenCalled();
+  });
 });
 
-async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock; suspendEvidenceDisposal: jest.Mock; releaseEvidenceDisposalSuspension: jest.Mock }) {
+async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock; suspendEvidenceDisposal: jest.Mock; releaseEvidenceDisposalSuspension: jest.Mock }, disposalService: { preview: jest.Mock }) {
   const accessTokenAuthService = {
     extractBearerToken: (header: string | undefined) => header?.replace("Bearer ", "") ?? null,
     authenticateAccessToken: jest.fn(async (token: string) => ({
@@ -121,11 +142,13 @@ async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mo
       { provide: ProfessionalPortfolioService, useValue: empty },
       { provide: ProfessionalIdentityVerificationStatusService, useValue: empty },
       { provide: ProfessionalIdentityReviewService, useValue: reviewService },
+      { provide: ProfessionalIdentityEvidenceDisposalService, useValue: disposalService },
       AccessTokenGuard, RolesGuard, { provide: AccessTokenAuthService, useValue: accessTokenAuthService },
     ],
   }).compile();
   const app = moduleRef.createNestApplication();
   app.setGlobalPrefix("api/v1");
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   await app.listen(0, "127.0.0.1");
   const address = app.getHttpServer().address() as AddressInfo;
   return Object.assign(app, { url: `http://127.0.0.1:${address.port}` });

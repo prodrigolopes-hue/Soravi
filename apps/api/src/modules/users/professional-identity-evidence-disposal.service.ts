@@ -14,6 +14,37 @@ const MAX_ATTEMPTS = 5;
 
 type Candidate = { evidenceId: string; attemptId: string; objectKey: string; reason: string; eligibleAt: Date };
 type Claim = { id: string; evidenceId: string; objectKey: string; attemptCount: number; leaseExpiresAt: Date };
+type PreviewRow = {
+  evidenceId: string;
+  attemptId: string;
+  objectKey: string | null;
+  kind: string;
+  createdAt: Date;
+  supersededAt: Date | null;
+  attemptStatus: string;
+  closedAt: Date | null;
+  lastEvidenceAt: Date | null;
+  decisionAt: Date | null;
+  discardRequestedAt: Date | null;
+  discardStartedAt: Date | null;
+  discardedAt: Date | null;
+  reason: string | null;
+  eligibleAt: Date | null;
+  suspended: boolean;
+};
+export interface IdentityEvidenceDisposalPreview {
+  policyVersion: string;
+  referenceAt: Date;
+  executionEnabled: boolean;
+  totalsByReason: Record<string, number>;
+  items: Array<{
+    evidenceId: string; attemptId: string; kind: string; createdAt: Date; supersededAt: Date | null;
+    attemptStatus: string; closedAt: Date | null; lastEvidenceAt: Date | null; decisionAt: Date | null;
+    discardRequestedAt: Date | null; discardStartedAt: Date | null; discardedAt: Date | null;
+    reason: string | null; eligibleAt: Date | null; policyEligible: boolean; executionEligible: boolean; impediments: string[];
+  }>;
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+}
 
 @Injectable()
 export class ProfessionalIdentityEvidenceDisposalService {
@@ -25,6 +56,54 @@ export class ProfessionalIdentityEvidenceDisposalService {
 
   isEnabled(): boolean {
     return this.config?.get("IDENTITY_EVIDENCE_DISPOSAL_ENABLED") === "true";
+  }
+
+  async preview(now = new Date(), page = 1, pageSize = 20): Promise<IdentityEvidenceDisposalPreview> {
+    const offset = (page - 1) * pageSize;
+    const rows = await this.prisma.$queryRaw<PreviewRow[]>(this.previewQuery(now, pageSize, offset));
+    const [count] = await this.prisma.$queryRaw<Array<{ total: bigint }>>(Prisma.sql`
+      SELECT count(*) AS "total" FROM (${this.previewBaseQuery()}) preview WHERE preview."reason" IS NOT NULL AND preview."eligibleAt" <= ${now}
+    `);
+    const totals = await this.prisma.$queryRaw<Array<{ reason: string; total: bigint }>>(Prisma.sql`
+      SELECT preview."reason", count(*) AS "total" FROM (${this.previewBaseQuery()}) preview
+      WHERE preview."reason" IS NOT NULL AND preview."eligibleAt" <= ${now} GROUP BY preview."reason" ORDER BY preview."reason" ASC
+    `);
+    return {
+      policyVersion: POLICY_VERSION,
+      referenceAt: now,
+      executionEnabled: this.isEnabled(),
+      totalsByReason: Object.fromEntries(totals.map((item) => [item.reason, Number(item.total)])),
+      items: rows.map((row) => {
+        const impediments: string[] = [];
+        if (row.attemptStatus === "UNDER_REVIEW") impediments.push("UNDER_REVIEW");
+        if (row.suspended) impediments.push("DISPOSAL_SUSPENDED");
+        if (row.discardRequestedAt) impediments.push("DISCARD_ALREADY_REQUESTED");
+        if (row.discardStartedAt) impediments.push("DISCARD_IN_PROGRESS");
+        if (row.discardedAt) impediments.push("ALREADY_DISCARDED");
+        if (row.reason === "INCOMPLETE_ATTEMPT" && row.attemptStatus === "AWAITING_EVIDENCE") impediments.push("ATTEMPT_EXPIRATION_REQUIRED");
+        const policyEligible = row.reason !== null && row.eligibleAt !== null && row.eligibleAt <= now;
+        return {
+          evidenceId: row.evidenceId,
+          attemptId: row.attemptId,
+          kind: row.kind,
+          createdAt: row.createdAt,
+          supersededAt: row.supersededAt,
+          attemptStatus: row.attemptStatus,
+          closedAt: row.closedAt,
+          lastEvidenceAt: row.lastEvidenceAt,
+          decisionAt: row.decisionAt,
+          discardRequestedAt: row.discardRequestedAt,
+          discardStartedAt: row.discardStartedAt,
+          discardedAt: row.discardedAt,
+          reason: row.reason,
+          eligibleAt: row.eligibleAt,
+          policyEligible,
+          executionEligible: policyEligible && impediments.length === 0,
+          impediments,
+        };
+      }),
+      pagination: { page, pageSize, total: Number(count?.total ?? 0n), totalPages: Math.ceil(Number(count?.total ?? 0n) / pageSize) },
+    };
   }
 
   async processBatch(now = new Date(), limit = BATCH_LIMIT): Promise<void> {
@@ -69,35 +148,46 @@ export class ProfessionalIdentityEvidenceDisposalService {
     }
   }
 
-  private async scheduleEligibleEvidence(now: Date, limit: number): Promise<void> {
-    const candidates = await this.prisma.$queryRaw<Candidate[]>(Prisma.sql`
-      SELECT e."id" AS "evidenceId", e."attempt_id" AS "attemptId", e."reference" AS "objectKey",
-        CASE
-          WHEN e."superseded_at" IS NOT NULL THEN 'SUPERSEDED'
-          WHEN a."status" = 'CANCELLED'::"ProfessionalIdentityVerificationAttemptStatus" THEN 'INCOMPLETE_ATTEMPT'
-          ELSE 'CLOSED_ATTEMPT'
-        END AS "reason",
-        CASE
-          WHEN e."superseded_at" IS NOT NULL THEN e."superseded_at" + INTERVAL '7 days'
-          WHEN a."status" = 'CANCELLED'::"ProfessionalIdentityVerificationAttemptStatus" THEN (SELECT MAX(x."created_at") FROM "identity_verification_evidence_references" x WHERE x."attempt_id" = a."id") + INTERVAL '30 days'
-          ELSE (SELECT MAX(d."created_at") FROM "identity_verification_decisions" d WHERE d."attempt_id" = a."id") + INTERVAL '90 days'
-        END AS "eligibleAt"
+  private previewBaseQuery(): Prisma.Sql {
+    return Prisma.sql`
+      SELECT e."id" AS "evidenceId", e."attempt_id" AS "attemptId", e."reference" AS "objectKey", e."kind"::text AS "kind", e."created_at" AS "createdAt", e."superseded_at" AS "supersededAt",
+        a."status"::text AS "attemptStatus", a."closed_at" AS "closedAt", last_evidence."lastEvidenceAt", decision."decisionAt",
+        e."discard_requested_at" AS "discardRequestedAt", e."discard_started_at" AS "discardStartedAt", e."discarded_at" AS "discardedAt",
+        CASE WHEN e."superseded_at" IS NOT NULL THEN 'SUPERSEDED'
+          WHEN a."status" IN ('AWAITING_EVIDENCE'::"ProfessionalIdentityVerificationAttemptStatus", 'CANCELLED'::"ProfessionalIdentityVerificationAttemptStatus") AND last_evidence."lastEvidenceAt" IS NOT NULL THEN 'INCOMPLETE_ATTEMPT'
+          WHEN a."status" = 'CLOSED'::"ProfessionalIdentityVerificationAttemptStatus" AND decision."decisionAt" IS NOT NULL THEN 'CLOSED_ATTEMPT'
+          ELSE NULL END AS "reason",
+        CASE WHEN e."superseded_at" IS NOT NULL THEN e."superseded_at" + INTERVAL '7 days'
+          WHEN a."status" IN ('AWAITING_EVIDENCE'::"ProfessionalIdentityVerificationAttemptStatus", 'CANCELLED'::"ProfessionalIdentityVerificationAttemptStatus") THEN last_evidence."lastEvidenceAt" + INTERVAL '30 days'
+          WHEN a."status" = 'CLOSED'::"ProfessionalIdentityVerificationAttemptStatus" THEN decision."decisionAt" + INTERVAL '90 days'
+          ELSE NULL END AS "eligibleAt",
+        COALESCE(suspension."action" = 'APPLIED', false) AS "suspended"
       FROM "identity_verification_evidence_references" e
       JOIN "professional_identity_verification_attempts" a ON a."id" = e."attempt_id"
-      LEFT JOIN LATERAL (
-        SELECT s."action" FROM "identity_evidence_disposal_suspension_events" s
-        WHERE s."attempt_id" = a."id" ORDER BY s."created_at" DESC, s."id" DESC LIMIT 1
-      ) suspension ON true
+      LEFT JOIN LATERAL (SELECT MAX(x."created_at") AS "lastEvidenceAt" FROM "identity_verification_evidence_references" x WHERE x."attempt_id" = a."id") last_evidence ON true
+      LEFT JOIN LATERAL (SELECT MAX(d."created_at") AS "decisionAt" FROM "identity_verification_decisions" d WHERE d."attempt_id" = a."id") decision ON true
+      LEFT JOIN LATERAL (SELECT s."action" FROM "identity_evidence_disposal_suspension_events" s WHERE s."attempt_id" = a."id" ORDER BY s."created_at" DESC, s."id" DESC LIMIT 1) suspension ON true
       WHERE e."kind" IN ('DOCUMENT'::"IdentityVerificationEvidenceKind", 'SELFIE'::"IdentityVerificationEvidenceKind")
-        AND e."reference" IS NOT NULL AND e."discard_requested_at" IS NULL AND e."discarded_at" IS NULL
-        AND a."status" <> 'UNDER_REVIEW'::"ProfessionalIdentityVerificationAttemptStatus"
-        AND COALESCE(suspension."action", 'RELEASED') <> 'APPLIED'
-        AND (
-          (e."superseded_at" IS NOT NULL AND e."superseded_at" <= ${new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)})
-          OR (a."status" = 'CANCELLED'::"ProfessionalIdentityVerificationAttemptStatus" AND (SELECT MAX(x."created_at") FROM "identity_verification_evidence_references" x WHERE x."attempt_id" = a."id") <= ${new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)})
-          OR (a."status" = 'CLOSED'::"ProfessionalIdentityVerificationAttemptStatus" AND (SELECT MAX(d."created_at") FROM "identity_verification_decisions" d WHERE d."attempt_id" = a."id") <= ${new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)})
-        )
-      ORDER BY "eligibleAt" ASC, e."id" ASC LIMIT ${limit}
+    `;
+  }
+
+  private previewQuery(now: Date, pageSize: number, offset: number): Prisma.Sql {
+    return Prisma.sql`
+      SELECT * FROM (${this.previewBaseQuery()}) preview
+      WHERE preview."reason" IS NOT NULL AND preview."eligibleAt" <= ${now}
+      ORDER BY preview."eligibleAt" ASC NULLS LAST, preview."evidenceId" ASC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `;
+  }
+
+  private async scheduleEligibleEvidence(now: Date, limit: number): Promise<void> {
+    const candidates = await this.prisma.$queryRaw<Candidate[]>(Prisma.sql`
+      SELECT preview."evidenceId", preview."attemptId", preview."objectKey", preview."reason", preview."eligibleAt"
+      FROM (${this.previewBaseQuery()}) preview
+      WHERE preview."reason" IS NOT NULL AND preview."eligibleAt" <= ${now}
+        AND preview."objectKey" IS NOT NULL AND preview."discardRequestedAt" IS NULL AND preview."discardedAt" IS NULL
+        AND preview."attemptStatus" <> 'UNDER_REVIEW' AND NOT preview."suspended"
+      ORDER BY preview."eligibleAt" ASC, preview."evidenceId" ASC LIMIT ${limit}
     `);
     for (const candidate of candidates) {
       await this.prisma.$transaction(async (tx) => {

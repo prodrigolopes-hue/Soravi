@@ -64,6 +64,8 @@ import { ProfessionalIdentityReviewService } from "./professional-identity-revie
 import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
 import { IdentityEvidenceDisposalSuspensionDto } from "./dto/identity-evidence-disposal-suspension.dto";
+import { IdentityEvidenceDisposalPreviewQueryDto } from "./dto/identity-evidence-disposal-preview-query.dto";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
 import {
   PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES,
   ProfessionalIdentityDocumentError,
@@ -100,6 +102,8 @@ export class UsersController {
     private readonly professionalIdentityDocumentService?: ProfessionalIdentityDocumentService,
     @Optional()
     private readonly professionalIdentityReviewService?: ProfessionalIdentityReviewService,
+    @Optional()
+    private readonly professionalIdentityEvidenceDisposalService?: ProfessionalIdentityEvidenceDisposalService,
     private readonly professionalIdentityVerificationStatusService?: ProfessionalIdentityVerificationStatusService,
   ) {}
 
@@ -509,6 +513,15 @@ export class UsersController {
   professionalIdentityDetails(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
     if (!this.professionalIdentityReviewService) throw new BadRequestException();
     return this.professionalIdentityReviewService.details(attemptId);
+  }
+
+  @Get("admin/professional-identity-verifications/disposal-preview")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDisposalPreview(@Query() query: IdentityEvidenceDisposalPreviewQueryDto): Promise<unknown> {
+    if (!this.professionalIdentityEvidenceDisposalService) throw new BadRequestException();
+    return this.professionalIdentityEvidenceDisposalService.preview(new Date(), query.page, query.pageSize);
   }
 
   @Post("admin/professional-identity-verifications/:attemptId/cpf-reveal")
