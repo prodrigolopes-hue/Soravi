@@ -21,7 +21,7 @@ export class ProfessionalIdentityReviewService {
   }
   async evidence(attemptId: string) {
     const evidence = await this.prisma.identityVerificationEvidenceReference.findFirst({
-      where: { attemptId, kind: "DOCUMENT" },
+      where: { attemptId, kind: "DOCUMENT", supersededAt: null },
       select: { reference: true, expiresAt: true },
     });
     if (!evidence || (evidence.expiresAt !== null && evidence.expiresAt <= new Date())) {

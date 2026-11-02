@@ -8,14 +8,31 @@ describe("ProfessionalIdentityReviewService", () => {
   const storage = { createTemporaryReadUrl: jest.fn().mockResolvedValue("https://private.example/temporary") };
   const service = new ProfessionalIdentityReviewService(prisma as never, storage as never);
   beforeEach(() => { jest.clearAllMocks(); tx.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]); });
-  it("emite somente URL temporária para evidência UNDER_REVIEW", async () => {
-    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/key" });
+  it("seleciona o documento ativo da tentativa solicitada", async () => {
+    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/active-document", expiresAt: null });
     await expect(service.evidence("attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
-    expect(storage.createTemporaryReadUrl).toHaveBeenCalledWith("private/key", 60);
+    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "attempt", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(storage.createTemporaryReadUrl).toHaveBeenCalledWith("private/active-document", 60);
   });
-  it("rejeita evidência inexistente ou fora de análise", async () => {
+  it("não considera documento substituído elegível", async () => {
     prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue(null);
+
+    await expect(service.evidence("attempt-with-superseded-document")).rejects.toMatchObject({ response: expect.objectContaining({ code: "IDENTITY_EVIDENCE_UNAVAILABLE" }) });
+    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "attempt-with-superseded-document", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
+  });
+  it("não emite URL quando não há documento ativo", async () => {
+    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue(null);
+
     await expect(service.evidence("attempt")).rejects.toBeInstanceOf(NotFoundException);
+    expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
+  });
+  it("mantém acessível a tentativa legada com documento ativo", async () => {
+    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/legacy-document", expiresAt: null });
+
+    await expect(service.evidence("legacy-attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
+    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "legacy-attempt", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(storage.createTemporaryReadUrl).toHaveBeenCalledWith("private/legacy-document", 60);
   });
   it("audita o acesso à selfie antes de emitir URL temporária", async () => {
     tx.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/selfie", expiresAt: null });
