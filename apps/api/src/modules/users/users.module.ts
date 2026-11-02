@@ -22,6 +22,7 @@ import { ProfessionalIdentityDocumentService } from "./professional-identity-doc
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { ProfessionalPortfolioService } from "./professional-portfolio.service";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ProfessionalPortfolioService } from "./professional-portfolio.service";
     ProfessionalProfilePhotoProcessor,
     ProfessionalProfilePhotoReadService,
     ProfessionalIdentityDocumentService,
+    ProfessionalIdentityEvidenceDisposalService,
     ProfessionalIdentityReviewService,
     ProfessionalIdentityVerificationStatusService,
     ProfessionalPortfolioService,

@@ -77,6 +77,8 @@ export class ProfessionalIdentityReviewService {
       await this.lockAttempt(tx, attemptId);
       const [discarded] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "identity_verification_evidence_references" WHERE "attempt_id" = ${attemptId}::uuid AND "discarded_at" IS NOT NULL LIMIT 1`);
       if (discarded) throw new ConflictException({ code: "IDENTITY_EVIDENCE_ALREADY_DISCARDED", message: "Não é possível suspender o descarte de conteúdo já descartado." });
+      const [started] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "identity_verification_evidence_references" WHERE "attempt_id" = ${attemptId}::uuid AND "discard_started_at" IS NOT NULL AND "discarded_at" IS NULL LIMIT 1`);
+      if (started) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_IN_PROGRESS", message: "O descarte já iniciou e não pode prometer preservação da evidência." });
       if (await this.hasActiveDisposalSuspension(tx, attemptId)) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_ALREADY_SUSPENDED", message: "O descarte já está suspenso para esta tentativa." });
       const suspendedAt = new Date();
       await tx.$executeRaw(Prisma.sql`INSERT INTO "identity_evidence_disposal_suspension_events" ("id", "attempt_id", "action", "reason", "operator_user_id", "created_at") VALUES (${randomUUID()}::uuid, ${attemptId}::uuid, 'APPLIED', ${reason.trim()}, ${adminUserId}::uuid, ${suspendedAt})`);

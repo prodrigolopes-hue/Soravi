@@ -63,6 +63,7 @@ describe("ProfessionalIdentityReviewService", () => {
       .mockResolvedValueOnce([{ id: "attempt" }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "attempt" }])
       .mockResolvedValueOnce([{ action: "APPLIED" }]);
 
@@ -78,7 +79,7 @@ describe("ProfessionalIdentityReviewService", () => {
     }));
   });
   it("desfaz a suspensão quando a auditoria não pode ser registrada", async () => {
-    tx.$queryRaw.mockResolvedValueOnce([{ id: "attempt" }]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    tx.$queryRaw.mockResolvedValueOnce([{ id: "attempt" }]).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     tx.$executeRaw.mockRejectedValue(new Error("audit failed"));
 
     await expect(service.suspendEvidenceDisposal("admin", "attempt", "Investigação aberta")).rejects.toThrow("audit failed");

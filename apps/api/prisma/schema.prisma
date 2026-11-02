@@ -86,6 +86,13 @@ enum IdentityDocumentCleanupStatus {
   FAILED
 }
 
+enum IdentityEvidenceDisposalTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum LegalDocumentType {
   TERMS_OF_USE
   PRIVACY_POLICY
@@ -535,17 +542,42 @@ model IdentityVerificationEvidenceReference {
   id        String                           @id @default(uuid()) @db.Uuid
   attemptId String                           @map("attempt_id") @db.Uuid
   kind      IdentityVerificationEvidenceKind
-  reference String                           @db.VarChar(255)
+  reference String?                          @db.VarChar(255)
   expiresAt DateTime?                        @map("expires_at") @db.Timestamptz(3)
   supersededAt DateTime?                      @map("superseded_at") @db.Timestamptz(3)
   discardRequestedAt DateTime?                @map("discard_requested_at") @db.Timestamptz(3)
+  discardStartedAt DateTime?                  @map("discard_started_at") @db.Timestamptz(3)
   discardedAt DateTime?                       @map("discarded_at") @db.Timestamptz(3)
   createdAt DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
 
   attempt ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  disposalTask IdentityEvidenceDisposalTask?
 
   @@index([attemptId, createdAt], map: "iv_evidence_attempt_created_idx")
   @@map("identity_verification_evidence_references")
+}
+
+model IdentityEvidenceDisposalTask {
+  id                  String                            @id @default(uuid()) @db.Uuid
+  evidenceId          String                            @unique(map: "identity_ev_disposal_tasks_evidence_key") @map("evidence_id") @db.Uuid
+  objectKey           String                            @map("object_key") @db.VarChar(255)
+  policyVersion       String                            @map("policy_version") @db.VarChar(64)
+  reason              String                            @db.VarChar(64)
+  eligibleAt          DateTime                          @map("eligible_at") @db.Timestamptz(3)
+  status              IdentityEvidenceDisposalTaskStatus @default(PENDING)
+  attemptCount        Int                               @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime                          @map("next_attempt_at") @db.Timestamptz(3)
+  leaseExpiresAt      DateTime?                         @map("lease_expires_at") @db.Timestamptz(3)
+  irreversibleStartedAt DateTime?                       @map("irreversible_started_at") @db.Timestamptz(3)
+  completedAt         DateTime?                         @map("completed_at") @db.Timestamptz(3)
+  lastError           String?                           @map("last_error") @db.VarChar(64)
+  createdAt           DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  evidence IdentityVerificationEvidenceReference @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt], map: "identity_ev_disposal_tasks_ready_idx")
+  @@map("identity_evidence_disposal_tasks")
 }
 
 model IdentityEvidenceDisposalSuspensionEvent {
