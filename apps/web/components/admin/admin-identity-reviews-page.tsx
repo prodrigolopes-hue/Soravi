@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 
 import { apiBaseUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
@@ -55,6 +56,38 @@ function isAttempt(value: unknown): value is Attempt {
   return isRecord(value) && typeof value.id === "string" && typeof value.createdAt === "string" && isRecord(value.professionalProfile) && typeof value.professionalProfile.displayName === "string";
 }
 
+type DisposalPreviewItem = {
+  evidenceId: string; attemptId: string; kind: string; createdAt: string; supersededAt: string | null;
+  attemptStatus: string; closedAt: string | null; lastEvidenceAt: string | null; decisionAt: string | null;
+  discardRequestedAt: string | null; discardStartedAt: string | null; discardedAt: string | null;
+  reason: string | null; eligibleAt: string | null; policyEligible: boolean; executionEligible: boolean; impediments: string[];
+};
+type DisposalPreview = {
+  policyVersion: string; referenceAt: string; executionEnabled: boolean; totalsByReason: Record<string, number>;
+  items: DisposalPreviewItem[]; pagination: { page: number; pageSize: number; total: number; totalPages: number };
+};
+const disposalReasonLabels: Record<string, string> = { SUPERSEDED: "Evidência substituída", INCOMPLETE_ATTEMPT: "Tentativa incompleta", CLOSED_ATTEMPT: "Tentativa encerrada" };
+const disposalKindLabels: Record<string, string> = { DOCUMENT: "Documento", SELFIE: "Selfie" };
+const disposalImpedimentLabels: Record<string, string> = {
+  UNDER_REVIEW: "Em análise", DISPOSAL_SUSPENDED: "Descarte suspenso", DISCARD_ALREADY_REQUESTED: "Descarte já solicitado",
+  DISCARD_IN_PROGRESS: "Descarte em andamento", ALREADY_DISCARDED: "Já descartada", ATTEMPT_EXPIRATION_REQUIRED: "Expiração da tentativa necessária",
+};
+function isDateOrNull(value: unknown): value is string | null { return value === null || typeof value === "string"; }
+function isDisposalPreviewItem(value: unknown): value is DisposalPreviewItem {
+  return isRecord(value) && typeof value.evidenceId === "string" && typeof value.attemptId === "string" && typeof value.kind === "string" && typeof value.createdAt === "string"
+    && isDateOrNull(value.supersededAt) && typeof value.attemptStatus === "string" && isDateOrNull(value.closedAt) && isDateOrNull(value.lastEvidenceAt)
+    && isDateOrNull(value.decisionAt) && isDateOrNull(value.discardRequestedAt) && isDateOrNull(value.discardStartedAt) && isDateOrNull(value.discardedAt)
+    && isDateOrNull(value.reason) && isDateOrNull(value.eligibleAt) && typeof value.policyEligible === "boolean" && typeof value.executionEligible === "boolean"
+    && Array.isArray(value.impediments) && value.impediments.every((item) => typeof item === "string");
+}
+function isDisposalPreview(value: unknown): value is DisposalPreview {
+  return isRecord(value) && typeof value.policyVersion === "string" && typeof value.referenceAt === "string" && typeof value.executionEnabled === "boolean"
+    && isRecord(value.totalsByReason) && Object.values(value.totalsByReason).every((item) => typeof item === "number")
+    && Array.isArray(value.items) && value.items.every(isDisposalPreviewItem) && isRecord(value.pagination)
+    && typeof value.pagination.page === "number" && typeof value.pagination.pageSize === "number" && typeof value.pagination.total === "number" && typeof value.pagination.totalPages === "number";
+}
+function formatDate(value: string | null): string { return value ? new Date(value).toLocaleString("pt-BR") : "—"; }
+
 export function AdminIdentityReviewsPage() {
   const { accessToken, user, isLoading } = useAuth();
   const searchParams = useSearchParams();
@@ -75,6 +108,19 @@ export function AdminIdentityReviewsPage() {
   const [decisionConfirmed, setDecisionConfirmed] = useState(false);
   const [registeringDecision, setRegisteringDecision] = useState(false);
   const admin = Boolean(user?.roles.includes("ADMIN"));
+
+  useEffect(() => {
+    if (!admin || !accessToken) return;
+    const main = document.querySelector("main");
+    if (!main) return;
+    const host = document.createElement("section");
+    const list = main.querySelector(":scope > ul");
+    host.className = "mt-6";
+    main.insertBefore(host, list);
+    const root = createRoot(host);
+    root.render(<DisposalPreviewPanel accessToken={accessToken} />);
+    return () => { root.unmount(); host.remove(); };
+  }, [accessToken, admin]);
 
   useEffect(() => {
     if (!accessToken || !admin) return;
@@ -170,4 +216,48 @@ export function AdminIdentityReviewsPage() {
   const pending = details?.attempt.status === "UNDER_REVIEW";
   const availableReasons = decisionReasons[decisionResult];
   return <main className="mx-auto max-w-4xl p-6"><Link href="/admin/profissionais" className="text-sm font-semibold text-blue-700 underline">Voltar para profissionais</Link><h1 className="mt-4 text-3xl font-bold">Análise privada de identidade</h1><p className="mt-2 text-slate-600">Documentos permanecem privados; decisões não aprovam o perfil profissional.</p>{error ? <p role="alert" className="mt-4 text-red-700">{error}</p> : null}<ul className="mt-6 space-y-3">{items.map((attempt) => <li key={attempt.id} className="rounded-xl border p-4"><strong>{attempt.professionalProfile.displayName}</strong><p className="text-sm">Recebida em {new Date(attempt.createdAt).toLocaleString("pt-BR")}</p><p className="text-sm">Status: {formatIdentityStatus("UNDER_REVIEW")}</p><button type="button" className="mt-3 underline" onClick={() => selectAttempt(attempt.id)}>Analisar documentos</button></li>)}</ul>{selected ? <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><button type="button" className="text-sm font-semibold text-blue-700 underline" onClick={closeDetails}>Fechar detalhes</button>{loadingDetails ? <p className="mt-4">Carregando detalhes…</p> : null}{details ? <><h2 className="mt-4 text-xl font-bold">{details.professionalName}</h2><p className="mt-2 text-sm">Status: {formatIdentityStatus(details.attempt.status)} · Resultado: {formatIdentityResult(details.attempt.result)}</p><button type="button" disabled={openingDocument} onClick={() => void viewDocument()} className="mt-4 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{openingDocument ? "Obtendo documento…" : "Obter documento"}</button>{documentUrl ? <a href={documentUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 py-2 font-semibold text-white">Abrir documento</a> : null}{details.attempt.hasActiveSelfie ? <><button type="button" disabled={openingSelfie} onClick={() => void viewSelfie()} className="mt-4 ml-2 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{openingSelfie ? "Obtendo selfie…" : "Abrir selfie"}</button>{selfieUrl ? <a href={selfieUrl} target="_blank" rel="noopener noreferrer" className="mt-3 ml-2 inline-flex min-h-11 rounded-xl bg-blue-700 px-3 py-2 font-semibold text-white">Abrir selfie</a> : null}{selfieError ? <p role="alert" className="mt-2 text-sm text-red-700">{selfieError}</p> : null}</> : null}<p className="mt-2 text-xs text-slate-600">O link é temporário, privado e é removido desta tela ao fechar ou trocar de tentativa.</p><div className="mt-4 rounded-xl border border-slate-200 p-4"><h3 className="font-semibold">CPF cadastrado</h3>{cpf ? <p className="mt-2 font-mono text-lg">{cpf}</p> : <button type="button" disabled={revealing} onClick={() => void revealCpf()} className="mt-3 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{revealing ? "Revelando…" : "Revelar CPF"}</button>}<p className="mt-2 text-xs text-slate-600">O CPF só é revelado nesta tela após uma ação explícita e não é armazenado no navegador.</p></div><h3 className="mt-5 font-semibold">Histórico de tentativas</h3><ul className="mt-3 space-y-3">{details.history.map((historyItem) => <li key={historyItem.id} className="rounded-xl border p-3 text-sm"><p>{formatIdentityStatus(historyItem.status)} · {formatIdentityResult(historyItem.result)} · {new Date(historyItem.createdAt).toLocaleString("pt-BR")}</p>{historyItem.decisions.map((decision, index) => <p key={`${decision.createdAt}-${index}`} className="mt-1">Decisão: {formatIdentityResult(decision.result)} · motivo: {formatDecisionReason(decision.reasonCode)}{isKnownDecisionReason(decision.reasonCode) ? null : <span className="text-slate-600"> · código: {decision.reasonCode}</span>} · {new Date(decision.createdAt).toLocaleString("pt-BR")} · {decision.operator?.name ?? "Sistema"}</p>)}</li>)}</ul>{pending ? <form className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" onSubmit={(event) => { event.preventDefault(); void registerDecision(); }}><h3 className="font-semibold">Registrar decisão</h3><label className="mt-3 block text-sm font-medium" htmlFor="identity-decision-result">Resultado</label><select id="identity-decision-result" value={decisionResult} onChange={(event) => changeDecisionResult(event.target.value as DecisionResult)} disabled={registeringDecision} className="mt-1 min-h-11 w-full rounded-lg border px-3"><option value="CONFIRMED">Identidade confirmada</option><option value="NOT_CONFIRMED">Identidade não confirmada</option><option value="INCONCLUSIVE">Análise inconclusiva</option></select><label className="mt-3 block text-sm font-medium" htmlFor="identity-decision-reason">Motivo</label><select id="identity-decision-reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value)} disabled={registeringDecision} className="mt-1 min-h-11 w-full rounded-lg border px-3">{availableReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}</select><label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={decisionConfirmed} onChange={(event) => setDecisionConfirmed(event.target.checked)} disabled={registeringDecision} className="mt-1" /><span>Confirmo que revisei o documento e desejo encerrar esta tentativa com esta decisão.</span></label><button type="submit" disabled={!decisionConfirmed || registeringDecision} className="mt-4 min-h-11 rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-60">{registeringDecision ? "Registrando decisão…" : "Registrar decisão"}</button></form> : <p className="mt-5 text-sm text-slate-700">Esta análise foi encerrada e está disponível somente para leitura. Não é possível registrar nova decisão ou reabrir a tentativa.</p>}</> : null}</section> : null}</main>;
+}
+
+function DisposalPreviewPanel({ accessToken }: { accessToken: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<DisposalPreview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sequence = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+
+  useEffect(() => () => controller.current?.abort(), []);
+
+  async function load(page: number) {
+    if (!accessToken || loading) return;
+    const requestId = sequence.current + 1;
+    sequence.current = requestId;
+    controller.current?.abort();
+    const nextController = new AbortController();
+    controller.current = nextController;
+    setLoading(true); setError(null);
+    try {
+      const url = new URL(`${base}/api/v1/users/admin/professional-identity-verifications/disposal-preview`);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("pageSize", "10");
+      const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store", signal: nextController.signal });
+      const body: unknown = await response.json();
+      if (!response.ok || !isDisposalPreview(body)) throw new Error("Invalid disposal preview response");
+      if (sequence.current === requestId) setPreview(body);
+    } catch (requestError) {
+      if (sequence.current === requestId && !(requestError instanceof DOMException && requestError.name === "AbortError")) setError("Não foi possível consultar a prévia de descarte.");
+    } finally {
+      if (sequence.current === requestId) setLoading(false);
+    }
+  }
+
+  return <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-bold">Prévia de descarte de identidade</h2><p className="mt-1 text-sm text-slate-600">Esta consulta não exclui imagens nem altera análises.</p></div><button type="button" onClick={() => setOpen((current) => !current)} className="min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800">{open ? "Ocultar prévia" : "Mostrar prévia"}</button></div>
+    {open ? <div className="mt-4"><button type="button" disabled={loading} onClick={() => void load(preview?.pagination.page ?? 1)} className="min-h-11 rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-60">{loading ? "Consultando prévia…" : preview ? "Consultar novamente" : "Consultar prévia de descarte"}</button>
+      {error ? <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800"><p>{error}</p><button type="button" disabled={loading} onClick={() => void load(preview?.pagination.page ?? 1)} className="mt-2 underline disabled:opacity-60">Tentar novamente</button></div> : null}
+      {preview ? <div className="mt-4 space-y-4"><div className="grid gap-3 text-sm sm:grid-cols-2"><p><strong>Política:</strong> {preview.policyVersion}</p><p><strong>Consulta:</strong> {formatDate(preview.referenceAt)}</p><p><strong>Execução automática:</strong> {preview.executionEnabled ? "Habilitada" : "Desabilitada"}</p></div><div><h3 className="font-semibold">Totais por motivo</h3><ul className="mt-2 flex flex-wrap gap-2">{Object.entries(preview.totalsByReason).map(([reason, total]) => <li key={reason} className="rounded-full bg-slate-200 px-3 py-1 text-sm">{disposalReasonLabels[reason] ?? reason}: {total}</li>)}</ul></div>
+        {preview.items.length === 0 ? <p className="rounded-xl border bg-white p-4 text-sm text-slate-600">Nenhuma evidência está elegível nesta consulta.</p> : <ul className="space-y-3">{preview.items.map((item) => <li key={item.evidenceId} className="rounded-xl border bg-white p-3 text-sm"><div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><strong>{disposalKindLabels[item.kind] ?? item.kind}</strong><span className={item.executionEligible ? "font-semibold text-emerald-700" : "font-semibold text-amber-800"}>{item.executionEligible ? "Elegível para descarte" : item.policyEligible ? "Elegível, mas impedida" : "Ainda não elegível"}</span></div><dl className="mt-2 grid gap-x-4 gap-y-1 text-slate-700 sm:grid-cols-2"><div><dt className="font-medium">Tentativa</dt><dd className="break-all">{item.attemptId}</dd></div><div><dt className="font-medium">Motivo</dt><dd>{item.reason ? disposalReasonLabels[item.reason] ?? item.reason : "—"}</dd></div><div><dt className="font-medium">Elegível em</dt><dd>{formatDate(item.eligibleAt)}</dd></div><div><dt className="font-medium">Último envio</dt><dd>{formatDate(item.lastEvidenceAt)}</dd></div><div><dt className="font-medium">Substituída em</dt><dd>{formatDate(item.supersededAt)}</dd></div><div><dt className="font-medium">Decisão em</dt><dd>{formatDate(item.decisionAt)}</dd></div></dl>{item.impediments.length ? <p className="mt-2 text-amber-800">Impedimentos: {item.impediments.map((impediment) => disposalImpedimentLabels[impediment] ?? impediment).join(" · ")}</p> : null}</li>)}</ul>}
+        {preview.pagination.totalPages > 1 ? <nav aria-label="Paginação da prévia" className="flex items-center justify-between gap-3"><button type="button" disabled={loading || preview.pagination.page === 1} onClick={() => void load(preview.pagination.page - 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Anterior</button><span className="text-sm">Página {preview.pagination.page} de {preview.pagination.totalPages}</span><button type="button" disabled={loading || preview.pagination.page === preview.pagination.totalPages} onClick={() => void load(preview.pagination.page + 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Próxima</button></nav> : null}</div> : null}
+    </div> : null}
+  </div>;
 }
