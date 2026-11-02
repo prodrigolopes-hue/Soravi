@@ -28,7 +28,7 @@ import { UsersService } from "./users.service";
 
 describe("administrative identity review HTTP endpoints", () => {
   const attemptId = "a9f1d53e-60d0-4f56-af8f-7809e7e1cc93";
-  const reviewService = { details: jest.fn(), revealCpf: jest.fn(), selfieEvidence: jest.fn() };
+  const reviewService = { details: jest.fn(), revealCpf: jest.fn(), selfieEvidence: jest.fn(), suspendEvidenceDisposal: jest.fn(), releaseEvidenceDisposalSuspension: jest.fn() };
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
 
   beforeAll(async () => { app = await createApp(reviewService); });
@@ -38,21 +38,29 @@ describe("administrative identity review HTTP endpoints", () => {
   it.each([
     ["GET", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/details`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/cpf-reveal`],
+    ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
+    ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
   ])("returns 401 without authentication for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path);
     expect(response.status).toBe(401);
     expect(reviewService.details).not.toHaveBeenCalled();
     expect(reviewService.revealCpf).not.toHaveBeenCalled();
+    expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
+    expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
   });
 
   it.each([
     ["GET", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/details`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/cpf-reveal`],
+    ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
+    ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
   ])("returns 403 to a non-admin for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path, "customer-token");
     expect(response.status).toBe(403);
     expect(reviewService.details).not.toHaveBeenCalled();
     expect(reviewService.revealCpf).not.toHaveBeenCalled();
+    expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
+    expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
   });
 
   it("returns the explicit no-store directive when an admin reveals a CPF", async () => {
@@ -89,7 +97,7 @@ describe("administrative identity review HTTP endpoints", () => {
   });
 });
 
-async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock }) {
+async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock; suspendEvidenceDisposal: jest.Mock; releaseEvidenceDisposalSuspension: jest.Mock }) {
   const accessTokenAuthService = {
     extractBearerToken: (header: string | undefined) => header?.replace("Bearer ", "") ?? null,
     authenticateAccessToken: jest.fn(async (token: string) => ({

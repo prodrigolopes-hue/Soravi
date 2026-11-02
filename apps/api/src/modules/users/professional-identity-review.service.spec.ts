@@ -3,47 +3,90 @@ import { createCpfProtector } from "../../common/cpf/cpf-protection";
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 
 describe("ProfessionalIdentityReviewService", () => {
-  const tx = { $queryRaw: jest.fn(), identityVerificationDecision: { create: jest.fn() }, identityCpfAccessAudit: { create: jest.fn() }, identitySelfieAccessAudit: { create: jest.fn() }, identityVerificationEvidenceReference: { findMany: jest.fn(), findFirst: jest.fn() }, professionalIdentityVerificationAttempt: { update: jest.fn(), findUnique: jest.fn() } };
-  const prisma = { professionalIdentityVerificationAttempt: { findMany: jest.fn(), findUnique: jest.fn() }, identityVerificationEvidenceReference: { findFirst: jest.fn() }, $transaction: jest.fn((fn) => fn(tx)) };
+  const tx = { $queryRaw: jest.fn(), $executeRaw: jest.fn().mockResolvedValue(1), identityVerificationDecision: { create: jest.fn() }, identityCpfAccessAudit: { create: jest.fn() }, identitySelfieAccessAudit: { create: jest.fn() }, identityVerificationEvidenceReference: { findMany: jest.fn(), findFirst: jest.fn() }, professionalIdentityVerificationAttempt: { update: jest.fn(), findUnique: jest.fn() } };
+  const prisma = { professionalIdentityVerificationAttempt: { findMany: jest.fn(), findUnique: jest.fn() }, identityVerificationEvidenceReference: { findFirst: jest.fn() }, $queryRaw: jest.fn(), $transaction: jest.fn((fn) => fn(tx)) };
   const storage = { createTemporaryReadUrl: jest.fn().mockResolvedValue("https://private.example/temporary") };
   const service = new ProfessionalIdentityReviewService(prisma as never, storage as never);
   beforeEach(() => { jest.clearAllMocks(); tx.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]); });
   it("seleciona o documento ativo da tentativa solicitada", async () => {
-    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/active-document", expiresAt: null });
+    prisma.$queryRaw.mockResolvedValue([{ reference: "private/active-document", expiresAt: null }]);
     await expect(service.evidence("attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
-    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "attempt", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(storage.createTemporaryReadUrl).toHaveBeenCalledWith("private/active-document", 60);
   });
   it("não considera documento substituído elegível", async () => {
-    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue(null);
+    prisma.$queryRaw.mockResolvedValue([]);
 
     await expect(service.evidence("attempt-with-superseded-document")).rejects.toMatchObject({ response: expect.objectContaining({ code: "IDENTITY_EVIDENCE_UNAVAILABLE" }) });
-    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "attempt-with-superseded-document", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
   });
   it("não emite URL quando não há documento ativo", async () => {
-    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue(null);
+    prisma.$queryRaw.mockResolvedValue([]);
 
     await expect(service.evidence("attempt")).rejects.toBeInstanceOf(NotFoundException);
     expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
   });
   it("mantém acessível a tentativa legada com documento ativo", async () => {
-    prisma.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/legacy-document", expiresAt: null });
+    prisma.$queryRaw.mockResolvedValue([{ reference: "private/legacy-document", expiresAt: null }]);
 
     await expect(service.evidence("legacy-attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
-    expect(prisma.identityVerificationEvidenceReference.findFirst).toHaveBeenCalledWith({ where: { attemptId: "legacy-attempt", kind: "DOCUMENT", supersededAt: null }, select: { reference: true, expiresAt: true } });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(storage.createTemporaryReadUrl).toHaveBeenCalledWith("private/legacy-document", 60);
   });
+  it.each(["pendente", "concluído"])("não emite URL para documento com descarte %s", async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await expect(service.evidence("attempt")).rejects.toMatchObject({ response: expect.objectContaining({ code: "IDENTITY_EVIDENCE_UNAVAILABLE" }) });
+    expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
+  });
   it("audita o acesso à selfie antes de emitir URL temporária", async () => {
-    tx.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/selfie", expiresAt: null });
+    tx.$queryRaw.mockResolvedValue([{ reference: "private/selfie", expiresAt: null }]);
     await expect(service.selfieEvidence("admin", "attempt")).resolves.toEqual({ url: "https://private.example/temporary", expiresInSeconds: 60 });
     expect(tx.identitySelfieAccessAudit.create).toHaveBeenCalledWith({ data: expect.objectContaining({ attemptId: "attempt", operatorUserId: "admin", action: "ADMIN_IDENTITY_SELFIE_VIEW" }) });
   });
   it("não emite URL de selfie se a auditoria falhar", async () => {
-    tx.identityVerificationEvidenceReference.findFirst.mockResolvedValue({ reference: "private/selfie", expiresAt: null });
+    tx.$queryRaw.mockResolvedValue([{ reference: "private/selfie", expiresAt: null }]);
     tx.identitySelfieAccessAudit.create.mockRejectedValue(new Error("audit failed"));
     await expect(service.selfieEvidence("admin", "attempt")).rejects.toThrow("audit failed");
     expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
+  });
+  it.each(["pendente", "concluído"])("não emite URL para selfie com descarte %s", async () => {
+    tx.$queryRaw.mockResolvedValue([]);
+
+    await expect(service.selfieEvidence("admin", "attempt")).rejects.toMatchObject({ response: expect.objectContaining({ code: "IDENTITY_SELFIE_UNAVAILABLE" }) });
+    expect(tx.identitySelfieAccessAudit.create).not.toHaveBeenCalled();
+    expect(storage.createTemporaryReadUrl).not.toHaveBeenCalled();
+  });
+  it("registra aplicação e liberação da suspensão como eventos de auditoria", async () => {
+    tx.$queryRaw
+      .mockResolvedValueOnce([{ id: "attempt" }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "attempt" }])
+      .mockResolvedValueOnce([{ action: "APPLIED" }]);
+
+    await expect(service.suspendEvidenceDisposal("admin", "attempt", "Investigação aberta")).resolves.toMatchObject({ attemptId: "attempt", suspendedAt: expect.any(Date) });
+    await expect(service.releaseEvidenceDisposalSuspension("admin", "attempt", "Investigação encerrada")).resolves.toMatchObject({ attemptId: "attempt", releasedAt: expect.any(Date) });
+    expect(tx.$executeRaw).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      strings: expect.arrayContaining([expect.stringContaining("'APPLIED'")]),
+      values: expect.arrayContaining(["Investigação aberta"]),
+    }));
+    expect(tx.$executeRaw).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      strings: expect.arrayContaining([expect.stringContaining("'RELEASED'")]),
+      values: expect.arrayContaining(["Investigação encerrada"]),
+    }));
+  });
+  it("desfaz a suspensão quando a auditoria não pode ser registrada", async () => {
+    tx.$queryRaw.mockResolvedValueOnce([{ id: "attempt" }]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    tx.$executeRaw.mockRejectedValue(new Error("audit failed"));
+
+    await expect(service.suspendEvidenceDisposal("admin", "attempt", "Investigação aberta")).rejects.toThrow("audit failed");
+    expect(tx.$executeRaw).toHaveBeenCalledWith(expect.objectContaining({
+      strings: expect.arrayContaining([expect.stringContaining("'APPLIED'")]),
+      values: expect.arrayContaining(["Investigação aberta"]),
+    }));
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
   it("registra decisão manual sem tocar no perfil profissional", async () => {
     tx.$queryRaw.mockResolvedValue([{ id: "attempt" }]);

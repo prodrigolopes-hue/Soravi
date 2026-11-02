@@ -231,6 +231,7 @@ model User {
   identityVerificationDecisions           IdentityVerificationDecision[]   @relation("IdentityVerificationDecisionOperator")
   identityCpfAccessAudits                 IdentityCpfAccessAudit[]         @relation("IdentityCpfAccessAuditOperator")
   identitySelfieAccessAudits              IdentitySelfieAccessAudit[]      @relation("IdentitySelfieAccessAuditOperator")
+  identityEvidenceDisposalSuspensionEvents IdentityEvidenceDisposalSuspensionEvent[]
   messages                                Message[]
   preProposalMessages                     PreProposalMessage[]
   conversationReadStates                  ConversationReadState[]
@@ -474,6 +475,7 @@ model ProfessionalIdentityVerificationAttempt {
   cpfAccessAudits     IdentityCpfAccessAudit[]
   selfieAccessAudits  IdentitySelfieAccessAudit[]
   evidenceReferences  IdentityVerificationEvidenceReference[]
+  evidenceDisposalSuspensionEvents IdentityEvidenceDisposalSuspensionEvent[]
 
   @@index([professionalProfileId, createdAt], map: "piv_attempts_profile_created_idx")
   @@index([personalIdentityId, createdAt], map: "piv_attempts_identity_created_idx")
@@ -536,12 +538,29 @@ model IdentityVerificationEvidenceReference {
   reference String                           @db.VarChar(255)
   expiresAt DateTime?                        @map("expires_at") @db.Timestamptz(3)
   supersededAt DateTime?                      @map("superseded_at") @db.Timestamptz(3)
+  discardRequestedAt DateTime?                @map("discard_requested_at") @db.Timestamptz(3)
+  discardedAt DateTime?                       @map("discarded_at") @db.Timestamptz(3)
   createdAt DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
 
   attempt ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
 
   @@index([attemptId, createdAt], map: "iv_evidence_attempt_created_idx")
   @@map("identity_verification_evidence_references")
+}
+
+model IdentityEvidenceDisposalSuspensionEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  action         String   @db.VarChar(16)
+  reason         String   @db.VarChar(500)
+  operatorUserId String   @map("operator_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User                                     @relation(fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt], map: "identity_disposal_suspension_attempt_created_idx")
+  @@map("identity_evidence_disposal_suspension_events")
 }
 
 model IdentityDocumentCleanupTask {

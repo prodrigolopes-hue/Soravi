@@ -5,6 +5,7 @@ import { PrismaService } from "../../database/prisma.service";
 import { Prisma, IdentityVerificationDecisionSource, ProfessionalIdentityVerificationAttemptStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { Inject } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
 const URL_TTL_SECONDS = 60;
 const REASON_CODES_BY_RESULT = {
@@ -20,10 +21,7 @@ export class ProfessionalIdentityReviewService {
     return this.prisma.professionalIdentityVerificationAttempt.findMany({ where: { status: ProfessionalIdentityVerificationAttemptStatus.UNDER_REVIEW }, select: { id: true, createdAt: true, professionalProfile: { select: { userId: true, displayName: true } } }, orderBy: { createdAt: "asc" } });
   }
   async evidence(attemptId: string) {
-    const evidence = await this.prisma.identityVerificationEvidenceReference.findFirst({
-      where: { attemptId, kind: "DOCUMENT", supersededAt: null },
-      select: { reference: true, expiresAt: true },
-    });
+    const [evidence] = await this.prisma.$queryRaw<{ reference: string; expiresAt: Date | null }[]>(Prisma.sql`SELECT "reference", "expires_at" AS "expiresAt" FROM "identity_verification_evidence_references" WHERE "attempt_id" = ${attemptId}::uuid AND "kind" = 'DOCUMENT'::"IdentityVerificationEvidenceKind" AND "superseded_at" IS NULL AND "discard_requested_at" IS NULL AND "discarded_at" IS NULL LIMIT 1`);
     if (!evidence || (evidence.expiresAt !== null && evidence.expiresAt <= new Date())) {
       throw new NotFoundException({
         code: "IDENTITY_EVIDENCE_UNAVAILABLE",
@@ -48,12 +46,52 @@ export class ProfessionalIdentityReviewService {
 
   async selfieEvidence(adminUserId: string, attemptId: string) {
     const evidence = await this.prisma.$transaction(async (tx) => {
-      const found = await tx.identityVerificationEvidenceReference.findFirst({ where: { attemptId, kind: "SELFIE", supersededAt: null }, select: { reference: true, expiresAt: true } });
+      const [found] = await tx.$queryRaw<{ reference: string; expiresAt: Date | null }[]>(Prisma.sql`SELECT "reference", "expires_at" AS "expiresAt" FROM "identity_verification_evidence_references" WHERE "attempt_id" = ${attemptId}::uuid AND "kind" = 'SELFIE'::"IdentityVerificationEvidenceKind" AND "superseded_at" IS NULL AND "discard_requested_at" IS NULL AND "discarded_at" IS NULL LIMIT 1`);
       if (!found || (found.expiresAt !== null && found.expiresAt <= new Date())) throw new NotFoundException({ code: "IDENTITY_SELFIE_UNAVAILABLE", message: "Selfie não está disponível." });
       await tx.identitySelfieAccessAudit.create({ data: { attemptId, operatorUserId: adminUserId, action: "ADMIN_IDENTITY_SELFIE_VIEW", accessedAt: new Date() } });
       return found;
     });
     return { url: await this.storage.createTemporaryReadUrl(evidence.reference, URL_TTL_SECONDS), expiresInSeconds: URL_TTL_SECONDS };
+  }
+
+  async markEvidenceDisposalPending(attemptId: string, kind: "DOCUMENT" | "SELFIE"): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockAttempt(tx, attemptId);
+      if (await this.hasActiveDisposalSuspension(tx, attemptId)) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_SUSPENDED", message: "O descarte está suspenso para esta tentativa." });
+      const now = new Date();
+      await tx.$executeRaw(Prisma.sql`UPDATE "identity_verification_evidence_references" SET "discard_requested_at" = ${now} WHERE "attempt_id" = ${attemptId}::uuid AND "kind" = ${kind}::"IdentityVerificationEvidenceKind" AND "discard_requested_at" IS NULL AND "discarded_at" IS NULL`);
+    });
+  }
+
+  async markEvidenceDiscarded(attemptId: string, kind: "DOCUMENT" | "SELFIE"): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.lockAttempt(tx, attemptId);
+      if (await this.hasActiveDisposalSuspension(tx, attemptId)) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_SUSPENDED", message: "O descarte está suspenso para esta tentativa." });
+      const now = new Date();
+      await tx.$executeRaw(Prisma.sql`UPDATE "identity_verification_evidence_references" SET "discarded_at" = ${now} WHERE "attempt_id" = ${attemptId}::uuid AND "kind" = ${kind}::"IdentityVerificationEvidenceKind" AND "discard_requested_at" IS NOT NULL AND "discarded_at" IS NULL`);
+    });
+  }
+
+  async suspendEvidenceDisposal(adminUserId: string, attemptId: string, reason: string): Promise<{ attemptId: string; suspendedAt: Date }> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockAttempt(tx, attemptId);
+      const [discarded] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "identity_verification_evidence_references" WHERE "attempt_id" = ${attemptId}::uuid AND "discarded_at" IS NOT NULL LIMIT 1`);
+      if (discarded) throw new ConflictException({ code: "IDENTITY_EVIDENCE_ALREADY_DISCARDED", message: "Não é possível suspender o descarte de conteúdo já descartado." });
+      if (await this.hasActiveDisposalSuspension(tx, attemptId)) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_ALREADY_SUSPENDED", message: "O descarte já está suspenso para esta tentativa." });
+      const suspendedAt = new Date();
+      await tx.$executeRaw(Prisma.sql`INSERT INTO "identity_evidence_disposal_suspension_events" ("id", "attempt_id", "action", "reason", "operator_user_id", "created_at") VALUES (${randomUUID()}::uuid, ${attemptId}::uuid, 'APPLIED', ${reason.trim()}, ${adminUserId}::uuid, ${suspendedAt})`);
+      return { attemptId, suspendedAt };
+    });
+  }
+
+  async releaseEvidenceDisposalSuspension(adminUserId: string, attemptId: string, reason: string): Promise<{ attemptId: string; releasedAt: Date }> {
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockAttempt(tx, attemptId);
+      if (!await this.hasActiveDisposalSuspension(tx, attemptId)) throw new ConflictException({ code: "IDENTITY_EVIDENCE_DISPOSAL_NOT_SUSPENDED", message: "O descarte não está suspenso para esta tentativa." });
+      const releasedAt = new Date();
+      await tx.$executeRaw(Prisma.sql`INSERT INTO "identity_evidence_disposal_suspension_events" ("id", "attempt_id", "action", "reason", "operator_user_id", "created_at") VALUES (${randomUUID()}::uuid, ${attemptId}::uuid, 'RELEASED', ${reason.trim()}, ${adminUserId}::uuid, ${releasedAt})`);
+      return { attemptId, releasedAt };
+    });
   }
 
   async details(attemptId: string) {
@@ -123,5 +161,15 @@ export class ProfessionalIdentityReviewService {
         message: "O motivo não é válido para o resultado informado.",
       });
     }
+  }
+
+  private async lockAttempt(tx: Prisma.TransactionClient, attemptId: string): Promise<void> {
+    const [attempt] = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "professional_identity_verification_attempts" WHERE "id" = ${attemptId}::uuid FOR UPDATE`);
+    if (!attempt) throw new NotFoundException({ code: "IDENTITY_REVIEW_NOT_FOUND", message: "Análise não encontrada." });
+  }
+
+  private async hasActiveDisposalSuspension(tx: Prisma.TransactionClient, attemptId: string): Promise<boolean> {
+    const [event] = await tx.$queryRaw<{ action: string }[]>(Prisma.sql`SELECT "action" FROM "identity_evidence_disposal_suspension_events" WHERE "attempt_id" = ${attemptId}::uuid ORDER BY "created_at" DESC, "id" DESC LIMIT 1`);
+    return event?.action === "APPLIED";
   }
 }

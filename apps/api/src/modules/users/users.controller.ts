@@ -63,6 +63,7 @@ import { ProfessionalIdentityDocumentService } from "./professional-identity-doc
 import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
 import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
+import { IdentityEvidenceDisposalSuspensionDto } from "./dto/identity-evidence-disposal-suspension.dto";
 import {
   PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES,
   ProfessionalIdentityDocumentError,
@@ -517,6 +518,24 @@ export class UsersController {
   revealProfessionalIdentityCpf(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
     if (!this.professionalIdentityReviewService) throw new BadRequestException();
     return this.professionalIdentityReviewService.revealCpf(currentUser.id, attemptId);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/disposal-suspension")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  suspendProfessionalIdentityEvidenceDisposal(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string, @Body() input: IdentityEvidenceDisposalSuspensionDto): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.suspendEvidenceDisposal(currentUser.id, attemptId, input.reason);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/disposal-suspension/release")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  releaseProfessionalIdentityEvidenceDisposalSuspension(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string, @Body() input: IdentityEvidenceDisposalSuspensionDto): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.releaseEvidenceDisposalSuspension(currentUser.id, attemptId, input.reason);
   }
 
   @Post("admin/professional-identity-verifications/:attemptId/decision")
