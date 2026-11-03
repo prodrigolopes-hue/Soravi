@@ -14,8 +14,17 @@ export type History = {
   decisions: Decision[];
 };
 
+export type DisposalSuspensionEvent = {
+  action: string;
+  reason: string;
+  createdAt: string;
+  operator: { name: string } | null;
+};
+
+export type DisposalSuspension = { active: boolean; events: DisposalSuspensionEvent[] };
+
 type DetailAttempt = Omit<History, "decisions"> & { hasActiveSelfie: boolean };
-export type Details = { attempt: DetailAttempt; professionalName: string; history: History[] };
+export type Details = { attempt: DetailAttempt; professionalName: string; disposalSuspension: DisposalSuspension; history: History[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -33,6 +42,14 @@ function isHistory(value: unknown): value is History {
   return isRecord(value) && typeof value.id === "string" && typeof value.status === "string" && typeof value.result === "string" && typeof value.createdAt === "string" && isNullableString(value.closedAt) && Array.isArray(value.decisions) && value.decisions.every(isDecision);
 }
 
+function isDisposalSuspensionEvent(value: unknown): value is DisposalSuspensionEvent {
+  return isRecord(value) && typeof value.action === "string" && typeof value.reason === "string" && typeof value.createdAt === "string" && (value.operator === null || (isRecord(value.operator) && typeof value.operator.name === "string"));
+}
+
+function isDisposalSuspension(value: unknown): value is DisposalSuspension {
+  return isRecord(value) && typeof value.active === "boolean" && Array.isArray(value.events) && value.events.every(isDisposalSuspensionEvent);
+}
+
 export function isDetails(value: unknown): value is Details {
-  return isRecord(value) && typeof value.professionalName === "string" && isHistory({ ...(isRecord(value.attempt) ? value.attempt : {}), decisions: [] }) && isRecord(value.attempt) && typeof value.attempt.hasActiveSelfie === "boolean" && Array.isArray(value.history) && value.history.every(isHistory);
+  return isRecord(value) && typeof value.professionalName === "string" && isHistory({ ...(isRecord(value.attempt) ? value.attempt : {}), decisions: [] }) && isRecord(value.attempt) && typeof value.attempt.hasActiveSelfie === "boolean" && isDisposalSuspension(value.disposalSuspension) && Array.isArray(value.history) && value.history.every(isHistory);
 }

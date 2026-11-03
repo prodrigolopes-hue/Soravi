@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { apiBaseUrl } from "../../lib/api";
@@ -87,6 +87,7 @@ function isDisposalPreview(value: unknown): value is DisposalPreview {
     && typeof value.pagination.page === "number" && typeof value.pagination.pageSize === "number" && typeof value.pagination.total === "number" && typeof value.pagination.totalPages === "number";
 }
 function formatDate(value: string | null): string { return value ? new Date(value).toLocaleString("pt-BR") : "—"; }
+function formatSuspensionAction(action: string): string { return action === "APPLIED" ? "Suspensão aplicada" : action === "RELEASED" ? "Suspensão liberada" : action; }
 
 export function AdminIdentityReviewsPage() {
   const { accessToken, user, isLoading } = useAuth();
@@ -107,7 +108,12 @@ export function AdminIdentityReviewsPage() {
   const [reasonCode, setReasonCode] = useState("DOCUMENT_CHECKED");
   const [decisionConfirmed, setDecisionConfirmed] = useState(false);
   const [registeringDecision, setRegisteringDecision] = useState(false);
+  const [detailsRevision, setDetailsRevision] = useState(0);
+  const refreshDetails = useCallback(() => { setDetailsRevision((revision) => revision + 1); }, []);
+  const selectedAttempt = useRef<string | null>(selected);
   const admin = Boolean(user?.roles.includes("ADMIN"));
+
+  useEffect(() => { selectedAttempt.current = selected; }, [selected]);
 
   useEffect(() => {
     if (!admin || !accessToken) return;
@@ -121,6 +127,18 @@ export function AdminIdentityReviewsPage() {
     root.render(<DisposalPreviewPanel accessToken={accessToken} />);
     return () => { root.unmount(); host.remove(); };
   }, [accessToken, admin]);
+
+  useEffect(() => {
+    if (!selected || !details || !accessToken) return;
+    const detailsHost = document.querySelector("main > section.rounded-2xl");
+    if (!detailsHost) return;
+    const host = document.createElement("section");
+    host.className = "mt-5";
+    detailsHost.append(host);
+    const root = createRoot(host);
+    root.render(<DisposalSuspensionPanel attemptId={selected} suspension={details.disposalSuspension} accessToken={accessToken} onRefresh={refreshDetails} />);
+    return () => { root.unmount(); host.remove(); };
+  }, [accessToken, details, refreshDetails, selected]);
 
   useEffect(() => {
     if (!accessToken || !admin) return;
@@ -149,7 +167,7 @@ export function AdminIdentityReviewsPage() {
       .catch(() => { if (active) setError("Não foi possível carregar os detalhes privados desta análise."); })
       .finally(() => { if (active) setLoadingDetails(false); });
     return () => { active = false; };
-  }, [accessToken, admin, selected]);
+  }, [accessToken, admin, selected, detailsRevision]);
 
   function selectAttempt(attemptId: string) {
     setDocumentUrl(null); setSelfieUrl(null); setSelfieError(null); setCpf(null); setSelected(attemptId);
@@ -161,25 +179,27 @@ export function AdminIdentityReviewsPage() {
     setDecisionConfirmed(false);
   }
   async function revealCpf() {
-    if (!selected || !accessToken || revealing) return;
+    const attemptId = selected;
+    if (!attemptId || !accessToken || revealing) return;
     setRevealing(true); setError(null);
     try {
-      const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(selected)}/cpf-reveal`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" });
+      const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(attemptId)}/cpf-reveal`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" });
       const body: unknown = await response.json();
       if (!response.ok || !isRecord(body) || typeof body.cpf !== "string") throw new Error("Invalid CPF reveal response");
-      setCpf(body.cpf);
-    } catch { setError("Não foi possível revelar o CPF agora."); } finally { setRevealing(false); }
+      if (selectedAttempt.current === attemptId) setCpf(body.cpf);
+    } catch { if (selectedAttempt.current === attemptId) setError("Não foi possível revelar o CPF agora."); } finally { if (selectedAttempt.current === attemptId) setRevealing(false); }
   }
   async function viewDocument() {
-    if (!selected || !accessToken || openingDocument) return;
+    const attemptId = selected;
+    if (!attemptId || !accessToken || openingDocument) return;
     setOpeningDocument(true); setError(null); setDocumentUrl(null);
     try {
-      const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(selected)}/evidence`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" });
+      const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(attemptId)}/evidence`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" });
       const body: unknown = await response.json();
-      if (response.status === 404 && isRecord(body) && body.code === "IDENTITY_EVIDENCE_UNAVAILABLE") { setError("Documento não está mais disponível."); return; }
+      if (response.status === 404 && isRecord(body) && body.code === "IDENTITY_EVIDENCE_UNAVAILABLE") { if (selectedAttempt.current === attemptId) setError("Documento não está mais disponível."); return; }
       if (!response.ok || !isRecord(body) || typeof body.url !== "string") throw new Error("Invalid identity evidence response");
-      setDocumentUrl(body.url);
-    } catch { setError("Não foi possível obter o documento agora."); } finally { setOpeningDocument(false); }
+      if (selectedAttempt.current === attemptId) setDocumentUrl(body.url);
+    } catch { if (selectedAttempt.current === attemptId) setError("Não foi possível obter o documento agora."); } finally { if (selectedAttempt.current === attemptId) setOpeningDocument(false); }
   }
   async function viewSelfie() {
     const attemptId = selected;
@@ -189,8 +209,8 @@ export function AdminIdentityReviewsPage() {
       const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(attemptId)}/selfie`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store" });
       const body: unknown = await response.json();
       if (!response.ok || !isRecord(body) || typeof body.url !== "string") throw new Error("Invalid selfie evidence response");
-      if (selected === attemptId) setSelfieUrl(body.url);
-    } catch { if (selected === attemptId) setSelfieError("Não foi possível obter a selfie agora."); } finally { if (selected === attemptId) setOpeningSelfie(false); }
+      if (selectedAttempt.current === attemptId) setSelfieUrl(body.url);
+    } catch { if (selectedAttempt.current === attemptId) setSelfieError("Não foi possível obter a selfie agora."); } finally { if (selectedAttempt.current === attemptId) setOpeningSelfie(false); }
   }  async function registerDecision() {
     if (!selected || !accessToken || !decisionConfirmed || registeringDecision || details?.attempt.status !== "UNDER_REVIEW") return;
     setRegisteringDecision(true); setError(null);
@@ -216,6 +236,53 @@ export function AdminIdentityReviewsPage() {
   const pending = details?.attempt.status === "UNDER_REVIEW";
   const availableReasons = decisionReasons[decisionResult];
   return <main className="mx-auto max-w-4xl p-6"><Link href="/admin/profissionais" className="text-sm font-semibold text-blue-700 underline">Voltar para profissionais</Link><h1 className="mt-4 text-3xl font-bold">Análise privada de identidade</h1><p className="mt-2 text-slate-600">Documentos permanecem privados; decisões não aprovam o perfil profissional.</p>{error ? <p role="alert" className="mt-4 text-red-700">{error}</p> : null}<ul className="mt-6 space-y-3">{items.map((attempt) => <li key={attempt.id} className="rounded-xl border p-4"><strong>{attempt.professionalProfile.displayName}</strong><p className="text-sm">Recebida em {new Date(attempt.createdAt).toLocaleString("pt-BR")}</p><p className="text-sm">Status: {formatIdentityStatus("UNDER_REVIEW")}</p><button type="button" className="mt-3 underline" onClick={() => selectAttempt(attempt.id)}>Analisar documentos</button></li>)}</ul>{selected ? <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><button type="button" className="text-sm font-semibold text-blue-700 underline" onClick={closeDetails}>Fechar detalhes</button>{loadingDetails ? <p className="mt-4">Carregando detalhes…</p> : null}{details ? <><h2 className="mt-4 text-xl font-bold">{details.professionalName}</h2><p className="mt-2 text-sm">Status: {formatIdentityStatus(details.attempt.status)} · Resultado: {formatIdentityResult(details.attempt.result)}</p><button type="button" disabled={openingDocument} onClick={() => void viewDocument()} className="mt-4 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{openingDocument ? "Obtendo documento…" : "Obter documento"}</button>{documentUrl ? <a href={documentUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-3 py-2 font-semibold text-white">Abrir documento</a> : null}{details.attempt.hasActiveSelfie ? <><button type="button" disabled={openingSelfie} onClick={() => void viewSelfie()} className="mt-4 ml-2 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{openingSelfie ? "Obtendo selfie…" : "Abrir selfie"}</button>{selfieUrl ? <a href={selfieUrl} target="_blank" rel="noopener noreferrer" className="mt-3 ml-2 inline-flex min-h-11 rounded-xl bg-blue-700 px-3 py-2 font-semibold text-white">Abrir selfie</a> : null}{selfieError ? <p role="alert" className="mt-2 text-sm text-red-700">{selfieError}</p> : null}</> : null}<p className="mt-2 text-xs text-slate-600">O link é temporário, privado e é removido desta tela ao fechar ou trocar de tentativa.</p><div className="mt-4 rounded-xl border border-slate-200 p-4"><h3 className="font-semibold">CPF cadastrado</h3>{cpf ? <p className="mt-2 font-mono text-lg">{cpf}</p> : <button type="button" disabled={revealing} onClick={() => void revealCpf()} className="mt-3 min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800 disabled:opacity-60">{revealing ? "Revelando…" : "Revelar CPF"}</button>}<p className="mt-2 text-xs text-slate-600">O CPF só é revelado nesta tela após uma ação explícita e não é armazenado no navegador.</p></div><h3 className="mt-5 font-semibold">Histórico de tentativas</h3><ul className="mt-3 space-y-3">{details.history.map((historyItem) => <li key={historyItem.id} className="rounded-xl border p-3 text-sm"><p>{formatIdentityStatus(historyItem.status)} · {formatIdentityResult(historyItem.result)} · {new Date(historyItem.createdAt).toLocaleString("pt-BR")}</p>{historyItem.decisions.map((decision, index) => <p key={`${decision.createdAt}-${index}`} className="mt-1">Decisão: {formatIdentityResult(decision.result)} · motivo: {formatDecisionReason(decision.reasonCode)}{isKnownDecisionReason(decision.reasonCode) ? null : <span className="text-slate-600"> · código: {decision.reasonCode}</span>} · {new Date(decision.createdAt).toLocaleString("pt-BR")} · {decision.operator?.name ?? "Sistema"}</p>)}</li>)}</ul>{pending ? <form className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4" onSubmit={(event) => { event.preventDefault(); void registerDecision(); }}><h3 className="font-semibold">Registrar decisão</h3><label className="mt-3 block text-sm font-medium" htmlFor="identity-decision-result">Resultado</label><select id="identity-decision-result" value={decisionResult} onChange={(event) => changeDecisionResult(event.target.value as DecisionResult)} disabled={registeringDecision} className="mt-1 min-h-11 w-full rounded-lg border px-3"><option value="CONFIRMED">Identidade confirmada</option><option value="NOT_CONFIRMED">Identidade não confirmada</option><option value="INCONCLUSIVE">Análise inconclusiva</option></select><label className="mt-3 block text-sm font-medium" htmlFor="identity-decision-reason">Motivo</label><select id="identity-decision-reason" value={reasonCode} onChange={(event) => setReasonCode(event.target.value)} disabled={registeringDecision} className="mt-1 min-h-11 w-full rounded-lg border px-3">{availableReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}</select><label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={decisionConfirmed} onChange={(event) => setDecisionConfirmed(event.target.checked)} disabled={registeringDecision} className="mt-1" /><span>Confirmo que revisei o documento e desejo encerrar esta tentativa com esta decisão.</span></label><button type="submit" disabled={!decisionConfirmed || registeringDecision} className="mt-4 min-h-11 rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-60">{registeringDecision ? "Registrando decisão…" : "Registrar decisão"}</button></form> : <p className="mt-5 text-sm text-slate-700">Esta análise foi encerrada e está disponível somente para leitura. Não é possível registrar nova decisão ou reabrir a tentativa.</p>}</> : null}</section> : null}</main>;
+}
+
+function DisposalSuspensionPanel({ attemptId, suspension, accessToken, onRefresh }: { attemptId: string; suspension: Details["disposalSuspension"]; accessToken: string; onRefresh: () => void }) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const sequence = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+
+  useEffect(() => () => { sequence.current += 1; controller.current?.abort(); }, []);
+
+  async function submit() {
+    const trimmedReason = reason.trim();
+    if (!trimmedReason || submitting) return;
+    const requestId = sequence.current + 1;
+    sequence.current = requestId;
+    controller.current?.abort();
+    const nextController = new AbortController();
+    controller.current = nextController;
+    setSubmitting(true); setError(null); setNotice(null);
+    const releasing = suspension.active;
+    try {
+      const response = await fetch(`${base}/api/v1/users/admin/professional-identity-verifications/${encodeURIComponent(attemptId)}/disposal-suspension${releasing ? "/release" : ""}`, {
+        method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, credentials: "include", cache: "no-store", signal: nextController.signal,
+        body: JSON.stringify({ reason: trimmedReason }),
+      });
+      const body: unknown = await response.json();
+      if (!response.ok) {
+        const code = isRecord(body) && typeof body.code === "string" ? body.code : "";
+        if (code === "IDENTITY_EVIDENCE_DISPOSAL_IN_PROGRESS") throw new Error("O descarte já iniciou. A imagem pode já ter sido removida e não é possível prometer sua recuperação.");
+        throw new Error("Não foi possível alterar a suspensão de descarte agora.");
+      }
+      if (!isRecord(body) || typeof body.attemptId !== "string") throw new Error("Resposta inválida ao alterar a suspensão de descarte.");
+      if (sequence.current !== requestId) return;
+      setReason(""); setNotice(releasing ? "Suspensão liberada. Consultando o estado atualizado no servidor." : "Descarte suspenso. Consultando o estado atualizado no servidor.");
+      onRefresh();
+    } catch (requestError) {
+      if (sequence.current !== requestId || (requestError instanceof DOMException && requestError.name === "AbortError")) return;
+      setError(requestError instanceof Error ? requestError.message : "Não foi possível alterar a suspensão de descarte agora.");
+    } finally {
+      if (sequence.current === requestId) setSubmitting(false);
+    }
+  }
+
+  const actionLabel = suspension.active ? "Liberar suspensão" : "Suspender descarte";
+  return <section className="rounded-xl border border-amber-200 bg-amber-50 p-4"><h3 className="font-semibold">Suspensão de descarte</h3><p className="mt-2 text-sm">Estado atual: <strong>{suspension.active ? "Descarte suspenso" : "Sem suspensão ativa"}</strong></p>{error ? <p role="alert" className="mt-2 text-sm text-red-700">{error}</p> : null}{notice ? <p role="status" className="mt-2 text-sm text-green-700">{notice}</p> : null}<label className="mt-3 block text-sm font-medium" htmlFor="identity-disposal-suspension-reason">Motivo</label><textarea id="identity-disposal-suspension-reason" value={reason} onChange={(event) => setReason(event.target.value)} disabled={submitting} maxLength={500} className="mt-1 min-h-20 w-full rounded-lg border px-3 py-2" /><button type="button" disabled={submitting || reason.trim().length === 0} onClick={() => void submit()} className="mt-3 min-h-11 rounded-xl border border-amber-500 px-3 py-2 font-semibold text-amber-900 disabled:opacity-60">{submitting ? "Atualizando suspensão…" : actionLabel}</button><h4 className="mt-4 font-medium">Eventos</h4>{suspension.events.length === 0 ? <p className="mt-2 text-sm text-slate-600">Nenhum evento de suspensão registrado.</p> : <ul className="mt-2 space-y-2 text-sm">{suspension.events.map((event, index) => <li key={`${event.createdAt}-${index}`} className="rounded-lg border border-amber-100 bg-white p-2">{formatSuspensionAction(event.action)} · motivo: {event.reason} · {event.operator?.name ?? "Sistema"} · {new Date(event.createdAt).toLocaleString("pt-BR")}</li>)}</ul>}</section>;
 }
 
 function DisposalPreviewPanel({ accessToken }: { accessToken: string | null }) {

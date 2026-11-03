@@ -110,6 +110,10 @@ export class ProfessionalIdentityReviewService {
           where: { kind: "SELFIE", supersededAt: null },
           select: { id: true },
         },
+        evidenceDisposalSuspensionEvents: {
+          select: { action: true, reason: true, createdAt: true, operator: { select: { name: true } } },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        },
         professionalProfile: {
           select: {
             displayName: true,
@@ -140,7 +144,8 @@ export class ProfessionalIdentityReviewService {
       },
     });
     if (!attempt) throw new NotFoundException({ code: "IDENTITY_REVIEW_NOT_FOUND", message: "Análise não encontrada." });
-    return { attempt: { id: attempt.id, status: attempt.status, result: attempt.result, createdAt: attempt.createdAt, closedAt: attempt.closedAt, requiresSelfie: attempt.requiresSelfie, hasActiveSelfie: attempt.evidenceReferences.length > 0 }, professionalName: attempt.professionalProfile.displayName, history: attempt.professionalProfile.identityVerificationAttempts.map((item) => ({ id: item.id, status: item.status, result: item.result, createdAt: item.createdAt, closedAt: item.closedAt, requiresSelfie: item.requiresSelfie, documentSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT"), selfieSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "SELFIE"), decisions: item.decisions })) };
+    const suspensionEvents = attempt.evidenceDisposalSuspensionEvents;
+    return { attempt: { id: attempt.id, status: attempt.status, result: attempt.result, createdAt: attempt.createdAt, closedAt: attempt.closedAt, requiresSelfie: attempt.requiresSelfie, hasActiveSelfie: attempt.evidenceReferences.length > 0 }, professionalName: attempt.professionalProfile.displayName, disposalSuspension: { active: suspensionEvents[0]?.action === "APPLIED", events: suspensionEvents }, history: attempt.professionalProfile.identityVerificationAttempts.map((item) => ({ id: item.id, status: item.status, result: item.result, createdAt: item.createdAt, closedAt: item.closedAt, requiresSelfie: item.requiresSelfie, documentSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT"), selfieSubmitted: item.evidenceReferences.some((evidence) => evidence.kind === "SELFIE"), decisions: item.decisions })) };
   }
 
   async revealCpf(adminUserId: string, attemptId: string) {

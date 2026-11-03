@@ -15,6 +15,10 @@ test("aceita a resposta serializada de uma tentativa legada fechada sem selfie",
       hasActiveSelfie: false,
     },
     professionalName: "Ana",
+    disposalSuspension: {
+      active: true,
+      events: [{ action: "APPLIED", reason: "Investigação aberta", createdAt: "2026-10-31T12:30:00.000Z", operator: { name: "Administradora" } }],
+    },
     history: [{
       id: "attempt",
       status: "CLOSED",
@@ -34,4 +38,8 @@ test("aceita a resposta serializada de uma tentativa legada fechada sem selfie",
   };
 
   assert.equal(isDetails(legacyDetails), true);
+});
+
+test("rejeita detalhes sem estado conhecido da suspensão de descarte", () => {
+  assert.equal(isDetails({ attempt: {}, professionalName: "Ana", history: [] }), false);
 });
