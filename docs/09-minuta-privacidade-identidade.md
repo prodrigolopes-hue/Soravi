@@ -31,6 +31,20 @@ O descarte das imagens não apaga automaticamente o CPF, decisões, tentativas o
 
 No momento, a coleta de selfie e o descarte automatizado de evidências associadas continuam desabilitados. A limpeza de uploads órfãos já existente permanece independente dessa futura ativação.
 
+## Procedimento interno proposto para solicitações de privacidade
+
+Este procedimento é uma proposta para os pedidos recebidos em **soravioficial@outlook.com**. Ele ainda não está aprovado como processo operacional nem estabelece prazo de atendimento.
+
+1. Registrar um protocolo interno com a data de recebimento, tipo de pedido, responsável pelo tratamento e andamento.
+2. Confirmar o recebimento ao solicitante, sem prometer prazo enquanto o prazo aplicável não estiver definido e aprovado.
+3. Verificar a identidade de forma proporcional ao pedido, preferindo o uso de uma conta autenticada. Como regra, não solicitar CPF completo, imagem de documento ou selfie por e-mail.
+4. Não confirmar se uma conta existe antes da verificação de identidade necessária para o pedido.
+5. Avaliar pedidos de acesso, correção, exclusão e informações sobre o tratamento de dados, considerando os registros e limitações aplicáveis em cada caso.
+6. Distinguir a exclusão de imagens de identidade, a exclusão da conta e a retenção de decisões e auditorias: são operações com efeitos e regras diferentes.
+7. Encaminhar pedidos de exclusão para avaliação manual. Ainda não existe um fluxo completo de exclusão de conta.
+8. Registrar a decisão e a resposta enviada, sem copiar dados sensíveis que não sejam necessários para atender ou auditar o pedido.
+9. Quando houver possível necessidade de preservar imagens de identidade, encaminhar a avaliação ao fluxo existente de suspensão auditada do descarte, antes do início irreversível da exclusão.
+
 ## Limites importantes desta minuta
 
 - A política proposta trata somente de imagens de evidência de identidade; não define a retenção de CPF, decisões, tentativas, auditorias ou backups.
@@ -40,14 +54,15 @@ No momento, a coleta de selfie e o descarte automatizado de evidências associad
 
 ## Decisões pendentes antes de publicar
 
-O controlador indicado para a versão a revisar é **Soravi Tecnologia e Serviços LTDA.**, CNPJ **69.148.698/0001-93**. O canal provisório de privacidade indicado é **soravioficial@outlook.com**.
+O controlador indicado para a versão a revisar é **Soravi Tecnologia e Serviços LTDA.**, CNPJ **69.148.698/0001-93**. Paulo confirmou o acesso à caixa **soravioficial@outlook.com** e a definiu como canal provisório de privacidade.
 
-1. Confirmar que a caixa provisória de privacidade é monitorada, definir o responsável operacional e estabelecer o fluxo para pedidos de titulares.
+1. Definir o responsável operacional e aprovar a rotina proposta de monitoramento e atendimento dos pedidos de titulares recebidos na caixa provisória de privacidade.
 2. Bases legais aplicáveis e eventual tratamento de dados pessoais sensíveis: definição e revisão jurídica específicas.
 3. Retenção do CPF e dos registros mínimos de decisão, tentativa e auditoria: finalidade, prazo, descarte e exceções documentados em política própria.
 4. Localização do armazenamento, transferências internacionais e tratamento de backups: validação da configuração efetiva do Cloudflare R2 e dos fornecedores envolvidos, sem pressupor região, replicação ou recuperação.
 5. Procedimento para solicitações dos titulares e exclusão de conta: escopo, verificação de identidade, interação com obrigações de retenção e tratamento de evidências já descartadas ou em descarte.
 6. Aprovação operacional para ativar a coleta de selfie e a execução automatizada da política `identity-media-v1`, incluindo monitoramento de falhas e tratamento de retries.
+7. Aprovação da política pública de privacidade e do procedimento interno proposto nesta minuta.
 
 ## Referências internas consultadas
 
