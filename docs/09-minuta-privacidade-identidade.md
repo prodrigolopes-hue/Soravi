@@ -33,7 +33,9 @@ No momento, a coleta de selfie e o descarte automatizado de evidências associad
 
 ## Procedimento interno proposto para solicitações de privacidade
 
-Este procedimento é uma proposta para os pedidos recebidos em **soravioficial@outlook.com**. Ele ainda não está aprovado como processo operacional nem estabelece prazo de atendimento.
+Este procedimento é uma proposta para os pedidos recebidos em **soravioficial@outlook.com**. O responsável operacional inicial é **Paulo Rodrigo Lopes**. A rotina de conferir a caixa em todos os dias úteis e registrar os pedidos conforme o procedimento proposto foi aprovada pelo responsável. Essa aprovação é limitada à rotina indicada e não aprova integralmente o procedimento nem estabelece prazo de atendimento.
+
+A responsabilidade poderá ser transferida posteriormente, documentando o novo responsável e a data da transferência.
 
 1. Registrar um protocolo interno com a data de recebimento, tipo de pedido, responsável pelo tratamento e andamento.
 2. Confirmar o recebimento ao solicitante, sem prometer prazo enquanto o prazo aplicável não estiver definido e aprovado.
@@ -54,15 +56,14 @@ Este procedimento é uma proposta para os pedidos recebidos em **soravioficial@o
 
 ## Decisões pendentes antes de publicar
 
-O controlador indicado para a versão a revisar é **Soravi Tecnologia e Serviços LTDA.**, CNPJ **69.148.698/0001-93**. Paulo confirmou o acesso à caixa **soravioficial@outlook.com** e a definiu como canal provisório de privacidade.
+O controlador indicado para a versão a revisar é **Soravi Tecnologia e Serviços LTDA.**, CNPJ **69.148.698/0001-93**. **Paulo Rodrigo Lopes** confirmou o acesso à caixa **soravioficial@outlook.com** e a definiu como canal provisório de privacidade.
 
-1. Definir o responsável operacional e aprovar a rotina proposta de monitoramento e atendimento dos pedidos de titulares recebidos na caixa provisória de privacidade.
-2. Bases legais aplicáveis e eventual tratamento de dados pessoais sensíveis: definição e revisão jurídica específicas.
-3. Retenção do CPF e dos registros mínimos de decisão, tentativa e auditoria: finalidade, prazo, descarte e exceções documentados em política própria.
-4. Localização do armazenamento, transferências internacionais e tratamento de backups: validação da configuração efetiva do Cloudflare R2 e dos fornecedores envolvidos, sem pressupor região, replicação ou recuperação.
-5. Procedimento para solicitações dos titulares e exclusão de conta: escopo, verificação de identidade, interação com obrigações de retenção e tratamento de evidências já descartadas ou em descarte.
-6. Aprovação operacional para ativar a coleta de selfie e a execução automatizada da política `identity-media-v1`, incluindo monitoramento de falhas e tratamento de retries.
-7. Aprovação da política pública de privacidade e do procedimento interno proposto nesta minuta.
+1. Bases legais aplicáveis e eventual tratamento de dados pessoais sensíveis: definição e revisão jurídica específicas.
+2. Retenção do CPF e dos registros mínimos de decisão, tentativa e auditoria: finalidade, prazo, descarte e exceções documentados em política própria.
+3. Localização do armazenamento, transferências internacionais e tratamento de backups: validação da configuração efetiva do Cloudflare R2 e dos fornecedores envolvidos, sem pressupor região, replicação ou recuperação.
+4. Procedimento para solicitações dos titulares e exclusão de conta: escopo, verificação de identidade, interação com obrigações de retenção e tratamento de evidências já descartadas ou em descarte.
+5. Aprovação operacional para ativar a coleta de selfie e a execução automatizada da política `identity-media-v1`, incluindo monitoramento de falhas e tratamento de retries.
+6. Aprovação da política pública de privacidade e do procedimento interno proposto nesta minuta.
 
 ## Referências internas consultadas
 
