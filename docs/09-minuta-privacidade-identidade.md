@@ -52,7 +52,7 @@ A responsabilidade poderá ser transferida posteriormente, documentando o novo r
 - A política proposta trata somente de imagens de evidência de identidade; não define a retenção de CPF, decisões, tentativas, auditorias ou backups.
 - A exclusão física somente deve ser considerada concluída depois de sucesso confirmado pelo armazenamento. Antes disso, o sistema pode bloquear novos links para a evidência e registrar o descarte como pendente.
 - Uma suspensão aplicada antes do início irreversível do descarte impede a exclusão. Após esse ponto, o sistema não pode prometer preservação do arquivo e deve informar conflito de forma explícita.
-- A configuração de região, transferências internacionais, cópias de segurança e prazos de recuperação do armazenamento não foi confirmada nesta minuta.
+- A localização exibida no painel Cloudflare R2 foi conferida em 03/11/2026: `soravi-service-requests-staging` e `soravi-service-requests-production` constam como **Eastern North America (ENAM)**. Essa verificação não confirma país específico, backups, replicação, recuperação ou adequação jurídica de transferências internacionais.
 
 ## Decisões pendentes antes de publicar
 
@@ -60,7 +60,7 @@ O controlador indicado para a versão a revisar é **Soravi Tecnologia e Serviç
 
 1. Bases legais aplicáveis e eventual tratamento de dados pessoais sensíveis: definição e revisão jurídica específicas.
 2. Retenção do CPF e dos registros mínimos de decisão, tentativa e auditoria: finalidade, prazo, descarte e exceções documentados em política própria.
-3. Localização do armazenamento, transferências internacionais e tratamento de backups: validação da configuração efetiva do Cloudflare R2 e dos fornecedores envolvidos, sem pressupor região, replicação ou recuperação.
+3. Localização do armazenamento, transferências internacionais e tratamento de backups: validação da configuração efetiva do Cloudflare R2 e dos fornecedores envolvidos, incluindo país específico, replicação e recuperação, sem inferir esses pontos a partir da localização exibida no painel.
 4. Procedimento para solicitações dos titulares e exclusão de conta: escopo, verificação de identidade, interação com obrigações de retenção e tratamento de evidências já descartadas ou em descarte.
 5. Aprovação operacional para ativar a coleta de selfie e a execução automatizada da política `identity-media-v1`, incluindo monitoramento de falhas e tratamento de retries.
 6. Aprovação da política pública de privacidade e do procedimento interno proposto nesta minuta.
