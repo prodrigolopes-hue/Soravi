@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 
@@ -11,9 +11,19 @@ const BATCH_LIMIT = 25;
 const LEASE_MS = 5 * 60 * 1000;
 const RETRY_BASE_MS = 60 * 1000;
 const MAX_ATTEMPTS = 5;
+const ALLOWED_STORAGE_HTTP_STATUS_CODES = new Set([400, 401, 403, 404, 408, 409, 429, 500, 502, 503, 504]);
+const ALLOWED_STORAGE_PROVIDER_CODES = new Set([
+  "AccessDenied",
+  "InternalError",
+  "InvalidAccessKeyId",
+  "NoSuchBucket",
+  "RequestTimeout",
+  "ServiceUnavailable",
+  "SlowDown",
+]);
 
 type Candidate = { evidenceId: string; attemptId: string; objectKey: string; reason: string; eligibleAt: Date };
-type Claim = { id: string; evidenceId: string; objectKey: string; attemptCount: number; leaseExpiresAt: Date };
+type Claim = { id: string; evidenceId: string; attemptId: string; objectKey: string; attemptCount: number; leaseExpiresAt: Date };
 type PreviewRow = {
   evidenceId: string;
   attemptId: string;
@@ -57,6 +67,8 @@ export interface IdentityEvidenceDisposalTaskList {
 
 @Injectable()
 export class ProfessionalIdentityEvidenceDisposalService {
+  private readonly logger = new Logger(ProfessionalIdentityEvidenceDisposalService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
@@ -271,6 +283,11 @@ export class ProfessionalIdentityEvidenceDisposalService {
       const nextAttemptCount = task.attemptCount + 1;
       if (nextAttemptCount > MAX_ATTEMPTS) {
         await tx.$executeRaw(Prisma.sql`UPDATE "identity_evidence_disposal_tasks" SET "status" = 'FAILED'::"IdentityEvidenceDisposalTaskStatus", "completed_at" = ${now}, "lease_expires_at" = NULL, "last_error" = 'ATTEMPT_LIMIT_REACHED', "updated_at" = ${now} WHERE "id" = ${task.id}::uuid`);
+        this.logFailure("IDENTITY_EVIDENCE_DISPOSAL_ATTEMPT_LIMIT_REACHED", {
+          taskId: task.id,
+          verificationAttemptId: state.attemptId,
+          executionAttempt: nextAttemptCount,
+        });
         continue;
       }
       const leaseExpiresAt = new Date(now.getTime() + LEASE_MS);
@@ -280,7 +297,7 @@ export class ProfessionalIdentityEvidenceDisposalService {
         WHERE "id" = ${task.id}::uuid
       `);
       await tx.$executeRaw(Prisma.sql`UPDATE "identity_verification_evidence_references" SET "discard_started_at" = ${now} WHERE "id" = ${task.evidenceId}::uuid AND "discarded_at" IS NULL`);
-      claims.push({ ...task, attemptCount: nextAttemptCount, leaseExpiresAt });
+      claims.push({ ...task, attemptId: state.attemptId, attemptCount: nextAttemptCount, leaseExpiresAt });
     }
     return claims;
   }
@@ -298,13 +315,51 @@ export class ProfessionalIdentityEvidenceDisposalService {
           WHERE "id" = ${claim.id}::uuid AND "status" = 'PROCESSING'::"IdentityEvidenceDisposalTaskStatus" AND "lease_expires_at" = ${claim.leaseExpiresAt}
         `);
       });
-    } catch {
+    } catch (error: unknown) {
       const terminal = claim.attemptCount >= MAX_ATTEMPTS;
       await this.prisma.$executeRaw(Prisma.sql`
         UPDATE "identity_evidence_disposal_tasks"
         SET "status" = ${terminal ? "FAILED" : "PENDING"}::"IdentityEvidenceDisposalTaskStatus", "completed_at" = ${terminal ? now : null}, "next_attempt_at" = ${new Date(now.getTime() + RETRY_BASE_MS * 2 ** (claim.attemptCount - 1))}, "lease_expires_at" = NULL, "last_error" = 'STORAGE_DELETE_FAILED', "updated_at" = ${now}
         WHERE "id" = ${claim.id}::uuid AND "status" = 'PROCESSING'::"IdentityEvidenceDisposalTaskStatus" AND "lease_expires_at" = ${claim.leaseExpiresAt}
       `);
+      this.logFailure("IDENTITY_EVIDENCE_DISPOSAL_STORAGE_DELETE_FAILED", {
+        taskId: claim.id,
+        verificationAttemptId: claim.attemptId,
+        executionAttempt: claim.attemptCount,
+      }, error);
+      if (terminal) {
+        this.logFailure("IDENTITY_EVIDENCE_DISPOSAL_ATTEMPT_LIMIT_REACHED", {
+          taskId: claim.id,
+          verificationAttemptId: claim.attemptId,
+          executionAttempt: claim.attemptCount,
+        });
+      }
     }
+  }
+
+  private logFailure(
+    eventCode: "IDENTITY_EVIDENCE_DISPOSAL_STORAGE_DELETE_FAILED" | "IDENTITY_EVIDENCE_DISPOSAL_ATTEMPT_LIMIT_REACHED",
+    correlation: { taskId: string; verificationAttemptId: string; executionAttempt: number },
+    error?: unknown,
+  ): void {
+    try {
+      const storage = this.sanitizeStorageError(error);
+      this.logger.error(
+        `Falha sanitizada no descarte de evidências de identidade. eventCode=${eventCode} taskId=${correlation.taskId} verificationAttemptId=${correlation.verificationAttemptId} executionAttempt=${correlation.executionAttempt} storageHttpStatus=${storage.httpStatus} storageProviderCode=${storage.providerCode}`,
+      );
+    } catch {
+      // Diagnostics must not alter disposal retries, transactions, or deletion behavior.
+    }
+  }
+
+  private sanitizeStorageError(error: unknown): { httpStatus: number | "UNKNOWN"; providerCode: string } {
+    if (!error || typeof error !== "object") return { httpStatus: "UNKNOWN", providerCode: "UNKNOWN" };
+    const candidate = error as { $metadata?: { httpStatusCode?: unknown }; statusCode?: unknown; code?: unknown; name?: unknown };
+    const httpStatusCandidate = candidate.$metadata?.httpStatusCode ?? candidate.statusCode;
+    const providerCodeCandidate = candidate.code ?? candidate.name;
+    return {
+      httpStatus: typeof httpStatusCandidate === "number" && ALLOWED_STORAGE_HTTP_STATUS_CODES.has(httpStatusCandidate) ? httpStatusCandidate : "UNKNOWN",
+      providerCode: typeof providerCodeCandidate === "string" && ALLOWED_STORAGE_PROVIDER_CODES.has(providerCodeCandidate) ? providerCodeCandidate : "UNKNOWN",
+    };
   }
 }

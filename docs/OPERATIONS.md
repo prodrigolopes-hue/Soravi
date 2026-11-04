@@ -344,12 +344,19 @@ elegibilidade, próxima tentativa, início irreversível e conclusão. A
 consulta é `no-store` e não expõe referência da evidência, chave do objeto
 no R2 ou detalhe do erro do storage.
 
-Consulte os logs da API apenas para a janela de tempo, release e mensagens
-sanitizadas do processador (por exemplo, falha sanitizada no descarte). Não
-copie para tickets, este runbook ou logs derivados a imagem, URL temporária,
-CPF, referência da evidência, `objectKey`, credencial ou mensagem bruta do
-provedor de storage. Se for preciso correlacionar com o provedor, registre
-somente metadados sanitizados e siga o procedimento de incidente autorizado.
+Consulte os logs da API pela janela de tempo e release. Falhas de exclusão e
+esgotamento de tentativas emitem diagnóstico sanitizado com `eventCode`,
+`taskId`, `verificationAttemptId` e `executionAttempt`; esses IDs permitem
+correlação direta com a tarefa exibida no ADMIN. O diagnóstico também pode
+informar `storageHttpStatus` e `storageProviderCode`: somente status HTTP
+permitidos e códigos de provedor em lista explícita são emitidos; qualquer
+outro valor aparece como `UNKNOWN`.
+
+Não copie para tickets, este runbook ou logs derivados a imagem, URL
+temporária, CPF, referência da evidência, `objectKey`, credencial, headers,
+mensagem bruta, stack ou objeto de erro do provedor de storage. Se for preciso
+correlacionar com o provedor, registre somente esses metadados sanitizados e
+siga o procedimento de incidente autorizado.
 
 ### Tratamento de `FAILED`
 
