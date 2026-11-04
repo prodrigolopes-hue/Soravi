@@ -33,19 +33,60 @@ No momento, a coleta de selfie e o descarte automatizado de evidências associad
 
 ## Procedimento interno proposto para solicitações de privacidade
 
-Este procedimento é uma proposta para os pedidos recebidos em **soravioficial@outlook.com**. O responsável operacional inicial é **Paulo Rodrigo Lopes**. A rotina de conferir a caixa em todos os dias úteis e registrar os pedidos conforme o procedimento proposto foi aprovada pelo responsável. Essa aprovação é limitada à rotina indicada e não aprova integralmente o procedimento nem estabelece prazo de atendimento.
+### Minuta interna — pendente de aprovação e revisão jurídica/privacidade
 
-A responsabilidade poderá ser transferida posteriormente, documentando o novo responsável e a data da transferência.
+Este procedimento se aplica a pedidos sobre dados de validação profissional
+recebidos em **soravioficial@outlook.com**. O responsável operacional inicial é
+**Paulo Rodrigo Lopes**, que confere a caixa em todos os dias úteis. A aprovação
+existente limita-se a essa rotina de acompanhamento; não aprova integralmente
+esta minuta, não estabelece prazo de atendimento e não autoriza ativação em
+produção. A responsabilidade poderá ser transferida posteriormente, com o novo
+responsável e a data documentados.
 
-1. Registrar um protocolo interno com a data de recebimento, tipo de pedido, responsável pelo tratamento e andamento.
-2. Confirmar o recebimento ao solicitante, sem prometer prazo enquanto o prazo aplicável não estiver definido e aprovado.
-3. Verificar a identidade de forma proporcional ao pedido, preferindo o uso de uma conta autenticada. Como regra, não solicitar CPF completo, imagem de documento ou selfie por e-mail.
-4. Não confirmar se uma conta existe antes da verificação de identidade necessária para o pedido.
-5. Avaliar pedidos de acesso, correção, exclusão e informações sobre o tratamento de dados, considerando os registros e limitações aplicáveis em cada caso.
-6. Distinguir a exclusão de imagens de identidade, a exclusão da conta e a retenção de decisões e auditorias: são operações com efeitos e regras diferentes.
-7. Encaminhar pedidos de exclusão para avaliação manual. Ainda não existe um fluxo completo de exclusão de conta.
-8. Registrar a decisão e a resposta enviada, sem copiar dados sensíveis que não sejam necessários para atender ou auditar o pedido.
-9. Quando houver possível necessidade de preservar imagens de identidade, encaminhar a avaliação ao fluxo existente de suspensão auditada do descarte, antes do início irreversível da exclusão.
+1. **Receber e registrar.** Criar protocolo interno com data de recebimento,
+   canal, categoria, responsável pelo tratamento, andamento e referências
+   mínimas necessárias. Não copiar para o protocolo ou para e-mails documento,
+   selfie, CPF completo, URL temporária, chave de storage ou credenciais.
+2. **Confirmar o recebimento.** Responder que o pedido foi recebido e será
+   avaliado, sem prometer exclusão imediata, resultado, prazo ou recuperação de
+   arquivo já removido.
+3. **Verificar a identidade proporcionalmente.** Preferir uma conta autenticada
+   e canal seguro. Não solicitar documento, selfie ou CPF completo por e-mail e
+   não confirmar a existência de uma conta antes da verificação necessária. Se
+   não houver mecanismo seguro implementado para o caso, registrar a limitação,
+   interromper o tratamento material do pedido e encaminhar para definição
+   operacional e jurídica; não improvisar coleta por e-mail.
+4. **Classificar.** Registrar como: acesso/correção; descarte de imagens de
+   identidade; exclusão de conta; ou outro pedido de informação/tratamento.
+5. **Avaliar escopo e preservação.** Identificar, sem expor o conteúdo, se o
+   pedido envolve imagens, CPF, decisões, tentativas, auditorias ou backups.
+   Avaliar necessidade de preservação e encaminhar à revisão jurídica quando
+   houver dúvida sobre retenção, obrigação aplicável, transferência, backup ou
+   conflito. Se for necessário preservar uma imagem antes do início
+   irreversível, usar a suspensão auditada de descarte existente.
+6. **Executar somente o que é suportado e autorizado.** O descarte automático
+   de imagens segue a política operacional quando habilitada; não é uma ordem
+   manual de exclusão por pedido. A suspensão pode impedir descarte futuro, mas
+   não restaura imagem já removida nem garante interrupção em andamento. Não
+   editar o banco diretamente, não excluir objetos manualmente no bucket e não
+   criar tarefas por fora do fluxo. Exclusão de conta ainda não possui fluxo
+   completo suportado; encaminhar para avaliação manual. CPF, decisões,
+   tentativas, auditorias e backups têm retenção distinta e pendente de política
+   própria.
+7. **Responder e registrar o resultado.** Informar apenas o resultado aprovado
+   e suas limitações, sem anexar ou repetir dados sensíveis. Atualizar o
+   protocolo com decisão, ação autorizada ou encaminhamento, data e responsável.
+8. **Tratar falhas e lacunas.** Para descarte pendente ou `FAILED`, consultar o
+   acompanhamento ADMIN e os diagnósticos sanitizados previstos no runbook. Não
+   há reprocessamento suportado: registrar a ocorrência e encaminhar para
+   produto/engenharia e, quando aplicável, jurídico. Não prometer recuperação,
+   reexecução ou exclusão fora dos mecanismos existentes.
+
+Pontos pendentes: aprovação integral deste procedimento; definição do fluxo
+seguro de verificação quando a conta autenticada não bastar; regras de
+retenção para CPF, decisões, tentativas, auditorias e backups; e definição
+jurídica para bases, prazos aplicáveis, transferências e tratamento de pedidos
+de exclusão de conta ou de evidências já descartadas/em descarte.
 
 ## Limites importantes desta minuta
 
