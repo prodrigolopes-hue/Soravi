@@ -29,6 +29,19 @@ Uma evidência não é elegível para descarte enquanto a tentativa estiver em a
 
 O descarte das imagens não apaga automaticamente o CPF, decisões, tentativas ou registros de auditoria. A retenção e a eventual eliminação desses registros mínimos precisam de política própria.
 
+### Decisões pendentes para dados não apagados com as imagens
+
+Esta tabela descreve o comportamento implementado observado nos modelos e não
+equivale a política aprovada de retenção ou eliminação.
+
+| Grupo | Finalidade descrita no projeto | Dados armazenados | Comportamento atual de retenção/exclusão | Decisão pendente e revisão jurídica/privacidade |
+| --- | --- | --- | --- | --- |
+| CPF e dados cadastrais | Associar a identidade pessoal ao profissional e apoiar a análise interna de identidade. | Envelope de CPF, HMAC do CPF, identificador/chave de HMAC, identificadores de relação e timestamps de criação/atualização. | O descarte de imagens não os apaga. Os modelos relacionados usam relações restritivas; não há regra de exclusão ou retenção própria documentada. | **Pendente de definição**: finalidade, retenção, descarte, exceções e efeito de eventual exclusão de conta. Exige revisão jurídica/privacidade. |
+| Tentativas e decisões de validação | Registrar o andamento e o resultado da revisão humana de identidade. | Identificadores de perfil e identidade, status, resultado, indicação de selfie, datas; nas decisões, origem, resultado, código de motivo, versão de critérios, operador, referência de provedor e data. | O descarte de imagens não apaga tentativas nem decisões. Não há política aprovada de retenção ou exclusão para esses registros. | **Pendente de definição**: retenção, eliminação, preservação em pedidos de titulares e tratamento de referências de provedor. Exige revisão jurídica/privacidade. |
+| Auditorias de acesso e revelação | Registrar a revelação de CPF e a consulta de selfie por operadores autorizados. | Identificadores de tentativa e operador, ação e data/hora de acesso. | O descarte de imagens não apaga auditorias. Não há regra documentada de exclusão ou retenção própria. A minuta não afirma auditoria individual equivalente para toda abertura de documento. | **Pendente de definição**: retenção, descarte, preservação e escopo de auditoria. Exige revisão jurídica/privacidade. |
+| Eventos de suspensão e tarefas de descarte | Controlar a suspensão auditada e a execução operacional do descarte de imagens. | Nos eventos: identificadores de tentativa e operador, ação, motivo e data. Nas tarefas: identificador da evidência, chave do objeto, versão/motivo da política, estado, contagem e agenda de tentativas, timestamps e código interno de falha. | A conclusão do descarte remove a referência da imagem, mas não apaga automaticamente eventos ou tarefas. Não há política aprovada de retenção ou exclusão desses metadados. | **Pendente de definição**: retenção e eliminação dos metadados operacionais, inclusive chaves de objeto, motivos e códigos de falha. Exige revisão jurídica/privacidade. |
+| Backups | Não há finalidade ou mecanismo de backup descritos para estes dados nos modelos consultados. | Não documentado. | A minuta não define retenção, eliminação ou restauração de backups; a localização exibida do R2 não confirma backups, replicação ou recuperação. | **Pendente de definição**: existência, escopo, fornecedor, localização, retenção, eliminação e recuperação. Exige revisão jurídica/privacidade; não presumir configuração ou acesso de provedor. |
+
 No momento, a coleta de selfie e o descarte automatizado de evidências associadas continuam desabilitados. A limpeza de uploads órfãos já existente permanece independente dessa futura ativação.
 
 ## Procedimento interno proposto para solicitações de privacidade
