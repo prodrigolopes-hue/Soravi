@@ -306,6 +306,75 @@ Registre, no mínimo:
 - resultado de healthcheck, smoke test, Logs, Metrics e Events;
 - horário de normalização e pendências de acompanhamento.
 
+## Descarte de evidências privadas de validação profissional
+
+### Estado operacional validado
+
+- O processamento automático foi habilitado **somente em staging** em
+  **03/11/2026**, após confirmação pela prévia no ADMIN. Essa habilitação
+  não constitui aprovação da política nem ativação em produção.
+- A última consulta no ADMIN não encontrou evidências elegíveis nem
+  tarefas de descarte. Até essa consulta, nenhum descarte foi observado em
+  staging.
+- Foi aprovado o teste focal de envio → recusa → fronteira de **90 dias**.
+- Foi aprovado o teste físico de exclusão no R2 com objeto sintético; a
+  credencial temporária usada no teste foi revogada em seguida.
+- Nenhuma ativação em produção foi realizada nesta frente. A aprovação da
+  política para produção continua sendo uma decisão separada e explícita.
+
+Os prazos vigentes da política `identity-media-v1` permanecem: 7 dias para
+evidência substituída, 30 dias após a última evidência de tentativa
+incompleta/cancelada e 90 dias após a decisão de tentativa encerrada. A
+tentativa incompleta ainda só é cancelada depois de 30 dias sem novas
+evidências. Evidências sob análise e tentativas com suspensão ativa não
+devem ser descartadas.
+
+### Acompanhamento no ADMIN
+
+Use uma sessão com perfil `ADMIN` e abra **Administração → Verificações de
+identidade** (`/admin/verificacoes-identidade`). Em **Acompanhamento de tarefas
+de descarte**, escolha o filtro **Falha definitiva** (`FAILED`) e consulte as
+tarefas. A tela é somente leitura: ela não cria, reprocessa, exclui nem
+ativa tarefas.
+
+Para cada tarefa encontrada, registre somente os dados exibidos e necessários
+para o incidente: ID da tarefa, ID da tentativa, tipo (documento ou selfie),
+status, contagem de tentativas, versão da política e timestamps de
+elegibilidade, próxima tentativa, início irreversível e conclusão. A
+consulta é `no-store` e não expõe referência da evidência, chave do objeto
+no R2 ou detalhe do erro do storage.
+
+Consulte os logs da API apenas para a janela de tempo, release e mensagens
+sanitizadas do processador (por exemplo, falha sanitizada no descarte). Não
+copie para tickets, este runbook ou logs derivados a imagem, URL temporária,
+CPF, referência da evidência, `objectKey`, credencial ou mensagem bruta do
+provedor de storage. Se for preciso correlacionar com o provedor, registre
+somente metadados sanitizados e siga o procedimento de incidente autorizado.
+
+### Tratamento de `FAILED`
+
+O worker faz no máximo **cinco** tentativas de exclusão. Entre falhas não
+terminais, a tarefa volta a `PENDING` com backoff de 1, 2, 4 e 8 minutos. Na
+quinta falha de exclusão, ela passa a `FAILED`, recebe conclusão e deixa de
+ser selecionada pelo processamento automático. Uma tarefa que tenha esgotado
+as tentativas antes de novo claim também é marcada `FAILED`.
+
+Não existe mecanismo suportado de reprocessamento de uma tarefa `FAILED`.
+Não invente comandos, não altere registros diretamente no banco e não tente
+recriar a tarefa por fora do fluxo. Registre o incidente, preserve a evidência
+sanitizada acima e encaminhe a lacuna para decisão de produto/engenharia.
+
+### Interrupção de novos processamentos
+
+Para interromper novos processamentos em um ambiente, defina a flag de
+configuração `IDENTITY_EVIDENCE_DISPOSAL_ENABLED` como `false` pelo fluxo de
+configuração aprovado daquele ambiente. Com a flag desabilitada, o worker não
+agenda, reivindica ou exclui novas evidências. A mudança não recupera arquivos
+já excluídos e não garante interromper uma exclusão que já esteja em andamento
+ou tenha ultrapassado o início irreversível. Para uma tentativa específica
+que ainda não iniciou descarte, use a suspensão registrada no ADMIN; ela
+também não restaura conteúdo já removido.
+
 ## Limitações atuais
 
 - PITR possui janela atual de somente 3 dias.
