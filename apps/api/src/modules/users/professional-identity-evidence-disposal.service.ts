@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
+import { IdentityEvidenceDisposalTaskStatus, Prisma } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 
 const POLICY_VERSION = "identity-media-v1";
@@ -46,6 +46,15 @@ export interface IdentityEvidenceDisposalPreview {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
+export interface IdentityEvidenceDisposalTaskList {
+  items: Array<{
+    id: string; attemptId: string; kind: string; status: string; attemptCount: number; policyVersion: string;
+    eligibleAt: Date; nextAttemptAt: Date; leaseExpiresAt: Date | null; irreversibleStartedAt: Date | null;
+    completedAt: Date | null; createdAt: Date; updatedAt: Date;
+  }>;
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+}
+
 @Injectable()
 export class ProfessionalIdentityEvidenceDisposalService {
   constructor(
@@ -56,6 +65,28 @@ export class ProfessionalIdentityEvidenceDisposalService {
 
   isEnabled(): boolean {
     return this.config?.get("IDENTITY_EVIDENCE_DISPOSAL_ENABLED") === "true";
+  }
+
+  async listTasks(page = 1, pageSize = 20, status?: IdentityEvidenceDisposalTaskStatus): Promise<IdentityEvidenceDisposalTaskList> {
+    const where: { status?: IdentityEvidenceDisposalTaskStatus } = status ? { status } : {};
+    const [items, total] = await Promise.all([
+      this.prisma.identityEvidenceDisposalTask.findMany({
+        where,
+        select: {
+          id: true, status: true, attemptCount: true, policyVersion: true, eligibleAt: true, nextAttemptAt: true,
+          leaseExpiresAt: true, irreversibleStartedAt: true, completedAt: true, createdAt: true, updatedAt: true,
+          evidence: { select: { attemptId: true, kind: true } },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.identityEvidenceDisposalTask.count({ where }),
+    ]);
+    return {
+      items: items.map((item) => ({ id: item.id, attemptId: item.evidence.attemptId, kind: item.evidence.kind, status: item.status, attemptCount: item.attemptCount, policyVersion: item.policyVersion, eligibleAt: item.eligibleAt, nextAttemptAt: item.nextAttemptAt, leaseExpiresAt: item.leaseExpiresAt, irreversibleStartedAt: item.irreversibleStartedAt, completedAt: item.completedAt, createdAt: item.createdAt, updatedAt: item.updatedAt })),
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    };
   }
 
   async preview(now = new Date(), page = 1, pageSize = 20): Promise<IdentityEvidenceDisposalPreview> {

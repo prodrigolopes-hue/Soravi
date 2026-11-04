@@ -88,6 +88,11 @@ function isDisposalPreview(value: unknown): value is DisposalPreview {
 }
 function formatDate(value: string | null): string { return value ? new Date(value).toLocaleString("pt-BR") : "—"; }
 function formatSuspensionAction(action: string): string { return action === "APPLIED" ? "Suspensão aplicada" : action === "RELEASED" ? "Suspensão liberada" : action; }
+type DisposalTask = { id: string; attemptId: string; kind: string; status: string; attemptCount: number; policyVersion: string; eligibleAt: string; nextAttemptAt: string; leaseExpiresAt: string | null; irreversibleStartedAt: string | null; completedAt: string | null; createdAt: string; updatedAt: string };
+type DisposalTasks = { items: DisposalTask[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } };
+const disposalTaskStatusLabels: Record<string, string> = { PENDING: "Pendente", PROCESSING: "Em processamento", COMPLETED: "Concluída", FAILED: "Falhou" };
+function isDisposalTask(value: unknown): value is DisposalTask { return isRecord(value) && typeof value.id === "string" && typeof value.attemptId === "string" && typeof value.kind === "string" && typeof value.status === "string" && typeof value.attemptCount === "number" && typeof value.policyVersion === "string" && typeof value.eligibleAt === "string" && typeof value.nextAttemptAt === "string" && isDateOrNull(value.leaseExpiresAt) && isDateOrNull(value.irreversibleStartedAt) && isDateOrNull(value.completedAt) && typeof value.createdAt === "string" && typeof value.updatedAt === "string"; }
+function isDisposalTasks(value: unknown): value is DisposalTasks { return isRecord(value) && Array.isArray(value.items) && value.items.every(isDisposalTask) && isRecord(value.pagination) && typeof value.pagination.page === "number" && typeof value.pagination.pageSize === "number" && typeof value.pagination.total === "number" && typeof value.pagination.totalPages === "number"; }
 
 export function AdminIdentityReviewsPage() {
   const { accessToken, user, isLoading } = useAuth();
@@ -124,7 +129,7 @@ export function AdminIdentityReviewsPage() {
     host.className = "mt-6";
     main.insertBefore(host, list);
     const root = createRoot(host);
-    root.render(<DisposalPreviewPanel accessToken={accessToken} />);
+    root.render(<><DisposalPreviewPanel accessToken={accessToken} /><DisposalTasksPanel accessToken={accessToken} /></>);
     return () => { root.unmount(); host.remove(); };
   }, [accessToken, admin]);
 
@@ -327,4 +332,41 @@ function DisposalPreviewPanel({ accessToken }: { accessToken: string | null }) {
         {preview.pagination.totalPages > 1 ? <nav aria-label="Paginação da prévia" className="flex items-center justify-between gap-3"><button type="button" disabled={loading || preview.pagination.page === 1} onClick={() => void load(preview.pagination.page - 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Anterior</button><span className="text-sm">Página {preview.pagination.page} de {preview.pagination.totalPages}</span><button type="button" disabled={loading || preview.pagination.page === preview.pagination.totalPages} onClick={() => void load(preview.pagination.page + 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Próxima</button></nav> : null}</div> : null}
     </div> : null}
   </div>;
+}
+
+function DisposalTasksPanel({ accessToken }: { accessToken: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState("ALL");
+  const [tasks, setTasks] = useState<DisposalTasks | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const sequence = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+
+  useEffect(() => () => { sequence.current += 1; controller.current?.abort(); }, []);
+
+  async function load(page: number) {
+    if (!accessToken || loading) return;
+    const requestId = sequence.current + 1;
+    sequence.current = requestId;
+    controller.current?.abort();
+    const nextController = new AbortController();
+    controller.current = nextController;
+    setLoading(true); setError(null);
+    try {
+      const url = new URL(`${base}/api/v1/users/admin/professional-identity-verifications/disposal-tasks`);
+      url.searchParams.set("page", String(page)); url.searchParams.set("pageSize", "10");
+      if (status !== "ALL") url.searchParams.set("status", status);
+      const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store", signal: nextController.signal });
+      const body: unknown = await response.json();
+      if (!response.ok || !isDisposalTasks(body)) throw new Error("Invalid disposal tasks response");
+      if (sequence.current === requestId) setTasks(body);
+    } catch (requestError) {
+      if (sequence.current === requestId && !(requestError instanceof DOMException && requestError.name === "AbortError")) setError("Não foi possível consultar as tarefas de descarte.");
+    } finally {
+      if (sequence.current === requestId) setLoading(false);
+    }
+  }
+
+  return <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-bold">Acompanhamento de tarefas de descarte</h2><p className="mt-1 text-sm text-slate-600">Consulta somente leitura; não cria, reprocessa, exclui nem ativa tarefas.</p></div><button type="button" onClick={() => setOpen((current) => !current)} className="min-h-11 rounded-xl border border-blue-300 px-3 py-2 font-semibold text-blue-800">{open ? "Ocultar tarefas" : "Mostrar tarefas"}</button></div>{open ? <div className="mt-4"><label className="block text-sm font-medium" htmlFor="identity-disposal-task-status">Status</label><select id="identity-disposal-task-status" value={status} onChange={(event) => { setStatus(event.target.value); setTasks(null); }} disabled={loading} className="mt-1 min-h-11 rounded-lg border px-3"><option value="ALL">Todos</option>{Object.entries(disposalTaskStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button type="button" disabled={loading} onClick={() => void load(tasks?.pagination.page ?? 1)} className="ml-3 min-h-11 rounded-xl bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-60">{loading ? "Consultando tarefas…" : tasks ? "Consultar novamente" : "Consultar tarefas"}</button>{error ? <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800"><p>{error}</p><button type="button" disabled={loading} onClick={() => void load(tasks?.pagination.page ?? 1)} className="mt-2 underline disabled:opacity-60">Tentar novamente</button></div> : null}{tasks ? <div className="mt-4">{tasks.items.length === 0 ? <p className="rounded-xl border bg-white p-4 text-sm text-slate-600">Nenhuma tarefa encontrada para este filtro.</p> : <ul className="space-y-3">{tasks.items.map((task) => <li key={task.id} className="rounded-xl border bg-white p-3 text-sm"><div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><strong>{disposalKindLabels[task.kind] ?? task.kind}</strong><span className="font-semibold">{disposalTaskStatusLabels[task.status] ?? task.status}</span></div><dl className="mt-2 grid gap-x-4 gap-y-1 text-slate-700 sm:grid-cols-2"><div><dt className="font-medium">Tarefa</dt><dd className="break-all">{task.id}</dd></div><div><dt className="font-medium">Tentativa</dt><dd className="break-all">{task.attemptId}</dd></div><div><dt className="font-medium">Tentativas de execução</dt><dd>{task.attemptCount}</dd></div><div><dt className="font-medium">Política</dt><dd>{task.policyVersion}</dd></div><div><dt className="font-medium">Elegível em</dt><dd>{formatDate(task.eligibleAt)}</dd></div><div><dt className="font-medium">Próxima tentativa</dt><dd>{formatDate(task.nextAttemptAt)}</dd></div><div><dt className="font-medium">Início irreversível</dt><dd>{formatDate(task.irreversibleStartedAt)}</dd></div><div><dt className="font-medium">Concluída em</dt><dd>{formatDate(task.completedAt)}</dd></div></dl></li>)}</ul>}{tasks.pagination.totalPages > 1 ? <nav aria-label="Paginação das tarefas de descarte" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={loading || tasks.pagination.page === 1} onClick={() => void load(tasks.pagination.page - 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Anterior</button><span className="text-sm">Página {tasks.pagination.page} de {tasks.pagination.totalPages}</span><button type="button" disabled={loading || tasks.pagination.page === tasks.pagination.totalPages} onClick={() => void load(tasks.pagination.page + 1)} className="min-h-11 rounded-xl border px-3 py-2 disabled:opacity-60">Próxima</button></nav> : null}</div> : null}</div> : null}</div>;
 }

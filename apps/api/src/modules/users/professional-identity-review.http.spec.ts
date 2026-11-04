@@ -31,7 +31,7 @@ import { UsersService } from "./users.service";
 describe("administrative identity review HTTP endpoints", () => {
   const attemptId = "a9f1d53e-60d0-4f56-af8f-7809e7e1cc93";
   const reviewService = { details: jest.fn(), revealCpf: jest.fn(), selfieEvidence: jest.fn(), suspendEvidenceDisposal: jest.fn(), releaseEvidenceDisposalSuspension: jest.fn() };
-  const disposalService = { preview: jest.fn() };
+  const disposalService = { preview: jest.fn(), listTasks: jest.fn() };
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
 
   beforeAll(async () => { app = await createApp(reviewService, disposalService); });
@@ -44,6 +44,7 @@ describe("administrative identity review HTTP endpoints", () => {
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
     ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview"],
+    ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-tasks"],
   ])("returns 401 without authentication for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path);
     expect(response.status).toBe(401);
@@ -52,6 +53,7 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
     expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
     expect(disposalService.preview).not.toHaveBeenCalled();
+    expect(disposalService.listTasks).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -60,6 +62,7 @@ describe("administrative identity review HTTP endpoints", () => {
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension`],
     ["POST", `/api/v1/users/admin/professional-identity-verifications/${attemptId}/disposal-suspension/release`],
     ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-preview"],
+    ["GET", "/api/v1/users/admin/professional-identity-verifications/disposal-tasks"],
   ])("returns 403 to a non-admin for %s %s", async (method, path) => {
     const response = await request(app!.url, method, path, "customer-token");
     expect(response.status).toBe(403);
@@ -68,6 +71,7 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(reviewService.suspendEvidenceDisposal).not.toHaveBeenCalled();
     expect(reviewService.releaseEvidenceDisposalSuspension).not.toHaveBeenCalled();
     expect(disposalService.preview).not.toHaveBeenCalled();
+    expect(disposalService.listTasks).not.toHaveBeenCalled();
   });
 
   it("returns the explicit no-store directive when an admin reveals a CPF", async () => {
@@ -116,9 +120,22 @@ describe("administrative identity review HTTP endpoints", () => {
     expect(response.status).toBe(400);
     expect(disposalService.preview).not.toHaveBeenCalled();
   });
+  it("allows an admin to read disposal tasks with status filter and validated pagination", async () => {
+    disposalService.listTasks.mockResolvedValue({ items: [], pagination: { page: 2, pageSize: 10, total: 0, totalPages: 0 } });
+    const response = await request(app!.url, "GET", "/api/v1/users/admin/professional-identity-verifications/disposal-tasks?page=2&pageSize=10&status=FAILED", "admin-token");
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(disposalService.listTasks).toHaveBeenCalledWith(2, 10, "FAILED");
+  });
+
+  it("rejects invalid disposal-task pagination before calling the service", async () => {
+    const response = await request(app!.url, "GET", "/api/v1/users/admin/professional-identity-verifications/disposal-tasks?page=0&status=FAILED", "admin-token");
+    expect(response.status).toBe(400);
+    expect(disposalService.listTasks).not.toHaveBeenCalled();
+  });
 });
 
-async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock; suspendEvidenceDisposal: jest.Mock; releaseEvidenceDisposalSuspension: jest.Mock }, disposalService: { preview: jest.Mock }) {
+async function createApp(reviewService: { details: jest.Mock; revealCpf: jest.Mock; selfieEvidence: jest.Mock; suspendEvidenceDisposal: jest.Mock; releaseEvidenceDisposalSuspension: jest.Mock }, disposalService: { preview: jest.Mock; listTasks: jest.Mock }) {
   const accessTokenAuthService = {
     extractBearerToken: (header: string | undefined) => header?.replace("Bearer ", "") ?? null,
     authenticateAccessToken: jest.fn(async (token: string) => ({

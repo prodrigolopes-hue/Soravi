@@ -65,6 +65,7 @@ import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerif
 import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
 import { IdentityEvidenceDisposalSuspensionDto } from "./dto/identity-evidence-disposal-suspension.dto";
 import { IdentityEvidenceDisposalPreviewQueryDto } from "./dto/identity-evidence-disposal-preview-query.dto";
+import { IdentityEvidenceDisposalTaskQueryDto } from "./dto/identity-evidence-disposal-task-query.dto";
 import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
 import {
   PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES,
@@ -522,6 +523,15 @@ export class UsersController {
   professionalIdentityDisposalPreview(@Query() query: IdentityEvidenceDisposalPreviewQueryDto): Promise<unknown> {
     if (!this.professionalIdentityEvidenceDisposalService) throw new BadRequestException();
     return this.professionalIdentityEvidenceDisposalService.preview(new Date(), query.page, query.pageSize);
+  }
+
+  @Get("admin/professional-identity-verifications/disposal-tasks")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDisposalTasks(@Query() query: IdentityEvidenceDisposalTaskQueryDto): Promise<unknown> {
+    if (!this.professionalIdentityEvidenceDisposalService) throw new BadRequestException();
+    return this.professionalIdentityEvidenceDisposalService.listTasks(query.page, query.pageSize, query.status);
   }
 
   @Post("admin/professional-identity-verifications/:attemptId/cpf-reveal")
