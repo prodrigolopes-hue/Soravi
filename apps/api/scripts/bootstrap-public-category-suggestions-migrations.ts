@@ -1,6 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 
 import { Client } from "pg";
@@ -11,7 +10,7 @@ const DATABASE_URL_VARIABLE = "MIGRATION_BOOTSTRAP_DATABASE_URL";
 const MODERATION_MIGRATION =
   "20260814000100_add_public_category_suggestion_moderation";
 const SUGGESTIONS_MIGRATION = "20260814171754_add_public_category_suggestions";
-const currentDirectory = dirname(fileURLToPath(import.meta.url));
+const currentDirectory = __dirname;
 const apiDirectory = resolve(currentDirectory, "..");
 const migrationsDirectory = resolve(apiDirectory, "prisma/migrations");
 let currentStage = "VALIDACAO_DO_OPT_IN";
@@ -45,16 +44,16 @@ type DiagnosticError = {
 };
 
 function getSafeCode(error: unknown): string {
-  const code = typeof (error as DiagnosticError | undefined)?.code === "string"
-    ? (error as DiagnosticError).code
+  const code = isDiagnosticError(error) && typeof error.code === "string"
+    ? error.code
     : undefined;
 
   return code && /^(?:P\d{4}|[0-9A-Z]{5})$/.test(code) ? code : "N/A";
 }
 
 function sanitizeDiagnosticMessage(error: unknown): string {
-  const message = typeof (error as DiagnosticError | undefined)?.message === "string"
-    ? (error as DiagnosticError).message
+  const message = isDiagnosticError(error) && typeof error.message === "string"
+    ? error.message
     : "Erro sem mensagem segura disponível.";
   const compact = message.replace(/[\r\n\t]+/g, " ").trim();
 
@@ -66,6 +65,10 @@ function sanitizeDiagnosticMessage(error: unknown): string {
     .replace(/(?:postgres(?:ql)?:\/\/|https?:\/\/)[^\s'"`]+/gi, "[URL omitida]")
     .replace(/\b(password|secret|token|credential)\s*[=:]\s*[^\s,;]+/gi, "$1=[omitido]")
     .slice(0, 300) || "Erro sem mensagem segura disponível.";
+}
+
+function isDiagnosticError(value: unknown): value is DiagnosticError {
+  return typeof value === "object" && value !== null;
 }
 
 function writeDiagnostic(stage: string, error: unknown): void {
