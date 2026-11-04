@@ -15,6 +15,7 @@
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:status": "prisma migrate status --config prisma.config.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "prisma:migrate:bootstrap-public-category-suggestions": "tsx scripts/bootstrap-public-category-suggestions-migrations.ts",
     "prebuild": "npm run prisma:generate",
     "prisma:studio": "prisma studio --config prisma.config.ts",
     "test": "jest --config jest.config.cjs",

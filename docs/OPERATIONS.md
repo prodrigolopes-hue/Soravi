@@ -57,6 +57,49 @@ tokens, cookies, URLs privadas de banco ou variáveis de conexão.
 **Nunca use `prisma migrate dev` em produção.** Nunca edite uma migration já
 aplicada.
 
+## Bootstrap controlado para banco local vazio
+
+As migrations `20260814000100_add_public_category_suggestion_moderation` e
+`20260814171754_add_public_category_suggestions` foram publicadas em ordem
+invertida: a primeira altera um enum e uma tabela criados pela segunda. Os
+arquivos e seus checksums devem permanecer inalterados para preservar os
+ambientes existentes.
+
+Para validar uma instalação do zero, use exclusivamente o script versionado
+`apps/api/scripts/bootstrap-public-category-suggestions-migrations.ts`. Ele
+aceita apenas PostgreSQL em `localhost` ou `127.0.0.1`, porta `5432`, banco
+`soravi_migration_bootstrap_test`; não cria, apaga ou reseta banco algum. O
+banco deve ser criado previamente e estar sem objetos de aplicação e sem
+`_prisma_migrations`.
+
+Com a URL local fornecida somente no ambiente do processo, execute:
+
+```powershell
+$env:RUN_MIGRATION_BOOTSTRAP_TEST = "true"
+$env:MIGRATION_BOOTSTRAP_DATABASE_URL = "postgresql://.../soravi_migration_bootstrap_test"
+npm run prisma:migrate:bootstrap-public-category-suggestions --workspace=@soravi/api
+```
+
+O script executa o Prisma instalado no projeto. Ele aceita a falha inicial
+somente se o banco confirmar que ela ocorreu exclusivamente na migration
+`20260814000100`, sem migration posterior, e se enum/tabela ainda não existem.
+Em seguida registra a falha com `migrate resolve --rolled-back`, executa o SQL
+original na ordem de dependência (criação antes da moderação), valida enum,
+colunas, índices e FK, e apenas então usa `migrate resolve --applied` para cada
+registro original. Por fim aplica migrations futuras com `migrate deploy` e
+confere `migrate status`; o status nunca é evidência suficiente de equivalência
+do schema sem as verificações estruturais feitas pelo script.
+
+`ALTER TYPE ... ADD VALUE` é executado sem `BEGIN`/`COMMIT` explícito e sem uso
+do valor novo nessa mesma transação. Isso evita a restrição do PostgreSQL para
+valores de enum adicionados recentemente.
+
+Se a execução for interrompida ou qualquer etapa falhar, o script para e não
+tenta retomar um estado ambíguo. Não execute-o novamente: registre o ponto da
+falha, inspecione manualmente `_prisma_migrations` e os objetos envolvidos, e
+recrie manualmente **somente** esse banco descartável antes de nova tentativa.
+Não use este procedimento em bancos existentes, staging ou produção.
+
 ## Aplicar uma migration em produção
 
 1. Confirme que o checklist anterior foi concluído e que há autorização para a
