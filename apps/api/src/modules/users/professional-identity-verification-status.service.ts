@@ -36,9 +36,15 @@ export class ProfessionalIdentityVerificationStatusService {
     });
     if (!profile) throw new CurrentProfessionalProfileNotFoundException();
     const attempt = profile.identityVerificationAttempts[0];
-    if (!attempt || attempt.status === "AWAITING_EVIDENCE" || attempt.status === "CANCELLED") {
+    if (!attempt || attempt.status === "CANCELLED") {
       return { status: "NOT_STARTED", result: "PENDING", requiresSelfie: false, documentSubmitted: false, selfieSubmitted: false };
     }
-    return { status: attempt.status, result: attempt.result, requiresSelfie: attempt.requiresSelfie, documentSubmitted: attempt.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT"), selfieSubmitted: attempt.evidenceReferences.some((evidence) => evidence.kind === "SELFIE") };
+    return {
+      status: attempt.status === "AWAITING_EVIDENCE" ? "NOT_STARTED" : attempt.status,
+      result: attempt.result,
+      requiresSelfie: attempt.requiresSelfie,
+      documentSubmitted: attempt.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT"),
+      selfieSubmitted: attempt.evidenceReferences.some((evidence) => evidence.kind === "SELFIE"),
+    };
   }
 }

@@ -55,6 +55,18 @@ describe("ProfessionalIdentityDocumentService", () => {
     });
   });
 
+  it("mantém aguardando evidência após documento quando a nova tentativa exige selfie", async () => {
+    const selfieEnabledService = new ProfessionalIdentityDocumentService(prisma as never, storage as never, { get: jest.fn().mockReturnValue("true") } as never);
+    transaction.professionalIdentityVerificationAttempt.findFirst.mockResolvedValue({ id: "closed-attempt", status: "CLOSED", result: "NOT_CONFIRMED", requiresSelfie: false });
+    transaction.professionalIdentityVerificationAttempt.create.mockResolvedValue({ id: "selfie-attempt", requiresSelfie: true });
+    transaction.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]);
+
+    await selfieEnabledService.submitCurrent("user-id", { buffer: Buffer.from("upload"), declaredMimeType: "image/png" });
+
+    expect(transaction.professionalIdentityVerificationAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requiresSelfie: true }) }));
+    expect(transaction.professionalIdentityVerificationAttempt.update).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["UNDER_REVIEW", "PENDING", "PROFESSIONAL_IDENTITY_DOCUMENT_ALREADY_SUBMITTED"],
     ["CLOSED", "CONFIRMED", "PROFESSIONAL_IDENTITY_ALREADY_CONFIRMED"],

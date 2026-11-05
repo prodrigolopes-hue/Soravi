@@ -8,21 +8,30 @@ describe("ProfessionalIdentityVerificationStatusService", () => {
 
   it("informa ausência de documento sem ler o status de aprovação profissional", async () => {
     prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [] });
-    await expect(service.findCurrent("user")).resolves.toEqual({ status: "NOT_STARTED", result: "PENDING" });
+
+    await expect(service.findCurrent("user")).resolves.toEqual({ status: "NOT_STARTED", result: "PENDING", requiresSelfie: false, documentSubmitted: false, selfieSubmitted: false });
   });
 
-  it("expõe o último resultado de identidade para a tela", async () => {
-    prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [{ status: "CLOSED", result: "NOT_CONFIRMED" }] });
-    await expect(service.findCurrent("user")).resolves.toEqual({ status: "CLOSED", result: "NOT_CONFIRMED" });
+  it("expõe tentativa aguardando evidência que exige selfie sem alterar o status público", async () => {
+    prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [{ status: "AWAITING_EVIDENCE", result: "PENDING", requiresSelfie: true, evidenceReferences: [{ kind: "DOCUMENT" }] }] });
+
+    await expect(service.findCurrent("user")).resolves.toEqual({ status: "NOT_STARTED", result: "PENDING", requiresSelfie: true, documentSubmitted: true, selfieSubmitted: false });
   });
+
+  it("preserva tentativa antiga sem requisito de selfie", async () => {
+    prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [{ status: "AWAITING_EVIDENCE", result: "PENDING", requiresSelfie: false, evidenceReferences: [] }] });
+
+    await expect(service.findCurrent("user")).resolves.toEqual({ status: "NOT_STARTED", result: "PENDING", requiresSelfie: false, documentSubmitted: false, selfieSubmitted: false });
+  });
+
   it.each([
-    ["UNDER_REVIEW", "PENDING"],
-    ["CLOSED", "CONFIRMED"],
-    ["CLOSED", "INCONCLUSIVE"],
-  ] as const)("retorna %s/%s sem consultar a aprova\u00e7\u00e3o do perfil", async (status, result) => {
-    prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [{ status, result }] });
+    ["UNDER_REVIEW", "PENDING", true, [{ kind: "DOCUMENT" }, { kind: "SELFIE" }]],
+    ["CLOSED", "CONFIRMED", false, [{ kind: "DOCUMENT" }]],
+    ["CLOSED", "INCONCLUSIVE", false, [{ kind: "DOCUMENT" }]],
+  ] as const)("retorna %s/%s sem consultar a aprovação do perfil", async (status, result, requiresSelfie, evidenceReferences) => {
+    prisma.professionalProfile.findFirst.mockResolvedValue({ identityVerificationAttempts: [{ status, result, requiresSelfie, evidenceReferences }] });
 
-    await expect(service.findCurrent("user")).resolves.toEqual({ status, result });
+    await expect(service.findCurrent("user")).resolves.toEqual({ status, result, requiresSelfie, documentSubmitted: true, selfieSubmitted: requiresSelfie });
     expect(prisma.professionalProfile.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       select: expect.not.objectContaining({ verificationStatus: expect.anything() }),
     }));
