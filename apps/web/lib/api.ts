@@ -49,6 +49,9 @@ export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 export const professionalDashboardUrl = `${opportunitiesUrl}/summary`;
 
 export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
+export const adminReportsUrl = `${normalizedApiBaseUrl}/api/v1/reports/admin`;
+export function contractReportUrl(contractId: string): string { return `${normalizedApiBaseUrl}/api/v1/reports/contracts/${encodeURIComponent(contractId)}`; }
+export function adminReportUrl(reportId: string): string { return `${adminReportsUrl}/${encodeURIComponent(reportId)}`; }
 
 export const notificationsUrl = `${normalizedApiBaseUrl}/api/v1/notifications`;
 

@@ -19,6 +19,7 @@ import {
   conversationReadUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { ContractReportForm } from "../reports/contract-report-form";
 
 const MESSAGE_LIMIT = 30;
 const MAX_MESSAGE_LENGTH = 4000;
@@ -692,6 +693,7 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
             </span>
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-700">Status do serviço: {conversation.contract.status === "IN_PROGRESS" ? "Em andamento" : conversation.contract.status === "COMPLETED" ? "Concluído" : "Aceito"}</p>
+          {accessToken ? <ContractReportForm contractId={conversation.contract.id} accessToken={accessToken} /> : null}
           {readonlyMessage ? (
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
               {readonlyMessage}

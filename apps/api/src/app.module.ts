@@ -20,6 +20,7 @@ import { ServiceRequestsModule } from "./modules/service-requests/service-reques
 import { FavoritesModule } from "./modules/favorites/favorites.module";
 import { ProfessionalDiscoveryModule } from "./modules/professional-discovery/professional-discovery.module";
 import { PreProposalConversationsModule } from "./modules/pre-proposal-conversations/pre-proposal-conversations.module";
+import { ReportsModule } from "./modules/reports/reports.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PreProposalConversationsModule } from "./modules/pre-proposal-conversat
     FavoritesModule,
     ProfessionalDiscoveryModule,
     PreProposalConversationsModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
 })

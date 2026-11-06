@@ -127,6 +127,19 @@ enum PublicCategorySuggestionStatus {
   REJECTED
 }
 
+enum ContractReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ContractReportReason {
+  IDENTITY_DIVERGENCE
+  INAPPROPRIATE_CONDUCT
+  OTHER
+}
+
 enum ServiceRequestStatus {
   DRAFT
   OPEN
@@ -250,6 +263,10 @@ model User {
   adminActivationAudits                   AdminActivationAudit[]
   portfolioModerationDecisions            ProfessionalPortfolioModerationDecision[] @relation("ProfessionalPortfolioModerationOperator")
   commercialDataAccessAudits              AdminCommercialDataAccessAudit[] @relation("AdminCommercialDataAccessAuditOperator")
+  reportsFiled                            ContractReport[] @relation("ContractReportReporter")
+  reportsReceived                         ContractReport[] @relation("ContractReportTarget")
+  reportsReviewed                         ContractReport[] @relation("ContractReportReviewer")
+  reportStatusHistory                     ContractReportStatusHistory[] @relation("ContractReportHistoryActor")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
@@ -906,10 +923,52 @@ model Contract {
   review              Review?
   customerReview      CustomerReview?
   reviewReminders     ReviewReminder[]
+  reports             ContractReport[]
 
   @@index([customerProfileId, status, createdAt], map: "contracts_customer_profile_status_created_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "contracts_professional_profile_status_created_at_idx")
   @@map("contracts")
+}
+
+model ContractReport {
+  id               String               @id @default(uuid()) @db.Uuid
+  protocol         String               @unique(map: "contract_reports_protocol_key") @db.VarChar(40)
+  contractId       String               @map("contract_id") @db.Uuid
+  reporterUserId   String               @map("reporter_user_id") @db.Uuid
+  targetUserId     String               @map("target_user_id") @db.Uuid
+  reason           ContractReportReason
+  description      String               @db.VarChar(1200)
+  status           ContractReportStatus @default(OPEN)
+  reviewedByUserId String?              @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime?            @map("reviewed_at") @db.Timestamptz(3)
+  resolution       String?              @db.VarChar(1200)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  reporter User @relation("ContractReportReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  target User @relation("ContractReportTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+  reviewer User? @relation("ContractReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  history ContractReportStatusHistory[]
+
+  @@index([status, createdAt], map: "contract_reports_status_created_at_idx")
+  @@index([contractId], map: "contract_reports_contract_idx")
+  @@map("contract_reports")
+}
+
+model ContractReportStatusHistory {
+  id          String               @id @default(uuid()) @db.Uuid
+  reportId    String               @map("report_id") @db.Uuid
+  status      ContractReportStatus
+  reason      String?              @db.VarChar(1200)
+  actorUserId String?              @map("actor_user_id") @db.Uuid
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  report ContractReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  actor User? @relation("ContractReportHistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, createdAt], map: "contract_report_history_report_created_at_idx")
+  @@map("contract_report_status_history")
 }
 
 model ReviewReminder {
