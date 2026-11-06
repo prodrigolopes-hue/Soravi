@@ -28,13 +28,14 @@ export class ReportsService {
   }
 
   async listForAdmin() {
-    return this.prisma.contractReport.findMany({ orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, protocol: true, status: true, reason: true, createdAt: true, contract: { select: { id: true } } } });
+    return this.prisma.contractReport.findMany({ orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, protocol: true, status: true, reason: true, createdAt: true, contract: { select: { id: true, serviceRequest: { select: { publicCode: true, title: true } } } } } });
   }
 
   async detailForAdmin(id: string) {
-    const report = await this.prisma.contractReport.findUnique({ where: { id }, select: { id: true, protocol: true, status: true, reason: true, description: true, resolution: true, createdAt: true, reviewedAt: true, contractId: true, reporter: { select: { id: true, name: true } }, target: { select: { id: true, name: true } }, reviewer: { select: { id: true, name: true } }, history: { orderBy: { createdAt: "asc" }, select: { status: true, reason: true, createdAt: true, actor: { select: { name: true } } } } } });
+    const report = await this.prisma.contractReport.findUnique({ where: { id }, select: { id: true, protocol: true, status: true, reason: true, description: true, resolution: true, createdAt: true, reviewedAt: true, reporter: { select: { id: true, name: true } }, target: { select: { id: true, name: true } }, reviewer: { select: { id: true, name: true } }, contract: { select: { id: true, serviceRequest: { select: { publicCode: true, title: true } }, customerProfile: { select: { user: { select: { id: true } } } }, professionalProfile: { select: { user: { select: { id: true } } } } } }, history: { orderBy: { createdAt: "asc" }, select: { status: true, reason: true, createdAt: true, actor: { select: { name: true } } } } } });
     if (!report) throw new NotFoundException({ code: "CONTRACT_REPORT_NOT_FOUND", message: "Denúncia não encontrada." });
-    return report;
+    const roleFor = (userId: string) => report.contract.customerProfile.user.id === userId ? "CUSTOMER" : "PROFESSIONAL";
+    return { ...report, reporter: { name: report.reporter.name, role: roleFor(report.reporter.id) }, target: { name: report.target.name, role: roleFor(report.target.id) } };
   }
 
   async updateForAdmin(actorUserId: string, id: string, input: UpdateContractReportDto) {
