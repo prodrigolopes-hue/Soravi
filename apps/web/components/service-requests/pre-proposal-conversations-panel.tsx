@@ -218,14 +218,16 @@ export function PreProposalConversationsPanel({
   }, [scope]);
 
   const loadConversations = useCallback(
-    async (page: number) => {
+    async (page: number, background = false) => {
       if (!accessToken) {
         return;
       }
 
       const requestId = ++conversationsRequestRef.current;
       const currentScope = scope;
-      setConversationsState("loading");
+      if (!background) {
+        setConversationsState("loading");
+      }
 
       try {
         const url = new URL(
@@ -250,15 +252,21 @@ export function PreProposalConversationsPanel({
           return;
         }
         if (response.status === 401) {
-          setConversationsState("unauthorized");
+          if (!background) {
+            setConversationsState("unauthorized");
+          }
           return;
         }
         if (response.status === 403) {
-          setConversationsState("forbidden");
+          if (!background) {
+            setConversationsState("forbidden");
+          }
           return;
         }
         if (!parsed) {
-          setConversationsState("error");
+          if (!background) {
+            setConversationsState("error");
+          }
           return;
         }
 
@@ -270,7 +278,9 @@ export function PreProposalConversationsPanel({
           scopeRef.current === currentScope &&
           conversationsRequestRef.current === requestId
         ) {
-          setConversationsState("error");
+          if (!background) {
+            setConversationsState("error");
+          }
         }
       }
     },
@@ -280,6 +290,30 @@ export function PreProposalConversationsPanel({
   useEffect(() => {
     void loadConversations(conversationPage);
   }, [conversationPage, loadConversations]);
+
+  useEffect(() => {
+    if (!writable) {
+      return;
+    }
+
+    const refreshInBackground = () => {
+      if (document.visibilityState === "visible") {
+        void loadConversations(conversationPage, true);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      refreshInBackground();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const intervalId = window.setInterval(refreshInBackground, 15_000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [conversationPage, loadConversations, writable]);
 
   const loadMessages = useCallback(
     async (
