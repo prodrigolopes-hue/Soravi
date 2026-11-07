@@ -14,6 +14,17 @@ test("aceita somente o retorno interno de pedido direcionado com UUID v4", () =>
   assert.equal(safeDirectedRequestReturnTo(destination), destination);
 });
 
+test("aceita os destinos autenticados de oportunidade e solicitação", () => {
+  assert.equal(
+    safeDirectedRequestReturnTo(`/profissional/oportunidades/${professionalProfileId}`),
+    `/profissional/oportunidades/${professionalProfileId}`,
+  );
+  assert.equal(
+    safeDirectedRequestReturnTo(`/solicitacoes/${professionalProfileId}`),
+    `/solicitacoes/${professionalProfileId}`,
+  );
+});
+
 test("rejeita retorno externo, caminho arbitrário e UUID inválido", () => {
   for (const value of [
     "https://example.com/solicitacoes/nova?professionalProfileId=" + professionalProfileId,

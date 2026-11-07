@@ -22,9 +22,18 @@ export function safeDirectedRequestReturnTo(value: string | null | undefined): s
   try {
     const url = new URL(value, "https://soravi.invalid");
 
-    if (url.origin !== "https://soravi.invalid" || url.pathname !== "/solicitacoes/nova") {
+    if (url.origin !== "https://soravi.invalid") {
       return null;
     }
+
+    const notificationRoute = /^\/(?:profissional\/oportunidades|solicitacoes)\/([0-9a-f-]+)$/iu.exec(url.pathname);
+    if (notificationRoute) {
+      return isUuidV4(notificationRoute[1]) && [...url.searchParams.keys()].length === 0
+        ? url.pathname
+        : null;
+    }
+
+    if (url.pathname !== "/solicitacoes/nova") return null;
 
     const professionalProfileIds = url.searchParams.getAll("professionalProfileId");
     if (

@@ -21,14 +21,14 @@ export class MetaWhatsAppNotificationDeliveryAdapter
     );
     const endpoint = [
       "https://graph.facebook.com",
-      encodeURIComponent(this.config.getOrThrow<string>("META_WHATSAPP_GRAPH_API_VERSION")),
-      encodeURIComponent(this.config.getOrThrow<string>("META_WHATSAPP_PHONE_NUMBER_ID")),
+      encodeURIComponent(this.config.getOrThrow<string>("META_WHATSAPP_NOTIFICATION_GRAPH_API_VERSION")),
+      encodeURIComponent(this.config.getOrThrow<string>("META_WHATSAPP_NOTIFICATION_PHONE_NUMBER_ID")),
       "messages",
     ].join("/");
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.config.getOrThrow<string>("META_WHATSAPP_ACCESS_TOKEN")}`,
+        Authorization: `Bearer ${this.config.getOrThrow<string>("META_WHATSAPP_NOTIFICATION_ACCESS_TOKEN")}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -45,7 +45,7 @@ export class MetaWhatsAppNotificationDeliveryAdapter
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: input.loginUrl }],
+            parameters: [{ type: "text", text: this.toTemplateUrlParameter(input.loginUrl) }],
           }],
         },
       }),
@@ -58,5 +58,22 @@ export class MetaWhatsAppNotificationDeliveryAdapter
       throw new Error("META_INVALID_RESPONSE");
     }
     return { providerMessageId };
+  }
+
+  private toTemplateUrlParameter(loginUrl: string): string {
+    const publicOrigin = new URL(
+      this.config.getOrThrow<string>("FRONTEND_PUBLIC_URL"),
+    );
+    const url = new URL(loginUrl);
+
+    if (
+      publicOrigin.protocol !== "https:" ||
+      url.protocol !== "https:" ||
+      url.origin !== publicOrigin.origin
+    ) {
+      throw new Error("INVALID_NOTIFICATION_LOGIN_URL");
+    }
+
+    return `${url.pathname.replace(/^\/+/, "")}${url.search}`;
   }
 }

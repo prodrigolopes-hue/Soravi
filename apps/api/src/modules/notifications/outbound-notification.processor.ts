@@ -123,7 +123,8 @@ export class OutboundNotificationProcessor
           });
           if (claimed.count !== 1) continue;
 
-          if (!(await this.isStillAvailable(transaction, candidate))) {
+          const destination = await this.availableDestination(transaction, candidate);
+          if (!destination) {
             await transaction.outboundNotification.update({
               where: { id: candidate.outbound.id },
               data: { status: OutboundNotificationStatus.CANCELLED, lastErrorCode: "RESOURCE_UNAVAILABLE" },
@@ -135,7 +136,7 @@ export class OutboundNotificationProcessor
             const accepted = await this.whatsappDelivery.send({
               phoneNormalized: candidate.user!.phoneNormalized!,
               eventType: candidate.outbound.eventType as typeof NotificationType.OPPORTUNITY_CREATED | typeof NotificationType.PROPOSAL_CREATED,
-              loginUrl: `${this.configService.getOrThrow<string>("FRONTEND_PUBLIC_URL").replace(/\/$/u, "")}/login`,
+              loginUrl: `${this.configService.getOrThrow<string>("FRONTEND_PUBLIC_URL").replace(/\/$/u, "")}/entrar?returnTo=${encodeURIComponent(destination)}`,
             });
             await transaction.outboundNotification.update({
               where: { id: candidate.outbound.id },
@@ -166,25 +167,27 @@ export class OutboundNotificationProcessor
     return undefined;
   }
 
-  private async isStillAvailable(
+  private async availableDestination(
     transaction: Prisma.TransactionClient,
     candidate: import("./outbound-notifications.service").OutboundNotificationEligibilityCandidate,
-  ): Promise<boolean> {
-    if (!candidate.notification || !candidate.user) return false;
+  ): Promise<string | null> {
+    if (!candidate.notification || !candidate.user) return null;
     const user = await transaction.user.findUnique({
       where: { id: candidate.outbound.userId },
       select: { phoneVerifiedAt: true, phoneNormalized: true, communicationPreferences: { where: { channel: candidate.outbound.channel, eventType: candidate.outbound.eventType }, select: { enabled: true } } },
     });
-    if (!user?.phoneNormalized || !user.phoneVerifiedAt || !user.communicationPreferences[0]?.enabled) return false;
+    if (!user?.phoneNormalized || !user.phoneVerifiedAt || !user.communicationPreferences[0]?.enabled) return null;
     if (candidate.outbound.eventType === NotificationType.OPPORTUNITY_CREATED) {
-      return Boolean(await transaction.serviceOpportunity.findFirst({
+      const opportunity = await transaction.serviceOpportunity.findFirst({
         where: { id: candidate.notification.resourceId, professionalProfile: { userId: candidate.outbound.userId }, serviceRequest: { deletedAt: null, status: { in: [ServiceRequestStatus.OPEN, ServiceRequestStatus.RECEIVING_PROPOSALS] } } },
         select: { id: true },
-      }));
+      });
+      return opportunity ? `/profissional/oportunidades/${opportunity.id}` : null;
     }
-    return Boolean(await transaction.proposal.findFirst({
+    const proposal = await transaction.proposal.findFirst({
       where: { id: candidate.notification.resourceId, isVisible: true, serviceRequest: { customerProfile: { userId: candidate.outbound.userId }, deletedAt: null } },
-      select: { id: true },
-    }));
+      select: { serviceRequestId: true },
+    });
+    return proposal ? `/solicitacoes/${proposal.serviceRequestId}` : null;
   }
 }

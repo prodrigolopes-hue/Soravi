@@ -228,6 +228,24 @@ class EnvironmentVariables {
   @IsOptional()
   META_WHATSAPP_NOTIFICATION_TEMPLATE_LANGUAGE = "pt_BR";
 
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_ACCESS_TOKEN?: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_PHONE_NUMBER_ID?: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @Matches(/^v\d+\.\d+$/u)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_GRAPH_API_VERSION?: string;
+
   @IsIn(passwordResetDeliveryProviders)
   @IsOptional()
   PASSWORD_RESET_DELIVERY_PROVIDER: PasswordResetDeliveryProvider =
@@ -384,13 +402,17 @@ export function validateEnvironment(
     }
     if (validatedEnvironment.OUTBOUND_WHATSAPP_DELIVERY_PROVIDER === "meta") {
       const required = [
-        "META_WHATSAPP_ACCESS_TOKEN",
-        "META_WHATSAPP_PHONE_NUMBER_ID",
-        "META_WHATSAPP_GRAPH_API_VERSION",
+        "META_WHATSAPP_NOTIFICATION_ACCESS_TOKEN",
+        "META_WHATSAPP_NOTIFICATION_PHONE_NUMBER_ID",
+        "META_WHATSAPP_NOTIFICATION_GRAPH_API_VERSION",
         "META_WHATSAPP_OPPORTUNITY_TEMPLATE_NAME",
         "META_WHATSAPP_PROPOSAL_TEMPLATE_NAME",
+        "FRONTEND_PUBLIC_URL",
       ] as const;
-      if (required.some((key) => !validatedEnvironment[key])) {
+      if (
+        required.some((key) => !validatedEnvironment[key]) ||
+        !isHttpsUrl(validatedEnvironment.FRONTEND_PUBLIC_URL)
+      ) {
         throw new Error("Variáveis de ambiente inválidas: configuração Meta de notificações incompleta.");
       }
     }
@@ -431,6 +453,14 @@ export function validateEnvironment(
   }
 
   return validatedEnvironment;
+}
+
+function isHttpsUrl(value: string | undefined): boolean {
+  try {
+    return new URL(value ?? "").protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 /**
