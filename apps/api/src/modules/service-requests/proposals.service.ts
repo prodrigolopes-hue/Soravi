@@ -269,6 +269,8 @@ export class ProposalsService {
         const visibleActiveCount = await transaction.proposal.count({
           where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: true },
         });
+        const isVisible =
+          visibleActiveCount < lockedServiceRequest.visibleProposalLimit;
 
         const createdProposal = await transaction.proposal.create({
           data: {
@@ -279,7 +281,7 @@ export class ProposalsService {
             estimatedDurationUnit: dto.estimatedDurationUnit,
             message: dto.message,
             status: ProposalStatus.ACTIVE,
-            isVisible: visibleActiveCount < lockedServiceRequest.visibleProposalLimit,
+            isVisible,
             acceptedAt: null,
             rejectedAt: null,
             withdrawnAt: null,
@@ -288,6 +290,7 @@ export class ProposalsService {
           select: PROPOSAL_RESPONSE_SELECT,
         });
 
+        if (isVisible) {
         const notification = await transaction.notification.upsert({
           where: {
             userId_type_resourceType_resourceId: {
@@ -316,6 +319,8 @@ export class ProposalsService {
           channel: CommunicationChannel.WHATSAPP,
           eventType: NotificationType.PROPOSAL_CREATED,
         });
+
+        }
 
         if (lockedServiceRequest.status === ServiceRequestStatus.OPEN) {
           await transaction.serviceRequest.update({
@@ -525,7 +530,10 @@ export class ProposalsService {
       const visible = await transaction.proposal.count({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: true } });
       if (visible >= request.visibleProposalLimit) throw new ConflictException("Ainda há propostas visíveis para avaliar.");
       const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
-      if (reserve) await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+      if (reserve) {
+        await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+        await this.createProposalCreatedNotification(transaction, userId, reserve.id);
+      }
     });
   }
 
@@ -538,13 +546,14 @@ export class ProposalsService {
         const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
         if (!reserve) break;
         await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+        await this.createProposalCreatedNotification(transaction, userId, reserve.id);
       }
     });
   }
 
   async withdraw(userId: string, proposalId: string): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const proposal = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { id: true, serviceRequestId: true, professionalProfile: { select: { userId: true } } } });
+      const proposal = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { id: true, serviceRequestId: true, professionalProfile: { select: { userId: true } }, serviceRequest: { select: { customerProfile: { select: { userId: true } } } } } });
       if (!proposal || proposal.professionalProfile.userId !== userId) throw new ProposalNotFoundException();
       await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "service_requests" WHERE "id" = ${proposal.serviceRequestId}::uuid FOR UPDATE`);
       const current = await transaction.proposal.findUnique({ where: { id: proposalId }, select: { status: true, isVisible: true } });
@@ -552,8 +561,50 @@ export class ProposalsService {
       await transaction.proposal.update({ where: { id: proposalId }, data: { status: ProposalStatus.WITHDRAWN, withdrawnAt: new Date() } });
       if (current.isVisible) {
         const reserve = await transaction.proposal.findFirst({ where: { serviceRequestId: proposal.serviceRequestId, status: ProposalStatus.ACTIVE, isVisible: false }, orderBy: { submittedAt: "asc" }, select: { id: true } });
-        if (reserve) await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+        if (reserve) {
+          await transaction.proposal.update({ where: { id: reserve.id }, data: { isVisible: true } });
+          await this.createProposalCreatedNotification(
+            transaction,
+            proposal.serviceRequest.customerProfile.userId,
+            reserve.id,
+          );
+        }
       }
+    });
+  }
+
+  private async createProposalCreatedNotification(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    proposalId: string,
+  ): Promise<void> {
+    const notification = await transaction.notification.upsert({
+      where: {
+        userId_type_resourceType_resourceId: {
+          userId,
+          type: NotificationType.PROPOSAL_CREATED,
+          resourceType: "PROPOSAL",
+          resourceId: proposalId,
+        },
+      },
+      update: {},
+      create: {
+        userId,
+        type: NotificationType.PROPOSAL_CREATED,
+        title: "Nova proposta recebida",
+        message: "Você recebeu uma nova proposta para sua solicitação.",
+        resourceType: "PROPOSAL",
+        resourceId: proposalId,
+      },
+      select: { id: true },
+    });
+
+    await this.outboundNotificationsService.createPending({
+      transaction,
+      notificationId: notification.id,
+      userId,
+      channel: CommunicationChannel.WHATSAPP,
+      eventType: NotificationType.PROPOSAL_CREATED,
     });
   }
 

@@ -126,6 +126,20 @@ describe("OutboundNotificationsService", () => {
     expect(query.values).toContain(25);
   });
 
+  it("permite localizar itens PROCESSING para investigação sem recolocá-los na fila", async () => {
+    await service.findProcessingForInvestigation(
+      transactionMock as unknown as Prisma.TransactionClient,
+      20,
+    );
+
+    expect(transactionMock.outboundNotification.findMany).toHaveBeenCalledWith({
+      where: { status: OutboundNotificationStatus.PROCESSING },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      take: 20,
+      select: { id: true, createdAt: true, updatedAt: true, lastErrorCode: true },
+    });
+  });
+
   it("carrega somente os campos mínimos e preserva a ordenação", async () => {
     transactionMock.$queryRaw.mockResolvedValue([{ id: "outbound-id" }]);
     transactionMock.outboundNotification.findMany.mockResolvedValue([]);
@@ -143,6 +157,7 @@ describe("OutboundNotificationsService", () => {
         userId: true,
         notificationId: true,
         channel: true,
+        createdAt: true,
         eventType: true,
         status: true,
         nextAttemptAt: true,
@@ -159,7 +174,7 @@ describe("OutboundNotificationsService", () => {
           },
         },
         notification: {
-          select: { id: true, userId: true, deletedAt: true },
+          select: { id: true, userId: true, deletedAt: true, resourceType: true, resourceId: true },
         },
       },
     });

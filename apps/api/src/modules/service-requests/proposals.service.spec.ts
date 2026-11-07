@@ -35,8 +35,15 @@ describe("ProposalsService", () => {
     professionalProfile: { findFirst: jest.Mock };
     serviceRequest: { findFirst: jest.Mock; update: jest.Mock };
     serviceOpportunity: { findUnique: jest.Mock };
-    proposal: { findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
+    proposal: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      count: jest.Mock;
+    };
     notification: { upsert: jest.Mock };
+    customerProfile: { findUnique: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let prismaMock: {
@@ -72,11 +79,16 @@ describe("ProposalsService", () => {
       },
       proposal: {
         findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(createProposal()),
+        update: jest.fn().mockResolvedValue({}),
         count: jest.fn().mockResolvedValue(0),
       },
       notification: {
         upsert: jest.fn().mockResolvedValue({ id: notificationId }),
+      },
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: customerProfileId }),
       },
       $queryRaw: jest.fn().mockResolvedValue([{ id: serviceRequestId }]),
     };
@@ -401,6 +413,86 @@ describe("ProposalsService", () => {
     expect(transactionMock).not.toHaveProperty("user");
     expect(transactionMock).not.toHaveProperty("communicationPreference");
     expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify when a proposal is created in reserve", async () => {
+    transactionMock.proposal.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(3);
+
+    await service.create(userId, serviceRequestId, createDto());
+
+    expect(transactionMock.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isVisible: false }),
+      }),
+    );
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).not.toHaveBeenCalled();
+  });
+
+  it("notifies when requestNext promotes a reserve proposal", async () => {
+    transactionMock.proposal.findFirst.mockResolvedValue({ id: "reserve-id" });
+
+    await service.requestNext(customerUserId, serviceRequestId);
+
+    expect(transactionMock.proposal.update).toHaveBeenCalledWith({
+      where: { id: "reserve-id" },
+      data: { isVisible: true },
+    });
+    expect(transactionMock.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId_type_resourceType_resourceId: expect.objectContaining({
+            userId: customerUserId,
+            resourceId: "reserve-id",
+          }),
+        },
+        update: {},
+      }),
+    );
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies when increasing the visible limit promotes a reserve proposal", async () => {
+    transactionMock.proposal.findFirst
+      .mockResolvedValueOnce({ id: "reserve-1" })
+      .mockResolvedValueOnce(null);
+
+    await service.increaseVisibleLimit(customerUserId, serviceRequestId, 5);
+
+    expect(transactionMock.proposal.update).toHaveBeenCalledWith({
+      where: { id: "reserve-1" },
+      data: { isVisible: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: customerUserId }),
+    );
+  });
+
+  it("notifies when withdrawing promotes a reserve proposal", async () => {
+    transactionMock.proposal.findUnique
+      .mockResolvedValueOnce({
+        id: "proposal-id",
+        serviceRequestId,
+        professionalProfile: { userId },
+        serviceRequest: { customerProfile: { userId: customerUserId } },
+      })
+      .mockResolvedValueOnce({ status: ProposalStatus.ACTIVE, isVisible: true });
+    transactionMock.proposal.findFirst.mockResolvedValue({ id: "reserve-id" });
+
+    await service.withdraw(userId, "proposal-id");
+
+    expect(transactionMock.proposal.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "reserve-id" },
+      data: { isVisible: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: customerUserId,
+        eventType: NotificationType.PROPOSAL_CREATED,
+      }),
+    );
   });
 
   it("mantém RECEIVING_PROPOSALS sem atualizar a solicitação", async () => {

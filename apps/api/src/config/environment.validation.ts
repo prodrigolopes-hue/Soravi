@@ -32,6 +32,11 @@ const phoneVerificationDeliveryProviders = [
   "meta",
 ] as const;
 
+const outboundWhatsAppDeliveryProviders = ["unavailable", "meta"] as const;
+
+type OutboundWhatsAppDeliveryProvider =
+  (typeof outboundWhatsAppDeliveryProviders)[number];
+
 type PhoneVerificationDeliveryProvider =
   (typeof phoneVerificationDeliveryProviders)[number];
 
@@ -191,6 +196,38 @@ class EnvironmentVariables {
   @IsOptional()
   META_WHATSAPP_HTTP_TIMEOUT_MS = 5000;
 
+  @IsIn(["true", "false"])
+  @IsOptional()
+  OUTBOUND_WHATSAPP_DELIVERY_ENABLED = "false";
+
+  @IsIn(outboundWhatsAppDeliveryProviders)
+  @IsOptional()
+  OUTBOUND_WHATSAPP_DELIVERY_PROVIDER: OutboundWhatsAppDeliveryProvider =
+    "unavailable";
+
+  @IsString()
+  @IsOptional()
+  OUTBOUND_WHATSAPP_TEST_NUMBERS?: string;
+
+  @IsString()
+  @IsOptional()
+  OUTBOUND_WHATSAPP_CUTOFF_AT?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_OPPORTUNITY_TEMPLATE_NAME?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_PROPOSAL_TEMPLATE_NAME?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_TEMPLATE_LANGUAGE = "pt_BR";
+
   @IsIn(passwordResetDeliveryProviders)
   @IsOptional()
   PASSWORD_RESET_DELIVERY_PROVIDER: PasswordResetDeliveryProvider =
@@ -334,6 +371,28 @@ export function validateEnvironment(
           ", ",
         )}).`,
       );
+    }
+  }
+
+  if (validatedEnvironment.OUTBOUND_WHATSAPP_DELIVERY_ENABLED === "true") {
+    const cutoff = validatedEnvironment.OUTBOUND_WHATSAPP_CUTOFF_AT;
+    const testNumbers = validatedEnvironment.OUTBOUND_WHATSAPP_TEST_NUMBERS;
+    if (!cutoff || Number.isNaN(Date.parse(cutoff)) || !testNumbers?.trim()) {
+      throw new Error(
+        "Variáveis de ambiente inválidas: piloto WhatsApp requer OUTBOUND_WHATSAPP_TEST_NUMBERS e OUTBOUND_WHATSAPP_CUTOFF_AT.",
+      );
+    }
+    if (validatedEnvironment.OUTBOUND_WHATSAPP_DELIVERY_PROVIDER === "meta") {
+      const required = [
+        "META_WHATSAPP_ACCESS_TOKEN",
+        "META_WHATSAPP_PHONE_NUMBER_ID",
+        "META_WHATSAPP_GRAPH_API_VERSION",
+        "META_WHATSAPP_OPPORTUNITY_TEMPLATE_NAME",
+        "META_WHATSAPP_PROPOSAL_TEMPLATE_NAME",
+      ] as const;
+      if (required.some((key) => !validatedEnvironment[key])) {
+        throw new Error("Variáveis de ambiente inválidas: configuração Meta de notificações incompleta.");
+      }
     }
   }
 
