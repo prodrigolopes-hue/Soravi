@@ -183,12 +183,12 @@ describe("UsersPhoneService.updateCurrentUserPhone", () => {
     }
 
     const serializedResponse = JSON.stringify(error.getResponse());
-    expect(serializedResponse).toContain("PHONE_ALREADY_IN_USE");
+    expect(serializedResponse).toContain("REGISTRATION_CONTACT_CONFLICT");
     expect(serializedResponse).not.toContain("outro-id");
     expect(transactionMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("converte corrida P2002 da constraint em PHONE_ALREADY_IN_USE", async () => {
+  it("converte corrida P2002 da constraint em conflito público de contato", async () => {
     const error = Object.assign(
       Object.create(Prisma.PrismaClientKnownRequestError.prototype),
       {
@@ -201,7 +201,7 @@ describe("UsersPhoneService.updateCurrentUserPhone", () => {
     await expect(
       service.updateCurrentUserPhone(userId, currentSessionId, input()),
     ).rejects.toMatchObject({
-      response: { code: "PHONE_ALREADY_IN_USE" },
+      response: { code: "REGISTRATION_CONTACT_CONFLICT" },
     });
   });
 

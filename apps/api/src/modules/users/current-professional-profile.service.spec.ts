@@ -73,6 +73,7 @@ describe("CurrentProfessionalProfileService", () => {
         { id: "category-eletrica", name: "Elétrica", slug: "eletrica" },
       ],
       photo: null,
+      portfolio: [],
     });
   });
 
@@ -210,6 +211,7 @@ describe("CurrentProfessionalProfileService", () => {
           },
         },
       ],
+      portfolioItems: [],
     };
   }
 });

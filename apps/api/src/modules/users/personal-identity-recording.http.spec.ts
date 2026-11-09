@@ -13,7 +13,13 @@ import { CurrentProfessionalProfileService } from "./current-professional-profil
 import { CustomerProfileActivationService } from "./customer-profile-activation.service";
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
+import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
+import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
+import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { ProfessionalVerificationSubmissionService } from "./professional-verification-submission.service";
 import { UsersAdminStatusService } from "./users-admin-status.service";
@@ -147,8 +153,14 @@ async function createApp(
       { provide: ProfessionalVerificationSubmissionService, useValue: empty }, { provide: ProfessionalVerificationReviewService, useValue: empty },
       { provide: CurrentProfessionalProfileService, useValue: empty }, { provide: CustomerProfileActivationService, useValue: empty },
       { provide: ProfessionalProfileActivationService, useValue: empty },
+      { provide: ProfessionalProfilePhotoService, useValue: empty },
+      { provide: ProfessionalPortfolioService, useValue: empty },
       { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: recordingService },
       { provide: PersonalIdentityStatusService, useValue: statusService },
+      { provide: ProfessionalIdentityDocumentService, useValue: empty },
+      { provide: ProfessionalIdentityReviewService, useValue: empty },
+      { provide: ProfessionalIdentityEvidenceDisposalService, useValue: empty },
+      { provide: ProfessionalIdentityVerificationStatusService, useValue: empty },
       AccessTokenGuard,
       { provide: AccessTokenAuthService, useValue: accessTokenAuthService },
     ],

@@ -11,6 +11,11 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { ProfessionalProfilePhotoProcessingError } from "./professional-profile-photo-image";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
+import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
+import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
 import { UsersPhoneService } from "./users-phone.service";
@@ -68,7 +73,12 @@ describe("Professional profile photo HTTP endpoints", () => {
         { provide: ProfessionalProfileActivationService, useValue: {} },
         { provide: PersonalIdentityStatusService, useValue: {} },
         { provide: ProfessionalProfilePhotoService, useValue: photoService },
+        { provide: ProfessionalPortfolioService, useValue: {} },
         { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: {} },
+        { provide: ProfessionalIdentityDocumentService, useValue: {} },
+        { provide: ProfessionalIdentityReviewService, useValue: {} },
+        { provide: ProfessionalIdentityEvidenceDisposalService, useValue: {} },
+        { provide: ProfessionalIdentityVerificationStatusService, useValue: {} },
         AccessTokenGuard,
         RolesGuard,
         { provide: AccessTokenAuthService, useValue: accessTokenAuthService },
