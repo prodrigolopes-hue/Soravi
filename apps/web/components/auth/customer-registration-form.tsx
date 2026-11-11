@@ -68,8 +68,10 @@ const customerRegistrationSchema = z
       .string()
       .min(1, "Confirme sua senha."),
     acceptedTerms: z.boolean().refine((value) => value, {
-      message:
-        "Você precisa aceitar os Termos de Uso e a Política de Privacidade.",
+      message: "Você precisa aceitar os Termos de Uso.",
+    }),
+    acceptedPrivacyPolicy: z.boolean().refine((value) => value, {
+      message: "Você precisa aceitar a Política de Privacidade.",
     }),
     confirmedAgeAtLeast18: z.boolean().refine((value) => value, {
       message:
@@ -143,6 +145,7 @@ export function CustomerRegistrationForm() {
       password: "",
       passwordConfirmation: "",
       acceptedTerms: false,
+      acceptedPrivacyPolicy: false,
       confirmedAgeAtLeast18: false,
     },
     mode: "onSubmit",
@@ -168,7 +171,7 @@ export function CustomerRegistrationForm() {
           acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
           acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
           acceptedTerms: data.acceptedTerms,
-          acceptedPrivacyPolicy: data.acceptedTerms,
+          acceptedPrivacyPolicy: data.acceptedPrivacyPolicy,
           confirmedAgeAtLeast18: data.confirmedAgeAtLeast18,
         }),
       });
@@ -216,6 +219,7 @@ export function CustomerRegistrationForm() {
         password: "",
         passwordConfirmation: "",
         acceptedTerms: false,
+        acceptedPrivacyPolicy: false,
         confirmedAgeAtLeast18: false,
       });
       router.replace(`/verificar-email?from=registration${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`);
@@ -304,28 +308,6 @@ export function CustomerRegistrationForm() {
             className="mt-2 text-sm font-medium text-red-600"
           >
             {errors.name.message}
-          </p>
-        ) : null}
-      </div>
-
-      <div>
-        <label className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-            aria-invalid={Boolean(errors.confirmedAgeAtLeast18)}
-            aria-describedby={
-              errors.confirmedAgeAtLeast18 ? "age-confirmation-error" : undefined
-            }
-            {...register("confirmedAgeAtLeast18")}
-          />
-          <span className="text-sm leading-6 text-slate-600">
-            Declaro que tenho 18 anos ou mais. Esta \u00e9 uma autodeclara\u00e7\u00e3o.
-          </span>
-        </label>
-        {errors.confirmedAgeAtLeast18 ? (
-          <p id="age-confirmation-error" role="alert" className="mt-2 text-sm font-medium text-red-600">
-            {errors.confirmedAgeAtLeast18.message}
           </p>
         ) : null}
       </div>
@@ -555,13 +537,6 @@ export function CustomerRegistrationForm() {
               className="font-semibold text-blue-600 hover:text-blue-700"
             >
               Termos de Uso
-            </Link>{" "}
-            e a{" "}
-            <Link
-              href="/politica-de-privacidade"
-              className="font-semibold text-blue-600 hover:text-blue-700"
-            >
-              Política de Privacidade
             </Link>
             .
           </span>
@@ -574,6 +549,65 @@ export function CustomerRegistrationForm() {
             className="mt-2 text-sm font-medium text-red-600"
           >
             {errors.acceptedTerms.message}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            aria-invalid={Boolean(errors.acceptedPrivacyPolicy)}
+            aria-describedby={
+              errors.acceptedPrivacyPolicy
+                ? "accepted-privacy-policy-error"
+                : undefined
+            }
+            {...register("acceptedPrivacyPolicy")}
+          />
+
+          <span className="text-sm leading-6 text-slate-600">
+            Li e aceito a{" "}
+            <Link
+              href="/politica-de-privacidade"
+              className="font-semibold text-blue-600 hover:text-blue-700"
+            >
+              Política de Privacidade
+            </Link>
+            .
+          </span>
+        </label>
+
+        {errors.acceptedPrivacyPolicy ? (
+          <p
+            id="accepted-privacy-policy-error"
+            role="alert"
+            className="mt-2 text-sm font-medium text-red-600"
+          >
+            {errors.acceptedPrivacyPolicy.message}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            aria-invalid={Boolean(errors.confirmedAgeAtLeast18)}
+            aria-describedby={
+              errors.confirmedAgeAtLeast18 ? "age-confirmation-error" : undefined
+            }
+            {...register("confirmedAgeAtLeast18")}
+          />
+          <span className="text-sm leading-6 text-slate-600">
+            Declaro que tenho 18 anos ou mais. Esta é uma autodeclaração, não uma verificação documental.
+          </span>
+        </label>
+        {errors.confirmedAgeAtLeast18 ? (
+          <p id="age-confirmation-error" role="alert" className="mt-2 text-sm font-medium text-red-600">
+            {errors.confirmedAgeAtLeast18.message}
           </p>
         ) : null}
       </div>
