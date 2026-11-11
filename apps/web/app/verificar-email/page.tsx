@@ -11,6 +11,7 @@ import {
   confirmationSessionState,
   type ConfirmationSessionState,
 } from "./confirmation-session-state";
+import { registrationGuidance } from "./registration-guidance";
 
 type State = "loading" | "registration" | "invalid" | "missing" | "success";
 
@@ -24,13 +25,16 @@ export default function VerifyEmailPage() {
   const [loginHref, setLoginHref] = useState("/entrar");
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const [fromProfessionalProfile, setFromProfessionalProfile] = useState(false);
+  const [fromProfessionalRegistration, setFromProfessionalRegistration] = useState(false);
   const hasStartedConfirmation = useRef(false);
+  const guidance = registrationGuidance(fromProfessionalRegistration);
 
   useEffect(() => {
     const receivedToken = new URLSearchParams(window.location.hash.slice(1)).get("token");
     const from = new URLSearchParams(window.location.search).get("from");
-    const fromRegistration = from === "registration";
+    const fromRegistration = from === "registration" || from === "professional-registration";
     setFromProfessionalProfile(from === "professional-profile");
+    setFromProfessionalRegistration(from === "professional-registration");
     const returnTo = safeDirectedRequestReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
     setReturnTo(returnTo);
     setLoginHref(withDirectedRequestReturnTo("/entrar", returnTo));
@@ -91,7 +95,7 @@ export default function VerifyEmailPage() {
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-200/60">
         <h1 className="text-2xl font-bold text-slate-950">Confirmação de e-mail</h1>
         {state === "loading" ? <p className="mt-3 text-slate-600">Confirmando seu e-mail...</p> : null}
-        {state === "registration" ? <p className="mt-3 leading-6 text-slate-700">Cadastro concluído. Confira seu e-mail e a caixa de spam para encontrar o link de confirmação. Se não o receber, solicite um novo link abaixo.</p> : null}
+        {state === "registration" ? <p className="mt-3 leading-6 text-slate-700">{guidance.message}</p> : null}
         {state === "invalid" ? <p className="mt-3 text-red-700">Este link é inválido ou expirou. Solicite um novo link.</p> : null}
         {state === "missing" ? <p className="mt-3 text-slate-700">Abra o link completo enviado para seu e-mail.</p> : null}
         {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Sua sessão foi mantida.</p>{fromProfessionalProfile ? <ResultLink href="/profissional/perfil" label="Voltar ao perfil profissional" /> : user?.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false ? <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"><h2 className="font-semibold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto para a análise privada. Isso não significa aprovação automática da identidade.</p><div className="mt-4 flex flex-wrap gap-3"><ResultLink href="/profissional/perfil" label="Completar cadastro" compact /><ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Fazer depois" compact /></div></div> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
@@ -105,7 +109,7 @@ export default function VerifyEmailPage() {
             {resendState === "sent" ? <p className="mt-3 text-sm text-slate-700">Se houver uma conta não confirmada com este e-mail, enviaremos as instruções.</p> : null}
           </form>
         ) : null}
-        {state !== "success" ? <ResultLink href={loginHref} label="Entrar" /> : null}
+        {state !== "success" ? <ResultLink href={loginHref} label={guidance.loginLabel} /> : null}
       </section>
     </main>
   );
