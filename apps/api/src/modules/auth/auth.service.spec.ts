@@ -1729,6 +1729,9 @@ describe("AuthService", () => {
       initialRole,
       acceptedTermsVersion: "1.0",
       acceptedPrivacyPolicyVersion: "1.0",
+      acceptedTerms: true,
+      acceptedPrivacyPolicy: true,
+      confirmedAgeAtLeast18: true,
       categorySlugs,
       ...(initialRole === Role.PROFESSIONAL
         ? {

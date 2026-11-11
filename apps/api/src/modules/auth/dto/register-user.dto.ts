@@ -2,6 +2,7 @@ import { Transform } from "class-transformer";
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -92,6 +93,18 @@ export class RegisterUserDto {
   @MinLength(1)
   @MaxLength(32)
   acceptedPrivacyPolicyVersion!: string;
+
+  @IsOptional()
+  @IsBoolean({ message: "A aceita\u00e7\u00e3o dos Termos de Uso deve ser booleana." })
+  acceptedTerms?: boolean;
+
+  @IsOptional()
+  @IsBoolean({ message: "A aceita\u00e7\u00e3o da Pol\u00edtica de Privacidade deve ser booleana." })
+  acceptedPrivacyPolicy?: boolean;
+
+  @IsOptional()
+  @IsBoolean({ message: "A confirma\u00e7\u00e3o de maioridade deve ser booleana." })
+  confirmedAgeAtLeast18?: boolean;
 
   @Transform(({ value }: { value: unknown }) =>
     Array.isArray(value)
