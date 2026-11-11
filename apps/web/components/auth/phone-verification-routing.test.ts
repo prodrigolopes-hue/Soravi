@@ -5,6 +5,7 @@ import {
   phoneVerificationDestination,
   phoneVerificationGuardDecision,
   postLoginDestination,
+  safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
 
@@ -22,6 +23,17 @@ test("define destinos por papel e fallback seguro", () => {
   );
   assert.equal(phoneVerificationDestination(["ADMIN"]), "/admin");
   assert.equal(phoneVerificationDestination([]), "/");
+});
+
+test("preserva somente retornos seguros da verificacao de telefone", () => {
+  assert.equal(safePhoneVerificationReturnTo("/conta/dados"), "/conta/dados");
+  assert.equal(safePhoneVerificationReturnTo("/conta/telefone"), "/conta/telefone");
+  assert.equal(safePhoneVerificationReturnTo("/admin"), null);
+  assert.equal(safePhoneVerificationReturnTo("https://example.com"), null);
+  assert.equal(
+    phoneVerificationDestination(["ADMIN"], "/conta/dados"),
+    "/conta/dados",
+  );
 });
 
 test("login exige telefone dos papeis comuns e libera ADMIN", () => {
@@ -205,6 +217,41 @@ test("ADMIN fica fora da exigencia e sai da verificacao para admin", () => {
       user: admin,
     }),
     { type: "redirect", destination: "/admin" },
+  );
+});
+
+test("ADMIN tambem cliente pode verificar telefone a partir dos dados e retornar ao contexto", () => {
+  const adminCustomer = {
+    phoneVerified: false,
+    roles: ["ADMIN", "CUSTOMER"],
+  } as const;
+
+  assert.deepEqual(
+    phoneVerificationGuardDecision({
+      isLoading: false,
+      pathname: "/verificar-telefone",
+      returnTo: "/conta/dados",
+      user: adminCustomer,
+    }),
+    { type: "allow" },
+  );
+  assert.deepEqual(
+    phoneVerificationGuardDecision({
+      isLoading: false,
+      pathname: "/verificar-telefone",
+      returnTo: "/conta/dados",
+      user: { ...adminCustomer, phoneVerified: true },
+    }),
+    { type: "redirect", destination: "/conta/dados" },
+  );
+  assert.deepEqual(
+    phoneVerificationGuardDecision({
+      isLoading: false,
+      pathname: "/verificar-telefone",
+      returnTo: "/conta/dados",
+      user: { phoneVerified: true, roles: ["ADMIN"] },
+    }),
+    { type: "redirect", destination: "/conta/dados" },
   );
 });
 

@@ -3,13 +3,37 @@ import {
   withDirectedRequestReturnTo,
 } from "../../lib/directed-service-request";
 
+const PHONE_VERIFICATION_ACCOUNT_RETURN_PATHS = new Set([
+  "/conta/dados",
+  "/conta/telefone",
+]);
+
+export function safePhoneVerificationReturnTo(
+  returnTo?: string | null,
+): string | null {
+  const directedDestination = safeDirectedRequestReturnTo(returnTo);
+
+  if (directedDestination) {
+    return directedDestination;
+  }
+
+  return typeof returnTo === "string" &&
+    PHONE_VERIFICATION_ACCOUNT_RETURN_PATHS.has(returnTo)
+    ? returnTo
+    : null;
+}
+
 export function phoneVerificationDestination(
   roles: readonly string[],
   returnTo?: string | null,
 ): string {
-  const directedDestination = safeDirectedRequestReturnTo(returnTo);
+  const directedDestination = safePhoneVerificationReturnTo(returnTo);
 
-  if (directedDestination && roles.includes("CUSTOMER")) {
+  if (
+    directedDestination &&
+    (PHONE_VERIFICATION_ACCOUNT_RETURN_PATHS.has(directedDestination) ||
+      roles.includes("CUSTOMER"))
+  ) {
     return directedDestination;
   }
 
@@ -73,6 +97,7 @@ export type PhoneVerificationGuardDecision =
 interface PhoneVerificationGuardInput {
   isLoading: boolean;
   pathname: string;
+  returnTo?: string | null;
   user: PostLoginUser | null;
 }
 
@@ -140,6 +165,7 @@ function redirectDecision(
 export function phoneVerificationGuardDecision({
   isLoading,
   pathname,
+  returnTo,
   user,
 }: PhoneVerificationGuardInput): PhoneVerificationGuardDecision {
   if (isLoading) {
@@ -152,6 +178,17 @@ export function phoneVerificationGuardDecision({
 
   // Exceção explícita do MVP para evitar lockout administrativo.
   if (user.roles.includes("ADMIN")) {
+    const verificationReturnTo = safePhoneVerificationReturnTo(returnTo);
+
+    if (pathname === "/verificar-telefone" && verificationReturnTo) {
+      return user.phoneVerified
+        ? redirectDecision(
+          pathname,
+          phoneVerificationDestination(user.roles, verificationReturnTo),
+        )
+        : { type: "allow" };
+    }
+
     return pathname === "/verificar-telefone"
       ? redirectDecision(pathname, "/admin")
       : { type: "allow" };
@@ -181,7 +218,7 @@ export function phoneVerificationGuardDecision({
   if (pathname === "/verificar-telefone") {
     return redirectDecision(
       pathname,
-      phoneVerificationDestination(user.roles),
+      phoneVerificationDestination(user.roles, returnTo),
     );
   }
 
