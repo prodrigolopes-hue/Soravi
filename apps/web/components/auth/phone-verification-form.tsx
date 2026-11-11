@@ -185,6 +185,7 @@ export function PhoneVerificationForm() {
   }
 
   function openPhoneChange(): void {
+    resetPhoneChange({ phone: "", currentPassword: "" });
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsEditingPhone(true);
@@ -272,11 +273,13 @@ export function PhoneVerificationForm() {
             id="phone-verification-title"
             className="mt-5 text-3xl font-bold tracking-tight text-slate-950"
           >
-            Verifique seu telefone
+            {isEditingPhone ? "Alterar telefone" : "Verifique seu telefone"}
           </h1>
 
           <p className="mt-3 leading-7 text-slate-600">
-            Enviaremos um código de 6 dígitos para o seu WhatsApp.
+            {isEditingPhone
+              ? "Informe o novo número e confirme sua senha atual. O telefone só será alterado ao salvar este formulário."
+              : "Enviaremos um código de 6 dígitos para o seu WhatsApp para verificar o telefone atual."}
           </p>
 
           <div aria-live="polite">
@@ -301,6 +304,7 @@ export function PhoneVerificationForm() {
           {isEditingPhone ? (
             <form
               className="mt-8 space-y-5"
+              autoComplete="off"
               noValidate
               onSubmit={handlePhoneChangeSubmit(submitPhoneChange)}
             >
@@ -315,7 +319,7 @@ export function PhoneVerificationForm() {
                   id="new-phone"
                   type="tel"
                   inputMode="numeric"
-                  autoComplete="tel"
+                  autoComplete="off"
                   aria-describedby={phoneChangeErrors.phone ? "new-phone-error" : "new-phone-hint"}
                   aria-invalid={Boolean(phoneChangeErrors.phone)}
                   className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
