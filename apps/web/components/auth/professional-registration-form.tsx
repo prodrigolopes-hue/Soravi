@@ -374,7 +374,7 @@ export function ProfessionalRegistrationForm() {
       setFormMessage(
         "Cadastro profissional concluído. Confira seu e-mail e a caixa de spam para confirmar o acesso.",
       );
-      router.replace("/verificar-email?from=registration");
+      router.replace("/verificar-email?from=professional-registration");
     } catch {
       setFormMessage(null);
       setFormError(
