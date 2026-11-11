@@ -29,6 +29,10 @@ export function SiteFooter() {
               Política de privacidade
             </a>
             <span className="text-slate-400">•</span>
+            <a href="/cookies-e-preferencias" className="font-medium text-sky-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2">
+              Cookies
+            </a>
+            <span className="text-slate-400">•</span>
             <a href="/termos-de-uso" className="font-medium text-sky-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2">
               Termos de uso
             </a>

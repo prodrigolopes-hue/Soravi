@@ -71,6 +71,10 @@ const customerRegistrationSchema = z
       message:
         "Você precisa aceitar os Termos de Uso e a Política de Privacidade.",
     }),
+    confirmedAgeAtLeast18: z.boolean().refine((value) => value, {
+      message:
+        "Confirme que voc\u00ea tem 18 anos ou mais para criar uma conta.",
+    }),
   })
   .refine(
     (values) => values.password === values.passwordConfirmation,
@@ -139,6 +143,7 @@ export function CustomerRegistrationForm() {
       password: "",
       passwordConfirmation: "",
       acceptedTerms: false,
+      confirmedAgeAtLeast18: false,
     },
     mode: "onSubmit",
   });
@@ -162,6 +167,9 @@ export function CustomerRegistrationForm() {
           initialRole: "CUSTOMER",
           acceptedTermsVersion: LEGAL_DOCUMENT_VERSIONS.terms,
           acceptedPrivacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.privacyPolicy,
+          acceptedTerms: data.acceptedTerms,
+          acceptedPrivacyPolicy: data.acceptedTerms,
+          confirmedAgeAtLeast18: data.confirmedAgeAtLeast18,
         }),
       });
 
@@ -208,6 +216,7 @@ export function CustomerRegistrationForm() {
         password: "",
         passwordConfirmation: "",
         acceptedTerms: false,
+        confirmedAgeAtLeast18: false,
       });
       router.replace(`/verificar-email?from=registration${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`);
     } catch {
@@ -295,6 +304,28 @@ export function CustomerRegistrationForm() {
             className="mt-2 text-sm font-medium text-red-600"
           >
             {errors.name.message}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            aria-invalid={Boolean(errors.confirmedAgeAtLeast18)}
+            aria-describedby={
+              errors.confirmedAgeAtLeast18 ? "age-confirmation-error" : undefined
+            }
+            {...register("confirmedAgeAtLeast18")}
+          />
+          <span className="text-sm leading-6 text-slate-600">
+            Declaro que tenho 18 anos ou mais. Esta \u00e9 uma autodeclara\u00e7\u00e3o.
+          </span>
+        </label>
+        {errors.confirmedAgeAtLeast18 ? (
+          <p id="age-confirmation-error" role="alert" className="mt-2 text-sm font-medium text-red-600">
+            {errors.confirmedAgeAtLeast18.message}
           </p>
         ) : null}
       </div>
