@@ -43,6 +43,17 @@ describe("RegisterUserDto phone", () => {
   });
 });
 
+describe("RegisterUserDto confirmações de transição", () => {
+  it("aceita a ausência temporária das confirmações", async () => {
+    const input = createDto(undefined);
+    delete input.acceptedTerms;
+    delete input.acceptedPrivacyPolicy;
+    delete input.confirmedAgeAtLeast18;
+
+    await expect(validate(input)).resolves.toHaveLength(0);
+  });
+});
+
 describe("RegisterUserDto password", () => {
   it.each([
     "SenhaSegura123",
@@ -119,6 +130,9 @@ function createDto(phone: string | null | undefined): RegisterUserDto {
     initialRole: Role.CUSTOMER,
     acceptedTermsVersion: "1.0",
     acceptedPrivacyPolicyVersion: "1.0",
+    acceptedTerms: true,
+    acceptedPrivacyPolicy: true,
+    confirmedAgeAtLeast18: true,
   });
 }
 
