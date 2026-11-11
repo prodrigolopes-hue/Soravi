@@ -139,6 +139,7 @@ export function AccountDataPage() {
                   <ShieldCheck aria-hidden="true" className="size-4" />
                   {user.phoneVerified ? "Telefone verificado" : "Telefone não verificado"}
                 </span>
+                {!user.phoneVerified ? <Link href="/verificar-telefone?returnTo=%2Fconta%2Fdados" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-blue-600 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Verificar telefone</Link> : null}
               </dd>
             </div>
           </dl>

@@ -22,6 +22,7 @@ export function PhoneVerificationGuard({
   const decision = phoneVerificationGuardDecision({
     isLoading,
     pathname,
+    returnTo: searchParams.get("returnTo"),
     user,
   });
   const directedReturnTo = pathname === "/solicitacoes/nova"

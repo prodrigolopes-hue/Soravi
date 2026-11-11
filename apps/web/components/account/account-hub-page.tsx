@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, LockKeyhole, Phone, UserRound } from "lucide-react";
+import { LoaderCircle, LockKeyhole, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -60,12 +60,6 @@ export function AccountHubPage() {
         icon: UserRound,
       }]
       : []),
-    {
-      title: "Telefone",
-      description: "Altere ou verifique seu telefone pelo fluxo seguro.",
-      href: "/conta/telefone",
-      icon: Phone,
-    },
     {
       title: "Segurança",
       description: "Atualize sua senha e proteja o acesso à sua conta.",

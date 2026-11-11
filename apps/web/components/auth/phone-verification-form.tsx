@@ -18,9 +18,9 @@ import {
 import { useAuth } from "./auth-provider";
 import {
   phoneVerificationDestination,
+  safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
-import { safeDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const GENERIC_ERROR_MESSAGE =
@@ -91,9 +91,8 @@ export function PhoneVerificationForm() {
 
   const destination = phoneVerificationDestination(
     user?.roles ?? [],
-    safeDirectedRequestReturnTo(searchParams.get("returnTo")),
+    safePhoneVerificationReturnTo(searchParams.get("returnTo")),
   );
-  const isAdmin = Boolean(user?.roles.includes("ADMIN"));
 
   useEffect(() => {
     if (isLoading) {
@@ -105,10 +104,10 @@ export function PhoneVerificationForm() {
       return;
     }
 
-    if (isAdmin || user.phoneVerified) {
+    if (user.phoneVerified) {
       router.replace(destination);
     }
-  }, [accessToken, destination, isAdmin, isAuthenticated, isLoading, router, user]);
+  }, [accessToken, destination, isAuthenticated, isLoading, router, user]);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) {
@@ -186,6 +185,7 @@ export function PhoneVerificationForm() {
   }
 
   function openPhoneChange(): void {
+    resetPhoneChange({ phone: "", currentPassword: "" });
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsEditingPhone(true);
@@ -244,7 +244,6 @@ export function PhoneVerificationForm() {
     !isAuthenticated ||
     !accessToken ||
     !user ||
-    isAdmin ||
     user.phoneVerified
   ) {
     return (
@@ -274,11 +273,13 @@ export function PhoneVerificationForm() {
             id="phone-verification-title"
             className="mt-5 text-3xl font-bold tracking-tight text-slate-950"
           >
-            Verifique seu telefone
+            {isEditingPhone ? "Alterar telefone" : "Verifique seu telefone"}
           </h1>
 
           <p className="mt-3 leading-7 text-slate-600">
-            Enviaremos um código de 6 dígitos para o seu WhatsApp.
+            {isEditingPhone
+              ? "Informe o novo número e confirme sua senha atual. O telefone só será alterado ao salvar este formulário."
+              : "Enviaremos um código de 6 dígitos para o seu WhatsApp para verificar o telefone atual."}
           </p>
 
           <div aria-live="polite">
@@ -303,6 +304,7 @@ export function PhoneVerificationForm() {
           {isEditingPhone ? (
             <form
               className="mt-8 space-y-5"
+              autoComplete="off"
               noValidate
               onSubmit={handlePhoneChangeSubmit(submitPhoneChange)}
             >
@@ -317,7 +319,7 @@ export function PhoneVerificationForm() {
                   id="new-phone"
                   type="tel"
                   inputMode="numeric"
-                  autoComplete="tel"
+                  autoComplete="off"
                   aria-describedby={phoneChangeErrors.phone ? "new-phone-error" : "new-phone-hint"}
                   aria-invalid={Boolean(phoneChangeErrors.phone)}
                   className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
