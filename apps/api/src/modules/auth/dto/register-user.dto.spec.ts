@@ -43,15 +43,19 @@ describe("RegisterUserDto phone", () => {
   });
 });
 
-describe("RegisterUserDto confirmações de transição", () => {
-  it("aceita a ausência temporária das confirmações", async () => {
-    const input = createDto(undefined);
-    delete input.acceptedTerms;
-    delete input.acceptedPrivacyPolicy;
-    delete input.confirmedAgeAtLeast18;
+describe("RegisterUserDto confirmações obrigatórias", () => {
+  it.each(["acceptedTerms", "acceptedPrivacyPolicy", "confirmedAgeAtLeast18"])(
+    "rejeita %s ausente ou não confirmada",
+    async (field) => {
+      const falseValue = createDto(undefined);
+      Object.assign(falseValue, { [field]: false });
+      await expect(validate(falseValue)).resolves.not.toHaveLength(0);
 
-    await expect(validate(input)).resolves.toHaveLength(0);
-  });
+      const absentValue = createDto(undefined);
+      delete absentValue[field as keyof RegisterUserDto];
+      await expect(validate(absentValue)).resolves.not.toHaveLength(0);
+    },
+  );
 });
 
 describe("RegisterUserDto password", () => {
