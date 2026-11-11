@@ -27,6 +27,7 @@ export interface AuthUser {
   roles: string[];
   emailVerified: boolean;
   phoneVerified: boolean;
+  professionalRegistrationCompleted: boolean;
   createdAt: string;
   customerProfile: {
     id: string;
@@ -47,7 +48,7 @@ interface AuthContextValue {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<void>;
+  refreshSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -93,6 +94,7 @@ function isAuthUser(value: unknown): value is AuthUser {
     Array.isArray(candidate.roles) &&
     typeof candidate.emailVerified === "boolean" &&
     typeof candidate.phoneVerified === "boolean" &&
+    typeof candidate.professionalRegistrationCompleted === "boolean" &&
     typeof candidate.createdAt === "string"
   );
 }
@@ -280,7 +282,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [clearSession]);
 
-  const refreshSession = useCallback(async (): Promise<void> => {
+  const refreshSession = useCallback(async (): Promise<boolean> => {
     const operationVersion = authOperationVersionRef.current;
 
     setIsLoading(true);
@@ -289,20 +291,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const refreshResult = await requestRefreshSession();
 
       if (operationVersion !== authOperationVersionRef.current) {
-        return;
+        return false;
       }
 
       if (!refreshResult) {
         clearSession();
-        return;
+        return false;
       }
 
       setAccessToken(refreshResult.accessToken);
       setUser(refreshResult.user);
+      return true;
     } catch {
       if (operationVersion === authOperationVersionRef.current) {
         clearSession();
       }
+      return false;
     } finally {
       if (operationVersion === authOperationVersionRef.current) {
         setIsLoading(false);

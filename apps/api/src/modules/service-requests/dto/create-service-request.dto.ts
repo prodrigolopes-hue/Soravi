@@ -8,6 +8,7 @@ import {
   MaxLength,
   MinLength,
   ValidateNested,
+  ValidateIf,
   IsIn,
 } from "class-validator";
 
@@ -81,6 +82,10 @@ export class CreateServiceRequestDto {
   visibleProposalLimit?: number;
   @IsUUID("4", { message: "A categoria deve possuir um identificador válido." })
   categoryId!: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsUUID("4", { message: "O destinatário deve possuir um identificador válido." })
+  targetProfessionalProfileId?: string;
 
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? value.trim() : value,

@@ -13,6 +13,12 @@ import {
   validateSync,
 } from "class-validator";
 
+import {
+  createCpfProtector,
+  isCpfProtectionKeyId,
+  type CpfProtector,
+} from "../common/cpf/cpf-protection";
+
 const environmentNames = [
   "development",
   "test",
@@ -26,6 +32,11 @@ const phoneVerificationDeliveryProviders = [
   "meta",
 ] as const;
 
+const outboundWhatsAppDeliveryProviders = ["unavailable", "meta"] as const;
+
+type OutboundWhatsAppDeliveryProvider =
+  (typeof outboundWhatsAppDeliveryProviders)[number];
+
 type PhoneVerificationDeliveryProvider =
   (typeof phoneVerificationDeliveryProviders)[number];
 
@@ -33,6 +44,29 @@ const passwordResetDeliveryProviders = ["unavailable", "resend"] as const;
 
 type PasswordResetDeliveryProvider =
   (typeof passwordResetDeliveryProviders)[number];
+
+const cpfProtectionVariableNames = [
+  "CPF_ENCRYPTION_KEY",
+  "CPF_ENCRYPTION_KEY_ID",
+  "CPF_HMAC_KEY",
+  "CPF_HMAC_KEY_ID",
+] as const;
+
+type CpfProtectionVariableName =
+  (typeof cpfProtectionVariableNames)[number];
+
+type CpfProtectionEnvironment = Partial<
+  Record<CpfProtectionVariableName, unknown>
+>;
+
+type PersonalIdentityRecordingEnvironment = CpfProtectionEnvironment & {
+  PERSONAL_IDENTITY_RECORDING_ENABLED?: unknown;
+  PROFESSIONAL_IDENTITY_SELFIE_ENABLED?: unknown;
+  IDENTITY_EVIDENCE_DISPOSAL_ENABLED?: unknown;
+};
+
+const CPF_PROTECTION_CONFIGURATION_ERROR =
+  "Variáveis de ambiente inválidas: configuração de proteção de CPF inválida.";
 
 class EnvironmentVariables {
   @IsIn(environmentNames)
@@ -78,6 +112,26 @@ class EnvironmentVariables {
   @IsString()
   @MinLength(32)
   PHONE_VERIFICATION_HMAC_SECRET!: string;
+
+  CPF_ENCRYPTION_KEY?: string;
+
+  CPF_ENCRYPTION_KEY_ID?: string;
+
+  CPF_HMAC_KEY?: string;
+
+  CPF_HMAC_KEY_ID?: string;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  PERSONAL_IDENTITY_RECORDING_ENABLED?: string;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  PROFESSIONAL_IDENTITY_SELFIE_ENABLED?: string;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  IDENTITY_EVIDENCE_DISPOSAL_ENABLED?: string;
 
   @Type(() => Number)
   @IsInt()
@@ -141,6 +195,56 @@ class EnvironmentVariables {
   @Max(15000)
   @IsOptional()
   META_WHATSAPP_HTTP_TIMEOUT_MS = 5000;
+
+  @IsIn(["true", "false"])
+  @IsOptional()
+  OUTBOUND_WHATSAPP_DELIVERY_ENABLED = "false";
+
+  @IsIn(outboundWhatsAppDeliveryProviders)
+  @IsOptional()
+  OUTBOUND_WHATSAPP_DELIVERY_PROVIDER: OutboundWhatsAppDeliveryProvider =
+    "unavailable";
+
+  @IsString()
+  @IsOptional()
+  OUTBOUND_WHATSAPP_TEST_NUMBERS?: string;
+
+  @IsString()
+  @IsOptional()
+  OUTBOUND_WHATSAPP_CUTOFF_AT?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_OPPORTUNITY_TEMPLATE_NAME?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_PROPOSAL_TEMPLATE_NAME?: string;
+
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_TEMPLATE_LANGUAGE = "pt_BR";
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_ACCESS_TOKEN?: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @MinLength(1)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_PHONE_NUMBER_ID?: string;
+
+  @ValidateIf((_environment, value) => value !== "")
+  @IsString()
+  @Matches(/^v\d+\.\d+$/u)
+  @IsOptional()
+  META_WHATSAPP_NOTIFICATION_GRAPH_API_VERSION?: string;
 
   @IsIn(passwordResetDeliveryProviders)
   @IsOptional()
@@ -288,6 +392,36 @@ export function validateEnvironment(
     }
   }
 
+  if (validatedEnvironment.OUTBOUND_WHATSAPP_DELIVERY_ENABLED === "true") {
+    const cutoff = validatedEnvironment.OUTBOUND_WHATSAPP_CUTOFF_AT;
+    const testNumbers = validatedEnvironment.OUTBOUND_WHATSAPP_TEST_NUMBERS;
+    if (!cutoff || Number.isNaN(Date.parse(cutoff)) || !testNumbers?.trim()) {
+      throw new Error(
+        "Variáveis de ambiente inválidas: piloto WhatsApp requer OUTBOUND_WHATSAPP_TEST_NUMBERS e OUTBOUND_WHATSAPP_CUTOFF_AT.",
+      );
+    }
+    if (validatedEnvironment.OUTBOUND_WHATSAPP_DELIVERY_PROVIDER === "meta") {
+      const required = [
+        "META_WHATSAPP_NOTIFICATION_ACCESS_TOKEN",
+        "META_WHATSAPP_NOTIFICATION_PHONE_NUMBER_ID",
+        "META_WHATSAPP_NOTIFICATION_GRAPH_API_VERSION",
+        "META_WHATSAPP_OPPORTUNITY_TEMPLATE_NAME",
+        "META_WHATSAPP_PROPOSAL_TEMPLATE_NAME",
+        "FRONTEND_PUBLIC_URL",
+      ] as const;
+      if (
+        required.some((key) => !validatedEnvironment[key]) ||
+        !isHttpsUrl(validatedEnvironment.FRONTEND_PUBLIC_URL)
+      ) {
+        throw new Error("Variáveis de ambiente inválidas: configuração Meta de notificações incompleta.");
+      }
+    }
+  }
+
+  createPersonalIdentityRecordingConfigurationFromEnvironment(
+    validatedEnvironment,
+  );
+
   if (
     validatedEnvironment.PHONE_VERIFICATION_HMAC_SECRET ===
     validatedEnvironment.JWT_ACCESS_SECRET
@@ -319,4 +453,87 @@ export function validateEnvironment(
   }
 
   return validatedEnvironment;
+}
+
+function isHttpsUrl(value: string | undefined): boolean {
+  try {
+    return new URL(value ?? "").protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cria o protetor de CPF somente quando as quatro variáveis correspondentes
+ * estão configuradas. A ausência integral mantém o recurso desabilitado.
+ */
+export function createCpfProtectorFromEnvironment(
+  environment: CpfProtectionEnvironment,
+): CpfProtector | undefined {
+  const values = cpfProtectionVariableNames.map((name) => environment[name]);
+  if (values.every((value) => value === undefined)) {
+    return undefined;
+  }
+
+  try {
+    if (
+      !values.every(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    ) {
+      throw new Error();
+    }
+
+    const [encryptionKey, encryptionKeyId, hmacKey, hmacKeyId] = values;
+
+    if (
+      !isCpfProtectionKeyId(encryptionKeyId) ||
+      !isCpfProtectionKeyId(hmacKeyId)
+    ) {
+      throw new Error();
+    }
+
+    return createCpfProtector({
+      encryptionKey: decodeCanonicalBase64Key(encryptionKey),
+      encryptionKeyId,
+      hmacKey: decodeCanonicalBase64Key(hmacKey),
+    });
+  } catch {
+    throw new Error(CPF_PROTECTION_CONFIGURATION_ERROR);
+  }
+}
+
+export interface PersonalIdentityRecordingConfiguration {
+  cpfProtector: CpfProtector;
+  hmacKeyId: string;
+}
+
+export function createPersonalIdentityRecordingConfigurationFromEnvironment(
+  environment: PersonalIdentityRecordingEnvironment,
+): PersonalIdentityRecordingConfiguration | undefined {
+  const protector = createCpfProtectorFromEnvironment(environment);
+  const enabled = environment.PERSONAL_IDENTITY_RECORDING_ENABLED;
+
+  if (enabled === undefined || enabled === "false") return undefined;
+
+  if (enabled !== "true" || !protector || typeof environment.CPF_HMAC_KEY_ID !== "string") {
+    throw new Error(CPF_PROTECTION_CONFIGURATION_ERROR);
+  }
+
+  return { cpfProtector: protector, hmacKeyId: environment.CPF_HMAC_KEY_ID };
+}
+
+function decodeCanonicalBase64Key(value: string): Buffer {
+  if (!/^[A-Za-z0-9+/]{43}=$/u.test(value)) {
+    throw new Error();
+  }
+
+  const key = Buffer.from(value, "base64");
+
+  if (key.length !== 32 || key.toString("base64") !== value) {
+    throw new Error();
+  }
+
+  return key;
 }

@@ -14,8 +14,8 @@ describe("PhoneVerificationChallenge schema and migration", () => {
 
   it("define model, relação e campos seguros do challenge", () => {
     expect(schema).toContain("model PhoneVerificationChallenge {");
-    expect(schema).toContain(
-      "phoneVerificationChallenges       PhoneVerificationChallenge[]",
+    expect(schema).toMatch(
+      /phoneVerificationChallenges\s+PhoneVerificationChallenge\[\]/,
     );
     expect(schema).toContain("phoneNormalized String");
     expect(schema).toContain("codeHash        String");

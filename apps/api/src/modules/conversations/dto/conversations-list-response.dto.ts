@@ -18,6 +18,7 @@ export interface ConversationListItemProperties {
   updatedAt: Date;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
   };
   contract: {
@@ -31,7 +32,7 @@ export class ConversationListItemResponseDto {
   readonly id: string;
   readonly status: ConversationStatus;
   readonly updatedAt: Date;
-  readonly serviceRequest: { id: string; title: string };
+  readonly serviceRequest: { id: string; publicCode: string; title: string };
   readonly contract: { status: ContractStatus };
   readonly lastMessage: ConversationListLastMessageProperties | null;
   readonly hasUnread: boolean;

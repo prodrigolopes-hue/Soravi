@@ -6,7 +6,9 @@ import {
   NotificationType,
   Prisma,
   ProfessionalVerificationStatus,
+  Role,
   ServiceRequestStatus,
+  UserStatus,
 } from "../../generated/prisma/client";
 import { OutboundNotificationsService } from "../notifications/outbound-notifications.service";
 
@@ -54,26 +56,71 @@ export class ServiceOpportunityDistributionService {
           opportunitiesDispatchedAt: null,
           deletedAt: null,
         },
-        select: { categoryId: true },
+        select: {
+          categoryId: true,
+          targetProfessionalProfileId: true,
+          category: {
+            select: {
+              isActive: true,
+            },
+          },
+          customerProfile: {
+            select: {
+              userId: true,
+            },
+          },
+        },
       });
 
       if (!serviceRequest) {
         return NOT_DISPATCHED;
       }
 
+      if (!serviceRequest.category.isActive) {
+        if (serviceRequest.targetProfessionalProfileId) {
+          await transaction.serviceRequest.update({
+            where: { id: serviceRequestId },
+            data: { opportunitiesDispatchedAt: now, targetProfessionalUnavailableAt: now },
+          });
+          return { dispatched: true, opportunitiesCreated: 0 };
+        }
+        return NOT_DISPATCHED;
+      }
+
       const professionals = await transaction.professionalProfile.findMany({
         where: {
+          ...(serviceRequest.targetProfessionalProfileId
+            ? { id: serviceRequest.targetProfessionalProfileId }
+            : {}),
+          userId: {
+            not: serviceRequest.customerProfile.userId,
+          },
           deletedAt: null,
           isAvailable: true,
           verificationStatus: ProfessionalVerificationStatus.APPROVED,
+          user: {
+            deletedAt: null,
+            status: UserStatus.ACTIVE,
+            roles: { some: { role: Role.PROFESSIONAL } },
+          },
           professionalCategories: {
-            some: { categoryId: serviceRequest.categoryId },
+            some: {
+              categoryId: serviceRequest.categoryId,
+              category: { isActive: true },
+            },
           },
         },
         select: { id: true, userId: true },
       });
 
       if (professionals.length === 0) {
+        if (serviceRequest.targetProfessionalProfileId) {
+          await transaction.serviceRequest.update({
+            where: { id: serviceRequestId },
+            data: { opportunitiesDispatchedAt: now, targetProfessionalUnavailableAt: now },
+          });
+          return { dispatched: true, opportunitiesCreated: 0 };
+        }
         return NOT_DISPATCHED;
       }
 

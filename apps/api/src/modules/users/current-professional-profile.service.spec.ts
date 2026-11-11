@@ -5,12 +5,15 @@ import { ProfessionalVerificationStatus } from "../../generated/prisma/client";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 import { CurrentProfessionalProfileNotFoundException } from "./errors/current-professional-profile-not-found.exception";
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
+import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
 
 describe("CurrentProfessionalProfileService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const profileId = "725afb87-2b81-4de7-9606-8f382fff3341";
   let service: CurrentProfessionalProfileService;
+  let photoReadServiceMock: { createTemporaryReadUrl: jest.Mock };
   let prismaMock: {
     professionalProfile: { findFirst: jest.Mock };
     $transaction: jest.Mock;
@@ -23,12 +26,14 @@ describe("CurrentProfessionalProfileService", () => {
     };
     category: { findMany: jest.Mock };
     professionalCategory: { deleteMany: jest.Mock; createMany: jest.Mock };
+    serviceRequest: { findFirst: jest.Mock };
+    $queryRaw: jest.Mock;
   };
 
   beforeEach(() => {
     transactionMock = {
       professionalProfile: {
-        findFirst: jest.fn().mockResolvedValue({ id: profileId }),
+        findFirst: jest.fn().mockResolvedValue({ id: profileId, professionalCategories: [{ categoryId: "category-eletrica" }] }),
         findUnique: jest.fn().mockResolvedValue(profile()),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -41,12 +46,18 @@ describe("CurrentProfessionalProfileService", () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      serviceRequest: { findFirst: jest.fn().mockResolvedValue(null) },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
     };
     prismaMock = {
       professionalProfile: { findFirst: jest.fn().mockResolvedValue(profile()) },
       $transaction: jest.fn((callback: (transaction: typeof transactionMock) => unknown) => callback(transactionMock)),
     };
-    service = new CurrentProfessionalProfileService(prismaMock as unknown as PrismaService);
+    photoReadServiceMock = { createTemporaryReadUrl: jest.fn().mockResolvedValue(null) };
+    service = new CurrentProfessionalProfileService(
+      prismaMock as unknown as PrismaService,
+      photoReadServiceMock as unknown as ProfessionalProfilePhotoReadService,
+    );
   });
 
   it("GET retorna o perfil e suas categorias", async () => {
@@ -61,7 +72,21 @@ describe("CurrentProfessionalProfileService", () => {
       categories: [
         { id: "category-eletrica", name: "Elétrica", slug: "eletrica" },
       ],
+      photo: null,
+      portfolio: [],
     });
+  });
+
+  it("preserva os dados quando a assinatura da foto falha", async () => {
+    photoReadServiceMock.createTemporaryReadUrl.mockResolvedValue(null);
+
+    const result = await service.findCurrent(userId);
+
+    expect(result).toEqual(expect.objectContaining({
+      id: profileId,
+      photo: null,
+    }));
+    expect(result).not.toHaveProperty("objectKey");
   });
 
   it("PATCH atualiza os campos básicos sem alterar verificationStatus", async () => {
@@ -123,6 +148,19 @@ describe("CurrentProfessionalProfileService", () => {
     expect(transactionMock.professionalProfile.update).not.toHaveBeenCalled();
   });
 
+  it("bloqueia a adição quando há solicitação própria em aberto na categoria", async () => {
+    transactionMock.category.findMany.mockResolvedValue([
+      { id: "category-eletrica", slug: "eletrica" },
+      { id: "category-pintura", slug: "pintura" },
+    ]);
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({ id: "service-request-id" });
+
+    await expect(service.updateCurrent(userId, input({ categorySlugs: ["eletrica", "pintura"] })))
+      .rejects.toBeInstanceOf(ProfessionalCategoryOpenServiceRequestException);
+
+    expect(transactionMock.professionalCategory.createMany).not.toHaveBeenCalled();
+  });
+
   it("preserva null para opcionais normalizados pelo DTO", async () => {
     await service.updateCurrent(userId, input({
       professionalTitle: " ",
@@ -173,6 +211,7 @@ describe("CurrentProfessionalProfileService", () => {
           },
         },
       ],
+      portfolioItems: [],
     };
   }
 });

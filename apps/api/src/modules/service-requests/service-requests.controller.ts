@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,7 +14,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 
-import { Role } from "../../generated/prisma/client";
+import { Role, ServiceRequestStatus } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
@@ -26,9 +27,27 @@ import { ServiceRequestPhotoResponseDto } from "./dto/service-request-photo-resp
 import { ServiceRequestResponseDto } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { AdminServiceRequestDetailResponseDto } from "./dto/admin-service-request-detail-response.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES } from "./service-request-photo-type";
 import { ServiceRequestsService } from "./service-requests.service";
+
+const ADMIN_SERVICE_REQUEST_STATUSES = [
+  ServiceRequestStatus.DRAFT,
+  ServiceRequestStatus.OPEN,
+  ServiceRequestStatus.RECEIVING_PROPOSALS,
+  ServiceRequestStatus.IN_NEGOTIATION,
+  ServiceRequestStatus.HIRED,
+  ServiceRequestStatus.IN_PROGRESS,
+  ServiceRequestStatus.COMPLETED,
+  ServiceRequestStatus.CANCELLED,
+] as const;
+
+function isAdminServiceRequestStatus(
+  value: string,
+): value is ServiceRequestStatus {
+  return ADMIN_SERVICE_REQUEST_STATUSES.some((status) => status === value);
+}
 
 interface UploadedPhoto {
   buffer: Buffer;
@@ -51,6 +70,35 @@ export class ServiceRequestsController {
     @Query() query: ServiceRequestsMineQueryDto,
   ): Promise<ServiceRequestsMineListResponseDto> {
     return this.serviceRequestsService.findMine(currentUser.id, query);
+  }
+
+  @Get("admin")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findAdmin(
+    @Query("code") code?: string,
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ): Promise<unknown> {
+    const parsedPage = page === undefined ? 1 : Number(page);
+    const parsedLimit = limit === undefined ? 20 : Number(limit);
+    if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_PAGINATION_INVALID", message: "Paginação inválida." });
+    if (status !== undefined && !isAdminServiceRequestStatus(status)) throw new BadRequestException({ code: "SERVICE_REQUEST_ADMIN_STATUS_INVALID", message: "Status inválido." });
+    return this.serviceRequestsService.findAdmin(code, status, parsedPage, parsedLimit);
+  }
+
+  @Get("admin/by-code/:publicCode")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findAdminDetailByPublicCode(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("publicCode") publicCode: string,
+  ): Promise<AdminServiceRequestDetailResponseDto> {
+    return this.serviceRequestsService.findAdminDetailByPublicCode(
+      currentUser.id,
+      publicCode,
+    );
   }
 
   @Get(":serviceRequestId")

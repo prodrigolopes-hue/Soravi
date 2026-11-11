@@ -1,14 +1,16 @@
-import Link from "next/link";
 import {
   Hammer,
   Leaf,
   Paintbrush,
-  Snowflake,
   PlugZap,
+  Snowflake,
   SprayCan,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+
 import { categoriesUrl } from "../../lib/api";
 
 interface ServiceCategory {
@@ -31,6 +33,18 @@ const categoryIconMap: Record<string, LucideIcon> = {
   "house-wrench": Wrench,
 };
 
+const categoryImageBySlug: Readonly<Record<string, string>> = {
+  eletricista: "/images/soravi-categoria-eletricista.webp",
+  encanador: "/images/soravi-categoria-encanador.webp",
+  pintor: "/images/soravi-categoria-pintor.webp",
+  diarista: "/images/soravi-categoria-diarista.webp",
+  jardineiro: "/images/soravi-categoria-jardineiro.webp",
+  "montador-de-moveis": "/images/soravi-categoria-montador-moveis.webp",
+  "climatizacao-e-ar-condicionado": "/images/soravi-categoria-climatizacao.webp",
+  "reparos-e-manutencao-residencial":
+    "/images/soravi-categoria-reparos-residenciais.webp",
+};
+
 function isServiceCategory(value: unknown): value is ServiceCategory {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -42,7 +56,8 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
     typeof candidate.id === "string" &&
     typeof candidate.name === "string" &&
     typeof candidate.slug === "string" &&
-    (typeof candidate.description === "string" || candidate.description === null) &&
+    (typeof candidate.description === "string" ||
+      candidate.description === null) &&
     (typeof candidate.icon === "string" || candidate.icon === null) &&
     typeof candidate.displayOrder === "number" &&
     Number.isInteger(candidate.displayOrder)
@@ -50,19 +65,13 @@ function isServiceCategory(value: unknown): value is ServiceCategory {
 }
 
 function resolveCategoryIcon(icon: string | null): LucideIcon {
-  if (!icon) {
-    return Wrench;
-  }
-
-  return categoryIconMap[icon] ?? Wrench;
+  return icon ? (categoryIconMap[icon] ?? Wrench) : Wrench;
 }
 
 async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
   try {
     const response = await fetch(categoriesUrl, {
-      next: {
-        revalidate: 300,
-      },
+      next: { revalidate: 300 },
     });
 
     if (!response.ok) {
@@ -71,11 +80,7 @@ async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
 
     const payload: unknown = await response.json();
 
-    if (!Array.isArray(payload)) {
-      return null;
-    }
-
-    return payload.filter(isServiceCategory);
+    return Array.isArray(payload) ? payload.filter(isServiceCategory) : null;
   } catch {
     return null;
   }
@@ -94,39 +99,55 @@ export async function ServiceCategories() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="font-semibold text-blue-600">Categorias de serviços</p>
-
           <h2
             id="service-categories-title"
             className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl"
           >
             Encontre ajuda para diferentes necessidades
           </h2>
-
           <p className="mt-4 text-lg leading-8 text-slate-600">
-            Explore algumas das categorias que estarão disponíveis na Soravi.
+            Conheça as categorias disponíveis para criar sua solicitação.
           </p>
         </div>
 
         {hasCategories ? (
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {categories.map(({ id, name, slug, description, icon }) => {
               const Icon = resolveCategoryIcon(icon);
+              const imageSrc = categoryImageBySlug[slug];
 
               return (
                 <Link
                   key={id}
-                  href={`/profissionais?categoria=${slug}`}
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  href={`/servicos/${encodeURIComponent(slug)}`}
+                  className="group h-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+                  aria-label={`Ver profissionais da categoria ${name}`}
                 >
-                  <div className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
-                    <Icon aria-hidden="true" className="size-5" />
+                  {imageSrc ? (
+                    <div className="aspect-video bg-slate-100">
+                      <Image
+                        src={imageSrc}
+                        alt={`Profissional de ${name} em atendimento`}
+                        width={960}
+                        height={540}
+                        sizes="(max-width: 639px) calc((100vw - 2.75rem) / 2), (max-width: 1023px) calc(50vw - 2rem), (max-width: 1279px) calc(25vw - 1.75rem), 320px"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-video items-center justify-center bg-blue-50 text-blue-600">
+                      <Icon aria-hidden="true" className="size-8" />
+                    </div>
+                  )}
+
+                  <div className="p-3 sm:p-5">
+                    <h3 className="text-sm font-semibold text-slate-950 group-hover:text-blue-700 sm:text-base">
+                      {name}
+                    </h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-600 sm:text-sm sm:leading-6">
+                      {description ?? "Categoria disponível para sua solicitação."}
+                    </p>
                   </div>
-
-                  <h3 className="mt-5 font-semibold text-slate-950">{name}</h3>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {description ?? "Profissionais disponíveis nesta categoria."}
-                  </p>
                 </Link>
               );
             })}

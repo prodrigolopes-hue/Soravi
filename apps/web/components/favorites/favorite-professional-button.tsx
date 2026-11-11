@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 
 import { favoriteProfessionalUrl, favoritesUrl } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import {
+  canManageFavorite,
+  favoriteRequestMethod,
+} from "./favorite-professional-button-state";
 
 type FavoriteItem = { id: string; professional: { id: string } };
 
@@ -22,7 +26,7 @@ export function FavoriteProfessionalButton({ professionalProfileId }: { professi
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
+  const isCustomer = canManageFavorite(user);
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken || !isCustomer) return;
@@ -43,12 +47,12 @@ export function FavoriteProfessionalButton({ professionalProfileId }: { professi
   async function toggle(): Promise<void> {
     if (!accessToken || isSaving) return;
     setIsSaving(true); setError(null);
-    const removing = favoriteId !== null;
+    const method = favoriteRequestMethod(favoriteId);
     try {
-      const response = await fetch(favoriteProfessionalUrl(professionalProfileId), { method: removing ? "DELETE" : "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      const response = await fetch(favoriteProfessionalUrl(professionalProfileId), { method, headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error();
-      setFavoriteId(removing ? null : (typeof payload === "object" && payload !== null && "data" in payload ? (payload as { data?: { id?: unknown } }).data?.id : (payload as { id?: unknown })?.id) as string ?? null);
+      setFavoriteId(method === "DELETE" ? null : (typeof payload === "object" && payload !== null && "data" in payload ? (payload as { data?: { id?: unknown } }).data?.id : (payload as { id?: unknown })?.id) as string ?? null);
     } catch { setError("Não foi possível atualizar os favoritos."); }
     finally { setIsSaving(false); }
   }

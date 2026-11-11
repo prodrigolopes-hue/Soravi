@@ -23,6 +23,7 @@ export interface ConversationResponseDtoProperties {
   };
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     status: ServiceRequestStatus;
   };
@@ -48,6 +49,7 @@ export class ConversationResponseDto {
   };
   readonly serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     status: ServiceRequestStatus;
   };

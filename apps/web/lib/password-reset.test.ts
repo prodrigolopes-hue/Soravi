@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { confirmPasswordReset, extractPasswordResetToken, PasswordResetApiError, PasswordResetRequestApiError, passwordConfirmationMessage, passwordResetErrorMessage, passwordResetRequestErrorMessage, passwordResetRequestSuccessMessage, passwordValidationMessage, requestPasswordReset } from "./password-reset";
+import { completePasswordReset, confirmPasswordReset, extractPasswordResetToken, PasswordResetApiError, PasswordResetRequestApiError, passwordConfirmationMessage, passwordResetErrorMessage, passwordResetRequestErrorMessage, passwordResetRequestSuccessMessage, passwordValidationMessage, requestPasswordReset } from "./password-reset";
 
 const token = "A".repeat(43);
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
@@ -27,6 +27,62 @@ test("request usa POST, body estrito e aceita 204", async () => {
   assert.equal(String(calls[0].init?.body).includes("email"), false);
   assert.equal(String(calls[0].init?.body).includes("userId"), false);
   assert.deepEqual(calls[0].init?.headers, { "Content-Type": "application/json" });
+});
+
+test("reset bem-sucedido encerra apenas a sessão deste navegador, mesmo para a mesma conta", async () => {
+  const calls = installFetch(new Response(null, { status: 204 }));
+  let browserSessionClosures = 0;
+
+  await completePasswordReset(token, "senhasegura123", async () => {
+    browserSessionClosures += 1;
+  });
+
+  assert.equal(browserSessionClosures, 1);
+  assert.equal(calls.length, 1);
+});
+
+test("reset bem-sucedido encerra a sessão deste navegador quando ela pertence a outra conta", async () => {
+  installFetch(new Response(null, { status: 204 }));
+  const closedSessions: string[] = [];
+
+  await completePasswordReset(token, "senhasegura123", async () => {
+    closedSessions.push("other-account-browser-session");
+  });
+
+  assert.deepEqual(closedSessions, ["other-account-browser-session"]);
+});
+
+test("reset bem-sucedido sem sessão ainda limpa o estado local do navegador", async () => {
+  installFetch(new Response(null, { status: 204 }));
+  let clearAnonymousBrowserState = false;
+
+  await completePasswordReset(token, "senhasegura123", async () => {
+    clearAnonymousBrowserState = true;
+  });
+
+  assert.equal(clearAnonymousBrowserState, true);
+});
+
+test("erro ou link expirado não encerra a sessão atual do navegador", async () => {
+  let closeCalls = 0;
+  const closeBrowserSession = async (): Promise<void> => {
+    closeCalls += 1;
+  };
+
+  installFetch(Response.json({ code: "PASSWORD_RESET_INVALID_OR_EXPIRED" }, { status: 400 }));
+  await assert.rejects(
+    completePasswordReset(token, "senhasegura123", closeBrowserSession),
+    PasswordResetApiError,
+  );
+
+  globalThis.fetch = async () => {
+    throw new Error("network error");
+  };
+  await assert.rejects(
+    completePasswordReset(token, "senhasegura123", closeBrowserSession),
+    PasswordResetApiError,
+  );
+  assert.equal(closeCalls, 0);
 });
 
 test("mapeia token inválido sem expor token", async () => {

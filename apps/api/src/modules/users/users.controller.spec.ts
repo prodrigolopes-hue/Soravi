@@ -1,6 +1,8 @@
 import { HttpStatus } from "@nestjs/common";
+import { HEADERS_METADATA } from "@nestjs/common/constants";
 import { ProfessionalVerificationStatus, Role, UserStatus, } from "../../generated/prisma/client";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { Test, type TestingModule } from "@nestjs/testing";
 import { AccessTokenGuard } from "../auth/guards/access-token.guard";
 import { AuthenticatedUser } from "../auth/interfaces/authenticated-user.interface";
 import { RolesGuard } from "../auth/guards/roles.guard";
@@ -17,6 +19,15 @@ import { ProfessionalVerificationSubmissionService } from "./professional-verifi
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
+import { CustomerProfileActivationService } from "./customer-profile-activation.service";
+import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
+import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
+import { PersonalIdentityStatusService } from "./personal-identity-status.service";
+import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
 
 describe("UsersController", () => {
     const userId =
@@ -26,6 +37,7 @@ describe("UsersController", () => {
         "725afb87-2b81-4de7-9606-8f382fff3341";
 
     let controller: UsersController;
+    let moduleRef: TestingModule | undefined;
 
     let usersServiceMock: {
         findSafeById: jest.Mock;
@@ -45,8 +57,18 @@ describe("UsersController", () => {
         findCurrent: jest.Mock;
         updateCurrent: jest.Mock;
     };
+    let customerProfileActivationServiceMock: { activateCurrentProfessional: jest.Mock };
+    let professionalProfileActivationServiceMock: { activateCurrentCustomer: jest.Mock };
+    let personalIdentityRecordingServiceMock: { recordInitial: jest.Mock };
+    let personalIdentityStatusServiceMock: { findCurrent: jest.Mock };
+    let professionalProfilePhotoServiceMock: {
+        replaceCurrent: jest.Mock;
+        removeCurrent: jest.Mock;
+    };
+    let professionalPortfolioServiceMock: Pick<ProfessionalPortfolioService, "addCurrent" | "removeCurrent">;
+    let professionalIdentityDocumentServiceMock: { submitCurrent: jest.Mock };
 
-    beforeEach(() => {
+    beforeEach(async () => {
         usersServiceMock = {
             findSafeById: jest.fn(),
             findAllAdminCustomers: jest.fn(),
@@ -65,19 +87,78 @@ describe("UsersController", () => {
             findCurrent: jest.fn(),
             updateCurrent: jest.fn(),
         };
+        customerProfileActivationServiceMock = { activateCurrentProfessional: jest.fn() };
+        professionalProfileActivationServiceMock = { activateCurrentCustomer: jest.fn() };
+        personalIdentityRecordingServiceMock = { recordInitial: jest.fn() };
+        personalIdentityStatusServiceMock = { findCurrent: jest.fn() };
+        professionalProfilePhotoServiceMock = {
+            replaceCurrent: jest.fn(),
+            removeCurrent: jest.fn(),
+        };
+        professionalPortfolioServiceMock = { addCurrent: jest.fn(), removeCurrent: jest.fn() };
+        professionalIdentityDocumentServiceMock = { submitCurrent: jest.fn() };
 
-        controller = new UsersController(
-            usersServiceMock as unknown as UsersService,
-            usersPhoneServiceMock as unknown as UsersPhoneService,
-            usersPasswordServiceMock as unknown as UsersPasswordService,
-            usersAdminStatusServiceMock as unknown as UsersAdminStatusService,
-            professionalVerificationSubmissionServiceMock as unknown as ProfessionalVerificationSubmissionService,
-            professionalVerificationReviewServiceMock as unknown as ProfessionalVerificationReviewService,
-            currentProfessionalProfileServiceMock as unknown as CurrentProfessionalProfileService,
-        );
+        const testingModule = Test.createTestingModule({
+            controllers: [UsersController],
+            providers: [
+                { provide: UsersService, useValue: usersServiceMock },
+                { provide: UsersPhoneService, useValue: usersPhoneServiceMock },
+                { provide: UsersPasswordService, useValue: usersPasswordServiceMock },
+                { provide: UsersAdminStatusService, useValue: usersAdminStatusServiceMock },
+                { provide: ProfessionalVerificationSubmissionService, useValue: professionalVerificationSubmissionServiceMock },
+                { provide: ProfessionalVerificationReviewService, useValue: professionalVerificationReviewServiceMock },
+                { provide: CurrentProfessionalProfileService, useValue: currentProfessionalProfileServiceMock },
+                { provide: CustomerProfileActivationService, useValue: customerProfileActivationServiceMock },
+                { provide: ProfessionalProfileActivationService, useValue: professionalProfileActivationServiceMock },
+                { provide: PersonalIdentityStatusService, useValue: personalIdentityStatusServiceMock },
+                { provide: ProfessionalProfilePhotoService, useValue: professionalProfilePhotoServiceMock },
+                { provide: ProfessionalPortfolioService, useValue: professionalPortfolioServiceMock },
+                { provide: PERSONAL_IDENTITY_RECORDING_SERVICE, useValue: personalIdentityRecordingServiceMock },
+                { provide: ProfessionalIdentityDocumentService, useValue: professionalIdentityDocumentServiceMock },
+                { provide: ProfessionalIdentityVerificationStatusService, useValue: { findCurrent: jest.fn() } },
+            ],
+        })
+            .overrideGuard(AccessTokenGuard).useValue({ canActivate: jest.fn(() => true) })
+            .overrideGuard(RolesGuard).useValue({ canActivate: jest.fn(() => true) })
+            .overrideGuard(ThrottlerGuard).useValue({ canActivate: jest.fn(() => true) });
+        moduleRef = await testingModule.compile();
+        controller = moduleRef.get(UsersController);
     });
 
-    afterEach(() => {
+    it("ativa perfil cliente somente para o usuário autenticado", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId, sessionId, roles: [Role.PROFESSIONAL], phoneVerifiedAt: null,
+        };
+        const response = createUserResponse(Role.PROFESSIONAL);
+        customerProfileActivationServiceMock.activateCurrentProfessional.mockResolvedValue(response);
+
+        await expect(controller.activateCurrentCustomerProfile(currentUser)).resolves.toBe(response);
+        expect(customerProfileActivationServiceMock.activateCurrentProfessional).toHaveBeenCalledWith(userId);
+    });
+
+    it("ativa perfil profissional somente para o usuário autenticado", async () => {
+        const currentUser: AuthenticatedUser = { id: userId, sessionId, roles: [Role.CUSTOMER], phoneVerifiedAt: null };
+        const input = { professionalTitle: "Eletricista", serviceArea: "São Paulo", bio: "Descrição profissional suficientemente longa.", categorySlugs: ["eletrica"] };
+        const response = createUserResponse(Role.CUSTOMER);
+        professionalProfileActivationServiceMock.activateCurrentCustomer.mockResolvedValue(response);
+        await expect(controller.activateCurrentProfessionalProfile(currentUser, input)).resolves.toBe(response);
+        expect(professionalProfileActivationServiceMock.activateCurrentCustomer).toHaveBeenCalledWith(userId, input);
+    });
+
+    it("protege a ativação profissional por sessão e papel CUSTOMER", () => {
+        expect(Reflect.getMetadata("__guards__", UsersController.prototype.activateCurrentProfessionalProfile)).toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", UsersController.prototype.activateCurrentProfessionalProfile)).toEqual([Role.CUSTOMER]);
+    });
+
+    it("protege a ativação por sessão e papel PROFESSIONAL", () => {
+        expect(Reflect.getMetadata("__guards__", UsersController.prototype.activateCurrentCustomerProfile))
+            .toEqual([AccessTokenGuard, RolesGuard]);
+        expect(Reflect.getMetadata("roles", UsersController.prototype.activateCurrentCustomerProfile))
+            .toEqual([Role.PROFESSIONAL]);
+    });
+
+    afterEach(async () => {
+        await moduleRef?.close();
         jest.clearAllMocks();
     });
 
@@ -108,6 +189,87 @@ describe("UsersController", () => {
             "passwordHash",
         );
         expect(response).not.toHaveProperty("sessions");
+    });
+
+    it("grava CPF apenas para o usuario da sessao e retorna confirmacao segura", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        };
+        personalIdentityRecordingServiceMock.recordInitial.mockResolvedValue({ recorded: true });
+
+        await expect(
+            controller.recordCurrentPersonalIdentity(currentUser, { cpf: "529.982.247-25" }),
+        ).resolves.toEqual({ recorded: true });
+        expect(personalIdentityRecordingServiceMock.recordInitial).toHaveBeenCalledWith(
+            userId,
+            "529.982.247-25",
+        );
+    });
+
+    it("consulta o status da identidade somente para o usuário da sessão", async () => {
+        const currentUser: AuthenticatedUser = {
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        };
+        personalIdentityStatusServiceMock.findCurrent.mockResolvedValue({ recorded: false });
+
+        await expect(controller.findCurrentPersonalIdentity(currentUser)).resolves.toEqual({ recorded: false });
+        expect(personalIdentityStatusServiceMock.findCurrent).toHaveBeenCalledWith(userId);
+    });
+
+    it("protege a consulta da identidade com autenticação", () => {
+        expect(Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.findCurrentPersonalIdentity,
+        )).toEqual([AccessTokenGuard]);
+    });
+
+    it("protege a gravacao de identidade com autenticacao e throttle", () => {
+        expect(Reflect.getMetadata(
+            "__guards__",
+            UsersController.prototype.recordCurrentPersonalIdentity,
+        )).toEqual([AccessTokenGuard, ThrottlerGuard]);
+    });
+
+    it("returns a neutral unavailable response while personal identity recording is disabled", () => {
+        (controller as unknown as { personalIdentityRecordingService: undefined })
+            .personalIdentityRecordingService = undefined;
+        const call = () => controller.recordCurrentPersonalIdentity({
+            id: userId,
+            sessionId,
+            roles: [Role.CUSTOMER],
+            phoneVerifiedAt: null,
+        }, { cpf: "529.982.247-25" });
+        expect(call).toThrow(
+            PersonalIdentityRecordingDisabledException,
+        );
+        try {
+            call();
+        } catch (error: unknown) {
+            const unavailable = error as PersonalIdentityRecordingDisabledException;
+            expect(unavailable.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+            expect(unavailable.getResponse()).toEqual(expect.objectContaining({
+                code: "PERSONAL_IDENTITY_RECORDING_UNAVAILABLE",
+            }));
+        }
+        expect(personalIdentityRecordingServiceMock.recordInitial).not.toHaveBeenCalled();
+    });
+
+    it("limita a gravacao de identidade a tres tentativas por hora", () => {
+        const values = Reflect.getMetadataKeys(
+            UsersController.prototype.recordCurrentPersonalIdentity,
+        )
+            .filter((key) => String(key).toLowerCase().includes("throttler"))
+            .map((key) => Reflect.getMetadata(
+                key,
+                UsersController.prototype.recordCurrentPersonalIdentity,
+            ));
+        expect(values).toEqual(expect.arrayContaining([3, 3_600_000]));
     });
 
     it("deve confirmar acesso profissional", () => {
@@ -350,6 +512,15 @@ describe("UsersController", () => {
         expect(currentProfessionalProfileServiceMock.findCurrent).toHaveBeenCalledWith(userId);
     });
 
+    it("desabilita cache na leitura do próprio perfil profissional", () => {
+        expect(Reflect.getMetadata(
+            HEADERS_METADATA,
+            UsersController.prototype.findCurrentProfessionalProfile,
+        )).toEqual(expect.arrayContaining([
+            expect.objectContaining({ name: "Cache-Control", value: "no-store" }),
+        ]));
+    });
+
     it("encaminha a atualização do próprio perfil profissional", async () => {
         const currentUser: AuthenticatedUser = {
             id: userId,
@@ -392,6 +563,24 @@ describe("UsersController", () => {
         expect(roles).toEqual([Role.PROFESSIONAL]);
     });
 
+    it("envia o documento somente para o usuário autenticado e não retorna referência privada", async () => {
+        const currentUser: AuthenticatedUser = { id: userId, sessionId, roles: [Role.PROFESSIONAL], phoneVerifiedAt: null };
+        professionalIdentityDocumentServiceMock.submitCurrent.mockResolvedValue(undefined);
+
+        await expect(controller.submitCurrentProfessionalIdentityDocument(currentUser, {
+            buffer: Buffer.from("image"), mimetype: "image/png", size: 5,
+        })).resolves.toEqual({ submitted: true });
+        expect(professionalIdentityDocumentServiceMock.submitCurrent).toHaveBeenCalledWith(userId, {
+            buffer: Buffer.from("image"), declaredMimeType: "image/png",
+        });
+    });
+
+    it("protege envio de documento com autenticação, papel PROFESSIONAL e throttle", () => {
+        const method = UsersController.prototype.submitCurrentProfessionalIdentityDocument;
+        expect(Reflect.getMetadata("__guards__", method)).toEqual([AccessTokenGuard, RolesGuard, ThrottlerGuard]);
+        expect(Reflect.getMetadata("roles", method)).toEqual([Role.PROFESSIONAL]);
+    });
+
     it("protege a revisao com autenticacao e papel ADMIN", () => {
         expect(Reflect.getMetadata("__guards__", UsersController.prototype.reviewProfessionalVerification)).toEqual([AccessTokenGuard, RolesGuard]);
         expect(Reflect.getMetadata("roles", UsersController.prototype.reviewProfessionalVerification)).toEqual([Role.ADMIN]);
@@ -405,7 +594,7 @@ describe("UsersController", () => {
             roles: [Role.ADMIN],
             phoneVerifiedAt: null,
         };
-        const input = { status: UserStatus.BLOCKED } as const;
+        const input = { status: UserStatus.ACTIVE } as const;
         usersAdminStatusServiceMock.updateStatus.mockResolvedValue(undefined);
 
         await expect(controller.updateAdminUserStatus(currentUser, targetUserId, input)).resolves.toBeUndefined();

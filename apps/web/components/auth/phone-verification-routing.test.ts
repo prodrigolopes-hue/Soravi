@@ -44,6 +44,36 @@ test("login exige telefone dos papeis comuns e libera ADMIN", () => {
   );
 });
 
+test("profissional incompleto recebe a orientacao sem usar a aprovacao do perfil", () => {
+  assert.equal(
+    postLoginDestination({
+      phoneVerified: true,
+      roles: ["PROFESSIONAL"],
+      professionalRegistrationCompleted: false,
+    }),
+    "/profissional?completeProfessional=1",
+  );
+  assert.equal(
+    postLoginDestination({
+      phoneVerified: true,
+      roles: ["PROFESSIONAL"],
+      professionalRegistrationCompleted: true,
+    }),
+    "/profissional",
+  );
+  assert.equal(
+    postLoginDestination(
+      {
+        phoneVerified: true,
+        roles: ["PROFESSIONAL", "CUSTOMER"],
+        professionalRegistrationCompleted: false,
+      },
+      "/solicitacoes/nova?professionalProfileId=123e4567-e89b-42d3-a456-426614174000",
+    ),
+    "/solicitacoes/nova?professionalProfileId=123e4567-e89b-42d3-a456-426614174000",
+  );
+});
+
 test("bootstrap e refresh ficam pendentes sem redirect prematuro", () => {
   assert.deepEqual(
     phoneVerificationGuardDecision({
@@ -97,8 +127,14 @@ test("nao verificado permanece na verificacao sem loop", () => {
   );
 });
 
-test("rotas publicas e subrotas de cadastro ficam liberadas", () => {
-  for (const pathname of ["/", "/entrar", "/cadastro/cliente"]) {
+test("rotas publicas, descoberta e subrotas de cadastro ficam liberadas", () => {
+  for (const pathname of [
+    "/",
+    "/entrar",
+    "/cadastro/cliente",
+    "/servicos/eletrica",
+    "/profissionais/725afb87-2b81-4de7-9606-8f382fff3341",
+  ]) {
     assert.deepEqual(
       phoneVerificationGuardDecision({
         isLoading: false,

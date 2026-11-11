@@ -40,6 +40,7 @@ function parseConversation(value: unknown): ConversationListItem | null {
     typeof value.updatedAt !== "string" ||
     !isRecord(value.serviceRequest) ||
     typeof value.serviceRequest.id !== "string" ||
+    typeof value.serviceRequest.publicCode !== "string" ||
     typeof value.serviceRequest.title !== "string" ||
     !isRecord(value.contract) ||
     typeof value.contract.status !== "string" ||
@@ -77,6 +78,7 @@ function parseConversation(value: unknown): ConversationListItem | null {
     updatedAt: value.updatedAt,
     serviceRequest: {
       id: value.serviceRequest.id,
+      publicCode: value.serviceRequest.publicCode,
       title: value.serviceRequest.title,
     },
     contract: { status: value.contract.status },
@@ -268,7 +270,7 @@ export function ConversationsListPage() {
                 <article key={conversation.id} className={`rounded-2xl border p-5 shadow-sm transition-colors sm:p-6 ${conversation.hasUnread ? "border-blue-200 bg-blue-50/70" : "border-slate-200 bg-white"}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h2 className="truncate text-lg font-bold text-slate-950 sm:text-xl">{conversation.serviceRequest.title}</h2>
+                      <p className="text-sm font-semibold text-blue-700">{conversation.serviceRequest.publicCode}</p><h2 className="truncate text-lg font-bold text-slate-950 sm:text-xl">{conversation.serviceRequest.title}</h2>
                       <p className="mt-3 overflow-hidden text-sm leading-6 text-slate-600 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                         {conversation.lastMessage?.content ?? "A conversa ainda não possui mensagens."}
                       </p>

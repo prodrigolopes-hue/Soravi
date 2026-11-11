@@ -81,6 +81,24 @@ describe("S3StorageService", () => {
     });
   });
 
+  it("respeita uma chave opaca fornecida pelo domínio", async () => {
+    const body = new Uint8Array([1, 2, 3]);
+    const objectKey = "professional-profile-photos/opaque-id.webp";
+
+    await expect(
+      service.upload({
+        body,
+        contentType: "image/webp",
+        sizeBytes: body.byteLength,
+        objectKey,
+      }),
+    ).resolves.toEqual({ objectKey });
+
+    const command = sendMock.mock.calls[0]?.[0];
+    expect(command).toBeInstanceOf(PutObjectCommand);
+    expect(command.input).toMatchObject({ Key: objectKey });
+  });
+
   it("gera URL temporária de leitura sem tornar o objeto público", async () => {
     getSignedUrlMock.mockResolvedValue(
       "https://storage.example/signed-object",

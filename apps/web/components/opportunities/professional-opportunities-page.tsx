@@ -36,6 +36,7 @@ interface OpportunityItem {
   customerFirstName: string | null;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     category: {
@@ -81,6 +82,7 @@ function parseOpportunity(value: unknown): OpportunityItem | null {
     !isNullableString(value.viewedAt) ||
     !isNullableString(value.customerFirstName) ||
     typeof serviceRequest.id !== "string" ||
+    typeof serviceRequest.publicCode !== "string" ||
     typeof serviceRequest.title !== "string" ||
     !isNullableString(serviceRequest.description) ||
     !isRecord(serviceRequest.category) ||
@@ -101,6 +103,7 @@ function parseOpportunity(value: unknown): OpportunityItem | null {
     customerFirstName: value.customerFirstName,
     serviceRequest: {
       id: serviceRequest.id,
+      publicCode: serviceRequest.publicCode,
       title: serviceRequest.title,
       description: serviceRequest.description,
       category: {
@@ -364,7 +367,7 @@ export function ProfessionalOpportunitiesPage() {
                             {serviceRequest.category.name}
                           </p>
                           <h2 className="mt-2 text-lg font-bold leading-7 text-slate-950">
-                            {serviceRequest.title}
+                            <span className="block text-sm font-semibold text-blue-700">{serviceRequest.publicCode}</span>{serviceRequest.title}
                           </h2>
                           <p className="mt-1 text-sm text-slate-500">
                             {opportunity.customerFirstName

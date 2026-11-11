@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Clock3, FolderSearch, Shield, Users, Wrench } from "lucide-react";
+import { ArrowRight, FolderSearch, Shield, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../auth/auth-provider";
@@ -15,6 +15,22 @@ type AdminModule = {
 };
 
 const adminModules: AdminModule[] = [
+  {
+    title: "Denúncias",
+    description: "Analise denúncias vinculadas a contratações.",
+    status: "Disponível",
+    href: "/admin/denuncias",
+    icon: Shield,
+    tone: "available",
+  },
+  {
+    title: "Solicitações",
+    description: "Busque códigos públicos e acompanhe os totais operacionais.",
+    status: "Disponível",
+    href: "/admin/solicitacoes",
+    icon: Wrench,
+    tone: "available",
+  },
   {
     title: "Interessados",
     description: "Acompanhe os contatos recebidos no lançamento.",
@@ -48,11 +64,12 @@ const adminModules: AdminModule[] = [
     tone: "available",
   },
   {
-    title: "Moderação",
-    description: "Ocorrências, suspensões e revisão administrativa.",
-    status: "Em breve",
-    icon: Clock3,
-    tone: "soon",
+    title: "Moderação do portfólio",
+    description: "Revise e decida sobre fotos de trabalhos enviadas por profissionais.",
+    status: "Disponível",
+    href: "/admin/portfolio",
+    icon: Shield,
+    tone: "available",
   },
 ] as const;
 

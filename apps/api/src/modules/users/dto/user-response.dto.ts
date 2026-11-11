@@ -27,6 +27,7 @@ interface UserResponseDtoProperties {
   phoneVerified: boolean;
   customerProfile: CustomerProfileSummary | null;
   professionalProfile: ProfessionalProfileSummary | null;
+  professionalRegistrationCompleted?: boolean;
   createdAt: Date;
 }
 
@@ -41,6 +42,8 @@ export class UserResponseDto {
   readonly phoneVerified: boolean;
   readonly customerProfile: CustomerProfileSummary | null;
   readonly professionalProfile: ProfessionalProfileSummary | null;
+  /** Derived from private CPF and document-submission records, never approval. */
+  readonly professionalRegistrationCompleted: boolean;
   readonly createdAt: Date;
 
   constructor(properties: UserResponseDtoProperties) {
@@ -54,6 +57,7 @@ export class UserResponseDto {
     this.phoneVerified = properties.phoneVerified;
     this.customerProfile = properties.customerProfile;
     this.professionalProfile = properties.professionalProfile;
+    this.professionalRegistrationCompleted = properties.professionalRegistrationCompleted ?? false;
     this.createdAt = properties.createdAt;
   }
 }

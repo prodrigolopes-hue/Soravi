@@ -1,17 +1,28 @@
 import {
   Body,
+  BadRequestException,
   Controller,
+  Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
+  Inject,
+  Optional,
+  PayloadTooLargeException,
   Patch,
   Param,
   Post,
   ParseUUIDPipe,
   Query,
+  Put,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { memoryStorage } from "multer";
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -38,6 +49,38 @@ import { UsersService } from "./users.service";
 import { CurrentProfessionalProfileService } from "./current-professional-profile.service";
 import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
+import { CustomerProfileActivationService } from "./customer-profile-activation.service";
+import { ActivateCurrentProfessionalProfileDto } from "./dto/activate-current-professional-profile.dto";
+import { ProfessionalProfileActivationService } from "./professional-profile-activation.service";
+import { RecordPersonalIdentityDto } from "./dto/record-personal-identity.dto";
+import { PersonalIdentityRecordingDisabledException } from "./errors/personal-identity-recording-disabled.exception";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
+import { PersonalIdentityRecordingService } from "./personal-identity-recording.service";
+import { PersonalIdentityStatusResult, PersonalIdentityStatusService } from "./personal-identity-status.service";
+import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
+import { ProfessionalPortfolioService } from "./professional-portfolio.service";
+import { ProfessionalIdentityDocumentService } from "./professional-identity-document.service";
+import { ProfessionalIdentityReviewService } from "./professional-identity-review.service";
+import { ProfessionalIdentityVerificationStatusResult, ProfessionalIdentityVerificationStatusService } from "./professional-identity-verification-status.service";
+import { DecideProfessionalIdentityDto } from "./dto/decide-professional-identity.dto";
+import { IdentityEvidenceDisposalSuspensionDto } from "./dto/identity-evidence-disposal-suspension.dto";
+import { IdentityEvidenceDisposalPreviewQueryDto } from "./dto/identity-evidence-disposal-preview-query.dto";
+import { IdentityEvidenceDisposalTaskQueryDto } from "./dto/identity-evidence-disposal-task-query.dto";
+import { ProfessionalIdentityEvidenceDisposalService } from "./professional-identity-evidence-disposal.service";
+import {
+  PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES,
+  ProfessionalIdentityDocumentError,
+} from "./professional-identity-document-image";
+import {
+  PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES,
+  ProfessionalProfilePhotoProcessingError,
+} from "./professional-profile-photo-image";
+
+interface UploadedProfessionalProfilePhoto {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
 
 @Controller("users")
 export class UsersController {
@@ -49,6 +92,20 @@ export class UsersController {
     private readonly professionalVerificationSubmissionService: ProfessionalVerificationSubmissionService,
     private readonly professionalVerificationReviewService: ProfessionalVerificationReviewService,
     private readonly currentProfessionalProfileService: CurrentProfessionalProfileService,
+    private readonly customerProfileActivationService: CustomerProfileActivationService,
+    private readonly professionalProfileActivationService: ProfessionalProfileActivationService,
+    private readonly personalIdentityStatusService: PersonalIdentityStatusService,
+    private readonly professionalProfilePhotoService: ProfessionalProfilePhotoService,
+    private readonly professionalPortfolioService: ProfessionalPortfolioService,
+    @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
+    private readonly personalIdentityRecordingService: PersonalIdentityRecordingService | undefined,
+    @Optional()
+    private readonly professionalIdentityDocumentService?: ProfessionalIdentityDocumentService,
+    @Optional()
+    private readonly professionalIdentityReviewService?: ProfessionalIdentityReviewService,
+    @Optional()
+    private readonly professionalIdentityEvidenceDisposalService?: ProfessionalIdentityEvidenceDisposalService,
+    private readonly professionalIdentityVerificationStatusService?: ProfessionalIdentityVerificationStatusService,
   ) {}
 
   @Get("me")
@@ -59,6 +116,57 @@ export class UsersController {
     return this.usersService.findSafeById(
       currentUser.id,
     );
+  }
+
+  @Get("me/personal-identity")
+  @Header("Cache-Control", "no-store")
+  @UseGuards(AccessTokenGuard)
+  findCurrentPersonalIdentity(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<PersonalIdentityStatusResult> {
+    return this.personalIdentityStatusService.findCurrent(currentUser.id);
+  }
+
+  @Post("me/personal-identity")
+  @UseGuards(AccessTokenGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  recordCurrentPersonalIdentity(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: RecordPersonalIdentityDto,
+  ): Promise<{ recorded: true }> {
+    if (!this.personalIdentityRecordingService) {
+      throw new PersonalIdentityRecordingDisabledException();
+    }
+    return this.personalIdentityRecordingService.recordInitial(
+      currentUser.id,
+      input.cpf,
+    );
+  }
+
+  @Post("me/roles/customer")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  activateCurrentCustomerProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<UserResponseDto> {
+    return this.customerProfileActivationService.activateCurrentProfessional(
+      currentUser.id,
+    );
+  }
+
+  @Post("me/roles/professional")
+  @Roles(Role.CUSTOMER)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  activateCurrentProfessionalProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() input: ActivateCurrentProfessionalProfileDto,
+  ): Promise<UserResponseDto> {
+    return this.professionalProfileActivationService.activateCurrentCustomer(currentUser.id, input);
   }
 
   @Patch("me/phone")
@@ -154,6 +262,7 @@ export class UsersController {
   }
 
   @Get("me/professional-profile")
+  @Header("Cache-Control", "no-store")
   @Roles(Role.PROFESSIONAL)
   @UseGuards(AccessTokenGuard, RolesGuard)
   findCurrentProfessionalProfile(
@@ -173,6 +282,343 @@ export class UsersController {
       currentUser.id,
       input,
     );
+  }
+
+  @Put("me/professional-profile/photo")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor("photo", {
+      storage: memoryStorage(),
+      limits: {
+        files: 1,
+        fields: 0,
+        fileSize: PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES,
+      },
+    }),
+  )
+  async replaceCurrentProfessionalProfilePhoto(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+  ): Promise<{ recorded: true }> {
+    if (!file) {
+      throw new BadRequestException({
+        code: "PROFESSIONAL_PROFILE_PHOTO_REQUIRED",
+        message: "Envie uma foto no campo photo.",
+      });
+    }
+
+    try {
+      await this.professionalProfilePhotoService.replaceCurrent(currentUser.id, {
+        buffer: file.buffer,
+        declaredMimeType: file.mimetype,
+      });
+    } catch (error: unknown) {
+      this.rethrowProfessionalProfilePhotoProcessingError(error);
+    }
+
+    return { recorded: true };
+  }
+
+  @Delete("me/professional-profile/photo")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({
+    default: {
+      limit: 3,
+      ttl: 3_600_000,
+    },
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeCurrentProfessionalProfilePhoto(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.professionalProfilePhotoService.removeCurrent(currentUser.id);
+  }
+
+  @Post("me/professional-profile/portfolio")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 12, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor("photo", { storage: memoryStorage(), limits: { files: 1, fields: 1, fileSize: PROFESSIONAL_PROFILE_PHOTO_MAX_SIZE_BYTES } }))
+  async addCurrentProfessionalPortfolioItem(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+    @Body("caption") caption: unknown,
+  ): Promise<{ recorded: true }> {
+    if (!file) throw new BadRequestException({ code: "PROFESSIONAL_PORTFOLIO_PHOTO_REQUIRED", message: "Envie uma foto no campo photo." });
+    if (caption !== undefined && typeof caption !== "string") throw new BadRequestException({ code: "PROFESSIONAL_PORTFOLIO_CAPTION_INVALID", message: "A legenda deve ser texto." });
+    try {
+      await this.professionalPortfolioService.addCurrent(currentUser.id, { buffer: file.buffer, declaredMimeType: file.mimetype, caption });
+    } catch (error: unknown) {
+      if (error instanceof ProfessionalProfilePhotoProcessingError) this.rethrowProfessionalProfilePhotoProcessingError(error);
+      throw error;
+    }
+    return { recorded: true };
+  }
+
+  @Delete("me/professional-profile/portfolio/:itemId")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 12, ttl: 3_600_000 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeCurrentProfessionalPortfolioItem(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("itemId", new ParseUUIDPipe()) itemId: string,
+  ): Promise<void> {
+    return this.professionalPortfolioService.removeCurrent(currentUser.id, itemId);
+  }
+
+  @Get("admin/professional-portfolios")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  listPendingProfessionalPortfolioItems(): Promise<unknown> { return this.professionalPortfolioService.listPending(); }
+
+  @Get("admin/professional-portfolios/grouped")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  listPendingProfessionalPortfolioGroups(@Query("page") page?: string, @Query("limit") limit?: string, @Query("status") status?: string): Promise<unknown> {
+    const parsedPage = page === undefined ? 1 : Number(page); const parsedLimit = limit === undefined ? 5 : Number(limit);
+    if (!Number.isSafeInteger(parsedPage) || parsedPage < 1 || !Number.isSafeInteger(parsedLimit) || parsedLimit < 1) throw new BadRequestException({ code: "PORTFOLIO_MODERATION_PAGINATION_INVALID", message: "Paginação inválida." });
+    return this.professionalPortfolioService.listGrouped(status ?? "PENDING", parsedPage, parsedLimit);
+  }
+
+  @Get("admin/professional-portfolios/:itemId/evidence")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalPortfolioEvidence(@Param("itemId", new ParseUUIDPipe()) itemId: string): Promise<unknown> { return this.professionalPortfolioService.privateEvidence(itemId); }
+
+  @Get("admin/professional-portfolios/:itemId/history")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalPortfolioHistory(@Param("itemId", new ParseUUIDPipe()) itemId: string): Promise<unknown> { return this.professionalPortfolioService.history(itemId); }
+
+  @Post("admin/professional-portfolios/:itemId/decision")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  decideProfessionalPortfolioItem(@CurrentUser() user: AuthenticatedUser, @Param("itemId", new ParseUUIDPipe()) itemId: string, @Body() input: { result: unknown; reasonCode?: unknown; version: unknown }): Promise<void> { return this.professionalPortfolioService.decide(user.id, itemId, input.result, input.reasonCode, input.version); }
+
+  @Post("admin/professional-portfolios/:itemId/withdraw-publication")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  withdrawProfessionalPortfolioPublication(@CurrentUser() user: AuthenticatedUser, @Param("itemId", new ParseUUIDPipe()) itemId: string, @Body() input: { reasonCode: unknown; version: unknown }): Promise<void> { return this.professionalPortfolioService.withdrawPublication(user.id, itemId, input.reasonCode, input.version); }
+
+  @Post("me/professional-identity-verification/document")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor("document", {
+    storage: memoryStorage(),
+    limits: { files: 1, fields: 0, fileSize: PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES },
+  }))
+  async submitCurrentProfessionalIdentityDocument(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+  ): Promise<{ submitted: true }> {
+    if (!file) {
+      throw new BadRequestException({
+        code: "PROFESSIONAL_IDENTITY_DOCUMENT_REQUIRED",
+        message: "Envie o documento no campo document.",
+      });
+    }
+    if (!this.professionalIdentityDocumentService) {
+      throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_DOCUMENT_UNAVAILABLE", message: "O envio de documento está indisponível." });
+    }
+    try {
+      await this.professionalIdentityDocumentService.submitCurrent(currentUser.id, {
+        buffer: file.buffer,
+        declaredMimeType: file.mimetype,
+      });
+    } catch (error: unknown) {
+      if (error instanceof ProfessionalIdentityDocumentError) {
+        this.rethrowProfessionalIdentityDocumentError(error);
+      }
+      throw error;
+    }
+    return { submitted: true };
+  }
+
+  @Post("me/professional-identity-verification/selfie")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard, ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor("selfie", {
+    storage: memoryStorage(),
+    limits: { files: 1, fields: 0, fileSize: PROFESSIONAL_IDENTITY_DOCUMENT_MAX_SIZE_BYTES },
+  }))
+  async submitCurrentProfessionalIdentitySelfie(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @UploadedFile() file: UploadedProfessionalProfilePhoto | undefined,
+  ): Promise<{ submitted: true }> {
+    if (!file) throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_SELFIE_REQUIRED", message: "Envie a selfie no campo selfie." });
+    if (!this.professionalIdentityDocumentService) throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE", message: "O envio de selfie está indisponível." });
+    try {
+      await this.professionalIdentityDocumentService.submitSelfie(currentUser.id, { buffer: file.buffer, declaredMimeType: file.mimetype });
+    } catch (error: unknown) {
+      if (error instanceof ProfessionalIdentityDocumentError) this.rethrowProfessionalIdentityDocumentError(error);
+      throw error;
+    }
+    return { submitted: true };
+  }
+
+  @Get("me/professional-identity-verification")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findCurrentProfessionalIdentityVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<ProfessionalIdentityVerificationStatusResult> {
+    if (!this.professionalIdentityVerificationStatusService) {
+      throw new BadRequestException({ code: "PROFESSIONAL_IDENTITY_VERIFICATION_UNAVAILABLE", message: "A consulta de identidade está indisponível." });
+    }
+    return this.professionalIdentityVerificationStatusService.findCurrent(currentUser.id);
+  }
+
+  @Get("admin/professional-identity-verifications")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  listProfessionalIdentityReviews(): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.listPending();
+  }
+
+  @Get("admin/professional-identity-verifications/:attemptId/evidence")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityEvidence(@Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.evidence(attemptId);
+  }
+
+  @Get("admin/professional-identity-verifications/:attemptId/selfie")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentitySelfieEvidence(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.selfieEvidence(currentUser.id, attemptId);
+  }
+
+  @Get("admin/professional-identity-verifications/:attemptId/details")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDetails(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.details(attemptId);
+  }
+
+  @Get("admin/professional-identity-verifications/disposal-preview")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDisposalPreview(@Query() query: IdentityEvidenceDisposalPreviewQueryDto): Promise<unknown> {
+    if (!this.professionalIdentityEvidenceDisposalService) throw new BadRequestException();
+    return this.professionalIdentityEvidenceDisposalService.preview(new Date(), query.page, query.pageSize);
+  }
+
+  @Get("admin/professional-identity-verifications/disposal-tasks")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  professionalIdentityDisposalTasks(@Query() query: IdentityEvidenceDisposalTaskQueryDto): Promise<unknown> {
+    if (!this.professionalIdentityEvidenceDisposalService) throw new BadRequestException();
+    return this.professionalIdentityEvidenceDisposalService.listTasks(query.page, query.pageSize, query.status);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/cpf-reveal")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  revealProfessionalIdentityCpf(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.revealCpf(currentUser.id, attemptId);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/disposal-suspension")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  suspendProfessionalIdentityEvidenceDisposal(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string, @Body() input: IdentityEvidenceDisposalSuspensionDto): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.suspendEvidenceDisposal(currentUser.id, attemptId, input.reason);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/disposal-suspension/release")
+  @Header("Cache-Control", "no-store")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  releaseProfessionalIdentityEvidenceDisposalSuspension(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string, @Body() input: IdentityEvidenceDisposalSuspensionDto): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.releaseEvidenceDisposalSuspension(currentUser.id, attemptId, input.reason);
+  }
+
+  @Post("admin/professional-identity-verifications/:attemptId/decision")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  decideProfessionalIdentity(@CurrentUser() currentUser: AuthenticatedUser, @Param("attemptId", new ParseUUIDPipe()) attemptId: string, @Body() input: DecideProfessionalIdentityDto): Promise<unknown> {
+    if (!this.professionalIdentityReviewService) throw new BadRequestException();
+    return this.professionalIdentityReviewService.decide(currentUser.id, attemptId, input);
+  }
+
+  private rethrowProfessionalProfilePhotoProcessingError(error: unknown): never {
+    if (!(error instanceof ProfessionalProfilePhotoProcessingError)) {
+      throw error;
+    }
+
+    if (error.code === "PHOTO_TOO_LARGE") {
+      throw new PayloadTooLargeException({
+        code: "PROFESSIONAL_PROFILE_PHOTO_TOO_LARGE",
+        message: "A foto excede o tamanho permitido.",
+      });
+    }
+
+    const responseByCode = {
+      INVALID_PHOTO: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_INVALID",
+        message: "Não foi possível processar a foto enviada.",
+      },
+      UNSUPPORTED_PHOTO_FORMAT: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_UNSUPPORTED_FORMAT",
+        message: "Envie uma imagem JPEG, PNG ou WebP válida.",
+      },
+      ANIMATED_PHOTO: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_ANIMATED",
+        message: "A foto não pode ser animada.",
+      },
+      PHOTO_DIMENSIONS_OUT_OF_RANGE: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_DIMENSIONS_OUT_OF_RANGE",
+        message: "A foto deve ter dimensões entre os limites permitidos.",
+      },
+      PHOTO_TOO_LARGE: {
+        code: "PROFESSIONAL_PROFILE_PHOTO_TOO_LARGE",
+        message: "A foto excede o tamanho permitido.",
+      },
+    } as const;
+
+    throw new BadRequestException(responseByCode[error.code]);
+  }
+
+  private rethrowProfessionalIdentityDocumentError(error: ProfessionalIdentityDocumentError): never {
+    if (error.code === "DOCUMENT_TOO_LARGE") {
+      throw new PayloadTooLargeException({ code: "PROFESSIONAL_IDENTITY_DOCUMENT_TOO_LARGE", message: "O documento excede o tamanho permitido." });
+    }
+    const code = error.code === "UNSUPPORTED_DOCUMENT_FORMAT"
+      ? "PROFESSIONAL_IDENTITY_DOCUMENT_UNSUPPORTED_FORMAT"
+      : error.code === "ANIMATED_DOCUMENT"
+        ? "PROFESSIONAL_IDENTITY_DOCUMENT_ANIMATED"
+        : error.code === "DOCUMENT_DIMENSIONS_OUT_OF_RANGE"
+          ? "PROFESSIONAL_IDENTITY_DOCUMENT_DIMENSIONS_OUT_OF_RANGE"
+          : "PROFESSIONAL_IDENTITY_DOCUMENT_INVALID";
+    throw new BadRequestException({ code, message: "Não foi possível processar o documento enviado." });
   }
 
   @Patch("admin/professionals/:userId/verification")

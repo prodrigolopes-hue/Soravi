@@ -36,6 +36,7 @@ export interface OpportunityDetailResponseProperties {
   contract: { id: string; status: ContractStatus; completedAt: Date | null; review: { rating: number; comment: string | null; publishedAt: Date | null } | null; customerReview: { rating: number; comment: string | null; publishedAt: Date | null } | null } | null;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     status: ServiceRequestStatus;
@@ -59,6 +60,7 @@ export class OpportunityDetailResponseDto {
   contract!: { id: string; status: ContractStatus; completedAt: Date | null; review: { rating: number; comment: string | null; publishedAt: Date | null } | null; customerReview: { rating: number; comment: string | null; publishedAt: Date | null } | null } | null;
   serviceRequest!: {
     id: string;
+    publicCode: string;
     title: string;
     description: string | null;
     status: ServiceRequestStatus;
@@ -83,6 +85,7 @@ export class OpportunityDetailResponseDto {
     this.contract = properties.contract;
     this.serviceRequest = {
       id: properties.serviceRequest.id,
+      publicCode: properties.serviceRequest.publicCode,
       title: properties.serviceRequest.title,
       description: properties.serviceRequest.description,
       status: properties.serviceRequest.status,

@@ -1,11 +1,14 @@
 import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
+import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
+import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
 import { ProfessionalProfileResponseDto } from "./dto/professional-profile-response.dto";
 import { UpdateCurrentProfessionalProfileDto } from "./dto/update-current-professional-profile.dto";
 import { CurrentProfessionalProfileNotFoundException } from "./errors/current-professional-profile-not-found.exception";
 import { InvalidProfessionalProfileCategoriesException } from "./errors/invalid-professional-profile-categories.exception";
+import { ProfessionalCategoryOpenServiceRequestException } from "./errors/professional-category-open-service-request.exception";
+import { ProfessionalProfilePhotoReadService } from "./professional-profile-photo-read.service";
 
 const professionalProfileSelect = {
   id: true,
@@ -31,7 +34,18 @@ const professionalProfileSelect = {
       },
     },
   },
+  photo: {
+    select: { objectKey: true },
+  },
+  portfolioItems: { where: { deletedAt: null }, select: { id: true, objectKey: true, caption: true, moderationStatus: true, rejectionReasonCode: true }, orderBy: { createdAt: "desc" } },
 } satisfies Prisma.ProfessionalProfileSelect;
+
+const rejectionReasonLabels: Record<string, string> = {
+  INAPPROPRIATE_CONTENT: "Conteúdo inadequado para o portfólio.",
+  PERSONAL_DATA_EXPOSED: "A imagem expõe dados pessoais.",
+  NOT_A_WORK_PHOTO: "A imagem não mostra um trabalho realizado.",
+  LOW_QUALITY: "A qualidade da imagem não permite a publicação.",
+};
 
 type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
   select: typeof professionalProfileSelect;
@@ -39,7 +53,10 @@ type ProfessionalProfileRecord = Prisma.ProfessionalProfileGetPayload<{
 
 @Injectable()
 export class CurrentProfessionalProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly professionalProfilePhotoReadService: ProfessionalProfilePhotoReadService,
+  ) {}
 
   async findCurrent(userId: string): Promise<ProfessionalProfileResponseDto> {
     const profile = await this.prisma.professionalProfile.findFirst({
@@ -63,6 +80,7 @@ export class CurrentProfessionalProfileService {
     input: UpdateCurrentProfessionalProfileDto,
   ): Promise<ProfessionalProfileResponseDto> {
     return this.prisma.$transaction(async (transaction) => {
+      await lockUserCategoryProtection(transaction, userId);
       this.ensureDistinctCategorySlugs(input.categorySlugs);
 
       const profile = await transaction.professionalProfile.findFirst({
@@ -71,7 +89,10 @@ export class CurrentProfessionalProfileService {
           deletedAt: null,
           user: { deletedAt: null },
         },
-        select: { id: true },
+        select: {
+          id: true,
+          professionalCategories: { select: { categoryId: true } },
+        },
       });
 
       if (!profile) {
@@ -88,6 +109,34 @@ export class CurrentProfessionalProfileService {
 
       if (categories.length !== input.categorySlugs.length) {
         throw new InvalidProfessionalProfileCategoriesException();
+      }
+
+      const addedCategoryIds = categories
+        .filter((category) => !profile.professionalCategories.some(
+          (currentCategory) => currentCategory.categoryId === category.id,
+        ))
+        .map((category) => category.id);
+
+      if (addedCategoryIds.length > 0) {
+        const hasOpenOwnRequest = await transaction.serviceRequest.findFirst({
+          where: {
+            customerProfile: { userId },
+            categoryId: { in: addedCategoryIds },
+            deletedAt: null,
+            status: {
+              in: [
+                ServiceRequestStatus.OPEN,
+                ServiceRequestStatus.RECEIVING_PROPOSALS,
+                ServiceRequestStatus.IN_NEGOTIATION,
+              ],
+            },
+          },
+          select: { id: true },
+        });
+
+        if (hasOpenOwnRequest) {
+          throw new ProfessionalCategoryOpenServiceRequestException();
+        }
       }
 
       const profileData: Prisma.ProfessionalProfileUpdateInput = {
@@ -139,7 +188,7 @@ export class CurrentProfessionalProfileService {
     }
   }
 
-  private toResponse(profile: ProfessionalProfileRecord): ProfessionalProfileResponseDto {
+  private async toResponse(profile: ProfessionalProfileRecord): Promise<ProfessionalProfileResponseDto> {
     return new ProfessionalProfileResponseDto({
       id: profile.id,
       displayName: profile.displayName,
@@ -149,6 +198,13 @@ export class CurrentProfessionalProfileService {
       isAvailable: profile.isAvailable,
       verificationStatus: profile.verificationStatus,
       categories: profile.professionalCategories.map(({ category }) => category),
+      photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
+        profile.photo?.objectKey,
+      ),
+      portfolio: await Promise.all(profile.portfolioItems.map(async (item) => {
+        const photo = await this.professionalProfilePhotoReadService.createTemporaryReadUrl(item.objectKey);
+        return { id: item.id, url: photo?.url ?? null, expiresAt: photo?.expiresAt ?? null, caption: item.caption, status: item.moderationStatus, rejectionReasonCode: item.rejectionReasonCode, rejectionReason: item.rejectionReasonCode ? (rejectionReasonLabels[item.rejectionReasonCode] ?? "A imagem não foi aprovada para publicação.") : null };
+      })),
     });
   }
 }

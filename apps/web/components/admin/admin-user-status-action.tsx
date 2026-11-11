@@ -28,12 +28,23 @@ export function AdminUserStatusAction({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  if (status !== "ACTIVE" && status !== "BLOCKED") {
+  if (status !== "PENDING" && status !== "ACTIVE" && status !== "BLOCKED") {
     return <span className="text-xs text-slate-500">Sem ação disponível</span>;
   }
 
   const isBlocking = status === "ACTIVE";
+  const isActivating = status === "PENDING";
   const nextStatus: ManageableAdminUserStatus = isBlocking ? "BLOCKED" : "ACTIVE";
+  const actionLabel = isBlocking
+    ? "Bloquear conta"
+    : isActivating
+      ? "Ativar conta"
+      : "Reativar conta";
+  const successMessage = isBlocking
+    ? "Conta bloqueada com sucesso."
+    : isActivating
+      ? "Conta ativada com sucesso."
+      : "Conta reativada com sucesso.";
 
   const openConfirmation = () => {
     setError(null);
@@ -61,7 +72,7 @@ export function AdminUserStatusAction({
       await updateAdminUserStatus(accessToken, userId, nextStatus);
       setIsConfirming(false);
       onStatusChanged(userId, nextStatus);
-      setSuccess(isBlocking ? "Conta bloqueada com sucesso." : "Conta reativada com sucesso.");
+      setSuccess(successMessage);
     } catch (caught) {
       setError(
         caught instanceof AdminUserStatusApiError
@@ -85,14 +96,16 @@ export function AdminUserStatusAction({
           onClick={openConfirmation}
           className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${actionClass}`}
         >
-          {isBlocking ? "Bloquear conta" : "Reativar conta"}
+          {actionLabel}
         </button>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
           <p className="text-sm leading-6 text-slate-700">
             {isBlocking
               ? `Tem certeza que deseja bloquear a conta de ${userName}? As sessões atuais serão encerradas imediatamente.`
-              : `Tem certeza que deseja reativar a conta de ${userName}? As sessões anteriores não serão restauradas. O usuário deverá entrar novamente.`}
+              : isActivating
+                ? `Tem certeza que deseja ativar a conta de ${userName}? Esta é uma decisão administrativa e não comprova identidade.`
+                : `Tem certeza que deseja reativar a conta de ${userName}? As sessões anteriores não serão restauradas. O usuário deverá entrar novamente.`}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -112,10 +125,14 @@ export function AdminUserStatusAction({
               {isSubmitting
                 ? isBlocking
                   ? "Bloqueando..."
-                  : "Reativando..."
+                  : isActivating
+                    ? "Ativando..."
+                    : "Reativando..."
                 : isBlocking
                   ? "Confirmar bloqueio"
-                  : "Confirmar reativação"}
+                  : isActivating
+                    ? "Confirmar ativação"
+                    : "Confirmar reativação"}
             </button>
           </div>
         </div>

@@ -26,6 +26,7 @@ export interface OutboundNotificationEligibilityCandidate {
     eventType: NotificationType;
     status: OutboundNotificationStatus;
     nextAttemptAt: Date | null;
+    createdAt: Date;
   };
   user: {
     id: string;
@@ -43,11 +44,25 @@ export interface OutboundNotificationEligibilityCandidate {
     id: string;
     userId: string;
     deletedAt: Date | null;
+    resourceType: string;
+    resourceId: string;
   } | null;
 }
 
 @Injectable()
 export class OutboundNotificationsService {
+  findProcessingForInvestigation(
+    transaction: Prisma.TransactionClient,
+    limit: number,
+  ): Promise<Array<{ id: string; createdAt: Date; updatedAt: Date; lastErrorCode: string | null }>> {
+    return transaction.outboundNotification.findMany({
+      where: { status: OutboundNotificationStatus.PROCESSING },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      take: limit,
+      select: { id: true, createdAt: true, updatedAt: true, lastErrorCode: true },
+    });
+  }
+
   async findEligibilityCandidates(
     transaction: Prisma.TransactionClient,
     limit: number,
@@ -79,6 +94,7 @@ export class OutboundNotificationsService {
         eventType: true,
         status: true,
         nextAttemptAt: true,
+        createdAt: true,
         user: {
           select: {
             id: true,
@@ -92,7 +108,7 @@ export class OutboundNotificationsService {
           },
         },
         notification: {
-          select: { id: true, userId: true, deletedAt: true },
+          select: { id: true, userId: true, deletedAt: true, resourceType: true, resourceId: true },
         },
       },
     });

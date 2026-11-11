@@ -1,5 +1,15 @@
 # 04 - Modelo de Dados
 
+## Contato pré-proposta
+
+`PreProposalConversation` representa um pedido de esclarecimento privado, não uma conversa contínua. Vários pedidos podem existir para a mesma `ServiceOpportunity`; por isso não há unicidade por oportunidade. O registro persiste os perfis de cliente e profissional para integridade, mas os participantes são derivados e revalidados contra a solicitação e a oportunidade.
+
+`PreProposalMessage` guarda a pergunta do profissional e a resposta única do cliente. `closedAt` encerra o pedido após a resposta e impede novas mensagens; um novo esclarecimento cria outro `PreProposalConversation`. `PreProposalResponsePhoto` pertence exclusivamente à mensagem de resposta, com posição única por mensagem, chave de objeto única e metadados necessários para leitura autorizada. A API assina a URL temporária, sem expor a chave interna.
+
+`PreProposalResponsePhotoUploadCandidate` registra a chave antes do upload, com estado (`PENDING` ou `PROCESSING`), próxima tentativa, contador, lease e erro operacional. Ele permite reconciliar objetos sem associação após falha, queda ou upload tardio. A remoção do candidato é transacional com a associação da foto; candidatos já reivindicados não podem ser associados, e a manutenção confirma que não há `PreProposalResponsePhoto` referenciando a chave antes de excluir o objeto.
+
+Não há relação com `Contract` nem liberação de endereço nesse domínio. As interfaces de cliente e profissional estão implementadas; visita técnica permanece como incremento posterior.
+
 # Objetivo
 
 ## Avaliacoes bilaterais cegas
@@ -76,6 +86,13 @@ registro nessa entidade na mesma transação que atualiza o snapshot do
 Há índice por `professionalProfileId, createdAt`; o perfil é removido em cascade
 e o revisor é preservado por referência opcional com `onDelete: SetNull`.
 
+`ProfessionalIdentityVerificationAttempt` e
+`IdentityVerificationEvidenceReference` mantêm a evidência privada de identidade.
+O primeiro associa perfil profissional e identidade pessoal; o segundo armazena
+somente uma chave opaca de objeto privado e nunca uma URL pública, CPF ou bytes
+do documento. O envio atual registra evidência `DOCUMENT` e move a tentativa para
+`UNDER_REVIEW`; não altera o snapshot de `ProfessionalProfile`.
+
 Os campos editáveis do profissional estão disponíveis localmente e validados:
 `displayName` (até 120), `professionalTitle` (até 80), `serviceArea` (até 100),
 `bio` (até 1000), de uma a três categorias ativas e `isAvailable`.
@@ -101,7 +118,13 @@ Uma categoria possui vários profissionais e várias solicitações.
 
 Campos: - título - descrição - categoria - localização - status - data
 
-Relacionamentos: - pertence a um cliente - recebe várias propostas
+Relacionamentos: - pertence a um cliente - pode apontar opcionalmente para um perfil profissional destinatário - recebe várias propostas
+
+`targetProfessionalProfileId` é opcional. Quando `NULL`, a solicitação representa a distribuição genérica. Quando preenchido, representa um destinatário profissional exclusivo. A chave estrangeira usa `ON DELETE RESTRICT`, para que a exclusão do destinatário nunca converta silenciosamente uma solicitação direcionada em genérica.
+
+`targetProfessionalUnavailableAt`, quando preenchido, registra que o despacho de uma solicitação direcionada encontrou o destinatário inelegível — inclusive conta não `ACTIVE` ou categoria inativa; nesse caso não há distribuição alternativa.
+
+Criação, distribuição e autorização de propostas para destino exclusivo são implementadas no backend. A seleção e apresentação do destinatário no frontend ainda não estão implementadas.
 
 ------------------------------------------------------------------------
 

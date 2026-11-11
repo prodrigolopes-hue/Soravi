@@ -1,6 +1,18 @@
+import {
+  safeDirectedRequestReturnTo,
+  withDirectedRequestReturnTo,
+} from "../../lib/directed-service-request";
+
 export function phoneVerificationDestination(
   roles: readonly string[],
+  returnTo?: string | null,
 ): string {
+  const directedDestination = safeDirectedRequestReturnTo(returnTo);
+
+  if (directedDestination && roles.includes("CUSTOMER")) {
+    return directedDestination;
+  }
+
   if (roles.includes("ADMIN")) {
     return "/admin";
   }
@@ -19,21 +31,38 @@ export function phoneVerificationDestination(
 interface PostLoginUser {
   phoneVerified: boolean;
   roles: readonly string[];
+  professionalRegistrationCompleted?: boolean;
 }
 
 export function postLoginDestination(
   user: PostLoginUser,
+  returnTo?: string | null,
 ): string {
   // ADMIN fica temporariamente fora da exigência de telefone no MVP.
   if (user.roles.includes("ADMIN")) {
     return "/admin";
   }
 
+  // A verificação do telefone continua tendo prioridade.
   if (!user.phoneVerified) {
-    return "/verificar-telefone";
+    return withDirectedRequestReturnTo(
+      "/verificar-telefone",
+      returnTo ?? null,
+    );
   }
 
-  return phoneVerificationDestination(user.roles);
+  // O indicador é calculado pelo backend a partir do CPF privado e do
+  // documento submetido; nunca usa o status de aprovação do perfil.
+  // Um destino válido de solicitação direcionada é preservado.
+  if (
+    user.roles.includes("PROFESSIONAL") &&
+    user.professionalRegistrationCompleted === false &&
+    !safeDirectedRequestReturnTo(returnTo)
+  ) {
+    return "/profissional?completeProfessional=1";
+  }
+
+  return phoneVerificationDestination(user.roles, returnTo);
 }
 
 export type PhoneVerificationGuardDecision =
@@ -47,7 +76,11 @@ interface PhoneVerificationGuardInput {
   user: PostLoginUser | null;
 }
 
-const PUBLIC_ROUTE_PREFIXES = ["/cadastro"] as const;
+const PUBLIC_ROUTE_PREFIXES = [
+  "/cadastro",
+  "/servicos",
+  "/profissionais",
+] as const;
 
 const PUBLIC_ROUTES = new Set([
   "/",
@@ -99,9 +132,9 @@ function redirectDecision(
   return pathname === destination
     ? { type: "allow" }
     : {
-      type: "redirect",
-      destination,
-    };
+        type: "redirect",
+        destination,
+      };
 }
 
 export function phoneVerificationGuardDecision({
@@ -133,11 +166,15 @@ export function phoneVerificationGuardDecision({
       return { type: "allow" };
     }
 
+    if (pathname === "/profissional/perfil" && user.roles.includes("PROFESSIONAL")) {
+      return { type: "allow" };
+    }
+
     return isProtectedRoute(pathname)
       ? redirectDecision(
-        pathname,
-        "/verificar-telefone",
-      )
+          pathname,
+          "/verificar-telefone",
+        )
       : { type: "allow" };
   }
 

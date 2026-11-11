@@ -30,6 +30,69 @@ enum ProfessionalVerificationStatus {
   REJECTED
 }
 
+enum ProfessionalProfilePhotoDeletionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ProfessionalProfilePhotoTaskKind {
+  UPLOAD_CANDIDATE
+  PHOTO_DELETE
+}
+
+enum ProfessionalPortfolioModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PreProposalPhotoCandidateStatus {
+  PENDING
+  PROCESSING
+}
+
+enum ProfessionalIdentityVerificationAttemptStatus {
+  AWAITING_EVIDENCE
+  UNDER_REVIEW
+  CLOSED
+  CANCELLED
+}
+
+enum IdentityVerificationResult {
+  PENDING
+  CONFIRMED
+  NOT_CONFIRMED
+  INCONCLUSIVE
+}
+
+enum IdentityVerificationDecisionSource {
+  MANUAL
+  PROVIDER
+}
+
+enum IdentityVerificationEvidenceKind {
+  DOCUMENT
+  SELFIE
+  OWNERSHIP
+  OTHER
+}
+
+enum IdentityDocumentCleanupStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum IdentityEvidenceDisposalTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum LegalDocumentType {
   TERMS_OF_USE
   PRIVACY_POLICY
@@ -62,6 +125,19 @@ enum PublicCategorySuggestionStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ContractReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ContractReportReason {
+  IDENTITY_DIVERGENCE
+  INAPPROPRIATE_CONDUCT
+  OTHER
 }
 
 enum ServiceRequestStatus {
@@ -136,6 +212,12 @@ enum OutboundNotificationStatus {
   CANCELLED
 }
 
+enum CpfHmacKeyBindingState {
+  UNINITIALIZED
+  BOUND
+  ADOPTION_REQUIRED
+}
+
 model User {
   id              String     @id @default(uuid()) @db.Uuid
   name            String     @db.VarChar(120)
@@ -155,6 +237,7 @@ model User {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   roles                                   UserRole[]
+  personalIdentity                        PersonalIdentity?
   customerProfile                         CustomerProfile?
   professionalProfile                     ProfessionalProfile?
   sessions                                AuthSession[]
@@ -165,17 +248,71 @@ model User {
   reviewedPublicCategorySuggestions       PublicCategorySuggestion[]       @relation("PublicCategorySuggestionReviewer")
   reviewedProfessionalProfiles            ProfessionalProfile[]            @relation("ProfessionalProfileReviewer")
   reviewedProfessionalVerificationReviews ProfessionalVerificationReview[] @relation("ProfessionalVerificationReviewReviewer")
+  identityVerificationDecisions           IdentityVerificationDecision[]   @relation("IdentityVerificationDecisionOperator")
+  identityCpfAccessAudits                 IdentityCpfAccessAudit[]         @relation("IdentityCpfAccessAuditOperator")
+  identitySelfieAccessAudits              IdentitySelfieAccessAudit[]      @relation("IdentitySelfieAccessAuditOperator")
+  identityEvidenceDisposalSuspensionEvents IdentityEvidenceDisposalSuspensionEvent[]
   messages                                Message[]
+  preProposalMessages                     PreProposalMessage[]
   conversationReadStates                  ConversationReadState[]
   notifications                           Notification[]
   communicationPreferences                CommunicationPreference[]
   outboundNotifications                   OutboundNotification[]
   phoneVerificationChallenges             PhoneVerificationChallenge[]
   reviewReminders                         ReviewReminder[]
+  adminActivationAudits                   AdminActivationAudit[]
+  portfolioModerationDecisions            ProfessionalPortfolioModerationDecision[] @relation("ProfessionalPortfolioModerationOperator")
+  commercialDataAccessAudits              AdminCommercialDataAccessAudit[] @relation("AdminCommercialDataAccessAuditOperator")
+  reportsFiled                            ContractReport[] @relation("ContractReportReporter")
+  reportsReceived                         ContractReport[] @relation("ContractReportTarget")
+  reportsReviewed                         ContractReport[] @relation("ContractReportReviewer")
+  reportStatusHistory                     ContractReportStatusHistory[] @relation("ContractReportHistoryActor")
 
   @@index([status, createdAt], map: "users_status_created_at_idx")
   @@index([createdAt], map: "users_created_at_idx")
   @@map("users")
+}
+
+model AdminActivationAudit {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @unique(map: "admin_activation_audits_user_id_key") @map("user_id") @db.Uuid
+  action         String     @db.VarChar(64)
+  previousStatus UserStatus @map("previous_status")
+  newStatus      UserStatus @map("new_status")
+  justification  String     @db.VarChar(1000)
+  activatedAt    DateTime   @default(now()) @map("activated_at") @db.Timestamptz(3)
+  executionId    String     @unique(map: "admin_activation_audits_execution_id_key") @map("execution_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([activatedAt], map: "admin_activation_audits_activated_at_idx")
+  @@map("admin_activation_audits")
+}
+
+model PersonalIdentity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique(map: "personal_identities_user_id_key") @map("user_id") @db.Uuid
+  cpfEnvelope Json     @map("cpf_envelope")
+  cpfHmac     String   @unique(map: "personal_identities_cpf_hmac_key") @map("cpf_hmac") @db.VarChar(64)
+  hmacKeyId   String   @map("hmac_key_id") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user                 User                                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  verificationAttempts ProfessionalIdentityVerificationAttempt[]
+
+  @@map("personal_identities")
+}
+
+model CpfHmacKeyBinding {
+  scope              String                 @id @db.VarChar(64)
+  state              CpfHmacKeyBindingState
+  hmacKeyId          String?                @map("hmac_key_id") @db.VarChar(64)
+  hmacKeyFingerprint String?                @map("hmac_key_fingerprint") @db.Char(64)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("cpf_hmac_key_bindings")
 }
 
 model UserRole {
@@ -205,6 +342,7 @@ model CustomerProfile {
   reviews         Review[]
   customerReviews CustomerReview[]
   favorites       Favorite[]
+  preProposalConversations PreProposalConversation[] @relation("PreProposalConversationCustomer")
 
   @@map("customer_profiles")
 }
@@ -234,18 +372,99 @@ model ProfessionalProfile {
   categoryRequests       CategoryRequest[]
   professionalCategories ProfessionalCategory[]
   serviceOpportunities   ServiceOpportunity[]
+  targetedServiceRequests ServiceRequest[] @relation("ServiceRequestTargetProfessional")
   proposals              Proposal[]
   contracts              Contract[]
   reviews                Review[]
   customerReviews        CustomerReview[]
   favorites              Favorite[]
   verificationReviews    ProfessionalVerificationReview[]
+  identityVerificationAttempts ProfessionalIdentityVerificationAttempt[]
+  photo                  ProfessionalProfilePhoto?
+  portfolioItems         ProfessionalPortfolioItem[]
+  preProposalConversations PreProposalConversation[] @relation("PreProposalConversationProfessional")
 
   @@index([verificationStatus], map: "professional_profiles_verification_status_idx")
   @@index([reviewedByUserId], map: "professional_profiles_reviewer_idx")
   @@index([isAvailable], map: "professional_profiles_is_available_idx")
   @@index([averageRating], map: "professional_profiles_average_rating_idx")
   @@map("professional_profiles")
+}
+
+model ProfessionalProfilePhoto {
+  professionalProfileId String              @id @map("professional_profile_id") @db.Uuid
+  objectKey             String              @unique(map: "professional_profile_photos_object_key_key") @map("object_key") @db.VarChar(1024)
+  mimeType              String              @map("mime_type") @db.VarChar(32)
+  width                 Int
+  height                Int
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+
+  @@map("professional_profile_photos")
+}
+
+model ProfessionalPortfolioItem {
+  id                    String              @id @default(uuid()) @db.Uuid
+  professionalProfileId String              @map("professional_profile_id") @db.Uuid
+  objectKey             String              @unique(map: "professional_portfolio_items_object_key_key") @map("object_key") @db.VarChar(1024)
+  mimeType              String              @map("mime_type") @db.VarChar(32)
+  width                 Int
+  height                Int
+  caption               String?             @db.VarChar(280)
+  moderationStatus      ProfessionalPortfolioModerationStatus @default(PENDING) @map("moderation_status")
+  moderationVersion     Int                 @default(1) @map("moderation_version")
+  rejectionReasonCode   String?             @map("rejection_reason_code") @db.VarChar(64)
+  deletedAt             DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
+  moderationDecisions ProfessionalPortfolioModerationDecision[]
+
+  @@index([professionalProfileId, deletedAt, createdAt], map: "professional_portfolio_items_profile_created_idx")
+  @@map("professional_portfolio_items")
+}
+
+model ProfessionalPortfolioModerationDecision {
+  id              String   @id @default(uuid()) @db.Uuid
+  portfolioItemId String   @map("portfolio_item_id") @db.Uuid
+  operatorUserId  String   @map("operator_user_id") @db.Uuid
+  result          ProfessionalPortfolioModerationStatus
+  reasonCode      String?  @map("reason_code") @db.VarChar(64)
+  contentVersion  Int     @map("content_version")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  portfolioItem ProfessionalPortfolioItem @relation(fields: [portfolioItemId], references: [id], onDelete: Cascade)
+  operator User @relation("ProfessionalPortfolioModerationOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+  @@index([portfolioItemId, createdAt])
+  @@map("professional_portfolio_moderation_decisions")
+}
+
+model ProfessionalProfilePhotoDeletionTask {
+  id                      String                                 @id @default(uuid()) @db.Uuid
+  objectKey               String                                 @unique(map: "professional_profile_photo_deletion_tasks_object_key_key") @map("object_key") @db.VarChar(1024)
+  kind                    ProfessionalProfilePhotoTaskKind      @default(PHOTO_DELETE)
+  status                  ProfessionalProfilePhotoDeletionStatus @default(PENDING)
+  attemptCount            Int                                    @default(0) @map("attempt_count")
+  nextAttemptAt           DateTime                               @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  claimedAt               DateTime?                              @map("claimed_at") @db.Timestamptz(3)
+  leaseExpiresAt          DateTime?                              @map("lease_expires_at") @db.Timestamptz(3)
+  completedAt             DateTime?                              @map("completed_at") @db.Timestamptz(3)
+  lastError               String?                                @map("last_error") @db.VarChar(1000)
+  associationDeadlineAt   DateTime?                              @map("association_deadline_at") @db.Timestamptz(3)
+  reconcileNextAt         DateTime?                              @map("reconcile_next_at") @db.Timestamptz(3)
+  reconcileAttemptCount   Int                                    @default(0) @map("reconcile_attempt_count")
+  reconcileClaimedAt      DateTime?                              @map("reconcile_claimed_at") @db.Timestamptz(3)
+  reconcileLeaseExpiresAt DateTime?                              @map("reconcile_lease_expires_at") @db.Timestamptz(3)
+  reconcileLastError      String?                                @map("reconcile_last_error") @db.VarChar(1000)
+  createdAt               DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt], map: "professional_profile_photo_deletion_tasks_ready_idx")
+  @@index([status, leaseExpiresAt], map: "professional_profile_photo_deletion_tasks_lease_idx")
+  @@index([kind, reconcileNextAt], map: "professional_profile_photo_tasks_reconcile_ready_idx")
+  @@index([kind, reconcileLeaseExpiresAt], map: "professional_profile_photo_tasks_reconcile_lease_idx")
+  @@map("professional_profile_photo_deletion_tasks")
 }
 
 model ProfessionalVerificationReview {
@@ -262,6 +481,150 @@ model ProfessionalVerificationReview {
 
   @@index([professionalProfileId, createdAt], map: "professional_verification_reviews_profile_created_at_idx")
   @@map("professional_verification_reviews")
+}
+
+model ProfessionalIdentityVerificationAttempt {
+  id                    String                                       @id @default(uuid()) @db.Uuid
+  professionalProfileId String                                       @map("professional_profile_id") @db.Uuid
+  personalIdentityId    String                                       @map("personal_identity_id") @db.Uuid
+  status                ProfessionalIdentityVerificationAttemptStatus @default(AWAITING_EVIDENCE)
+  result                IdentityVerificationResult                   @default(PENDING)
+  requiresSelfie        Boolean                                      @default(false) @map("requires_selfie")
+  createdAt             DateTime                                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  closedAt              DateTime?                                    @map("closed_at") @db.Timestamptz(3)
+
+  professionalProfile ProfessionalProfile                    @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict, map: "piv_attempts_professional_profile_fkey")
+  personalIdentity    PersonalIdentity                       @relation(fields: [personalIdentityId], references: [id], onDelete: Restrict, map: "piv_attempts_personal_identity_fkey")
+  decisions           IdentityVerificationDecision[]
+  cpfAccessAudits     IdentityCpfAccessAudit[]
+  selfieAccessAudits  IdentitySelfieAccessAudit[]
+  evidenceReferences  IdentityVerificationEvidenceReference[]
+  evidenceDisposalSuspensionEvents IdentityEvidenceDisposalSuspensionEvent[]
+
+  @@index([professionalProfileId, createdAt], map: "piv_attempts_profile_created_idx")
+  @@index([personalIdentityId, createdAt], map: "piv_attempts_identity_created_idx")
+  @@map("professional_identity_verification_attempts")
+}
+
+model IdentityVerificationDecision {
+  id               String                             @id @default(uuid()) @db.Uuid
+  attemptId        String                             @map("attempt_id") @db.Uuid
+  source           IdentityVerificationDecisionSource
+  result           IdentityVerificationResult
+  reasonCode       String                             @map("reason_code") @db.VarChar(64)
+  criteriaVersion  String                             @map("criteria_version") @db.VarChar(64)
+  operatorUserId   String?                            @map("operator_user_id") @db.Uuid
+  providerReference String?                           @map("provider_reference") @db.VarChar(255)
+  createdAt        DateTime                           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User?                                  @relation("IdentityVerificationDecisionOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt], map: "identity_verification_decisions_attempt_created_at_idx")
+  @@index([operatorUserId], map: "identity_verification_decisions_operator_idx")
+  @@map("identity_verification_decisions")
+}
+
+model IdentityCpfAccessAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  operatorUserId String   @map("operator_user_id") @db.Uuid
+  action         String   @db.VarChar(64)
+  accessedAt     DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User                                     @relation("IdentityCpfAccessAuditOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, accessedAt], map: "identity_cpf_access_audits_attempt_accessed_at_idx")
+  @@index([operatorUserId, accessedAt], map: "identity_cpf_access_audits_operator_accessed_at_idx")
+  @@map("identity_cpf_access_audits")
+}
+
+model IdentitySelfieAccessAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  operatorUserId String   @map("operator_user_id") @db.Uuid
+  action         String   @db.VarChar(64)
+  accessedAt     DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User                                     @relation("IdentitySelfieAccessAuditOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, accessedAt], map: "identity_selfie_access_audits_attempt_accessed_at_idx")
+  @@index([operatorUserId, accessedAt], map: "identity_selfie_access_audits_operator_accessed_at_idx")
+  @@map("identity_selfie_access_audits")
+}
+
+model IdentityVerificationEvidenceReference {
+  id        String                           @id @default(uuid()) @db.Uuid
+  attemptId String                           @map("attempt_id") @db.Uuid
+  kind      IdentityVerificationEvidenceKind
+  reference String?                          @db.VarChar(255)
+  expiresAt DateTime?                        @map("expires_at") @db.Timestamptz(3)
+  supersededAt DateTime?                      @map("superseded_at") @db.Timestamptz(3)
+  discardRequestedAt DateTime?                @map("discard_requested_at") @db.Timestamptz(3)
+  discardStartedAt DateTime?                  @map("discard_started_at") @db.Timestamptz(3)
+  discardedAt DateTime?                       @map("discarded_at") @db.Timestamptz(3)
+  createdAt DateTime                         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  disposalTask IdentityEvidenceDisposalTask?
+
+  @@index([attemptId, createdAt], map: "iv_evidence_attempt_created_idx")
+  @@map("identity_verification_evidence_references")
+}
+
+model IdentityEvidenceDisposalTask {
+  id                  String                            @id @default(uuid()) @db.Uuid
+  evidenceId          String                            @unique(map: "identity_ev_disposal_tasks_evidence_key") @map("evidence_id") @db.Uuid
+  objectKey           String                            @map("object_key") @db.VarChar(255)
+  policyVersion       String                            @map("policy_version") @db.VarChar(64)
+  reason              String                            @db.VarChar(64)
+  eligibleAt          DateTime                          @map("eligible_at") @db.Timestamptz(3)
+  status              IdentityEvidenceDisposalTaskStatus @default(PENDING)
+  attemptCount        Int                               @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime                          @map("next_attempt_at") @db.Timestamptz(3)
+  leaseExpiresAt      DateTime?                         @map("lease_expires_at") @db.Timestamptz(3)
+  irreversibleStartedAt DateTime?                       @map("irreversible_started_at") @db.Timestamptz(3)
+  completedAt         DateTime?                         @map("completed_at") @db.Timestamptz(3)
+  lastError           String?                           @map("last_error") @db.VarChar(64)
+  createdAt           DateTime                          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  evidence IdentityVerificationEvidenceReference @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt], map: "identity_ev_disposal_tasks_ready_idx")
+  @@map("identity_evidence_disposal_tasks")
+}
+
+model IdentityEvidenceDisposalSuspensionEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  attemptId      String   @map("attempt_id") @db.Uuid
+  action         String   @db.VarChar(16)
+  reason         String   @db.VarChar(500)
+  operatorUserId String   @map("operator_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt  ProfessionalIdentityVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  operator User                                     @relation(fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt], map: "identity_disposal_suspension_attempt_created_idx")
+  @@map("identity_evidence_disposal_suspension_events")
+}
+
+model IdentityDocumentCleanupTask {
+  id            String                        @id @default(uuid()) @db.Uuid
+  objectKey     String                        @unique(map: "identity_document_cleanup_tasks_object_key_key") @map("object_key") @db.VarChar(1024)
+  status        IdentityDocumentCleanupStatus @default(PENDING)
+  attemptCount  Int                           @default(0) @map("attempt_count")
+  nextAttemptAt DateTime                      @map("next_attempt_at") @db.Timestamptz(3)
+  leaseExpiresAt DateTime?                    @map("lease_expires_at") @db.Timestamptz(3)
+  completedAt   DateTime?                     @map("completed_at") @db.Timestamptz(3)
+  createdAt     DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, nextAttemptAt], map: "identity_document_cleanup_tasks_ready_idx")
+  @@map("identity_document_cleanup_tasks")
 }
 
 model Favorite {
@@ -403,8 +766,11 @@ model Category {
 
 model ServiceRequest {
   id                        String               @id @default(uuid()) @db.Uuid
+  publicCode                String               @unique(map: "service_requests_public_code_key") @map("public_code") @db.VarChar(32)
   customerProfileId         String               @map("customer_profile_id") @db.Uuid
   categoryId                String               @map("category_id") @db.Uuid
+  targetProfessionalProfileId String?            @map("target_professional_profile_id") @db.Uuid
+  targetProfessionalUnavailableAt DateTime?      @map("target_professional_unavailable_at") @db.Timestamptz(3)
   title                     String               @db.VarChar(160)
   description               String?              @db.VarChar(2000)
   status                    ServiceRequestStatus @default(OPEN)
@@ -432,15 +798,41 @@ model ServiceRequest {
 
   customerProfile      CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
   category             Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  targetProfessionalProfile ProfessionalProfile? @relation("ServiceRequestTargetProfessional", fields: [targetProfessionalProfileId], references: [id], onDelete: Restrict)
   files                ServiceRequestFile[]
   serviceOpportunities ServiceOpportunity[]
   proposals            Proposal[]
   contract             Contract?
+  commercialDataAccessAudits AdminCommercialDataAccessAudit[]
 
   @@index([customerProfileId, status, createdAt], map: "service_requests_customer_status_created_at_idx")
   @@index([categoryId, status, createdAt], map: "service_requests_category_status_created_at_idx")
+  @@index([targetProfessionalProfileId, status], map: "service_requests_target_professional_status_idx")
   @@index([status, createdAt], map: "service_requests_status_created_at_idx")
   @@map("service_requests")
+}
+
+model AdminCommercialDataAccessAudit {
+  id               String   @id @default(uuid()) @db.Uuid
+  serviceRequestId String   @map("service_request_id") @db.Uuid
+  operatorUserId   String   @map("operator_user_id") @db.Uuid
+  action           String   @db.VarChar(64)
+  accessedAt       DateTime @default(now()) @map("accessed_at") @db.Timestamptz(3)
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
+  operator       User           @relation("AdminCommercialDataAccessAuditOperator", fields: [operatorUserId], references: [id], onDelete: Restrict)
+
+  @@index([serviceRequestId, accessedAt], map: "admin_commercial_data_access_audits_request_accessed_at_idx")
+  @@index([operatorUserId, accessedAt], map: "admin_commercial_data_access_audits_operator_accessed_at_idx")
+  @@map("admin_commercial_data_access_audits")
+}
+
+model ServiceRequestPublicCodeCounter {
+  year         Int      @id
+  lastSequence Int      @map("last_sequence")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("service_request_public_code_counters")
 }
 
 model ServiceRequestFile {
@@ -468,6 +860,7 @@ model ServiceOpportunity {
 
   serviceRequest      ServiceRequest      @relation(fields: [serviceRequestId], references: [id], onDelete: Restrict)
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  preProposalConversations PreProposalConversation[]
 
   @@unique([serviceRequestId, professionalProfileId], map: "service_opportunities_service_request_professional_key")
   @@index([professionalProfileId], map: "service_opportunities_professional_profile_id_idx")
@@ -530,10 +923,52 @@ model Contract {
   review              Review?
   customerReview      CustomerReview?
   reviewReminders     ReviewReminder[]
+  reports             ContractReport[]
 
   @@index([customerProfileId, status, createdAt], map: "contracts_customer_profile_status_created_at_idx")
   @@index([professionalProfileId, status, createdAt], map: "contracts_professional_profile_status_created_at_idx")
   @@map("contracts")
+}
+
+model ContractReport {
+  id               String               @id @default(uuid()) @db.Uuid
+  protocol         String               @unique(map: "contract_reports_protocol_key") @db.VarChar(40)
+  contractId       String               @map("contract_id") @db.Uuid
+  reporterUserId   String               @map("reporter_user_id") @db.Uuid
+  targetUserId     String               @map("target_user_id") @db.Uuid
+  reason           ContractReportReason
+  description      String               @db.VarChar(1200)
+  status           ContractReportStatus @default(OPEN)
+  reviewedByUserId String?              @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt       DateTime?            @map("reviewed_at") @db.Timestamptz(3)
+  resolution       String?              @db.VarChar(1200)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  reporter User @relation("ContractReportReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  target User @relation("ContractReportTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+  reviewer User? @relation("ContractReportReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  history ContractReportStatusHistory[]
+
+  @@index([status, createdAt], map: "contract_reports_status_created_at_idx")
+  @@index([contractId], map: "contract_reports_contract_idx")
+  @@map("contract_reports")
+}
+
+model ContractReportStatusHistory {
+  id          String               @id @default(uuid()) @db.Uuid
+  reportId    String               @map("report_id") @db.Uuid
+  status      ContractReportStatus
+  reason      String?              @db.VarChar(1200)
+  actorUserId String?              @map("actor_user_id") @db.Uuid
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  report ContractReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  actor User? @relation("ContractReportHistoryActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, createdAt], map: "contract_report_history_report_created_at_idx")
+  @@map("contract_report_status_history")
 }
 
 model ReviewReminder {
@@ -603,6 +1038,73 @@ model Conversation {
   readStates ConversationReadState[]
 
   @@map("conversations")
+}
+
+model PreProposalConversation {
+  id                    String   @id @default(uuid()) @db.Uuid
+  serviceOpportunityId  String   @map("service_opportunity_id") @db.Uuid
+  customerProfileId     String   @map("customer_profile_id") @db.Uuid
+  professionalProfileId String   @map("professional_profile_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closedAt              DateTime? @map("closed_at") @db.Timestamptz(3)
+
+  serviceOpportunity  ServiceOpportunity  @relation(fields: [serviceOpportunityId], references: [id], onDelete: Restrict)
+  customerProfile     CustomerProfile     @relation("PreProposalConversationCustomer", fields: [customerProfileId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile @relation("PreProposalConversationProfessional", fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  messages            PreProposalMessage[]
+
+  @@index([customerProfileId, updatedAt], map: "pre_proposal_conversations_customer_updated_idx")
+  @@index([professionalProfileId, updatedAt], map: "pre_proposal_conversations_professional_updated_idx")
+  @@index([serviceOpportunityId, createdAt], map: "pre_proposal_conversations_opportunity_created_idx")
+  @@map("pre_proposal_conversations")
+}
+
+model PreProposalMessage {
+  id                        String   @id @default(uuid()) @db.Uuid
+  preProposalConversationId String   @map("pre_proposal_conversation_id") @db.Uuid
+  senderUserId              String   @map("sender_user_id") @db.Uuid
+  content                   String   @db.VarChar(4000)
+  sentAt                    DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  preProposalConversation PreProposalConversation @relation(fields: [preProposalConversationId], references: [id], onDelete: Restrict)
+  sender                  User                    @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  responsePhotos          PreProposalResponsePhoto[]
+
+  @@index([preProposalConversationId, sentAt, id], map: "pre_proposal_messages_conversation_sent_idx")
+  @@index([senderUserId, sentAt], map: "pre_proposal_messages_sender_sent_idx")
+  @@map("pre_proposal_messages")
+}
+
+model PreProposalResponsePhoto {
+  id                   String   @id @default(uuid()) @db.Uuid
+  preProposalMessageId String   @map("pre_proposal_message_id") @db.Uuid
+  objectKey            String   @unique(map: "pre_proposal_response_photos_object_key_key") @map("object_key") @db.VarChar(1024)
+  originalName         String   @map("original_name") @db.VarChar(255)
+  mimeType             String   @map("mime_type") @db.VarChar(127)
+  sizeBytes            Int      @map("size_bytes")
+  position             Int
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  preProposalMessage PreProposalMessage @relation(fields: [preProposalMessageId], references: [id], onDelete: Restrict)
+
+  @@unique([preProposalMessageId, position], map: "pre_proposal_response_photos_message_position_key")
+  @@map("pre_proposal_response_photos")
+}
+
+model PreProposalResponsePhotoUploadCandidate {
+  id String @id @default(uuid()) @db.Uuid
+  objectKey String @unique @map("object_key") @db.VarChar(1024)
+  status PreProposalPhotoCandidateStatus @default(PENDING)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  attemptCount Int @default(0) @map("attempt_count")
+  leaseExpiresAt DateTime? @map("lease_expires_at") @db.Timestamptz(3)
+  lastError String? @map("last_error") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@index([status, nextAttemptAt])
+  @@map("pre_proposal_response_photo_upload_candidates")
 }
 
 model Message {

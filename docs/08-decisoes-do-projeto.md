@@ -2,6 +2,10 @@
 
 # Objetivo
 
+> Decisão implementada: esclarecimentos pré-proposta são pedidos privados independentes, não chat contratual; uma pergunta, uma resposta final opcionalmente com até cinco fotos e encerramento para consulta. Outro esclarecimento exige outro pedido.
+
+> Decisão implementada: a recuperação de anexos órfãos usa candidato de upload persistente específico para esclarecimentos, e não reutiliza diretamente o reconciliador de fotos de perfil. A implementação usa migration, processador próprio, `FOR UPDATE SKIP LOCKED`, lease, proteção de objeto referenciado e reagendamento para falhas e upload tardio.
+
 ## Decisões operacionais atuais
 
 Solicitações são revisadas antes da publicação; não se persistem rascunhos no fluxo atual. A dependência operacional da janela de dez minutos foi removida e oportunidades são despachadas imediatamente após a publicação. Início e conclusão de contrato pertencem às telas de oportunidade e solicitação, respectivamente; conversa é somente status e comunicação. Staging usa API em subdomínio próprio e permanece separado de Production. O MVP mantém monólito modular, sem pagamentos internos e sem microserviços prematuros.
@@ -433,9 +437,9 @@ Não utilizar a expressão de forma que implique certificação de competência,
 
 ### CPF/CNPJ
 
-Não coletar obrigatoriamente de todo profissional no primeiro cadastro.
-
-Poderá ser solicitado quando necessário para verificação, respeitando finalidade, proporcionalidade e minimização de dados.
+Substituída pela decisão de evolução de contas de 2026-10-17, registrada ao
+fim deste documento. O cadastro de pessoa jurídica inclui CNPJ e responsável
+identificado por CPF; a representação empresarial detalhada permanece pendente.
 
 ### Não aprovação
 
@@ -490,6 +494,22 @@ A página de categoria da Soravi combinará descoberta direta de profissionais c
 
 Home, categoria, perfil público e filtros deverão evoluir como superfícies de descoberta e contratação complementares ao fluxo de solicitações e propostas. Esta decisão não cria rota, API, filtro, perfil público, migration ou alteração de código.
 
+`targetProfessionalProfileId` opcional mantém o destino exclusivo, é revalidado no despacho e não possui fallback genérico. O frontend inicia o fluxo no perfil público e conserva somente o retorno interno canonizado para `/solicitacoes/nova` com UUID v4 durante autenticação e confirmação de telefone.
+
+## Contato pré-proposta e visita técnica
+
+### Decisão implementada (substitui a decisão anterior de conversa contínua)
+
+O contato anterior à proposta é “Pedir mais detalhes”, implementado como pedido privado independente, vinculado à solicitação e à oportunidade. Somente o cliente e o profissional elegível da oportunidade o acessam; em pedidos direcionados, somente o destinatário exclusivo pode criá-lo e consultá-lo. A pergunta do profissional recebe uma única resposta final do cliente, com fotos opcionais, e o pedido é encerrado para consulta. Novos esclarecimentos exigem novos pedidos.
+
+As interfaces de cliente e profissional estão implementadas e apresentam histórico de pedidos, sem comportamento ou aparência de chat contínuo. Fotos são autorizadas somente aos participantes por URL temporária, e não revelam chave de storage ou dados privados.
+
+“Solicitar visita técnica” ficará para incremento posterior. O profissional deverá informar motivo, sugestão de data e horário e se a visita é gratuita ou paga; se paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
+
+O endereço completo não será liberado automaticamente ao iniciar o contato. A regra que autoriza sua liberação para uma visita técnica deverá ser definida antes da implementação.
+
+Registro histórico: a decisão anterior previa avaliar o reaproveitamento do chat para “Pedir mais detalhes”. Ela foi substituída pela separação definitiva entre pedidos pré-proposta e chat contratual; o chat permanece sem alteração e disponível apenas após contratação.
+
 ## Histórico append-only e reenvio da verificação profissional
 
 ### Decisão (2026-09-30)
@@ -519,3 +539,182 @@ migrations `20260928000100_add_professional_profile_editable_fields` e
 `20260929000100_create_professional_verification_reviews` foram aplicadas nesse
 ambiente, cujo `prisma migrate status` confirmou atualizado com 29 migrations.
 Esta documentação não afirma deploy, go-live ou validação em produção.
+
+## Evolução de contas e CPF
+
+### Decisões aprovadas (2026-10-17; extensão empresarial ainda não implementada)
+
+Atualização de escopo: a proteção para categorias do perfil profissional
+pessoal foi implementada nesta etapa. A extensão abaixo para empresas continua
+pendente; esta entrega não modela empresas, CNPJ ou ativação de perfis.
+
+- Uma pessoa utiliza uma única conta e pode possuir perfis de cliente e
+  profissional, preservando seu histórico.
+- Um cliente pode adicionar perfil profissional. O perfil continua sujeito à
+  verificação profissional existente antes de enviar propostas.
+- Um profissional pode ativar perfil cliente para contratar serviços.
+- O bloqueio de solicitação considera a união das categorias profissionais
+  pessoais do usuário e das empresas que ele representa ativamente,
+  independentemente de atuar pessoalmente ou em nome de qualquer dessas
+  empresas. Se a pessoa ou uma empresa representada oferece pintura, nenhum
+  desses contextos pode solicitar pintura; outras categorias continuam
+  permitidas. A regra é aplicada no backend antes da publicação e da liberação
+  da contratação.
+- A plataforma não deve distribuir oportunidade nem aceitar proposta de um
+  profissional para solicitação criada pela sua própria conta.
+- O cadastro inicial de cliente é simples e não exige CPF. O profissional pode
+  criar conta e preencher o perfil antes da verificação; nome completo e CPF
+  entram como requisito para liberar oportunidades e propostas. Pessoa jurídica
+  mantém razão social, CNPJ e responsável identificado por nome completo e CPF
+  como decisões próprias pendentes.
+- PF/PJ e cliente/profissional são dimensões distintas: a primeira descreve a
+  pessoa ou empresa; a segunda, os perfis de atuação. Esta decisão não define
+  ainda a modelagem de empresas e representantes.
+- CPF é dado privado e único da identidade pessoal, compartilhado entre seus
+  perfis e não duplicado em contas pessoais independentes. Empresa e
+  responsável são dados conceitualmente separados. Validar dígitos de CPF ou
+  CNPJ não equivale a verificar identidade.
+- Contas existentes não receberão CPF fictício.
+
+### Verificação profissional e identidade (decisão aprovada; ainda não implementada)
+
+Para liberar oportunidades e envio de propostas, o profissional deverá concluir
+nome completo e CPF, documento com foto (CIN/RG ou CNH), telefone confirmado,
+e-mail confirmado e CEP de referência, mantido separado da região de
+atendimento. CEP não comprova residência; CPF válido e documento enviado não
+equivalem a identidade verificada. CPF, documentos e endereço residencial são
+privados.
+
+Selfie, método de conferência de titularidade e critérios de aprovação ainda
+precisam de definição. Pendências não bloqueiam login nem excluem histórico. A
+estratégia de adequação de profissionais existentes permanece pendente.
+Empresas/CNPJ preservam as decisões e pendências próprias já registradas.
+
+A foto de perfil deverá corresponder ao profissional individual cuja identidade
+foi verificada, e o cliente deverá identificar previamente quem realizará a
+visita. A conta profissional é individual e intransferível. Ajudantes e
+substitutos precisam ser identificados previamente, com ciência do cliente;
+critérios de verificação e autorização ainda precisam de definição. Empresas
+deverão identificar as pessoas enviadas ao atendimento; sua modelagem e regras
+empresariais continuam pendentes.
+
+Documentos são privados e terão acesso interno restrito. Será previsto canal de
+denúncia de divergência de identidade ou comportamento, com análise interna e
+possibilidade de suspensão. “Identidade verificada” descreve uma checagem
+concluída; não garante conduta futura nem qualidade do serviço.
+
+### Proposta técnica (depende de definição operacional)
+
+Modelar separadamente a identidade pessoal, que reúne nome completo e CPF, e a
+empresa, que reúne razão social e CNPJ. A identidade pessoal é a referência
+conceitual para os perfis e para a representação empresarial; isso não define
+ainda tabelas, relações ou cardinalidades.
+
+Armazenar o CPF da identidade pessoal de forma cifrada e seu índice HMAC
+determinístico para unicidade, com chaves separadas. Não manter
+simultaneamente uma cópia aberta dos mesmos dígitos. A constraint única deve
+incidir sobre o índice HMAC da identidade pessoal; em conflito, a resposta
+pública não pode confirmar se o CPF pertence a outra conta nem revelar seus
+dados. Não impor unicidade de CPF diretamente na empresa: um responsável pode
+representar mais de uma empresa.
+
+### Incremento estrutural (2026-10-18)
+
+Foi preparada a estrutura `PersonalIdentity`, opcional para `User`, com o
+envelope cifrado completo do CPF, o HMAC determinístico único no banco e o
+identificador da chave HMAC utilizada. O campo `User.name` continua sendo a
+fonte atual do nome: não há duplicação de nome nem afirmação de conferência com
+o CPF.
+
+Este incremento não integra coleta ou persistência de CPF a cadastros,
+serviços, endpoints ou frontend. Contas existentes seguem sem identidade
+quando não houver cadastro explícito, e não serão criadas identidades vazias ou
+com CPF fictício. Empresas e representantes permanecem incrementos futuros.
+
+A unicidade de CPF é protegida pela constraint única sobre `cpf_hmac`. O
+`hmacKeyId` registra a chave usada no cálculo, mas não implementa rotação nem
+garante que versões de HMAC sejam unívocas. Enquanto não houver procedimento
+seguro de rotação, não será permitido trocar a chave HMAC em banco que possua
+identidades cadastradas. Correção, exclusão e retenção da identidade continuam
+pendentes.
+
+### Vínculo global da chave HMAC de CPF (estrutura preparada)
+
+Foi preparada a tabela singleton `cpf_hmac_key_bindings`, com escopo fixo
+`personal_identity_cpf`, para registrar futuramente o identificador da chave
+HMAC e uma fingerprint criptográfica do seu material. A fingerprint usa domínio
+próprio e não armazena nem expõe a chave. O serviço de gravação bloqueia a linha
+singleton antes da linha de `User`, e valida o identificador e a fingerprint
+antes de consultar a unicidade do CPF.
+
+Uma linha ausente, `ADOPTION_REQUIRED` ou um vínculo incompatível bloqueia novas
+gravações sem criar ou recriar o singleton. Em `UNINITIALIZED`, a primeira
+gravação elegível só vincula a configuração se não existir nenhuma identidade;
+o vínculo e a identidade são persistidos na mesma transação. A migration deve
+ser aplicada antes de habilitar a coleta. Sua implantação e qualquer adoção
+devem ocorrer com a coleta de CPF desabilitada e sem escritores antigos em
+execução. Adoção administrativa e rotação de chave continuam fora deste
+incremento.
+
+### Estrutura de tentativas de verificação de identidade profissional (preparada)
+
+Foi preparada uma estrutura aditiva para tentativas de verificação de identidade
+profissional: `ProfessionalIdentityVerificationAttempt`,
+`IdentityVerificationDecision` e `IdentityVerificationEvidenceReference`. A
+tentativa vincula um perfil profissional a uma identidade pessoal já existente;
+ela mantém estados operacionais distintos do resultado da identidade. Uma
+decisão registra origem `MANUAL` ou `PROVIDER`, resultado, código de motivo,
+versão dos critérios e, quando manual, o operador responsável. A origem
+`PROVIDER` é somente preparação de modelagem e não integra fornecedor,
+callback, worker ou aprovação automática.
+
+As evidências mantêm apenas referência privada e opaca, seu tipo e eventual
+expiração. A estrutura não armazena URL assinada, documento, selfie, biometria,
+CPF ou payload bruto. As FKs usam `RESTRICT` para que exclusões não eliminem o
+histórico de tentativas, decisões ou referências de evidência.
+
+Há índice parcial para uma tentativa ativa por perfil profissional. As
+constraints distinguem tentativas abertas, encerradas e canceladas, e exigem
+operador para decisão manual. Esta estrutura não altera
+`ProfessionalVerificationStatus`, não faz backfill, não muda perfis existentes
+nem habilita revisão ou aprovação operacional. Identidade confirmada continua
+conceito diferente de aprovação profissional.
+
+O append-only das decisões e a garantia de que perfil e identidade pertencem à
+mesma pessoa ainda precisam ser impostas pelos serviços transacionais ou por
+mecanismo adicional no banco; esta migration não fornece essas garantias.
+
+As ativações cliente → profissional e profissional → cliente devem ser
+transacionais e idempotentes. A semântica para chamadas repetidas com dados
+diferentes permanece pendente. Backend e frontend devem evoluir coordenadamente:
+nenhum cadastro pode passar a exigir CPF antes de os formulários efetivamente o
+enviarem. A ativação de perfil adicional só pode ser liberada depois de as
+proteções backend contra solicitação na própria categoria e contra oportunidade
+ou proposta na própria solicitação estarem implementadas e testadas.
+
+### Requisitos técnicos da proposta
+
+- Preservar compatibilidade com usuários legados sem CPF, sem criar dados
+  fictícios.
+- Derivar permissões empresariais da representação ativa e do perfil da
+  empresa; não exigir perfil profissional pessoal do responsável.
+- Garantir um único responsável ativo por empresa no MVP, inclusive sob
+  concorrência.
+- Implementar e testar as proteções backend antes de liberar os novos
+  contextos de atuação.
+
+### Pendências explícitas
+
+- Política de adequação para contas existentes sem CPF.
+- Cardinalidade entre empresa, responsáveis e vínculo com a conta pessoal,
+  inclusive participação de outros representantes.
+- Verificação do vínculo do responsável com a empresa.
+- Migração de pessoa física para atuação empresarial.
+- Aplicação das restrições por categoria à empresa e ao responsável.
+- Privacidade e exposição dos dados empresariais.
+- Correção de CPF, acesso interno, auditoria e retenção.
+- Efeito de adicionar ou remover categorias sobre solicitações, oportunidades
+  e propostas existentes.
+- Política temporal para mudança de categorias e representações sobre
+  solicitações e propostas já existentes.
+- Comportamento de chamadas repetidas de ativação com dados diferentes.

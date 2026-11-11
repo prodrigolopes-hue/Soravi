@@ -52,6 +52,21 @@ describe("UsersAdminStatusService.updateStatus", () => {
     expect(sessionsRevokedNotifier.publish).not.toHaveBeenCalled();
   });
 
+  it("permite PENDING -> ACTIVE sem alterar sessoes ou outros dados da conta", async () => {
+    transaction.$queryRaw.mockResolvedValue([locked(UserStatus.PENDING)]);
+
+    await service.updateStatus(actorUserId, targetUserId, {
+      status: UserStatus.ACTIVE,
+    });
+
+    expect(transaction.user.update).toHaveBeenCalledWith({
+      where: { id: targetUserId },
+      data: { status: UserStatus.ACTIVE },
+    });
+    expect(transaction.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionsRevokedNotifier.publish).not.toHaveBeenCalled();
+  });
+
   it("faz no-op em ACTIVE -> ACTIVE", async () => {
     await service.updateStatus(actorUserId, targetUserId, { status: UserStatus.ACTIVE });
     expect(transaction.user.update).not.toHaveBeenCalled();

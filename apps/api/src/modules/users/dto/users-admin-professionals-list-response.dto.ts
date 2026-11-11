@@ -1,4 +1,6 @@
 import {
+  IdentityVerificationResult,
+  ProfessionalIdentityVerificationAttemptStatus,
   ProfessionalVerificationStatus,
   UserStatus,
 } from "../../../generated/prisma/client";
@@ -19,6 +21,7 @@ export type UsersAdminProfessionalRecord = {
     reviewedAt?: Date | null;
     reviewNotes?: string | null;
     isAvailable: boolean;
+    identityVerification?: { id: string; status: ProfessionalIdentityVerificationAttemptStatus; result: IdentityVerificationResult } | null;
   };
 };
 
@@ -29,6 +32,7 @@ export class UsersAdminProfessionalProfileItemResponseDto {
   reviewedAt?: Date | null;
   reviewNotes?: string | null;
   isAvailable!: boolean;
+  identityVerification?: UsersAdminProfessionalRecord["professionalProfile"]["identityVerification"];
 
   constructor(record: UsersAdminProfessionalRecord["professionalProfile"]) {
     this.id = record.id;
@@ -37,6 +41,7 @@ export class UsersAdminProfessionalProfileItemResponseDto {
     if (record.reviewedAt !== undefined) this.reviewedAt = record.reviewedAt;
     if (record.reviewNotes !== undefined) this.reviewNotes = record.reviewNotes;
     this.isAvailable = record.isAvailable;
+    if (record.identityVerification !== undefined) this.identityVerification = record.identityVerification;
   }
 }
 

@@ -71,7 +71,7 @@ describe("OpportunitiesService", () => {
 
     const where = {
       professionalProfileId,
-      serviceRequest: { deletedAt: null },
+      serviceRequest: { deletedAt: null, OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfileId }] },
     };
     expect(prismaMock.professionalProfile.findFirst).toHaveBeenCalledWith({
       where: {
@@ -158,7 +158,7 @@ describe("OpportunitiesService", () => {
       where: {
         id: opportunityId,
         professionalProfileId,
-        serviceRequest: { deletedAt: null },
+        serviceRequest: { deletedAt: null, OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfileId }] },
       },
       select: expect.any(Object),
     });
@@ -167,6 +167,7 @@ describe("OpportunitiesService", () => {
       createdAt: new Date("2026-08-19T12:00:00.000Z"),
       viewedAt: null,
       conversationId: null,
+      contract: null,
       customerFirstName: "Paulo",
       serviceRequest: {
         id: "request-id",
@@ -318,7 +319,7 @@ describe("OpportunitiesService", () => {
         id: opportunityId,
         professionalProfileId,
         viewedAt: null,
-        serviceRequest: { deletedAt: null },
+        serviceRequest: { deletedAt: null, OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfileId }] },
       },
       data: { viewedAt: expect.any(Date) },
     });

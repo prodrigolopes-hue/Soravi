@@ -19,6 +19,7 @@ import {
   conversationReadUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { ContractReportForm } from "../reports/contract-report-form";
 
 const MESSAGE_LIMIT = 30;
 const MAX_MESSAGE_LENGTH = 4000;
@@ -55,6 +56,7 @@ interface ConversationDetails {
   };
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
     status: string;
   };
@@ -128,6 +130,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     !isNullableString(root.contract.completedAt) ||
     !isRecord(root.serviceRequest) ||
     typeof root.serviceRequest.id !== "string" ||
+    typeof root.serviceRequest.publicCode !== "string" ||
     typeof root.serviceRequest.title !== "string" ||
     typeof root.serviceRequest.status !== "string" ||
     !isParticipantRole(root.participantRole)
@@ -154,6 +157,7 @@ function parseConversation(payload: unknown): ConversationDetails | null {
     },
     serviceRequest: {
       id: root.serviceRequest.id,
+      publicCode: root.serviceRequest.publicCode,
       title: root.serviceRequest.title,
       status: root.serviceRequest.status,
     },
@@ -673,7 +677,7 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
                 Conversa da contratação
               </p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
-                {conversation.serviceRequest.title}
+                <span className="block text-sm font-semibold text-blue-700">{conversation.serviceRequest.publicCode}</span>{conversation.serviceRequest.title}
               </h1>
               {conversation.otherParticipantName ? (
                 <p className="mt-2 text-sm text-slate-600">
@@ -689,6 +693,7 @@ export function ConversationPage({ conversationId }: ConversationPageProps) {
             </span>
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-700">Status do serviço: {conversation.contract.status === "IN_PROGRESS" ? "Em andamento" : conversation.contract.status === "COMPLETED" ? "Concluído" : "Aceito"}</p>
+          {accessToken ? <ContractReportForm contractId={conversation.contract.id} accessToken={accessToken} /> : null}
           {readonlyMessage ? (
             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
               {readonlyMessage}

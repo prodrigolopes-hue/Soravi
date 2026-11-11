@@ -55,6 +55,7 @@ describe("ConversationsController", () => {
       },
       serviceRequest: {
         id: "request-id",
+        publicCode: "SO2026001",
         title: "Instalar tomada",
         status: "OPEN" as any,
       },

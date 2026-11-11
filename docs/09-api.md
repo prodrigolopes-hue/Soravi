@@ -2,6 +2,22 @@
 
 # Objetivo
 
+> Atualização: `POST /api/v1/opportunities/:opportunityId/pre-proposal-conversation/messages` cria um pedido separado. `POST /api/v1/pre-proposal-conversations/:conversationId/response` recebe a resposta única do cliente em `multipart/form-data` (`content` e até cinco `photos`) e encerra o pedido.
+
+`GET /api/v1/opportunities/:opportunityId/pre-proposal-conversations` retorna somente ao profissional proprietário da oportunidade os pedidos que ele criou, incluindo a resposta e URLs temporárias das fotos autorizadas.
+
+O conteúdo do pedido continua sendo o campo `content`; a interface profissional consolida as opções selecionadas e o texto obrigatório de “Outra dúvida” nesse único campo, sem mudança de contrato ou migration.
+
+Anexos pré-proposta registram candidato persistente antes do upload e usam a chave registrada. A associação bloqueia o candidato com `FOR UPDATE` e exige candidato `PENDING` sem tentativa anterior; assim, candidato já reivindicado pela limpeza não pode ser associado mesmo se for reagendado para reconciliação. Após associar a foto, o candidato é removido na mesma transação. Um processador periódico limitado reivindica candidatos com `FOR UPDATE SKIP LOCKED` na mesma transação, usa lease, protege fotos referenciadas e reagenda falhas de exclusão e verificações posteriores para capturar upload tardio. O mecanismo requer a migration `20261027000100_create_pre_proposal_photo_upload_candidates` nos ambientes ainda não migrados.
+
+## Contato pré-proposta
+
+O backend implementa `POST /api/v1/opportunities/:opportunityId/pre-proposal-conversation/messages`, `GET /api/v1/opportunities/:opportunityId/pre-proposal-conversations`, `GET /api/v1/service-requests/:serviceRequestId/pre-proposal-conversations`, `GET /api/v1/pre-proposal-conversations/:conversationId`, `GET /api/v1/pre-proposal-conversations/:conversationId/messages` e `POST /api/v1/pre-proposal-conversations/:conversationId/response`.
+
+Cada `POST` de criação abre um pedido independente; não há reaproveitamento por oportunidade nem endpoint para continuar uma conversa. O `POST .../response` aceita `content` obrigatório e até cinco imagens em `photos`, cada uma limitada a 5 MiB e validada como imagem suportada pelo mecanismo de fotos de solicitações. A primeira resposta válida encerra o pedido; repetição ou concorrência não cria segunda resposta. A listagem da oportunidade é restrita ao profissional proprietário; a da solicitação, ao cliente proprietário. As leituras de um pedido são restritas aos seus dois participantes e devolvem fotos somente por URL temporária, sem `objectKey`, endereço completo, CEP, telefone ou e-mail.
+
+O texto de criação permanece no campo `content`: a interface profissional pode consolidar opções selecionadas e a explicação obrigatória de “Outra dúvida” nesse campo. A interface de cliente responde uma única vez e mantém o pedido encerrado para consulta. Visita técnica continua pendente e não compartilha endereço automaticamente.
+
 ## Avaliacoes bilaterais cegas
 
 `POST /api/v1/contracts/:contractId/review` permite ao cliente criar `Review` (cliente -> profissional). `POST /api/v1/contracts/:contractId/customer-review` permite ao profissional criar `CustomerReview` (profissional -> cliente). Ambos aceitam `rating` inteiro de 1 a 5 e `comment` opcional, somente apos `COMPLETED` e ate sete dias de `completedAt`; apos o prazo, retornam `REVIEW_WINDOW_EXPIRED`.
@@ -12,7 +28,7 @@ Avaliações: `POST /api/v1/contracts/:contractId/review` aceita `rating` de 1 a
 
 ## Estado atual dos contratos
 
-Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado.
+Solicitações: `POST /api/v1/service-requests` publica em `OPEN` com `publishedAt`; `GET /api/v1/service-requests/mine`, `GET /api/v1/service-requests/:serviceRequestId`, `POST /api/v1/service-requests/:serviceRequestId/cancel` e `POST /api/v1/service-requests/:serviceRequestId/photos` estão no fluxo atual. O frontend revisa antes do POST; não há endpoint de publicação separado. `visibleProposalLimit` é opcional e, quando informado, aceita somente `3`, `5` ou `10`; na ausência do campo, o backend usa `3`. O POST aceita opcionalmente `targetProfessionalProfileId`: quando informado, o backend cria oportunidade exclusiva para o destinatário elegível (conta `ACTIVE`, papel e perfil profissional válidos e categoria ativa) ou registra indisponibilidade sem fallback. No fluxo direcionado, o frontend omite `visibleProposalLimit` — `1` não é um valor aceito pelo DTO — e não oferece comparação de propostas. O perfil público usa `/solicitacoes/nova?professionalProfileId=<uuid>`; o cliente vê destino e eventual `targetProfessionalUnavailableAt` somente nas suas leituras.
 
 Também estão implementados `POST /api/v1/contracts/:contractId/start`, `POST /api/v1/contracts/:contractId/complete`, `POST /api/v1/contracts/:contractId/review`, `POST /api/v1/phone-verification/request`, `POST /api/v1/phone-verification/confirm`, os endpoints de favoritos e os recursos de conversa para listagem, detalhe, mensagens e leitura.
 
@@ -131,11 +147,27 @@ Body permitido:
 
 O valor também pode ser `BLOCKED`. Qualquer outro campo é rejeitado. O sucesso retorna `204 No Content`.
 
-O endpoint exige `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida `userId` como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Ele permite bloquear ou reativar somente CUSTOMER e PROFESSIONAL; rejeita self-target, qualquer alvo ADMIN, conta soft-deleted e estado atual `PENDING`, `SUSPENDED` ou `DEACTIVATED`.
+O endpoint exige `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida `userId` como UUID, obtém `actorUserId` do contexto autenticado e não exige telefone verificado. Ele permite ativar explicitamente `PENDING -> ACTIVE`, além de bloquear ou reativar somente CUSTOMER e PROFESSIONAL; rejeita self-target, qualquer alvo ADMIN, conta soft-deleted e estados atuais `SUSPENDED` ou `DEACTIVATED`. `PENDING -> BLOCKED` continua recusada.
 
-Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma transação, com `SELECT ... FOR UPDATE` sobre `User`. Repetir `BLOCKED` ainda revoga sessões residuais. Reativar não restaura sessões; repetir `ACTIVE` é no-op.
+Ao bloquear, status e revogação de todas as sessões ativas ocorrem na mesma transação, com `SELECT ... FOR UPDATE` sobre `User`. Repetir `BLOCKED` ainda revoga sessões residuais. Ativar uma conta `PENDING` e reativar uma `BLOCKED` não restauram nem criam sessões; repetir `ACTIVE` é no-op. A ativação é uma decisão administrativa e não comprova identidade, nem altera confirmações de telefone/e-mail, aprovação profissional, CPF ou papéis.
 
 GET /api/v1/users/me - Dados do usuário autenticado
+
+POST `/api/v1/users/me/roles/professional` ativa o perfil profissional da
+conta cliente autenticada. Recebe `professionalTitle`, `serviceArea`, `bio` e
+de 1 a 3 `categorySlugs` ativos e distintos. Exige sessão válida, `CUSTOMER`,
+conta `PENDING` ou `ACTIVE` e perfil cliente existente. A criação começa com
+verificação `NOT_STARTED` e disponibilidade ativa; não altera telefone, status
+da conta, perfil cliente ou outros papéis, nem aprova ou submete verificação.
+Repetições preservam o perfil e categorias da primeira ativação concluída; a
+edição posterior usa `PATCH /api/v1/users/me/professional-profile`.
+
+POST `/api/v1/users/me/roles/customer` ativa o perfil cliente da conta
+profissional autenticada. Não recebe body, exige sessão válida e
+`PROFESSIONAL`; a conta pode estar `PENDING` ou `ACTIVE`, não pode estar
+soft-deleted e precisa ter perfil profissional não excluído; a operação é idempotente,
+preserva perfil, categorias e verificação profissional e retorna o usuário
+seguro atual. Ela não altera o status da conta nem dispensa telefone verificado nos fluxos que já o exigem.
 
 PUT /api/v1/users/me - Atualizar perfil
 
@@ -147,6 +179,30 @@ Rotas autenticadas, restritas a `PROFESSIONAL`:
 
 - `GET /api/v1/users/me/professional-profile` retorna o perfil atual;
 - `PATCH /api/v1/users/me/professional-profile` atualiza o perfil atual.
+
+### Foto do perfil profissional
+
+`PUT /api/v1/users/me/professional-profile/photo` e
+`DELETE /api/v1/users/me/professional-profile/photo` exigem sessão válida e o
+papel `PROFESSIONAL`. As mutações usam o usuário da sessão, são limitadas pela
+mesma proteção de throttle das mutações sensíveis e não alteram a aprovação
+profissional.
+
+O `PUT` aceita exclusivamente `multipart/form-data` com um único arquivo no
+campo `photo`, em memória, com no máximo 5 MiB. Campos adicionais e nomes de
+campo diferentes são rejeitados. O arquivo precisa ser uma imagem JPEG, PNG ou
+WebP válida dentro dos limites de processamento. A resposta é `200 OK` com
+`{ "recorded": true }`; ela não expõe `objectKey`, URL ou dados do storage.
+
+O `DELETE` retorna `204 No Content`. Repetir a remoção sem foto permanece
+idempotente. As respostas de erro para foto ausente ou inválida são públicas e
+sanitizadas; arquivo excedente retorna `413 Payload Too Large`.
+
+As respostas do perfil profissional próprio e da descoberta pública incluem
+`photo`. Quando não há foto — ou quando a assinatura temporária não está
+disponível — o valor é `null`. Caso exista, é `{ "url": "…", "expiresAt":
+"…" }`, com URL temporária válida por 15 minutos. Essas respostas usam
+`Cache-Control: no-store` e nunca expõem `objectKey` ou metadados internos.
 
 O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
 `categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
@@ -1052,6 +1108,34 @@ Resposta:
 - HTTP `204 No Content`.
 
 ## Usuários
+
+### GET `/api/v1/users/me/personal-identity`
+
+Consulta autenticada para a tela “Meus dados”. Retorna exatamente
+`{ "recorded": true }` quando a própria conta possui uma identidade pessoal
+cadastrada, ou `{ "recorded": false }` quando não possui. O resultado não
+representa identidade verificada e nunca inclui CPF, envelope, HMAC, fingerprint
+ou identificadores de chave. A resposta usa `Cache-Control: no-store`.
+
+O `userId` vem exclusivamente da sessão. A leitura funciona mesmo quando
+`PERSONAL_IDENTITY_RECORDING_ENABLED` está ausente ou desabilitada e não cria
+nem altera o vínculo global da chave HMAC.
+
+### POST `/api/v1/users/me/personal-identity`
+
+Registra a identidade pessoal inicial da conta autenticada. Requer Bearer access
+token e aplica limite de 3 tentativas por hora. O corpo aceita somente `cpf` e
+a resposta e limitada a `{ "recorded": true }`; CPF, HMAC e envelope nunca
+sao retornados. O `userId` vem exclusivamente da sessao e campos extras sao
+recusados. CPF invalido retorna `400` neutro; recurso indisponivel retorna
+`503` sem consultar ou gravar identidade.
+
+Para ativar, defina `PERSONAL_IDENTITY_RECORDING_ENABLED=true` e as quatro
+chaves validas `CPF_ENCRYPTION_KEY`, `CPF_ENCRYPTION_KEY_ID`, `CPF_HMAC_KEY`
+e `CPF_HMAC_KEY_ID`. Ausencia da flag ou `false` mantem o recurso desabilitado
+e permite iniciar sem chaves. Nao habilite antes de confirmar a migration
+`personal_identities`, guardar as chaves em cofre e verificar compatibilidade
+do `hmacKeyId` com identidades existentes. Rotacao de HMAC nao esta implementada.
 
 ### GET `/api/v1/users/me`
 

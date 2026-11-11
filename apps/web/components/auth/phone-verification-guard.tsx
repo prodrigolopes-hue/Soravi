@@ -1,11 +1,12 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { useAuth } from "./auth-provider";
 import { phoneVerificationGuardDecision } from "./phone-verification-routing";
+import { directedServiceRequestDestination, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 interface PhoneVerificationGuardProps {
   children: ReactNode;
@@ -16,14 +17,21 @@ export function PhoneVerificationGuard({
 }: PhoneVerificationGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoading, user } = useAuth();
   const decision = phoneVerificationGuardDecision({
     isLoading,
     pathname,
     user,
   });
-  const redirectDestination =
-    decision.type === "redirect" ? decision.destination : null;
+  const directedReturnTo = pathname === "/solicitacoes/nova"
+    ? directedServiceRequestDestination(searchParams.get("professionalProfileId"))
+    : null;
+  const redirectDestination = decision.type === "redirect"
+    ? decision.destination === "/verificar-telefone"
+      ? withDirectedRequestReturnTo("/verificar-telefone", directedReturnTo)
+      : decision.destination
+    : null;
 
   useEffect(() => {
     if (redirectDestination) {

@@ -1,12 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, BriefcaseBusiness, LoaderCircle, MapPin, Save, ShieldCheck, UserRound } from "lucide-react";
+import { AlertCircle, BriefcaseBusiness, LoaderCircle, MapPin, Save, ShieldCheck, Trash2, Upload, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { categoriesUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
+import { categoriesUrl, currentProfessionalPortfolioItemUrl, currentProfessionalPortfolioUrl, currentProfessionalProfilePhotoUrl, currentProfessionalProfileUrl, professionalVerificationSubmissionUrl } from "../../lib/api";
+import { PersonalIdentityCollection } from "./personal-identity-collection";
+import { ProfessionalIdentityDocumentUpload } from "./professional-identity-document-upload";
+import { ProfessionalContactVerification } from "./professional-contact-verification";
 import {
   type ProfessionalCategory,
   type ProfessionalProfile,
@@ -15,6 +18,7 @@ import {
 } from "../../lib/professional-profile";
 import { z } from "../../lib/zod";
 import { useAuth } from "../auth/auth-provider";
+import { ProfessionalAvatar } from "./professional-avatar";
 
 const profileFormSchema = z.object({
   displayName: z.string().trim().min(2, "Informe um nome público com pelo menos 2 caracteres.").max(120, "Use no máximo 120 caracteres."),
@@ -65,6 +69,24 @@ export function ProfessionalProfilePage() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [isReadyToResubmit, setIsReadyToResubmit] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [isPhotoMutating, setIsPhotoMutating] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
+  const [portfolioCaption, setPortfolioCaption] = useState("");
+  const [portfolioMessage, setPortfolioMessage] = useState<string | null>(null);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
+  const [isPortfolioMutating, setIsPortfolioMutating] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const activeSessionRef = useRef("");
+  const photoQueryRef = useRef<AbortController | null>(null);
+  const photoMutationRef = useRef(false);
+  const photoConfirmationRequiredRef = useRef(false);
+  const photoOperationRef = useRef(0);
+  const sessionId = `${user?.id ?? "anonymous"}:${accessToken ?? ""}`;
   const {
     register,
     handleSubmit,
@@ -85,6 +107,8 @@ export function ProfessionalProfilePage() {
     if (!accessToken) {
       return;
     }
+
+    const requestToken = accessToken;
 
     setLoadState("loading");
     setLoadMessage(null);
@@ -116,6 +140,10 @@ export function ProfessionalProfilePage() {
         await categoriesResponse.json().catch(() => null),
       );
 
+      if (!mountedRef.current || activeSessionRef.current !== `${user?.id ?? "anonymous"}:${requestToken}`) {
+        return;
+      }
+
       if (!parsedProfile || !parsedCategories) {
         throw new Error("Não foi possível carregar seu perfil agora. Tente novamente.");
       }
@@ -126,6 +154,9 @@ export function ProfessionalProfilePage() {
       setIsEditing(false);
       setLoadState("ready");
     } catch (error) {
+      if (!mountedRef.current || activeSessionRef.current !== `${user?.id ?? "anonymous"}:${requestToken}`) {
+        return;
+      }
       setLoadState("error");
       setLoadMessage(
         error instanceof Error
@@ -133,13 +164,42 @@ export function ProfessionalProfilePage() {
           : "Não foi possível carregar seu perfil agora. Tente novamente.",
       );
     }
-  }, [accessToken, reset]);
+  }, [accessToken, reset, user?.id]);
 
   useEffect(() => {
     if (isAuthenticated && isProfessional && accessToken) {
       void loadProfile();
     }
   }, [accessToken, isAuthenticated, isProfessional, loadProfile]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      photoQueryRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    activeSessionRef.current = sessionId;
+    photoQueryRef.current?.abort();
+    photoMutationRef.current = false;
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    setPhotoFile(null);
+    setPhotoMessage(null);
+    setPhotoError(null);
+  }, [sessionId]);
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
+
+  useEffect(() => {
+    setPhotoFile(null); setPhotoMessage(null); setPhotoError(null);
+    if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; }
+    setPhotoPreviewUrl(null);
+  }, [accessToken]);
 
   const categoryOptions = useMemo(
     () => categories.filter((category, index, values) =>
@@ -212,14 +272,14 @@ export function ProfessionalProfilePage() {
     }
   }
 
-  async function resubmitForVerification(): Promise<void> {
-    if (!accessToken || profile?.verificationStatus !== "REJECTED" || isSubmittingVerification) return;
+  async function submitForVerification(): Promise<void> {
+    if (!accessToken || !profile || !["NOT_STARTED", "REJECTED"].includes(profile.verificationStatus) || isSubmittingVerification) return;
     setIsSubmittingVerification(true); setSubmissionError(null); setSubmissionMessage(null);
     try {
       const response = await fetch(professionalVerificationSubmissionUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
-      if (!response.ok) { const payload: unknown = await response.json().catch(() => null); throw new Error(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" ? payload.message : "Não foi possível reenviar seu perfil agora."); }
-      await refreshSession(); await loadProfile(); setSubmissionMessage("Perfil reenviado para análise com sucesso.");
-    } catch (error) { setSubmissionError(error instanceof Error ? error.message : "Não foi possível reenviar seu perfil agora."); } finally { setIsSubmittingVerification(false); }
+      if (!response.ok) { const payload: unknown = await response.json().catch(() => null); throw new Error(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string" ? payload.message : "Não foi possível enviar seu perfil agora."); }
+      await refreshSession(); await loadProfile(); setSubmissionMessage("Perfil enviado para análise. O próximo passo é aguardar a revisão da Soravi.");
+    } catch (error) { setSubmissionError(error instanceof Error ? error.message : "Não foi possível enviar seu perfil agora."); } finally { setIsSubmittingVerification(false); }
   }
 
   function toggleCategory(slug: string): void {
@@ -261,6 +321,128 @@ export function ProfessionalProfilePage() {
     setIsEditing(false);
   }
 
+  function selectPhoto(file: File | undefined): void {
+    setPhotoError(null); setPhotoMessage(null);
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null; setPhotoPreviewUrl(null); setPhotoFile(null);
+      setPhotoError(file.size > 5 * 1024 * 1024 ? "A foto deve ter no máximo 5 MiB." : "Selecione uma imagem JPEG, PNG ou WebP.");
+      return;
+    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const preview = URL.createObjectURL(file);
+    previewUrlRef.current = preview;
+    setPhotoPreviewUrl(preview); setPhotoFile(file);
+  }
+
+  async function refreshPhotoState(expectedSession: string, clearSelection = false): Promise<boolean> {
+    if (!accessToken || activeSessionRef.current !== expectedSession) return false;
+    if (photoMutationRef.current) return false;
+    photoQueryRef.current?.abort();
+    const controller = new AbortController(); photoQueryRef.current = controller;
+    try {
+      const response = await fetch(currentProfessionalProfileUrl, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", cache: "no-store", signal: controller.signal });
+      if (!response.ok) throw new Error("photo-state-unavailable");
+      const parsed = parseProfessionalProfile(await response.json().catch(() => null));
+      if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== expectedSession) return false;
+      if (!parsed) throw new Error("photo-state-invalid");
+      setProfile((current) => current ? { ...current, photo: parsed.photo } : current);
+      if (clearSelection) {
+        if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null; setPhotoPreviewUrl(null); setPhotoFile(null);
+      }
+      return true;
+    } catch {
+      if (controller.signal.aborted) return false;
+      return false;
+    }
+  }
+
+  async function savePhoto(): Promise<void> {
+    if (!accessToken || !photoFile || isPhotoMutating || photoMutationRef.current || photoConfirmationRequiredRef.current) return;
+    const mutationSession = sessionId;
+    const operation = ++photoOperationRef.current;
+    const controller = new AbortController(); photoMutationRef.current = true;
+    setIsPhotoMutating(true); setPhotoError(null); setPhotoMessage(null);
+    let mutationError: string | null = null;
+    try {
+      const body = new FormData(); body.append("photo", photoFile);
+      const response = await fetch(currentProfessionalProfilePhotoUrl, { method: "PUT", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", body, signal: controller.signal });
+      if (!response.ok) throw new Error(photoErrorMessage(response.status));
+      const payload: unknown = await response.json().catch(() => null);
+      if (!isRecordedPhotoMutation(payload)) throw new Error("Não foi possível confirmar a atualização da foto.");
+    } catch (error) {
+      mutationError = error instanceof Error ? error.message : "Não foi possível atualizar a foto agora.";
+    }
+    if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    photoMutationRef.current = false;
+    const confirmed = await refreshPhotoState(mutationSession, !mutationError);
+    if (!mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    if (!confirmed) { photoConfirmationRequiredRef.current = true; setPhotoError("Não foi possível confirmar o estado da foto."); return; }
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    if (mutationError) setPhotoError(mutationError); else setPhotoMessage("Foto profissional atualizada.");
+  }
+
+  async function removePhoto(): Promise<void> {
+    if (!accessToken || isPhotoMutating || photoMutationRef.current || photoConfirmationRequiredRef.current || !window.confirm("Remover sua foto profissional?")) return;
+    const mutationSession = sessionId;
+    const operation = ++photoOperationRef.current;
+    const controller = new AbortController(); photoMutationRef.current = true;
+    setIsPhotoMutating(true); setPhotoError(null); setPhotoMessage(null);
+    let mutationError: string | null = null;
+    try {
+      const response = await fetch(currentProfessionalProfilePhotoUrl, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", signal: controller.signal });
+      if (response.status !== 204) throw new Error(photoErrorMessage(response.status));
+    } catch (error) {
+      mutationError = error instanceof Error ? error.message : "Não foi possível remover a foto agora.";
+    }
+    if (controller.signal.aborted || !mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    photoMutationRef.current = false;
+    const confirmed = await refreshPhotoState(mutationSession, !mutationError);
+    if (!mountedRef.current || activeSessionRef.current !== mutationSession || photoOperationRef.current !== operation) return;
+    if (!confirmed) { photoConfirmationRequiredRef.current = true; setPhotoError("Não foi possível confirmar o estado da foto."); return; }
+    photoConfirmationRequiredRef.current = false;
+    setIsPhotoMutating(false);
+    if (mutationError) setPhotoError(mutationError); else setPhotoMessage("Foto profissional removida.");
+  }
+
+  async function confirmPhotoState(): Promise<void> {
+    if (!photoConfirmationRequiredRef.current) return;
+    const confirmationSession = sessionId;
+    const operation = photoOperationRef.current;
+    setIsPhotoMutating(true);
+    const confirmed = await refreshPhotoState(confirmationSession);
+    if (confirmed && mountedRef.current && activeSessionRef.current === confirmationSession && photoOperationRef.current === operation) {
+      photoConfirmationRequiredRef.current = false;
+      setPhotoError(null);
+      setIsPhotoMutating(false);
+      return;
+    }
+    if (mountedRef.current && activeSessionRef.current === confirmationSession && photoOperationRef.current === operation) setPhotoError("Não foi possível confirmar o estado da foto.");
+  }
+  async function addPortfolioItem(): Promise<void> {
+    if (!accessToken || !portfolioFile || isPortfolioMutating) return;
+    if (portfolioFile.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(portfolioFile.type)) { setPortfolioError("Use JPEG, PNG ou WebP de até 5 MiB."); return; }
+    setIsPortfolioMutating(true); setPortfolioError(null); setPortfolioMessage(null);
+    try {
+      const body = new FormData(); body.append("photo", portfolioFile); body.append("caption", portfolioCaption.trim());
+      const response = await fetch(currentProfessionalPortfolioUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include", body });
+      if (!response.ok || !isRecordedPhotoMutation(await response.json())) throw new Error();
+      setPortfolioFile(null); setPortfolioCaption(""); await loadProfile(); setPortfolioMessage("Foto adicionada ao portfólio.");
+    } catch { setPortfolioError("Não foi possível adicionar a foto ao portfólio."); } finally { setIsPortfolioMutating(false); }
+  }
+  async function removePortfolioItem(itemId: string): Promise<void> {
+    if (!accessToken || isPortfolioMutating || !window.confirm("Remover esta foto do portfólio?")) return;
+    setIsPortfolioMutating(true); setPortfolioError(null); setPortfolioMessage(null);
+    try {
+      const response = await fetch(currentProfessionalPortfolioItemUrl(itemId), { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" });
+      if (!response.ok) throw new Error();
+      await loadProfile(); setPortfolioMessage("Foto removida do portfólio.");
+    } catch { setPortfolioError("Não foi possível remover a foto do portfólio."); } finally { setIsPortfolioMutating(false); }
+  }
+
   if (isLoading || (isAuthenticated && isProfessional && loadState === "loading")) {
     return <PageMessage title="Carregando seu perfil..." />;
   }
@@ -294,15 +476,51 @@ export function ProfessionalProfilePage() {
           <p className="mt-3 max-w-2xl leading-7 text-slate-600">Mantenha suas informações atualizadas para apresentar melhor seu trabalho na Soravi.</p>
         </header>
 
+        {accessToken && user ? <ProfessionalContactVerification accessToken={accessToken} email={user.email} phone={user.phone} emailVerified={user.emailVerified} phoneVerified={user.phoneVerified} onPhoneVerified={refreshSession} /> : null}
+
+        <section className="mt-7 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="registration-summary-title">
+          <h2 id="registration-summary-title" className="font-bold text-blue-950">Resumo do cadastro profissional</h2>
+          <ul className="mt-3 space-y-1 text-sm leading-6 text-blue-900"><li>E-mail: {user?.emailVerified ? "confirmado" : "pendente"}</li><li>Telefone: {user?.phoneVerified ? "confirmado" : "pendente"}</li><li>CPF e documento privado: {user?.professionalRegistrationCompleted ? "enviados" : "pendentes"}</li><li>Informações e categorias: {profile.categories.length > 0 ? "preenchidas" : "pendentes"}</li></ul>
+          <p className="mt-3 text-sm leading-6 text-blue-900">A análise de identidade confirma seu documento. A verificação do perfil profissional é uma decisão separada e não libera oportunidades automaticamente.</p>
+        </section>
+
+        {accessToken && user ? (
+          <PersonalIdentityCollection
+            key={`${user.id}:${accessToken}`}
+            accessToken={accessToken}
+            userId={user.id}
+          />
+        ) : null}
+
+        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} /> : null}
+
+        <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="professional-photo-title">
+          <h2 id="professional-photo-title" className="text-xl font-bold text-slate-950">Foto profissional</h2>
+          <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
+            {photoPreviewUrl ? <img src={photoPreviewUrl} alt="Prévia da nova foto" className="size-24 rounded-full border border-slate-200 object-cover" /> : <ProfessionalAvatar name={profile.displayName} photo={profile.photo} className="size-24" onRefresh={() => { if (!photoMutationRef.current && !isPhotoMutating && !photoConfirmationRequiredRef.current) void refreshPhotoState(sessionId); }} />}
+            <div className="flex-1"><p className="text-sm leading-6 text-slate-600">JPEG, PNG ou WebP de até 5 MiB. A imagem terá corte central quadrado.</p><label className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"><Upload aria-hidden="true" className="size-4" />Selecionar foto<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isPhotoMutating} onChange={(event) => selectPhoto(event.target.files?.[0])} /></label>{photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void savePhoto()} className="mt-3 block min-h-11 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isPhotoMutating ? "Salvando..." : "Salvar foto"}</button> : null}{profile.photo && !photoFile ? <button type="button" disabled={isPhotoMutating} onClick={() => void removePhoto()} className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-red-700 disabled:opacity-60"><Trash2 aria-hidden="true" className="size-4" />Remover foto</button> : null}</div>
+          </div>
+          {photoError ? <p role="alert" className="mt-4 text-sm font-medium text-red-700">{photoError}</p> : null}{photoConfirmationRequiredRef.current ? <button type="button" onClick={() => void confirmPhotoState()} className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800">Consultar novamente</button> : null}{photoMessage ? <p role="status" className="mt-4 text-sm font-medium text-emerald-700">{photoMessage}</p> : null}
+        </section>
+
+        <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="portfolio-title">
+          <h2 id="portfolio-title" className="text-xl font-bold text-slate-950">Portfólio de trabalhos</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Adicione até 12 fotos de trabalhos. Cada envio fica privado, em análise, até a aprovação administrativa.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]"><label className="min-h-11 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800">{portfolioFile?.name ?? "Selecionar foto"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={isPortfolioMutating || profile.portfolio.length >= 12} onChange={(event) => setPortfolioFile(event.target.files?.[0] ?? null)} /></label><button type="button" disabled={!portfolioFile || isPortfolioMutating || profile.portfolio.length >= 12} onClick={() => void addPortfolioItem()} className="min-h-11 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white disabled:opacity-60">{isPortfolioMutating ? "Enviando..." : "Adicionar foto"}</button></div>
+          <label className="mt-3 block text-sm font-semibold text-slate-800" htmlFor="portfolio-caption">Legenda opcional</label><input id="portfolio-caption" value={portfolioCaption} maxLength={280} disabled={isPortfolioMutating} onChange={(event) => setPortfolioCaption(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3" />
+          {portfolioError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{portfolioError}</p> : null}{portfolioMessage ? <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{portfolioMessage}</p> : null}
+          <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">{profile.portfolio.map((item) => <li key={item.id} className="overflow-hidden rounded-xl border border-slate-200">{item.url ? <img src={item.url} alt={item.caption ?? "Trabalho no portfólio"} className="aspect-square w-full object-cover" /> : <div className="flex aspect-square items-center justify-center bg-slate-100 p-3 text-center text-xs text-slate-600">Não foi possível carregar a prévia agora.</div>}<div className="p-3"><p className="min-h-5 text-sm text-slate-700">{item.caption ?? "Sem legenda"}</p><p className="mt-1 text-xs font-semibold text-slate-600">{item.status === "PENDING" ? "Em análise" : item.status === "APPROVED" ? "Aprovada" : `Rejeitada: ${item.rejectionReason ?? "Motivo não informado"}`}</p><button type="button" disabled={isPortfolioMutating} onClick={() => void removePortfolioItem(item.id)} className="mt-2 text-sm font-semibold text-red-700 disabled:opacity-60">Remover</button></div></li>)}</ul>
+        </section>
+
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="verification-status-title">
           <div className="flex items-start gap-3">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-blue-700" />
             <div>
-              <h2 id="verification-status-title" className="font-bold text-slate-950">{profile.verificationStatus === "REJECTED" ? "Perfil não aprovado" : profile.verificationStatus === "PENDING" ? "Perfil em análise" : "Status da verificação"}</h2>
+              <h2 id="verification-status-title" className="font-bold text-slate-950">{profile.verificationStatus === "REJECTED" ? "Perfil profissional não aprovado" : profile.verificationStatus === "PENDING" ? "Verificação do perfil profissional em análise" : "Verificação do perfil profissional"}</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">{profile.verificationStatus === "REJECTED" ? "Revise as informações abaixo antes de reenviar seu perfil para uma nova análise." : profile.verificationStatus === "PENDING" ? "Seu perfil foi reenviado e está aguardando uma nova análise da Soravi." : "Este status é somente leitura nesta tela."}</p>
               <span className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verificationStyles[profile.verificationStatus]}`}>{verificationLabels[profile.verificationStatus]}</span>
               {profile.verificationStatus === "REJECTED" && user?.professionalProfile?.reviewNotes ? <p className="mt-3 text-sm leading-6 text-red-800"><span className="font-semibold">Motivo da revisão:</span> {user.professionalProfile.reviewNotes}</p> : null}
-              {profile.verificationStatus === "REJECTED" && !isEditing && isReadyToResubmit ? <button type="button" disabled={isSubmittingVerification} onClick={() => void resubmitForVerification()} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmittingVerification ? "Reenviando..." : "Reenviar para análise"}</button> : null}
+              {["NOT_STARTED", "REJECTED"].includes(profile.verificationStatus) && !isEditing ? <button type="button" disabled={isSubmittingVerification || (profile.verificationStatus === "REJECTED" && !isReadyToResubmit)} onClick={() => void submitForVerification()} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSubmittingVerification ? "Enviando..." : profile.verificationStatus === "REJECTED" ? "Reenviar perfil para análise" : "Enviar perfil para análise"}</button> : null}
               {submissionError ? <p role="alert" className="mt-3 text-sm font-medium text-red-700">{submissionError}</p> : null}
               {submissionMessage ? <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{submissionMessage}</p> : null}
             </div>
@@ -360,7 +578,7 @@ export function ProfessionalProfilePage() {
               Cancelar
             </button>
             <button type="submit" disabled={isSaving} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {isSaving ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <Save aria-hidden="true" className="size-5" />}{isSaving ? "Salvando..." : "Salvar alterações"}
+              {isSaving ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <Save aria-hidden="true" className="size-5" />}{isSaving ? "Salvando..." : "Salvar alterações"}
             </button>
           </div>
         </form> : <ProfileView profile={profile} onEdit={startEditing} saveMessage={saveMessage} />}
@@ -453,4 +671,17 @@ function mergeProfileCategories(categories: ProfessionalCategory[], profileCateg
   const values = new Map<string, ProfessionalCategory>();
   [...categories, ...profileCategories].forEach((category) => values.set(category.slug, category));
   return Array.from(values.values()).sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+}
+
+function photoErrorMessage(status: number): string {
+  if (status === 400) return "A foto enviada é inválida. Use JPEG, PNG ou WebP.";
+  if (status === 401 || status === 403) return "Sua sessão não permite alterar a foto. Entre novamente.";
+  if (status === 409) return "A foto não pôde ser atualizada agora. Tente novamente.";
+  if (status === 413) return "A foto excede o limite de 5 MiB.";
+  if (status === 429) return "Muitas tentativas. Aguarde um momento antes de tentar novamente.";
+  return "Não foi possível atualizar a foto agora. Tente novamente.";
+}
+
+function isRecordedPhotoMutation(value: unknown): value is { recorded: true } {
+  return typeof value === "object" && value !== null && "recorded" in value && value.recorded === true;
 }

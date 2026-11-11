@@ -6,6 +6,8 @@ import { ThrottlerGuard } from "@nestjs/throttler";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { PasswordResetService } from "./password-reset.service";
+import { EmailVerificationService } from "./email-verification.service";
+import { AccessTokenAuthService } from "./access-token-auth.service";
 
 describe("AuthController password reset", () => {
   const authServiceMock = {};
@@ -13,9 +15,19 @@ describe("AuthController password reset", () => {
     requestReset: jest.fn(),
     confirmReset: jest.fn(),
   };
+  const emailVerificationServiceMock = {
+    requestVerification: jest.fn().mockResolvedValue(undefined),
+    confirm: jest.fn().mockResolvedValue("user-1"),
+  };
+  const accessTokenAuthServiceMock = {
+    extractBearerToken: jest.fn(),
+    authenticateAccessToken: jest.fn(),
+  };
   const controller = new AuthController(
     authServiceMock as unknown as AuthService,
     passwordResetServiceMock as unknown as PasswordResetService,
+    emailVerificationServiceMock as unknown as EmailVerificationService,
+    accessTokenAuthServiceMock as unknown as AccessTokenAuthService,
   );
 
   afterEach(() => {
@@ -46,9 +58,42 @@ describe("AuthController password reset", () => {
     );
   });
 
+  it("reenvia confirmacao com resposta neutra e confirma pelo token", async () => {
+    await expect(
+      controller.requestEmailVerification({ email: "maria@example.com" }),
+    ).resolves.toEqual({
+      message: "Se existir uma conta nao confirmada com este e-mail, enviaremos as instrucoes.",
+    });
+    expect(emailVerificationServiceMock.requestVerification).toHaveBeenCalledWith(
+      "maria@example.com",
+    );
+
+    await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, undefined)).resolves.toEqual({
+      data: { currentSessionMatches: null },
+    });
+    expect(emailVerificationServiceMock.confirm).toHaveBeenCalledWith(
+      "a".repeat(43),
+    );
+  });
+
+  it("indica somente se o token confirmado corresponde a sessao apresentada", async () => {
+    accessTokenAuthServiceMock.extractBearerToken.mockReturnValue("access-token");
+    accessTokenAuthServiceMock.authenticateAccessToken.mockResolvedValue({ id: "user-1" });
+    await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, "Bearer access-token")).resolves.toEqual({
+      data: { currentSessionMatches: true },
+    });
+
+    accessTokenAuthServiceMock.authenticateAccessToken.mockResolvedValue({ id: "other-user" });
+    await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, "Bearer access-token")).resolves.toEqual({
+      data: { currentSessionMatches: false },
+    });
+  });
+
   it.each([
     ["requestPasswordReset", HttpStatus.ACCEPTED, 3],
     ["confirmPasswordReset", HttpStatus.NO_CONTENT, 10],
+    ["requestEmailVerification", HttpStatus.ACCEPTED, 3],
+    ["confirmEmailVerification", HttpStatus.OK, 10],
   ] as const)("configura status, guard e rate limit em %s", (method, status, limit) => {
     const handler = AuthController.prototype[method];
     const throttleValues = Reflect.getMetadataKeys(handler)

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   Logger,
   OnApplicationBootstrap,
   OnApplicationShutdown,
@@ -8,9 +9,18 @@ import { ConfigService } from "@nestjs/config";
 import { SchedulerRegistry } from "@nestjs/schedule";
 
 import { PrismaService } from "../../database/prisma.service";
-import { OutboundNotificationStatus } from "../../generated/prisma/client";
+import {
+  NotificationType,
+  OutboundNotificationStatus,
+  Prisma,
+  ServiceRequestStatus,
+} from "../../generated/prisma/client";
 import { OutboundNotificationEligibilityService } from "./outbound-notification-eligibility.service";
 import { OutboundNotificationsService } from "./outbound-notifications.service";
+import {
+  WHATSAPP_NOTIFICATION_DELIVERY_PORT,
+  WhatsAppNotificationDeliveryPort,
+} from "./whatsapp-notification-delivery.port";
 
 export const OUTBOUND_NOTIFICATION_INTERVAL_MS_DEFAULT = 60_000;
 export const OUTBOUND_NOTIFICATION_BATCH_SIZE_DEFAULT = 25;
@@ -32,6 +42,8 @@ export class OutboundNotificationProcessor
     private readonly eligibilityService: OutboundNotificationEligibilityService,
     private readonly configService: ConfigService,
     private readonly schedulerRegistry: SchedulerRegistry,
+    @Inject(WHATSAPP_NOTIFICATION_DELIVERY_PORT)
+    private readonly whatsappDelivery: WhatsAppNotificationDeliveryPort,
   ) {
     this.intervalMs = this.configService.get<number>(
       "OUTBOUND_NOTIFICATION_INTERVAL_MS",
@@ -59,6 +71,9 @@ export class OutboundNotificationProcessor
   }
 
   async processEligibilityBatch(): Promise<void> {
+    if (this.configService.get<string>("OUTBOUND_WHATSAPP_DELIVERY_ENABLED", "false") !== "true") {
+      return;
+    }
     if (this.isProcessing) {
       return;
     }
@@ -85,20 +100,55 @@ export class OutboundNotificationProcessor
             continue;
           }
 
-          if (result.status === "READY") {
+          if (result.status !== "READY") {
+            await transaction.outboundNotification.updateMany({
+              where: { id: candidate.outbound.id, status: OutboundNotificationStatus.PENDING },
+              data: { status: OutboundNotificationStatus.CANCELLED, lastErrorCode: result.reason },
+            });
             continue;
           }
 
-          await transaction.outboundNotification.updateMany({
-            where: {
-              id: candidate.outbound.id,
-              status: OutboundNotificationStatus.PENDING,
-            },
-            data: {
-              status: OutboundNotificationStatus.CANCELLED,
-              lastErrorCode: result.reason,
-            },
+          const pilotReason = this.pilotBlockReason(candidate);
+          if (pilotReason) {
+            await transaction.outboundNotification.updateMany({
+              where: { id: candidate.outbound.id, status: OutboundNotificationStatus.PENDING },
+              data: { status: OutboundNotificationStatus.CANCELLED, lastErrorCode: pilotReason },
+            });
+            continue;
+          }
+
+          const claimed = await transaction.outboundNotification.updateMany({
+            where: { id: candidate.outbound.id, status: OutboundNotificationStatus.PENDING },
+            data: { status: OutboundNotificationStatus.PROCESSING },
           });
+          if (claimed.count !== 1) continue;
+
+          const destination = await this.availableDestination(transaction, candidate);
+          if (!destination) {
+            await transaction.outboundNotification.update({
+              where: { id: candidate.outbound.id },
+              data: { status: OutboundNotificationStatus.CANCELLED, lastErrorCode: "RESOURCE_UNAVAILABLE" },
+            });
+            continue;
+          }
+
+          try {
+            const accepted = await this.whatsappDelivery.send({
+              phoneNormalized: candidate.user!.phoneNormalized!,
+              eventType: candidate.outbound.eventType as typeof NotificationType.OPPORTUNITY_CREATED | typeof NotificationType.PROPOSAL_CREATED,
+              loginUrl: `${this.configService.getOrThrow<string>("FRONTEND_PUBLIC_URL").replace(/\/$/u, "")}/entrar?returnTo=${encodeURIComponent(destination)}`,
+            });
+            await transaction.outboundNotification.update({
+              where: { id: candidate.outbound.id },
+              data: { status: OutboundNotificationStatus.SENT, sentAt: new Date(), providerMessageId: accepted.providerMessageId },
+            });
+          } catch {
+            await transaction.outboundNotification.update({
+              where: { id: candidate.outbound.id },
+              data: { status: OutboundNotificationStatus.FAILED, lastErrorCode: "PROVIDER_UNCERTAIN" },
+            });
+          }
+          continue;
         }
       });
     } catch {
@@ -106,5 +156,38 @@ export class OutboundNotificationProcessor
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  private pilotBlockReason(candidate: import("./outbound-notifications.service").OutboundNotificationEligibilityCandidate): string | undefined {
+    const cutoff = new Date(this.configService.getOrThrow<string>("OUTBOUND_WHATSAPP_CUTOFF_AT"));
+    if (candidate.outbound.createdAt < cutoff) return "PILOT_BEFORE_CUTOFF";
+    const allowed = this.configService.getOrThrow<string>("OUTBOUND_WHATSAPP_TEST_NUMBERS")
+      .split(",").map((value) => value.trim()).filter(Boolean);
+    if (!candidate.user || !allowed.includes(candidate.user.phoneNormalized ?? "")) return "PILOT_RECIPIENT_NOT_ALLOWED";
+    return undefined;
+  }
+
+  private async availableDestination(
+    transaction: Prisma.TransactionClient,
+    candidate: import("./outbound-notifications.service").OutboundNotificationEligibilityCandidate,
+  ): Promise<string | null> {
+    if (!candidate.notification || !candidate.user) return null;
+    const user = await transaction.user.findUnique({
+      where: { id: candidate.outbound.userId },
+      select: { phoneVerifiedAt: true, phoneNormalized: true, communicationPreferences: { where: { channel: candidate.outbound.channel, eventType: candidate.outbound.eventType }, select: { enabled: true } } },
+    });
+    if (!user?.phoneNormalized || !user.phoneVerifiedAt || !user.communicationPreferences[0]?.enabled) return null;
+    if (candidate.outbound.eventType === NotificationType.OPPORTUNITY_CREATED) {
+      const opportunity = await transaction.serviceOpportunity.findFirst({
+        where: { id: candidate.notification.resourceId, professionalProfile: { userId: candidate.outbound.userId }, serviceRequest: { deletedAt: null, status: { in: [ServiceRequestStatus.OPEN, ServiceRequestStatus.RECEIVING_PROPOSALS] } } },
+        select: { id: true },
+      });
+      return opportunity ? `/profissional/oportunidades/${opportunity.id}` : null;
+    }
+    const proposal = await transaction.proposal.findFirst({
+      where: { id: candidate.notification.resourceId, isVisible: true, serviceRequest: { customerProfile: { userId: candidate.outbound.userId }, deletedAt: null } },
+      select: { serviceRequestId: true },
+    });
+    return proposal ? `/solicitacoes/${proposal.serviceRequestId}` : null;
   }
 }

@@ -748,7 +748,8 @@ POST /api/v1/auth/logout-all
 
 ### Autenticação
 
-Obrigatória.
+Não. A resposta é neutra para permitir que contas existentes peçam novo link
+sem autenticação e sem revelar se o e-mail possui conta.
 
 ### Resposta
 
@@ -833,7 +834,7 @@ Sim, com token.
 ## 14.8 Verificar e-mail
 
 ```text
-POST /api/v1/auth/verify-email
+POST /api/v1/auth/email-verification/confirm
 ```
 
 ### Entrada
@@ -846,21 +847,30 @@ POST /api/v1/auth/verify-email
 
 ### Resposta
 
-```text
-204 No Content
+```json
+{
+  "data": {
+    "currentSessionMatches": true
+  }
+}
 ```
+
+Retorna `200 OK`. O campo é `true` ou `false` somente quando um access token
+válido foi apresentado e informa apenas se a sessão atual corresponde ao token
+confirmado; sem sessão, é `null`. Não expõe identificadores, e-mail ou outros
+dados da conta confirmada.
 
 ---
 
 ## 14.9 Reenviar verificação de e-mail
 
 ```text
-POST /api/v1/auth/resend-email-verification
+POST /api/v1/auth/email-verification/request
 ```
 
 ### Autenticação
 
-Obrigatória.
+Não. A resposta permanece neutra para não revelar a existência da conta.
 
 ### Resposta
 
@@ -870,9 +880,13 @@ Obrigatória.
 
 ### Regras
 
-- aplicar limite de frequência;
-- não emitir novos tokens indefinidamente;
-- invalidar token anterior quando necessário.
+- limite de 3 solicitações por 15 minutos, pelo `ThrottlerGuard` com storage
+  Redis compartilhado da API;
+- token aleatório é persistido apenas como hash, vale 24 horas e é de uso único;
+- cada reenvio invalida tokens ativos anteriores; contas inexistentes, excluídas
+  ou já confirmadas recebem a mesma resposta `202` sem envio;
+- o link aponta para `FRONTEND_PUBLIC_URL/verificar-email#token`; o token não
+  deve ser registrado, colocado em query string ou exposto em respostas.
 
 ---
 
@@ -1245,13 +1259,17 @@ DELETE /api/v1/professional-profile/me/service-areas/{serviceAreaId}
 
 ---
 
-## 16.9 Listar profissionais publicamente
+## 16.9 Histórico substituído: listagem pública de profissionais
 
 ```text
 GET /api/v1/professionals
 ```
 
-### Filtros iniciais
+Este contrato conceitual foi substituído por
+`GET /api/v1/categories/{categorySlug}/professionals`. Os filtros abaixo não
+estão implementados no endpoint público atual.
+
+### Filtros inicialmente planejados
 
 ```text
 categoryId
@@ -1275,13 +1293,18 @@ sort
 
 ---
 
-## 16.10 Obter perfil público
+## 16.10 Histórico substituído: perfil público
 
 ```text
 GET /api/v1/professionals/{professionalId}
 ```
 
-### Resposta conceitual
+Este contrato conceitual foi substituído por
+`GET /api/v1/professionals/{professionalProfileId}` na seção 17.3. A resposta
+atual não inclui avatar, `verificationStatus`, quantidade de serviços,
+disponibilidade ou áreas de serviço estruturadas.
+
+### Resposta conceitual histórica
 
 ```json
 {
@@ -1334,6 +1357,37 @@ Por padrão, usuários comuns receberão apenas categorias ativas.
 ```text
 GET /api/v1/categories/{categoryId}
 ```
+
+---
+
+## 17.3 Descoberta pública de profissionais
+
+```text
+GET /api/v1/categories/{categorySlug}/professionals?page=1&limit=20
+GET /api/v1/professionals/{professionalProfileId}?page=1&limit=20
+```
+
+Ambos os endpoints são públicos e não exigem sessão. A categoria deve existir e
+estar ativa; caso contrário, a listagem retorna `404` com o código
+`PUBLIC_CATEGORY_NOT_FOUND`. O detalhe retorna `404` com
+`PUBLIC_PROFESSIONAL_NOT_FOUND` quando o perfil não atende aos critérios
+públicos.
+
+Um profissional aparece somente quando o usuário está `ACTIVE`, usuário e
+perfil não foram excluídos, o perfil está `APPROVED`, disponível e vinculado a
+uma categoria ativa. `APPROVED` é aprovação do perfil profissional no fluxo
+operacional; não representa nem declara identidade verificada.
+
+A lista retorna identificador do perfil, nome público, título, área de
+atendimento, categorias ativas e reputação. O detalhe também retorna bio e a
+página de avaliações publicadas. Avaliações incluem somente nota, comentário e
+data de publicação; reputação e avaliações consideram exclusivamente registros
+com `publishedAt` preenchido. Nenhum dos endpoints expõe dados de contato,
+identidade/verificação, propostas, contratos ou conversas.
+
+Os parâmetros `page` e `limit` são inteiros positivos; `limit` é limitado a
+50. A lista é ordenada por nome público e identificador; as avaliações por data
+de publicação e identificador, ambos em ordem decrescente.
 
 ---
 
@@ -2281,11 +2335,14 @@ Participantes ou administrador autorizado.
 
 ---
 
-## 23.3 Listar avaliações do profissional
+## 23.3 Histórico substituído: listar avaliações do profissional
 
 ```text
 GET /api/v1/professionals/{professionalId}/reviews
 ```
+
+Este endpoint conceitual não foi criado. As avaliações públicas paginadas são
+retornadas em `GET /api/v1/professionals/{professionalProfileId}` (seção 17.3).
 
 ### Público
 
@@ -2647,13 +2704,13 @@ PATCH /api/v1/users/admin/:userId/status
 
 O body aceita somente `{ "status": "ACTIVE" | "BLOCKED" }` e o sucesso retorna `204 No Content`. A rota usa `AccessTokenGuard`, `RolesGuard` e `Role.ADMIN`, valida o alvo como UUID, recebe o ator exclusivamente do contexto autenticado e não exige telefone verificado.
 
-Somente contas CUSTOMER e PROFESSIONAL em `ACTIVE` ou `BLOCKED` participam do fluxo. A própria conta do ator, qualquer conta ADMIN, contas soft-deleted e estados `PENDING`, `SUSPENDED` ou `DEACTIVATED` são rejeitados. Os códigos públicos incluem `ADMIN_SELF_STATUS_CHANGE_FORBIDDEN`, `ADMIN_TARGET_STATUS_CHANGE_FORBIDDEN` e `USER_STATUS_TRANSITION_NOT_ALLOWED`.
+Contas CUSTOMER e PROFESSIONAL em `ACTIVE` ou `BLOCKED` participam do fluxo de bloqueio/reativação, e uma conta `PENDING` pode somente fazer a transição administrativa explícita para `ACTIVE`. A própria conta do ator, qualquer conta ADMIN, contas soft-deleted e estados `SUSPENDED` ou `DEACTIVATED` são rejeitados; `PENDING -> BLOCKED` também é recusada. Os códigos públicos incluem `ADMIN_SELF_STATUS_CHANGE_FORBIDDEN`, `ADMIN_TARGET_STATUS_CHANGE_FORBIDDEN` e `USER_STATUS_TRANSITION_NOT_ALLOWED`.
 
-`ACTIVE -> BLOCKED` atualiza o usuário e revoga todas as `AuthSession` com `revokedAt = null`, usando o mesmo instante e a mesma transação Prisma após `SELECT ... FOR UPDATE` da linha de `User`. `BLOCKED -> BLOCKED` não atualiza o usuário, mas revoga sessões residuais. `BLOCKED -> ACTIVE` não restaura nem cria sessões; `ACTIVE -> ACTIVE` é no-op. O `AccessTokenAuthService` também continua rejeitando contas `BLOCKED`.
+`ACTIVE -> BLOCKED` atualiza o usuário e revoga todas as `AuthSession` com `revokedAt = null`, usando o mesmo instante e a mesma transação Prisma após `SELECT ... FOR UPDATE` da linha de `User`. `BLOCKED -> BLOCKED` não atualiza o usuário, mas revoga sessões residuais. `PENDING -> ACTIVE` e `BLOCKED -> ACTIVE` não restauram nem criam sessões; `ACTIVE -> ACTIVE` é no-op. A ativação é decisão administrativa, não comprova identidade e não altera confirmações de telefone/e-mail, aprovação profissional, CPF ou papéis. O `AccessTokenAuthService` também continua rejeitando contas `BLOCKED`.
 
 A verificação de papel ADMIN do alvo ocorre no mesmo fluxo transacional. O lock protege a linha de `User`, não `user_roles`; uma futura promoção ou rebaixamento concorrente de ADMIN deverá revisar essa concorrência.
 
-No painel, clientes e profissionais têm Bloquear/Reativar no mobile e desktop apenas para `ACTIVE`/`BLOCKED`; outros estados mostram "Sem ação disponível". Uma confirmação inline é obrigatória e explica a revogação ou não restauração das sessões. Após sucesso, somente o item afetado é atualizado localmente, sem reload ou novo fetch obrigatório. Erros são mapeados por código/status para mensagens sanitizadas; mensagens arbitrárias do backend não são exibidas.
+No painel, clientes e profissionais `PENDING` têm Ativar conta e os estados `ACTIVE`/`BLOCKED` têm Bloquear/Reativar, no mobile e desktop; os demais estados mostram "Sem ação disponível". Uma confirmação inline é obrigatória e informa que a ativação não comprova identidade. Após sucesso, somente o item afetado é atualizado localmente, sem reload ou novo fetch obrigatório. Erros são mapeados por código/status para mensagens sanitizadas; mensagens arbitrárias do backend não são exibidas.
 
 As subseções históricas de suspensão, bloqueio com motivo, auditoria e notificação abaixo descrevem evolução futura; não substituem o fluxo MVP implementado nesta seção.
 

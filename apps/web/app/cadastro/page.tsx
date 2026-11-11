@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 
 import { AccountTypeCard } from "../../components/auth/account-type-card";
+import { safeDirectedRequestReturnTo, withDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 export const metadata: Metadata = {
   title: "Criar conta | Soravi",
@@ -45,7 +46,12 @@ const accountTypes = [
   },
 ] as const;
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
+  const returnTo = safeDirectedRequestReturnTo((await searchParams).returnTo);
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
@@ -68,7 +74,9 @@ export default function RegisterPage() {
               key={accountType.href}
               title={accountType.title}
               description={accountType.description}
-              href={accountType.href}
+              href={accountType.href === "/cadastro/cliente"
+                ? withDirectedRequestReturnTo("/cadastro/cliente", returnTo)
+                : accountType.href}
               actionLabel={accountType.actionLabel}
               benefits={accountType.benefits}
               icon={accountType.icon}
@@ -92,7 +100,7 @@ export default function RegisterPage() {
         <p className="mt-8 text-center text-sm text-slate-600">
           Já possui uma conta?{" "}
           <Link
-            href="/entrar"
+            href={withDirectedRequestReturnTo("/entrar", returnTo)}
             className="font-semibold text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
             Entrar

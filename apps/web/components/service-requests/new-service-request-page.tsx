@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Controller, useForm } from "react-hook-form";
 
@@ -22,6 +22,16 @@ import {
   serviceRequestPhotosUrl,
   serviceRequestsUrl,
 } from "../../lib/api";
+import {
+  isUuidV4,
+  safeDirectedRequestReturnTo,
+  withDirectedRequestReturnTo,
+} from "../../lib/directed-service-request";
+import {
+  parsePublicProfessionalProfile,
+  publicProfessionalUrl,
+  type PublicProfessionalProfile,
+} from "../../lib/professional-discovery";
 import {
   shouldTrackPublishedServiceRequest,
   trackGoogleAnalyticsServiceRequestPublished,
@@ -48,6 +58,7 @@ interface ServiceCategory {
 type CategoriesState = "loading" | "success" | "empty" | "error";
 type SubmissionState = "idle" | "success" | "partial" | "error";
 type PostalCodeLookupState = "idle" | "loading" | "success" | "not-found" | "error";
+type TargetProfessionalState = "idle" | "loading" | "success" | "invalid" | "unavailable" | "error";
 
 interface SelectedPhoto {
   file: File;
@@ -166,6 +177,10 @@ export function NewServiceRequestPage() {
   const { accessToken, isAuthenticated, isLoading, user } = useAuth();
   const { preference } = useCookieConsent();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetProfessionalProfileId = searchParams.get("professionalProfileId");
+  const hasDirectedTarget = searchParams.has("professionalProfileId");
+  const targetRequestKey = `${user?.id ?? "anonymous"}:${accessToken ?? ""}:${targetProfessionalProfileId ?? ""}`;
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesState, setCategoriesState] =
     useState<CategoriesState>("loading");
@@ -182,14 +197,20 @@ export function NewServiceRequestPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [postalCodeLookupState, setPostalCodeLookupState] =
     useState<PostalCodeLookupState>("idle");
+  const [targetProfessional, setTargetProfessional] = useState<PublicProfessionalProfile | null>(null);
+  const [targetProfessionalState, setTargetProfessionalState] = useState<TargetProfessionalState>("idle");
   const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
   const isPublishingRef = useRef(false);
   const trackedPublishedServiceRequestIdsRef = useRef(new Set<string>());
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const lastLookedUpPostalCodeRef = useRef<string | null>(null);
   const postalCodeAbortControllerRef = useRef<AbortController | null>(null);
+  const targetProfessionalRequestRef = useRef<string | null>(null);
 
   const isCustomer = Boolean(user?.roles.includes("CUSTOMER"));
+  const availableCategories = targetProfessional
+    ? categories.filter((category) => targetProfessional.categories.some((targetCategory) => targetCategory.id === category.id))
+    : categories;
 
   const {
     register,
@@ -267,6 +288,64 @@ export function NewServiceRequestPage() {
 
     return () => abortController.abort();
   }, [categoriesReloadKey, isAuthenticated, isCustomer]);
+
+  useEffect(() => {
+    const requestedProfessionalProfileId = targetProfessionalProfileId;
+    const requestKey = targetRequestKey;
+    targetProfessionalRequestRef.current = requestKey;
+    setReviewData(null);
+
+    if (!hasDirectedTarget) {
+      setTargetProfessional(null);
+      setTargetProfessionalState("idle");
+      return;
+    }
+
+    if (!isUuidV4(requestedProfessionalProfileId)) {
+      setTargetProfessional(null);
+      setTargetProfessionalState("invalid");
+      return;
+    }
+
+    const validTargetProfessionalProfileId = requestedProfessionalProfileId;
+    const abortController = new AbortController();
+    setTargetProfessional(null);
+    setTargetProfessionalState("loading");
+
+    async function loadTargetProfessional(): Promise<void> {
+      try {
+        const response = await fetch(
+          publicProfessionalUrl(validTargetProfessionalProfileId, 1, 20),
+          { cache: "no-store", credentials: "omit", signal: abortController.signal },
+        );
+        const payload: unknown = response.ok
+          ? await response.json().catch(() => null)
+          : null;
+
+        if (abortController.signal.aborted || targetProfessionalRequestRef.current !== requestKey) {
+          return;
+        }
+
+        const profile = parsePublicProfessionalProfile(payload);
+        if (!profile) {
+          setTargetProfessional(null);
+          setTargetProfessionalState(response.status === 404 ? "unavailable" : "error");
+          return;
+        }
+
+        setTargetProfessional(profile);
+        setTargetProfessionalState("success");
+      } catch {
+        if (!abortController.signal.aborted && targetProfessionalRequestRef.current === requestKey) {
+          setTargetProfessional(null);
+          setTargetProfessionalState("error");
+        }
+      }
+    }
+
+    void loadTargetProfessional();
+    return () => abortController.abort();
+  }, [hasDirectedTarget, targetProfessionalProfileId, targetRequestKey]);
 
   useEffect(() => {
     return () => postalCodeAbortControllerRef.current?.abort();
@@ -436,7 +515,7 @@ export function NewServiceRequestPage() {
   }
 
   function openReview(data: ServiceRequestFormData): void {
-    const selectedCategoryIsAvailable = categories.some(
+    const selectedCategoryIsAvailable = availableCategories.some(
       (category) => category.id === data.categoryId,
     );
 
@@ -457,7 +536,13 @@ export function NewServiceRequestPage() {
       return;
     }
 
-    const selectedCategoryIsAvailable = categories.some(
+    if (hasDirectedTarget && (targetProfessionalState !== "success" || !targetProfessional)) {
+      setFormMessage("Não é possível confirmar o profissional selecionado. Tente acessar o perfil novamente.");
+      setSubmissionState("error");
+      return;
+    }
+
+    const selectedCategoryIsAvailable = availableCategories.some(
       (category) => category.id === data.categoryId,
     );
 
@@ -488,8 +573,10 @@ export function NewServiceRequestPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          visibleProposalLimit: data.visibleProposalLimit,
           categoryId: data.categoryId,
+          ...(targetProfessional
+            ? { targetProfessionalProfileId: targetProfessional.id }
+            : { visibleProposalLimit: data.visibleProposalLimit }),
           title: data.title,
           ...(description ? { description } : {}),
           location: {
@@ -633,7 +720,7 @@ export function NewServiceRequestPage() {
             <p className="mt-3 leading-7 text-amber-900/80">
               A nova solicitação fica vinculada à sua conta de cliente.
             </p>
-            <Link href="/entrar" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
+            <Link href={withDirectedRequestReturnTo("/entrar", safeDirectedRequestReturnTo(hasDirectedTarget && isUuidV4(targetProfessionalProfileId) ? `/solicitacoes/nova?professionalProfileId=${targetProfessionalProfileId}` : null))} className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">
               Entrar
             </Link>
           </section>
@@ -681,16 +768,21 @@ export function NewServiceRequestPage() {
 
             <div className="mt-6">
               <label htmlFor="categoryId" className="text-sm font-semibold text-slate-800">Categoria</label>
-              <select id="categoryId" disabled={categoriesState !== "success" || isSubmitting} aria-invalid={Boolean(errors.categoryId)} aria-describedby={errors.categoryId ? "categoryId-error" : undefined} className={fieldClassName} {...register("categoryId")}>
+              {hasDirectedTarget ? (
+                <div role={targetProfessionalState === "success" ? "status" : "alert"} className={`mb-4 rounded-xl border p-4 text-sm ${targetProfessionalState === "success" ? "border-blue-200 bg-blue-50 text-blue-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                  {targetProfessionalState === "success" && targetProfessional ? `${targetProfessional.displayName} poderá enviar uma proposta para este pedido. Apenas as categorias atendidas por este profissional estão disponíveis e o pedido será enviado somente a ele.` : targetProfessionalState === "loading" ? "Confirmando o profissional selecionado..." : "O profissional selecionado não está disponível para receber este pedido. Não é possível enviar uma solicitação genérica a partir deste link."}
+                </div>
+              ) : null}
+              <select id="categoryId" disabled={categoriesState !== "success" || isSubmitting || (hasDirectedTarget && targetProfessionalState !== "success")} aria-invalid={Boolean(errors.categoryId)} aria-describedby={errors.categoryId ? "categoryId-error" : undefined} className={fieldClassName} {...register("categoryId")}>
                 <option value="">
                   {categoriesState === "loading" ? "Carregando categorias..." : "Selecione uma categoria"}
                 </option>
-                {categories.map((category) => (
+                {availableCategories.map((category) => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
               <FieldError id="categoryId-error" message={errors.categoryId?.message} />
-              <fieldset className="mt-6">
+              {!hasDirectedTarget ? <fieldset className="mt-6">
                 <legend className="text-sm font-semibold text-slate-800">Quantas propostas você deseja receber?</legend>
                 <p className="mt-1 text-sm text-slate-600">Escolha quantas propostas deseja comparar para esta solicitação.</p>
                 <Controller
@@ -715,7 +807,7 @@ export function NewServiceRequestPage() {
                     </div>
                   )}
                 />
-              </fieldset>
+              </fieldset> : null}
               {categoriesState === "error" ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3" role="alert">
                   <p className="text-sm font-medium text-red-600">Não foi possível carregar as categorias.</p>
@@ -892,7 +984,7 @@ export function NewServiceRequestPage() {
             </p>
           ) : null}
 
-          <button type="submit" disabled={isSubmitting || categoriesState !== "success"} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
+          <button type="submit" disabled={isSubmitting || categoriesState !== "success" || (hasDirectedTarget && targetProfessionalState !== "success")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto">
             {isSubmitting ? <Loader2 aria-hidden="true" className="size-5 animate-spin" /> : <Send aria-hidden="true" className="size-5" />}
             {isSubmitting ? "Processando..." : "Revisar solicitação"}
           </button>
@@ -902,8 +994,9 @@ export function NewServiceRequestPage() {
               <p className="font-semibold text-blue-600">Revise antes de publicar</p>
               <h2 id="review-service-request-title" className="mt-2 text-2xl font-bold text-slate-950">Confira sua solicitação</h2>
               <dl className="mt-6 space-y-5 text-slate-700">
-                <div><dt className="text-sm font-semibold text-slate-500">Categoria</dt><dd className="mt-1 font-medium text-slate-950">{categories.find((category) => category.id === reviewData.categoryId)?.name ?? "Categoria selecionada"}</dd></div>
-                <div><dt className="text-sm font-semibold text-slate-500">Quantidade de propostas</dt><dd className="mt-1 font-medium text-slate-950">Até {reviewData.visibleProposalLimit} propostas</dd></div>
+                {targetProfessional ? <div><dt className="text-sm font-semibold text-slate-500">Destinatário</dt><dd className="mt-1 font-medium text-slate-950">{targetProfessional.displayName} — este pedido será enviado somente a este profissional.</dd></div> : null}
+                <div><dt className="text-sm font-semibold text-slate-500">Categoria</dt><dd className="mt-1 font-medium text-slate-950">{availableCategories.find((category) => category.id === reviewData.categoryId)?.name ?? "Categoria selecionada"}</dd></div>
+                {!targetProfessional ? <div><dt className="text-sm font-semibold text-slate-500">Quantidade de propostas</dt><dd className="mt-1 font-medium text-slate-950">Até {reviewData.visibleProposalLimit} propostas</dd></div> : null}
                 <div><dt className="text-sm font-semibold text-slate-500">Título</dt><dd className="mt-1 font-medium text-slate-950">{reviewData.title}</dd></div>
                 {reviewData.description.trim() ? <div><dt className="text-sm font-semibold text-slate-500">Descrição</dt><dd className="mt-1 whitespace-pre-wrap">{reviewData.description}</dd></div> : null}
                 <div><dt className="text-sm font-semibold text-slate-500">Localização</dt><dd className="mt-1">{reviewData.location.addressLine}, {reviewData.location.addressNumber}{reviewData.location.addressComplement ? ` - ${reviewData.location.addressComplement}` : ""}<br />{reviewData.location.neighborhood}, {reviewData.location.city} - {reviewData.location.state}<br />CEP {reviewData.location.postalCode}</dd></div>

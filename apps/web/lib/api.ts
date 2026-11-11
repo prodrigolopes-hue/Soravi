@@ -12,6 +12,21 @@ export const adminProfessionalsUrl = `${normalizedApiBaseUrl}/api/v1/users/admin
 export const professionalVerificationSubmissionUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-verification/submission`;
 
 export const currentProfessionalProfileUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-profile`;
+export const currentProfessionalProfilePhotoUrl = `${currentProfessionalProfileUrl}/photo`;
+export const currentProfessionalPortfolioUrl = `${currentProfessionalProfileUrl}/portfolio`;
+export function currentProfessionalPortfolioItemUrl(itemId: string): string { return `${currentProfessionalPortfolioUrl}/${encodeURIComponent(itemId)}`; }
+
+export const customerProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/users/me/roles/customer`;
+
+export const professionalProfileActivationUrl = `${normalizedApiBaseUrl}/api/v1/users/me/roles/professional`;
+
+export const personalIdentityStatusUrl = `${normalizedApiBaseUrl}/api/v1/users/me/personal-identity`;
+
+export const personalIdentityRecordingUrl = personalIdentityStatusUrl;
+
+export const professionalIdentityDocumentUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification/document`;
+export const professionalIdentitySelfieUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification/selfie`;
+export const professionalIdentityVerificationStatusUrl = `${normalizedApiBaseUrl}/api/v1/users/me/professional-identity-verification`;
 
 export function adminProfessionalVerificationUrl(userId: string): string {
   return `${normalizedApiBaseUrl}/api/v1/users/admin/professionals/${encodeURIComponent(userId)}/verification`;
@@ -34,6 +49,9 @@ export const opportunitiesUrl = `${normalizedApiBaseUrl}/api/v1/opportunities`;
 export const professionalDashboardUrl = `${opportunitiesUrl}/summary`;
 
 export const conversationsUrl = `${normalizedApiBaseUrl}/api/v1/conversations`;
+export const adminReportsUrl = `${normalizedApiBaseUrl}/api/v1/reports/admin`;
+export function contractReportUrl(contractId: string): string { return `${normalizedApiBaseUrl}/api/v1/reports/contracts/${encodeURIComponent(contractId)}`; }
+export function adminReportUrl(reportId: string): string { return `${adminReportsUrl}/${encodeURIComponent(reportId)}`; }
 
 export const notificationsUrl = `${normalizedApiBaseUrl}/api/v1/notifications`;
 
@@ -83,6 +101,7 @@ export interface ConversationListItem {
   updatedAt: string;
   serviceRequest: {
     id: string;
+    publicCode: string;
     title: string;
   };
   contract: {
@@ -241,6 +260,32 @@ export function conversationReadUrl(conversationId: string): string {
 
 export function opportunityViewedUrl(opportunityId: string): string {
   return `${opportunityByIdUrl(opportunityId)}/viewed`;
+}
+
+export function opportunityPreProposalConversationMessagesUrl(
+  opportunityId: string,
+): string {
+  return `${opportunitiesUrl}/${encodeURIComponent(opportunityId)}/pre-proposal-conversation/messages`;
+}
+
+export function opportunityPreProposalConversationsUrl(opportunityId: string): string {
+  return `${opportunityByIdUrl(opportunityId)}/pre-proposal-conversations`;
+}
+
+export function preProposalConversationMessagesUrl(
+  conversationId: string,
+): string {
+  return `${normalizedApiBaseUrl}/api/v1/pre-proposal-conversations/${encodeURIComponent(conversationId)}/messages`;
+}
+
+export function preProposalConversationResponseUrl(conversationId: string): string {
+  return `${normalizedApiBaseUrl}/api/v1/pre-proposal-conversations/${encodeURIComponent(conversationId)}/response`;
+}
+
+export function serviceRequestPreProposalConversationsUrl(
+  serviceRequestId: string,
+): string {
+  return `${serviceRequestByIdUrl(serviceRequestId)}/pre-proposal-conversations`;
 }
 
 export function serviceRequestByIdUrl(serviceRequestId: string): string {

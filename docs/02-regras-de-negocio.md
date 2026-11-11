@@ -2,6 +2,12 @@
 
 # Objetivo
 
+> Atualização: “Pedir mais detalhes” é um pedido privado e separado: o profissional elegível pergunta, o cliente responde uma única vez com fotos opcionais e o pedido é encerrado para consulta. Não é chat; outro esclarecimento exige outro pedido. Permanecem a exclusividade do pedido direcionado e as proteções de endereço.
+
+O profissional consulta, na própria oportunidade, todos os pedidos que criou, com pergunta, status, resposta e fotos temporariamente autorizadas.
+
+Na abertura de um novo pedido, o profissional pode combinar temas predefinidos (serviço, fotos, medidas/quantidade e prazo). “Outra dúvida” exige texto complementar; os temas são enviados juntos em um único pedido privado.
+
 Avaliações estão implementadas nos dois sentidos após contrato `COMPLETED`: cliente avalia profissional e profissional vinculado avalia cliente, uma vez por contrato, com nota inteira de 1 a 5 e comentário opcional. As reputações correspondentes são atualizadas transacionalmente.
 
 ## Estado atual do MVP
@@ -10,12 +16,43 @@ Solicitações são preenchidas e revisadas no frontend antes do envio. A confir
 
 O dispatcher seleciona solicitações `OPEN` publicadas, não excluídas e ainda não despachadas; mantém lock, idempotência e `skipDuplicates`, alcançando somente profissionais aprovados, disponíveis e compatíveis com a categoria. Avaliações e favoritos não estão implementados; avaliações dependem de contrato `COMPLETED` em trabalho futuro.
 
+Solicitações podem ter um destinatário profissional opcional. Quando presente, a elegibilidade é revalidada na criação e no despacho: a conta deve estar `ACTIVE`, ter papel profissional, o perfil deve existir, estar aprovado e disponível, e atender à categoria ainda ativa. A oportunidade é exclusiva desse perfil; não há fallback para outros profissionais. A descoberta pública permite iniciar o pedido direcionado; login, cadastro de cliente e verificação de telefone preservam apenas o retorno interno seguro para esse fluxo. Se o destinatário ficar inelegível no despacho, o solicitante recebe o resultado de indisponibilidade, sem redistribuição automática.
+
 Este documento define as regras oficiais de funcionamento da plataforma
 Soravi.
 
 ------------------------------------------------------------------------
 
 # Perfis de Usuário
+
+## Conta e perfis
+
+**Implementação atual:** uma conta profissional `PENDING` ou `ACTIVE`, não excluída e com perfil profissional não excluído, pode ativar seu
+perfil cliente por `POST /api/v1/users/me/roles/customer`, sem perder
+histórico. A operação é idempotente, preserva o perfil profissional e não
+remove papéis existentes. Uma conta cliente `PENDING` ou `ACTIVE` também pode
+ativar o perfil profissional com título, área, bio e categorias ativas, sem
+alterar o perfil cliente ou aprovar a verificação profissional. Repetições
+preservam o primeiro perfil profissional concluído; alterações posteriores
+ocorrem na rota de edição do perfil. Ambas as modalidades continuam sujeitas à
+verificação profissional existente antes do envio de propostas.
+
+**Decisão aprovada, ainda não implementada:** o cadastro inicial de cliente é
+simples e não exige CPF. O profissional também pode criar a conta e preencher o
+perfil antes de concluir a verificação. Para liberar oportunidades e propostas,
+ele deverá concluir a verificação definida abaixo. CPF continua dado privado,
+único por pessoa e compartilhado entre seus perfis; não deve ser duplicado em
+contas pessoais independentes. Os dados do responsável são conceitualmente
+distintos dos dados da empresa.
+
+A validação de dígitos de CPF ou CNPJ não equivale à autenticação ou
+verificação de identidade. Contas existentes não receberão CPF fictício. A
+cardinalidade entre pessoa, empresa, representantes e conta pessoal permanece
+pendente na decisão de projeto.
+
+PF/PJ descreve a natureza da pessoa ou empresa; cliente/profissional descreve
+os perfis de atuação. São dimensões distintas, e esta regra não define ainda a
+modelagem empresarial nem suas relações.
 
 ## Cliente
 
@@ -29,6 +66,22 @@ Pode:
 -   contratar;
 -   avaliar serviços.
 
+**Implementação pessoal atual:** o backend bloqueia criação/publicação de
+solicitação em categoria vinculada ao perfil profissional da mesma conta.
+Também bloqueia adicionar tal categoria ao perfil se houver solicitação
+própria em aberto nela. As duas gravações serializam pela linha da conta na
+mesma transação.
+
+Para esta regra, solicitação em aberto é `OPEN`, `RECEIVING_PROPOSALS` ou
+`IN_NEGOTIATION`. `DRAFT` é legado e não é publicado; `HIRED`,
+`IN_PROGRESS`, `COMPLETED` e `CANCELLED` não bloqueiam. Remover categoria não
+altera solicitações, propostas ou contratos existentes, mas impede nova
+proposta em oportunidade antiga porque a categoria é revalidada no envio.
+
+**Extensão empresarial pendente:** incluir categorias de empresas representadas
+ativamente na mesma proteção, sem implementar empresa, CPF/CNPJ ou ativação
+de perfis nesta etapa.
+
 ## Profissional
 
 Pode:
@@ -37,11 +90,73 @@ Pode:
 -   consultar e editar o próprio perfil em `/profissional/perfil`;
 -   informar categorias atendidas;
 -   definir área de atuação;
--   enviar propostas;
+-   enviar propostas após aprovação da verificação profissional;
 -   conversar com clientes;
 -   receber avaliações.
 
-### Verificação profissional básica
+Um profissional não pode receber oportunidade nem enviar proposta para uma
+solicitação criada pela sua própria conta, ainda que possua perfil cliente.
+Essas proteções backend devem estar implementadas e testadas antes de liberar
+a ativação de perfis adicionais.
+
+### Verificação profissional
+
+**Decisão aprovada, ainda não implementada integralmente:** a liberação para
+receber oportunidades e enviar propostas requer nome completo e CPF, documento
+com foto (CIN/RG ou CNH), telefone confirmado, e-mail confirmado e CEP de
+referência, separado da região de atendimento. CEP não comprova residência;
+CPF válido e documento enviado não equivalem a identidade verificada. CPF,
+documentos e endereço residencial são privados.
+
+Selfie, método de conferência de titularidade e critérios de aprovação ainda
+dependem de definição. Pendências não bloqueiam login nem excluem histórico, e
+a estratégia de adequação de profissionais existentes permanece pendente.
+Empresas e CNPJ mantêm as decisões e pendências próprias.
+
+**Decisão aprovada, ainda não implementada:** a foto de perfil deverá
+corresponder ao profissional cuja identidade foi verificada, e o cliente deverá
+conseguir identificar previamente quem realizará a visita. A conta profissional
+individual é intransferível. Ajudantes e substitutos precisam ser identificados
+previamente, com ciência do cliente; seus critérios de verificação e autorização
+ainda serão definidos. Empresas deverão identificar as pessoas enviadas ao
+atendimento, permanecendo pendentes a modelagem e as regras empresariais.
+
+Documentos são privados, com acesso interno restrito. Deve existir canal para
+denunciar divergência de identidade ou comportamento, sujeito a análise interna
+e eventual suspensão. “Identidade verificada” descreve uma checagem concluída;
+não garante conduta futura nem qualidade do serviço.
+
+**Incremento implementado:** o profissional autenticado com papel `PROFESSIONAL`
+pode enviar uma imagem JPEG ou PNG da CIN, RG ou CNH por
+`POST /api/v1/users/me/professional-identity-verification/document`. O envio
+exige CPF pessoal já registrado; nenhuma conta existente recebe CPF fictício.
+O arquivo tem limite de 5 MiB, é validado pelo conteúdo (não apenas pelo MIME),
+tem metadados removidos e é armazenado como objeto privado sem rota pública ou
+URL retornada. A evidência cria ou completa uma tentativa privada em
+`UNDER_REVIEW`; ela não aprova o perfil, não altera `ProfessionalVerificationStatus`
+e não muda as regras atuais de oportunidades ou propostas. Somente a análise
+interna futura poderá decidir a identidade. A fila/tela administrativa para essa
+análise ainda não existe e está registrada no backlog. Candidatos de upload que
+não forem associados mantêm tarefa privada de limpeza e reconciliação; a
+migration correspondente precisa ser aplicada antes de habilitar este endpoint.
+
+**Estado e reenvio de documento de identidade:** `GET /api/v1/users/me/professional-identity-verification` retorna o estado da tentativa mais recente, separado de `ProfessionalVerificationStatus`. Sem tentativa, o envio é permitido; em `UNDER_REVIEW`, a interface mostra “Documento enviado — aguardando análise” e o backend rejeita novo envio; em `CLOSED/CONFIRMED`, mostra “Identidade confirmada” e também bloqueia novo envio; em `CLOSED/NOT_CONFIRMED` ou `CLOSED/INCONCLUSIVE`, orienta a revisão e permite reenvio. A decisão e as evidências de cada tentativa permanecem append-only no histórico. O bloqueio é validado dentro da transação protegida pelo lock do perfil, inclusive para requisições concorrentes. Isso não altera a aprovação do perfil profissional, oportunidades ou propostas.
+
+**Decisão administrativa de identidade:** a revisão privada exige um motivo compatível com o resultado: `DOCUMENT_CHECKED` para `CONFIRMED`; `DATA_MISMATCH`, `UNSUPPORTED_DOCUMENT` ou `SUSPECTED_TAMPERING` para `NOT_CONFIRMED`; e `DOCUMENT_UNREADABLE`, `DOCUMENT_INCOMPLETE` ou `INSUFFICIENT_INFORMATION` para `INCONCLUSIVE`. A interface exige confirmação antes do registro e evita duplo envio enquanto processa; o backend aplica a mesma validação antes de fechar a tentativa. Decisões já gravadas — inclusive códigos legados como `001` — são preservadas sem releitura, conversão ou alteração.
+
+**Selfie privada de identidade:** quando `PROFESSIONAL_IDENTITY_SELFIE_ENABLED=true`, novas tentativas e reenvios após `NOT_CONFIRMED` ou `INCONCLUSIVE` exigem documento e selfie na mesma tentativa. Tentativas existentes, inclusive em análise, e identidades já confirmadas permanecem nas regras anteriores. A selfie é evidência privada, normalizada como imagem, acessível temporariamente somente ao `ADMIN` e auditada antes da emissão da URL; não aparece no perfil público, em DTOs públicos ou com chave de armazenamento. A comparação é manual e não constitui reconhecimento facial nem prova de vida. Seu descarte é controlado pela política operacional interna desabilitada descrita abaixo; ele não depende da flag da selfie. A confirmação de identidade segue separada da aprovação profissional, oportunidades e propostas.
+
+**Retenção operacional de mídia de identidade — ativação pendente:** a implementação interna `identity-media-v1` mantém documento e selfie privados em uma fila por evidência, separada da fila de uploads órfãos. Os prazos operacionais propostos, sujeitos a revisão antes de ativação, são: upload órfão após uma hora (rotina já existente), evidência substituída após sete dias de `supersededAt`, tentativa incompleta após trinta dias do último envio e tentativa encerrada após noventa dias da decisão. Tentativas em `UNDER_REVIEW` e tentativas com suspensão ativa não são descartadas. A flag independente `IDENTITY_EVIDENCE_DISPOSAL_ENABLED` inicia desabilitada; desligá-la não altera a limpeza de uploads órfãos e ela não depende de `PROFESSIONAL_IDENTITY_SELFIE_ENABLED`.
+
+A elegibilidade cria uma tarefa privada com versão de política, motivo, prazo, lease, contador e erro sanitizado. A referência passa a bloquear novas URLs em `discardRequestedAt`. Antes da chamada ao storage, o worker grava `discardStartedAt`: uma suspensão registrada antes desse ponto impede a chamada; após esse ponto, a suspensão retorna conflito explícito e não promete preservação, pois o storage pode já ter removido o objeto. O worker não mantém transação de banco durante a chamada de rede e só confirma `discardedAt` após sucesso, removendo a chave utilizável da referência mas preservando tentativa, decisões e auditorias. Lease vencido ou queda entre storage e banco reexecuta a deleção idempotente; falhas têm backoff limitado e estado operacional `FAILED`, sem chave ou detalhe sensível em logs/respostas.
+
+Antes de descartar evidências de uma tentativa incompleta, o worker cancela a tentativa de modo atômico sob os mesmos locks do envio. Um envio que obtiver o lock primeiro mantém a tentativa ativa e o prazo é reavaliado; uma tentativa cancelada não é reutilizada pelo fluxo de upload. Ainda pendem revisão operacional dos prazos antes da ativação, processo de tratamento dos itens `FAILED`, métricas/alertas e aprovação jurídica/privacidade — este texto não publica nem aprova uma política de privacidade.
+
+**Implementação atual:**
+
+O fluxo de conclusão do cadastro profissional é centralizado em `/profissional/perfil`: a página mostra os contatos existentes e seus estados, permite reenviar e confirmar o código de telefone, direciona a confirmação/reenvio de e-mail com retorno ao perfil, mantém CPF, documento privado, dados e categorias, e reutiliza a submissão existente do perfil. A confirmação de identidade e a aprovação do perfil profissional continuam processos distintos; nenhum deles altera automaticamente oportunidades ou propostas.
+
+O portfólio de trabalhos também é gerenciado em `/profissional/perfil`. Cada profissional pode enviar e remover somente as próprias fotos; elas permanecem separadas do documento privado de identidade. São aceitos JPEG, PNG e WebP de até 5 MiB, processados para WebP, com no máximo 12 fotos e legenda opcional de até 280 caracteres. A publicação pública depende de moderação obrigatória: novos envios permanecem privados com status `Em análise`; somente fotos aprovadas por `ADMIN`, incluindo miniaturas e URLs temporárias, podem aparecer no perfil público. A rejeição exige motivo visível ao proprietário; substituir uma imagem cria novo envio sujeito a análise. O histórico preserva operador, data e decisão. Antes da ativação, deve ser definido o tratamento das fotos já existentes.
 
 O `ProfessionalVerificationStatus` possui os estados `NOT_STARTED`, `PENDING`,
 `APPROVED` e `REJECTED`. `NOT_STARTED` identifica o profissional que ainda não
@@ -123,6 +238,10 @@ Cada solicitação deve conter:
 -   data de criação;
 -   status.
 
+Quando o solicitante também tiver perfil profissional, o backend deve bloquear
+a criação antes de publicar ou distribuir a solicitação se sua categoria
+estiver entre as categorias profissionais ativas daquele usuário.
+
 Status possíveis:
 
 -   Aberta
@@ -146,6 +265,11 @@ Cada proposta deve conter:
 
 Um profissional pode enviar apenas uma proposta por solicitação, podendo
 editá-la enquanto a solicitação estiver aberta.
+
+O backend também nega propostas do profissional para solicitação da sua
+própria conta, independentemente de oportunidades já existentes, e revalida
+que a categoria da solicitação continua vinculada ao seu perfil no momento do
+envio. A revalidação não desfaz propostas ou contratos anteriores.
 
 ------------------------------------------------------------------------
 
@@ -180,9 +304,27 @@ A avaliação deve possuir:
 
 # Chat
 
-O chat somente é liberado após a contratação.
+No fluxo atual, o chat somente é liberado após a contratação.
 
 Todas as mensagens ficam registradas para fins de segurança e suporte.
+
+------------------------------------------------------------------------
+
+## Contato pré-proposta e visita técnica
+
+“Pedir mais detalhes” está implementado como pedido privado, independente e vinculado à oportunidade e à solicitação. O profissional elegível cria uma pergunta; o cliente participante responde uma única vez, opcionalmente com até cinco fotos, e o pedido é encerrado para consulta. Não há continuação de mensagens nesse pedido: nova dúvida exige novo pedido.
+
+O profissional consulta, no detalhe da própria oportunidade, os pedidos que criou, com pergunta, status, resposta e fotos autorizadas. O cliente consulta e responde seus pedidos no detalhe da própria solicitação. A interface não representa esse fluxo como chat; o chat contratual continua separado e só é liberado após a contratação.
+
+Outros profissionais não podem acessar pedidos alheios. Em solicitações direcionadas, somente o destinatário exclusivo pode criar e consultar pedidos. Endereço completo, CEP, telefone, e-mail, chaves de storage e outros dados privados não são devolvidos por esse fluxo; as fotos são entregues apenas aos participantes autorizados por URL temporária.
+
+Para cada foto de resposta, o backend cria antes do upload um candidato persistente com chave própria. A associação bloqueia esse candidato e só o aceita enquanto ainda não foi reivindicado pela manutenção; a associação da foto e a remoção do candidato ocorrem na mesma transação. Um processador limitado usa `FOR UPDATE SKIP LOCKED`, lease e novas tentativas para limpar objetos órfãos, inclusive uploads que terminem após uma tentativa de exclusão. Uma foto já referenciada é protegida contra exclusão.
+
+“Solicitar visita técnica” será um incremento posterior: o profissional deverá informar o motivo, uma sugestão de data e horário e se a visita é gratuita ou paga; quando paga, o valor deverá ser explícito. A visita exigirá aceite do cliente e não implicará contratação do serviço principal.
+
+O endereço completo não será liberado automaticamente ao iniciar o contato. A regra de liberação de endereço para visita técnica deverá ser definida antes da implementação.
+
+O histórico de decisão que previa avaliar o reaproveitamento do chat foi substituído: pedidos de esclarecimento não reutilizam nem alteram as permissões do chat de contratos.
 
 ------------------------------------------------------------------------
 
@@ -250,8 +392,9 @@ de produto.
 - a nova senha deve ter de 12 a 128 caracteres, sem exigência obrigatória de letra, número, maiúscula, minúscula ou símbolo;
 - qualquer composição entre 12 e 128 caracteres é permitida, exceto senhas comuns bloqueadas pelo backend;
 - a senha nunca deve ser trimada, normalizada ou truncada antes de hashing ou verificação;
-- a redefinição válida revoga todas as sessões e invalida os demais tokens pendentes;
-- a redefinição não autentica o usuário automaticamente; o acesso exige novo login;
+- a redefinição válida revoga todas as sessões da conta cuja senha foi redefinida e invalida os demais tokens pendentes;
+- após uma redefinição válida, o navegador encerra somente sua sessão local atual (mesmo se ela for de outra conta), informa que a senha foi alterada e oferece acesso à tela de login; o reset não autentica o usuário automaticamente;
+- links inválidos, expirados ou outros erros não alteram a sessão atual do navegador;
 - uma troca administrativa de senha também invalida tokens de reset pendentes.
 
 ## Autenticação e sessões
@@ -391,9 +534,12 @@ Informações iniciais poderão incluir:
 - forma geral de atendimento;
 - disponibilidade aproximada.
 
-CPF ou CNPJ não deve ser tratado como obrigatório no cadastro inicial para todos.
-
-Regra: "CPF ou CNPJ poderá ser solicitado quando necessário para a etapa de verificação de identidade, conforme finalidade, proporcionalidade, categoria, risco e regras de privacidade aplicáveis."
+Para pessoa física, CPF será privado e exigido somente no fluxo de verificação
+profissional aprovado; não é obrigatório no cadastro inicial de cliente. Para
+pessoa jurídica, CNPJ, razão social e os dados pessoais do responsável são
+distintos. CPF não compõe perfil público nem é compartilhado como dado de
+apresentação; sua validação estrutural não comprova identidade. A privacidade
+dos dados empresariais e a representação da empresa permanecem pendentes.
 
 Deve ser mantido o princípio de minimização de dados pessoais.
 
@@ -406,7 +552,8 @@ Devem ser considerados:
 - cidade/região;
 - foto de perfil, quando aplicável;
 - coerência das informações;
-- CPF/CNPJ, quando necessário à verificação.
+- resultado, método e responsável pela verificação de identidade, quando
+  aplicável.
 
 Evitar armazenamento de cópias completas de documentos sem necessidade.
 
@@ -521,3 +668,8 @@ Na curadoria inicial, reforçar:
 - transparência ao titular.
 
 Verificações avançadas como antecedentes criminais, certificações extensas e verificações de alto custo não fazem parte automaticamente do piloto e dependerão de análise jurídica, proporcionalidade e decisão específica futura.
+# Public service-request code
+
+Each service request keeps its internal UUID and receives a permanent public code in the form `SOYYYY999`, for example `SO2026001` and `SO2027001`. The annual sequence uses `America/Sao_Paulo`, begins at `001`, and has no maximum after `999`. The backend reserves the next value atomically in the creation transaction. Cancellation and deletion never release or reuse a code.
+
+Existing records are backfilled by Sao Paulo year, then by `created_at` and UUID as a stable tie breaker. The code is shown in related requests, opportunities, proposals, and conversations without changing existing permissions. Administrative totals must be calculated from request records, not from annual counters.

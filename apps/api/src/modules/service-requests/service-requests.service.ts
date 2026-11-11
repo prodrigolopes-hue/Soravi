@@ -1,7 +1,8 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ConflictException, Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
-import { Prisma, ServiceRequestStatus } from "../../generated/prisma/client";
+import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
+import { Prisma, ProfessionalVerificationStatus, Role, ServiceRequestStatus, UserStatus } from "../../generated/prisma/client";
 import { STORAGE_SERVICE, StorageService } from "../../storage/storage.service";
 import { CancelServiceRequestDto } from "./dto/cancel-service-request.dto";
 import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
@@ -12,6 +13,7 @@ import {
 } from "./dto/service-request-response.dto";
 import { ServiceRequestsMineListResponseDto } from "./dto/service-requests-mine-list-response.dto";
 import { ServiceRequestsMineQueryDto } from "./dto/service-requests-mine-query.dto";
+import { AdminServiceRequestDetailResponseDto } from "./dto/admin-service-request-detail-response.dto";
 import { UpdateServiceRequestDto } from "./dto/update-service-request.dto";
 import { CustomerProfileNotFoundException } from "./errors/customer-profile-not-found.exception";
 import { InvalidServiceRequestCategoryException } from "./errors/invalid-service-request-category.exception";
@@ -22,7 +24,9 @@ import { ServiceRequestPhotoLimitException } from "./errors/service-request-phot
 import { ServiceRequestPhotoTooLargeException } from "./errors/service-request-photo-too-large.exception";
 import { ServiceRequestPhotoUploadUnavailableException } from "./errors/service-request-photo-upload-unavailable.exception";
 import { ServiceRequestUpdateUnavailableException } from "./errors/service-request-update-unavailable.exception";
+import { ServiceRequestOwnProfessionalCategoryException } from "./errors/service-request-own-professional-category.exception";
 import { ServiceOpportunityDistributionService } from "./service-opportunity-distribution.service";
+import { reserveServiceRequestPublicCode } from "./service-request-public-code";
 import {
   detectServiceRequestPhotoMimeType,
   SERVICE_REQUEST_PHOTO_MAX_SIZE_BYTES,
@@ -37,10 +41,13 @@ interface UploadedPhoto {
 
 const SERVICE_REQUEST_RESPONSE_SELECT = {
   id: true,
+  publicCode: true,
   categoryId: true,
   title: true,
   description: true,
   status: true,
+  targetProfessionalProfileId: true,
+  targetProfessionalUnavailableAt: true,
   visibleProposalLimit: true,
   country: true,
   state: true,
@@ -123,11 +130,85 @@ export class ServiceRequestsService {
     );
   }
 
+  async findAdmin(
+    publicCode?: string,
+    status?: ServiceRequestStatus,
+    page = 1,
+    limit = 20,
+  ) {
+    const normalizedCode = publicCode?.trim().toUpperCase();
+    const where: Prisma.ServiceRequestWhereInput = {
+      deletedAt: null,
+      ...(normalizedCode ? { publicCode: { contains: normalizedCode, mode: "insensitive" } } : {}),
+      ...(status ? { status } : {}),
+    };
+    const groupByStatusArgs = {
+      by: ["status"],
+      orderBy: { status: "asc" },
+      where,
+      _count: { _all: true },
+    } satisfies Prisma.ServiceRequestGroupByArgs;
+    const [total, byStatus, items] = await this.prisma.$transaction([
+      this.prisma.serviceRequest.count({ where }),
+      this.prisma.serviceRequest.groupBy(groupByStatusArgs),
+      this.prisma.serviceRequest.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * limit, take: limit, select: { id: true, publicCode: true, title: true, status: true, createdAt: true, customerProfile: { select: { user: { select: { name: true } } } } } }),
+    ]);
+    return { total, byStatus: byStatus.map((item) => ({ status: item.status, total: item._count._all })), items: items.map((item) => ({ id: item.id, publicCode: item.publicCode, title: item.title, status: item.status, createdAt: item.createdAt, customerName: item.customerProfile.user.name })), pagination: { page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  async findAdminDetailByPublicCode(adminUserId: string, publicCode: string): Promise<AdminServiceRequestDetailResponseDto> {
+    const normalizedCode = publicCode.trim().toUpperCase();
+    if (!normalizedCode) throw new ServiceRequestNotFoundException();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const serviceRequest = await transaction.serviceRequest.findFirst({
+        where: { publicCode: normalizedCode, deletedAt: null },
+        select: {
+          id: true, publicCode: true, title: true, description: true, status: true,
+          country: true, state: true, city: true, neighborhood: true,
+          createdAt: true, publishedAt: true, hiredAt: true, startedAt: true, completedAt: true, cancelledAt: true, cancellationReason: true,
+          category: { select: { id: true, name: true, slug: true } },
+          customerProfile: { select: { id: true, user: { select: { name: true } } } },
+          targetProfessionalProfile: { select: { id: true, displayName: true } },
+          serviceOpportunities: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { createdAt: true, viewedAt: true, professionalProfile: { select: { id: true, displayName: true } } } },
+          proposals: { orderBy: [{ submittedAt: "asc" }, { id: "asc" }], select: { id: true, amountInCents: true, estimatedDurationValue: true, estimatedDurationUnit: true, message: true, status: true, isVisible: true, submittedAt: true, acceptedAt: true, rejectedAt: true, withdrawnAt: true, expiredAt: true, professionalProfile: { select: { id: true, displayName: true } } } },
+          contract: { select: { id: true, status: true, acceptedProposalId: true, agreedAmountInCents: true, agreedDurationValue: true, agreedDurationUnit: true, agreedMessage: true, acceptedAt: true, startedAt: true, completedAt: true, cancelledAt: true, cancellationReason: true, professionalProfile: { select: { id: true, displayName: true } } } },
+        },
+      });
+
+      if (!serviceRequest) throw new ServiceRequestNotFoundException();
+
+      await transaction.adminCommercialDataAccessAudit.create({
+        data: { serviceRequestId: serviceRequest.id, operatorUserId: adminUserId, action: "SERVICE_REQUEST_DETAIL_VIEW", accessedAt: new Date() },
+      });
+
+      return new AdminServiceRequestDetailResponseDto({
+        id: serviceRequest.id,
+        publicCode: serviceRequest.publicCode,
+        title: serviceRequest.title,
+        description: serviceRequest.description,
+        status: serviceRequest.status,
+        category: serviceRequest.category,
+        region: { country: serviceRequest.country, state: serviceRequest.state, city: serviceRequest.city, neighborhood: serviceRequest.neighborhood },
+        customer: { id: serviceRequest.customerProfile.id, name: serviceRequest.customerProfile.user.name },
+        targetProfessional: serviceRequest.targetProfessionalProfile,
+        dates: { createdAt: serviceRequest.createdAt, publishedAt: serviceRequest.publishedAt, hiredAt: serviceRequest.hiredAt, startedAt: serviceRequest.startedAt, completedAt: serviceRequest.completedAt, cancelledAt: serviceRequest.cancelledAt },
+        cancellationReason: serviceRequest.cancellationReason,
+        opportunities: serviceRequest.serviceOpportunities.map((opportunity) => ({ professional: opportunity.professionalProfile, createdAt: opportunity.createdAt, viewedAt: opportunity.viewedAt })),
+        proposals: serviceRequest.proposals.map((proposal) => ({ id: proposal.id, professional: proposal.professionalProfile, amountInCents: proposal.amountInCents, estimatedDurationValue: proposal.estimatedDurationValue, estimatedDurationUnit: proposal.estimatedDurationUnit, conditions: proposal.message, status: proposal.status, isVisible: proposal.isVisible, submittedAt: proposal.submittedAt, acceptedAt: proposal.acceptedAt, rejectedAt: proposal.rejectedAt, withdrawnAt: proposal.withdrawnAt, expiredAt: proposal.expiredAt })),
+        contract: serviceRequest.contract ? { id: serviceRequest.contract.id, status: serviceRequest.contract.status, acceptedProposalId: serviceRequest.contract.acceptedProposalId, professional: serviceRequest.contract.professionalProfile, agreedAmountInCents: serviceRequest.contract.agreedAmountInCents, agreedDurationValue: serviceRequest.contract.agreedDurationValue, agreedDurationUnit: serviceRequest.contract.agreedDurationUnit, conditions: serviceRequest.contract.agreedMessage, acceptedAt: serviceRequest.contract.acceptedAt, startedAt: serviceRequest.contract.startedAt, completedAt: serviceRequest.contract.completedAt, cancelledAt: serviceRequest.contract.cancelledAt, cancellationReason: serviceRequest.contract.cancellationReason } : null,
+      });
+    });
+  }
+
   async createServiceRequest(
     userId: string,
     input: CreateServiceRequestDto,
   ): Promise<ServiceRequestResponseDto> {
-    const customerProfile = await this.prisma.customerProfile.findUnique({
+    const serviceRequest = await this.prisma.$transaction(async (transaction) => {
+      await lockUserCategoryProtection(transaction, userId);
+
+    const customerProfile = await transaction.customerProfile.findUnique({
       where: {
         userId,
       },
@@ -140,7 +221,7 @@ export class ServiceRequestsService {
       throw new CustomerProfileNotFoundException();
     }
 
-    const category = await this.prisma.category.findFirst({
+    const category = await transaction.category.findFirst({
       where: {
         id: input.categoryId,
         isActive: true,
@@ -154,12 +235,50 @@ export class ServiceRequestsService {
       throw new InvalidServiceRequestCategoryException();
     }
 
-    const publishedAt = new Date();
+    const ownsCategory = await transaction.professionalProfile.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+        professionalCategories: { some: { categoryId: category.id } },
+      },
+      select: { id: true },
+    });
 
-    const serviceRequest = await this.prisma.serviceRequest.create({
+    if (ownsCategory) {
+      throw new ServiceRequestOwnProfessionalCategoryException();
+    }
+
+    if (input.targetProfessionalProfileId) {
+      const target = await transaction.professionalProfile.findFirst({
+        where: {
+          id: input.targetProfessionalProfileId,
+          deletedAt: null,
+          isAvailable: true,
+          verificationStatus: ProfessionalVerificationStatus.APPROVED,
+          user: {
+            deletedAt: null,
+            status: UserStatus.ACTIVE,
+            roles: { some: { role: Role.PROFESSIONAL } },
+          },
+          professionalCategories: { some: { categoryId: category.id } },
+        },
+        select: { id: true, userId: true },
+      });
+      if (!target || target.userId === userId) {
+        throw new ConflictException("O profissional selecionado não está disponível para esta solicitação.");
+      }
+    }
+
+    const publishedAt = new Date();
+    const publicCode = await reserveServiceRequestPublicCode(transaction, publishedAt);
+
+    return transaction.serviceRequest.create({
       data: {
+        publicCode,
         customerProfileId: customerProfile.id,
         categoryId: category.id,
+        targetProfessionalProfileId: input.targetProfessionalProfileId ?? null,
+        targetProfessionalUnavailableAt: null,
         title: input.title.trim(),
         description: input.description?.trim() || null,
         status: ServiceRequestStatus.OPEN,
@@ -178,6 +297,7 @@ export class ServiceRequestsService {
         opportunitiesDispatchedAt: null,
       },
       select: SERVICE_REQUEST_RESPONSE_SELECT,
+    });
     });
 
     await this.distributionService.distribute(serviceRequest.id).catch(() => undefined);
@@ -535,10 +655,13 @@ function toServiceRequestResponseProperties(
 ) {
   return {
     id: serviceRequest.id,
+    publicCode: serviceRequest.publicCode,
     categoryId: serviceRequest.categoryId,
     title: serviceRequest.title,
     description: serviceRequest.description,
     status: serviceRequest.status,
+    targetProfessionalProfileId: serviceRequest.targetProfessionalProfileId,
+    targetProfessionalUnavailableAt: serviceRequest.targetProfessionalUnavailableAt,
     visibleProposalLimit: serviceRequest.visibleProposalLimit,
     location: {
       country: serviceRequest.country,

@@ -40,10 +40,13 @@ export class ServiceRequestPhotoDetailResponseDto {
 
 export interface ServiceRequestResponseDtoProperties {
   id: string;
+  publicCode: string;
   categoryId: string;
   title: string;
   description: string | null;
   status: ServiceRequestStatus;
+  targetProfessionalProfileId?: string | null;
+  targetProfessionalUnavailableAt?: Date | null;
   visibleProposalLimit?: number;
   location: ServiceRequestLocationResponseDto;
   editableUntil: Date;
@@ -55,10 +58,13 @@ export interface ServiceRequestResponseDtoProperties {
 
 export class ServiceRequestResponseDto {
   readonly id: string;
+  readonly publicCode: string;
   readonly categoryId: string;
   readonly title: string;
   readonly description: string | null;
   readonly status: ServiceRequestStatus;
+  readonly targetProfessionalProfileId: string | null;
+  readonly targetProfessionalUnavailableAt: Date | null;
   readonly visibleProposalLimit: number;
   readonly location: ServiceRequestLocationResponseDto;
   readonly editableUntil: Date;
@@ -69,10 +75,13 @@ export class ServiceRequestResponseDto {
 
   constructor(properties: ServiceRequestResponseDtoProperties) {
     this.id = properties.id;
+    this.publicCode = properties.publicCode;
     this.categoryId = properties.categoryId;
     this.title = properties.title;
     this.description = properties.description;
     this.status = properties.status;
+    this.targetProfessionalProfileId = properties.targetProfessionalProfileId ?? null;
+    this.targetProfessionalUnavailableAt = properties.targetProfessionalUnavailableAt ?? null;
     this.visibleProposalLimit = properties.visibleProposalLimit ?? 3;
     this.location = properties.location;
     this.editableUntil = properties.editableUntil;

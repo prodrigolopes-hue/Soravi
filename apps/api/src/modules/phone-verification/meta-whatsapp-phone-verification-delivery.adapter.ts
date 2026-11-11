@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import {
@@ -17,6 +17,10 @@ interface MetaMessageAcceptanceResponse {
 export class MetaWhatsAppPhoneVerificationDeliveryAdapter
   implements PhoneVerificationDeliveryPort
 {
+  private readonly logger = new Logger(
+    MetaWhatsAppPhoneVerificationDeliveryAdapter.name,
+  );
+
   private readonly accessToken: string;
   private readonly phoneNumberId: string;
   private readonly graphApiVersion: string;
@@ -87,6 +91,30 @@ export class MetaWhatsAppPhoneVerificationDeliveryAdapter
       });
 
       if (!response.ok) {
+        let metaCode: number | undefined;
+        let metaSubcode: number | undefined;
+
+        try {
+          const failure = (await response.json()) as {
+            error?: { code?: unknown; error_subcode?: unknown };
+          } | null;
+
+          if (typeof failure?.error?.code === "number") {
+            metaCode = failure.error.code;
+          }
+
+          if (typeof failure?.error?.error_subcode === "number") {
+            metaSubcode = failure.error.error_subcode;
+          }
+        } catch {
+          // Uma resposta sem JSON não muda o tratamento da falha.
+        }
+
+        this.logger.warn(
+          `Falha no envio do OTP: HTTP ${response.status}; ` +
+            `Meta code=${metaCode ?? "N/A"}; subcode=${metaSubcode ?? "N/A"}`,
+        );
+
         throw this.fromHttpStatus(response.status);
       }
 

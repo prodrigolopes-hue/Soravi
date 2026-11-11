@@ -21,11 +21,12 @@ import { ServiceRequestNotFoundException } from "./errors/service-request-not-fo
 import { ServiceRequestNotAcceptingProposalsException } from "./errors/service-request-not-accepting-proposals.exception";
 import { ProposalsService } from "./proposals.service";
 
+const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
+
 describe("ProposalsService", () => {
   const userId = "525afb87-2b81-4de7-9606-8f382fff3341";
   const customerProfileId = "425afb87-2b81-4de7-9606-8f382fff3341";
   const customerUserId = "325afb87-2b81-4de7-9606-8f382fff3341";
-  const professionalProfileId = "625afb87-2b81-4de7-9606-8f382fff3341";
   const serviceRequestId = "725afb87-2b81-4de7-9606-8f382fff3341";
   const notificationId = "825afb87-2b81-4de7-9606-8f382fff3341";
 
@@ -34,8 +35,15 @@ describe("ProposalsService", () => {
     professionalProfile: { findFirst: jest.Mock };
     serviceRequest: { findFirst: jest.Mock; update: jest.Mock };
     serviceOpportunity: { findUnique: jest.Mock };
-    proposal: { findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
+    proposal: {
+      findUnique: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      count: jest.Mock;
+    };
     notification: { upsert: jest.Mock };
+    customerProfile: { findUnique: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let prismaMock: {
@@ -49,13 +57,17 @@ describe("ProposalsService", () => {
   beforeEach(() => {
     transactionMock = {
       professionalProfile: {
-        findFirst: jest.fn().mockResolvedValue({ id: professionalProfileId }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: professionalProfileId,
+          professionalCategories: [{ categoryId: "category-id" }],
+        }),
       },
       serviceRequest: {
         findFirst: jest
           .fn()
           .mockResolvedValue({
             id: serviceRequestId,
+            categoryId: "category-id",
             status: ServiceRequestStatus.OPEN,
             visibleProposalLimit: 3,
             customerProfile: { userId: customerUserId },
@@ -67,11 +79,16 @@ describe("ProposalsService", () => {
       },
       proposal: {
         findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(createProposal()),
+        update: jest.fn().mockResolvedValue({}),
         count: jest.fn().mockResolvedValue(0),
       },
       notification: {
         upsert: jest.fn().mockResolvedValue({ id: notificationId }),
+      },
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: customerProfileId }),
       },
       $queryRaw: jest.fn().mockResolvedValue([{ id: serviceRequestId }]),
     };
@@ -146,7 +163,10 @@ describe("ProposalsService", () => {
       take: 10,
       select: expect.objectContaining({
         professionalProfile: {
-          select: { displayName: true },
+          select: {
+            id: true,
+            displayName: true,
+          },
         },
       }),
     });
@@ -218,8 +238,8 @@ describe("ProposalsService", () => {
       status: ProposalStatus.ACTIVE,
       submittedAt: new Date("2026-08-19T12:00:00.000Z"),
       professionalName: "Profissional Soravi",
+      professionalProfileId,
     });
-    expect(result.items[0]).not.toHaveProperty("professionalProfileId");
     expect(result.items[0]).not.toHaveProperty("professionalProfile");
     expect(result.items[0]).not.toHaveProperty("email");
     expect(result.items[0]).not.toHaveProperty("phone");
@@ -244,7 +264,7 @@ describe("ProposalsService", () => {
     expect(result.items[0]).not.toHaveProperty("professionalProfile");
   });
 
-  it("cria proposta ACTIVE para profissional elegível com oportunidade", async () => {
+  it("permite proposta entre usuários diferentes para profissional elegível com oportunidade", async () => {
     const result = await service.create(userId, serviceRequestId, createDto());
 
     expect(transactionMock.professionalProfile.findFirst).toHaveBeenCalledWith({
@@ -258,7 +278,10 @@ describe("ProposalsService", () => {
           roles: { some: { role: Role.PROFESSIONAL } },
         },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        professionalCategories: { select: { categoryId: true } },
+      },
     });
     expect(transactionMock.serviceOpportunity.findUnique).toHaveBeenCalledWith({
       where: {
@@ -298,6 +321,31 @@ describe("ProposalsService", () => {
       select: expect.any(Object),
     });
     expect(result.status).toBe(ProposalStatus.ACTIVE);
+  });
+
+  it("rejeita proposta própria mesmo quando existe oportunidade preexistente", async () => {
+    transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
+      status: ServiceRequestStatus.OPEN,
+      visibleProposalLimit: 3,
+      customerProfile: { userId },
+    });
+
+    await expect(
+      service.create(userId, serviceRequestId, createDto()),
+    ).rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.serviceOpportunity.findUnique).toHaveBeenCalledWith({
+      where: {
+        serviceRequestId_professionalProfileId: {
+          serviceRequestId,
+          professionalProfileId,
+        },
+      },
+      select: { id: true },
+    });
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
   });
 
   it("cria notificação idempotente para o cliente proprietário da solicitação", async () => {
@@ -367,8 +415,89 @@ describe("ProposalsService", () => {
     expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
   });
 
+  it("does not notify when a proposal is created in reserve", async () => {
+    transactionMock.proposal.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(3);
+
+    await service.create(userId, serviceRequestId, createDto());
+
+    expect(transactionMock.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isVisible: false }),
+      }),
+    );
+    expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+    expect(outboundNotificationsServiceMock.createPending).not.toHaveBeenCalled();
+  });
+
+  it("notifies when requestNext promotes a reserve proposal", async () => {
+    transactionMock.proposal.findFirst.mockResolvedValue({ id: "reserve-id" });
+
+    await service.requestNext(customerUserId, serviceRequestId);
+
+    expect(transactionMock.proposal.update).toHaveBeenCalledWith({
+      where: { id: "reserve-id" },
+      data: { isVisible: true },
+    });
+    expect(transactionMock.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId_type_resourceType_resourceId: expect.objectContaining({
+            userId: customerUserId,
+            resourceId: "reserve-id",
+          }),
+        },
+        update: {},
+      }),
+    );
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies when increasing the visible limit promotes a reserve proposal", async () => {
+    transactionMock.proposal.findFirst
+      .mockResolvedValueOnce({ id: "reserve-1" })
+      .mockResolvedValueOnce(null);
+
+    await service.increaseVisibleLimit(customerUserId, serviceRequestId, 5);
+
+    expect(transactionMock.proposal.update).toHaveBeenCalledWith({
+      where: { id: "reserve-1" },
+      data: { isVisible: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: customerUserId }),
+    );
+  });
+
+  it("notifies when withdrawing promotes a reserve proposal", async () => {
+    transactionMock.proposal.findUnique
+      .mockResolvedValueOnce({
+        id: "proposal-id",
+        serviceRequestId,
+        professionalProfile: { userId },
+        serviceRequest: { customerProfile: { userId: customerUserId } },
+      })
+      .mockResolvedValueOnce({ status: ProposalStatus.ACTIVE, isVisible: true });
+    transactionMock.proposal.findFirst.mockResolvedValue({ id: "reserve-id" });
+
+    await service.withdraw(userId, "proposal-id");
+
+    expect(transactionMock.proposal.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "reserve-id" },
+      data: { isVisible: true },
+    });
+    expect(outboundNotificationsServiceMock.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: customerUserId,
+        eventType: NotificationType.PROPOSAL_CREATED,
+      }),
+    );
+  });
+
   it("mantém RECEIVING_PROPOSALS sem atualizar a solicitação", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      categoryId: "category-id",
       status: ServiceRequestStatus.RECEIVING_PROPOSALS,
       customerProfile: { userId: customerUserId },
     });
@@ -388,6 +517,40 @@ describe("ProposalsService", () => {
 
     expect(transactionMock.proposal.create).not.toHaveBeenCalled();
     expect(transactionMock.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it("revalida a categoria profissional e rejeita proposta após sua remoção", async () => {
+    transactionMock.professionalProfile.findFirst.mockResolvedValue({
+      id: professionalProfileId,
+      professionalCategories: [],
+    });
+
+    await expect(service.create(userId, serviceRequestId, createDto()))
+      .rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("rejeita proposta de profissional diferente do destinatário direcionado", async () => {
+    transactionMock.serviceRequest.findFirst
+      .mockResolvedValueOnce({
+        id: serviceRequestId,
+        status: ServiceRequestStatus.OPEN,
+        visibleProposalLimit: 3,
+        customerProfile: { userId: customerUserId },
+      })
+      .mockResolvedValueOnce({
+        categoryId: "category-id",
+        targetProfessionalProfileId: "outro-perfil-profissional",
+        status: ServiceRequestStatus.OPEN,
+        visibleProposalLimit: 3,
+        customerProfile: { userId: customerUserId },
+      });
+
+    await expect(service.create(userId, serviceRequestId, createDto()))
+      .rejects.toBeInstanceOf(ProposalCreationUnavailableException);
+
+    expect(transactionMock.proposal.create).not.toHaveBeenCalled();
   });
 
   it("bloqueia perfil não aprovado pela consulta de elegibilidade", async () => {
@@ -447,7 +610,10 @@ describe("ProposalsService", () => {
 
   it("retorna 409 quando a solicitação não aceita propostas", async () => {
     transactionMock.serviceRequest.findFirst.mockResolvedValue({
+      id: serviceRequestId,
       status: ServiceRequestStatus.CANCELLED,
+      visibleProposalLimit: 3,
+      customerProfile: { userId: customerUserId },
     });
 
     await expect(
@@ -538,6 +704,9 @@ function createReceivedProposal(displayName = "Profissional Soravi") {
     message: "Posso realizar amanhã.",
     status: ProposalStatus.ACTIVE,
     submittedAt: new Date("2026-08-19T12:00:00.000Z"),
-    professionalProfile: { displayName },
+    professionalProfile: {
+      id: professionalProfileId,
+      displayName,
+    },
   };
 }

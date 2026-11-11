@@ -27,6 +27,7 @@ const OPPORTUNITY_SELECT = {
   serviceRequest: {
     select: {
       id: true,
+      publicCode: true,
       title: true,
       description: true,
       status: true,
@@ -74,6 +75,7 @@ export class OpportunitiesService {
       professionalProfileId: professionalProfile.id,
       serviceRequest: {
         deletedAt: null,
+        OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfile.id }],
       },
     };
 
@@ -158,6 +160,7 @@ export class OpportunitiesService {
         viewedAt: null,
         serviceRequest: {
           deletedAt: null,
+          OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfile.id }],
         },
       },
       data: { viewedAt: new Date() },
@@ -179,6 +182,7 @@ export class OpportunitiesService {
         professionalProfileId,
         serviceRequest: {
           deletedAt: null,
+          OR: [{ targetProfessionalProfileId: null }, { targetProfessionalProfileId: professionalProfileId }],
         },
       },
       select: {
@@ -269,6 +273,7 @@ export class OpportunitiesService {
           : null,
       serviceRequest: {
         id: serviceRequest.id,
+        publicCode: serviceRequest.publicCode,
         title: serviceRequest.title,
         description: serviceRequest.description,
         status: serviceRequest.status,

@@ -10,6 +10,12 @@ export interface ProfessionalCategory {
   slug: string;
 }
 
+export interface ProfessionalProfilePhoto {
+  url: string;
+  expiresAt: string;
+}
+export interface ProfessionalPortfolioItem { id: string; url: string | null; expiresAt: string | null; caption: string | null; status: "PENDING" | "APPROVED" | "REJECTED"; rejectionReasonCode: string | null; rejectionReason: string | null; }
+
 export interface ProfessionalProfile {
   id: string;
   displayName: string;
@@ -19,6 +25,8 @@ export interface ProfessionalProfile {
   isAvailable: boolean;
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalCategory[];
+  photo: ProfessionalProfilePhoto | null;
+  portfolio: ProfessionalPortfolioItem[];
 }
 
 export function parseProfessionalProfile(
@@ -37,12 +45,18 @@ export function parseProfessionalProfile(
     !isNullableString(root.bio) ||
     typeof root.isAvailable !== "boolean" ||
     !isProfessionalVerificationStatus(root.verificationStatus) ||
-    !Array.isArray(root.categories)
+    !Array.isArray(root.categories) ||
+    !isProfessionalProfilePhoto(root.photo) || !Array.isArray(root.portfolio)
   ) {
     return null;
   }
 
   const categories: ProfessionalCategory[] = [];
+  const portfolio: ProfessionalPortfolioItem[] = [];
+  for (const value of root.portfolio) {
+    if (!isRecord(value) || typeof value.id !== "string" || !isNullableString(value.caption) || !isNullableString(value.rejectionReasonCode) || !isNullableString(value.rejectionReason) || !isNullableString(value.url) || !isNullableString(value.expiresAt) || !isProfessionalPortfolioStatus(value.status)) return null;
+    portfolio.push({ id: value.id, caption: value.caption, url: value.url, expiresAt: value.expiresAt, status: value.status, rejectionReasonCode: value.rejectionReasonCode, rejectionReason: value.rejectionReason });
+  }
 
   for (const value of root.categories) {
     const category = parseProfessionalCategory(value);
@@ -63,6 +77,8 @@ export function parseProfessionalProfile(
     isAvailable: root.isAvailable,
     verificationStatus: root.verificationStatus,
     categories,
+    photo: root.photo,
+    portfolio,
   };
 }
 
@@ -111,9 +127,30 @@ function isProfessionalVerificationStatus(
   return value === "NOT_STARTED" || value === "PENDING" ||
     value === "APPROVED" || value === "REJECTED";
 }
+function isProfessionalPortfolioStatus(value: unknown): value is "PENDING" | "APPROVED" | "REJECTED" { return value === "PENDING" || value === "APPROVED" || value === "REJECTED"; }
 
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
+}
+
+function isProfessionalProfilePhoto(
+  value: unknown,
+): value is ProfessionalProfilePhoto | null {
+  return value === null || (
+    isRecord(value) &&
+    typeof value.url === "string" &&
+    isValidAbsoluteUrl(value.url) &&
+    typeof value.expiresAt === "string" &&
+    !Number.isNaN(Date.parse(value.expiresAt))
+  );
+}
+
+function isValidAbsoluteUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

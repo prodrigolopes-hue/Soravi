@@ -33,6 +33,7 @@ import {
 import { useAuth } from "../auth/auth-provider";
 import { FavoriteProfessionalButton } from "../favorites/favorite-professional-button";
 import { ImageLightbox } from "../shared/image-lightbox";
+import { PreProposalConversationsPanel } from "./pre-proposal-conversations-panel";
 import {
   serviceRequestSchema,
   type ServiceRequestFormData,
@@ -130,10 +131,13 @@ interface ReviewSummary {
 
 interface ServiceRequestDetails {
   id: string;
+  publicCode: string;
   categoryId: string;
   title: string;
   description: string | null;
   status: ServiceRequestStatus;
+  targetProfessionalProfileId: string | null;
+  targetProfessionalUnavailableAt: string | null;
   visibleProposalLimit: number;
   location: {
     country: string;
@@ -459,6 +463,7 @@ function parseServiceRequestDetails(
 
   if (
     typeof root.id !== "string" ||
+    typeof root.publicCode !== "string" ||
     typeof root.categoryId !== "string" ||
     typeof root.title !== "string" ||
     !isNullableString(root.description) ||
@@ -475,7 +480,9 @@ function parseServiceRequestDetails(
     !isNullableString(root.location.addressComplement) ||
     typeof root.editableUntil !== "string" ||
     typeof root.createdAt !== "string" ||
-    !isNullableString(root.conversationId)
+    !isNullableString(root.conversationId) ||
+    (root.targetProfessionalProfileId !== undefined && !isNullableString(root.targetProfessionalProfileId)) ||
+    (root.targetProfessionalUnavailableAt !== undefined && !isNullableString(root.targetProfessionalUnavailableAt))
   ) {
     return null;
   }
@@ -554,10 +561,13 @@ function parseServiceRequestDetails(
 
   return {
     id: root.id,
+    publicCode: root.publicCode,
     categoryId: root.categoryId,
     title: root.title,
     description: root.description,
     status: root.status,
+    targetProfessionalProfileId: typeof root.targetProfessionalProfileId === "string" ? root.targetProfessionalProfileId : null,
+    targetProfessionalUnavailableAt: typeof root.targetProfessionalUnavailableAt === "string" ? root.targetProfessionalUnavailableAt : null,
     visibleProposalLimit: root.visibleProposalLimit,
     location: {
       country: root.location.country,
@@ -1525,7 +1535,7 @@ export function ServiceRequestDetailsPage({
 
           <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
             <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-              {request.title}
+              <span className="block text-base font-semibold text-blue-700">{request.publicCode}</span>{request.title}
             </h1>
 
             <span
@@ -1543,6 +1553,13 @@ export function ServiceRequestDetailsPage({
             Criada em{" "}
             {formatServiceRequestDate(request.createdAt)}
           </div>
+
+          {request.targetProfessionalProfileId ? (
+            <p className="mt-5 rounded-xl bg-blue-50 p-4 text-sm font-medium text-blue-900">Pedido direcionado a um profissional específico.</p>
+          ) : null}
+          {request.targetProfessionalUnavailableAt ? (
+            <p role="status" className="mt-3 rounded-xl bg-amber-50 p-4 text-sm font-medium text-amber-900">O profissional escolhido não está disponível para receber este pedido. O pedido não foi distribuído a outros profissionais.</p>
+          ) : null}
 
           <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">
             Esta solicitação já foi publicada e não pode
@@ -2384,6 +2401,11 @@ export function ServiceRequestDetailsPage({
                 Ir para conversa
               </Link>
             ) : null}
+
+            <PreProposalConversationsPanel
+              serviceRequestId={request.id}
+              serviceRequestStatus={request.status}
+            />
 
             {contract ? (
               <section

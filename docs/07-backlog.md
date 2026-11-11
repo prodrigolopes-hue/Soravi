@@ -2,6 +2,8 @@
 
 # Objetivo
 
+> Atualização: concluída a conversão de conversa contínua para pedidos privados separados, com pergunta do profissional, uma resposta final do cliente e fotos opcionais. A recuperação persistente de uploads órfãos também está implementada por candidato de upload, lease e reconciliação; a migration correspondente ainda precisa ser aplicada nos ambientes que não a receberam.
+
 - [x] Avaliacoes bilaterais cegas: `Review` (cliente -> profissional) e `CustomerReview` (profissional -> cliente), uma por direcao em contrato `COMPLETED`, janela de sete dias, publicacao coordenada e reputacao somente publicada; validadas localmente.
 - [x] Lembretes idempotentes `D1`, `D4` e `D6` somente para quem ainda nao avaliou; em atraso, somente o marco mais recente e usado. D+7 publica pendentes e nao gera lembrete.
 - [x] Staging: migrations e validação E2E das avaliações bilaterais cegas concluídas na regressão final de 03/10/2026.
@@ -16,6 +18,13 @@
 - [x] Favoritos e avaliações.
 - [x] Painéis, administração e moderação básica: CUSTOMER, PROFESSIONAL e ADMIN validados em staging na regressão final de 03/10/2026.
 - [x] Perfil profissional editável em `/profissional/perfil`: visualização, edição, salvar/cancelar, `displayName`, `professionalTitle`, `serviceArea`, `bio`, 1 a 3 categorias e `isAvailable`; validado localmente e em staging.
+- [x] Portfólio público de trabalhos: gestão pelo próprio profissional em `/profissional/perfil`, até 12 imagens processadas e galeria responsiva no perfil público.
+- [x] Implementada, aguardando validação — Moderação obrigatória do portfólio: novos e existentes itens entram em `PENDING`; apenas `APPROVED` é retornado pela descoberta pública; decisões administrativas registram operador, data, resultado e motivo. Antes de ativar em produção, executar a migration, validar a fila administrativa e definir o procedimento de transição/invalidar URLs previamente assinadas de fotos existentes.
+
+Procedimento de ativação da moderação do portfólio (pendente de execução): confirmar por evidência operacional que o bucket/origem de `professional-portfolios/` permanece privado e só permite leitura por URL assinada; aplicar a migration `20261031000400_add_professional_portfolio_moderation`; publicar API e web; aguardar a expiração máxima das URLs assinadas emitidas antes da publicação (o código de leitura usa 15 minutos) e invalidar cache/CDN, se houver. A existência, configuração ou invalidação de bucket/CDN não foi verificada por esta documentação e requer confirmação da operação antes da ativação.
+- [x] Selfie privada na verificação de identidade profissional: recurso controlado por `PROFESSIONAL_IDENTITY_SELFIE_ENABLED` (desabilitado por padrão), para novas tentativas e reenvios não confirmados/inconclusivos; comparação manual pelo `ADMIN`, acesso temporário auditado e sem exposição pública. Não altera decisões antigas, não exige selfie retroativamente e não implementa prova de vida.
+- [ ] Revisar antes da ativação a política operacional `identity-media-v1`, os prazos propostos, tratamento operacional de tarefas de descarte `FAILED`, métricas/alertas e aprovação jurídica/privacidade. A implementação permanece desabilitada por `IDENTITY_EVIDENCE_DISPOSAL_ENABLED`.
+- [ ] Antes de ativar selfie: confirmar bucket/CDN privados e definir retenção, descarte seguro e procedimento operacional para selfie e documento; não há exclusão automática nesta etapa.
 - [x] Área Conta: `/conta`, `/conta/telefone`, `/conta/seguranca` e acesso profissional a `/profissional/perfil`; a troca segura de telefone reutiliza o backend existente.
 - [x] Cadastro profissional persiste `professionalTitle`, `serviceArea` e `description -> bio`.
 - [x] Verificação profissional: submissão `NOT_STARTED -> PENDING`, revisão administrativa `PENDING -> APPROVED|REJECTED`, histórico append-only `ProfessionalVerificationReview` e reenvio elegível `REJECTED -> PENDING`; validada localmente e em staging, inclusive persistência após F5, edição e nova aprovação.
@@ -76,6 +85,8 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 - [x] Frontend para seleção e upload opcional de fotos, validado ponta a ponta com Cloudflare R2 privado e PostgreSQL.
 - [x] `editableUntil` com janela inicial de 10 minutos e bloqueio de edição direta após a janela.
 - [x] `opportunitiesDispatchedAt` para controlar distribuição única.
+- [x] Destinatário profissional opcional: backend, criação direcionada no frontend, retorno seguro após autenticação e distribuição exclusiva sem fallback quando indisponível.
+- [ ] Frontend para escolher, preservar e apresentar destinatário profissional na criação de solicitação.
 - [x] Edição direta durante a janela inicial.
 - [x] Cancelamento direto com preservação de histórico enquanto `OPEN` e não distribuída.
 - [x] `ServiceOpportunity` e matching inicial por categoria para profissionais aprovados, disponíveis, não excluídos e vinculados à categoria.
@@ -113,6 +124,11 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 -   Enviar mensagens
 -   Marcar como lida
 -   Notificações
+- [x] “Pedir mais detalhes” antes da proposta: pedidos privados e independentes, vinculados à oportunidade e à solicitação, entre cliente e profissional elegível. Cada pedido contém pergunta do profissional e uma única resposta final do cliente, com até cinco fotos opcionais; encerra após a resposta, preserva consulta autorizada e permite outro pedido separado. As interfaces de profissional e cliente carregam o histórico após recarregar e não exibem chat contínuo.
+- [x] Recuperação de fotos de resposta pré-proposta: candidato persistente antes do upload, bloqueio e associação transacional, proteção de objeto referenciado, processamento limitado com `SKIP LOCKED` e lease, e reagendamento de falhas e de verificações para upload tardio. Requer a migration `20261027000100_create_pre_proposal_photo_upload_candidates` onde ainda não aplicada.
+- [x] Decisão histórica substituída: pedidos de esclarecimento não reutilizam o chat contratual; o chat permanece restrito ao período posterior à contratação.
+- [ ] Definir a regra de liberação de endereço para visita técnica; o endereço completo não pode ser liberado automaticamente ao iniciar o contato.
+- [ ] Incremento posterior: “Solicitar visita técnica”, com motivo, sugestão de data/horário e indicação de gratuidade ou valor explícito; exige aceite do cliente e não implica contratação do serviço principal.
 
 ------------------------------------------------------------------------
 
@@ -145,6 +161,10 @@ Tarefas: - Tela de login - JWT - Recuperação de senha - Manter sessão
 
 ### Pendente
 
+- [x] Verificação de identidade profissional: API administrativa restrita a `ADMIN` lista tentativas pendentes, emite URL temporária privada e registra decisão append-only (`MANUAL`, resultado, motivo e critério), fechando somente a tentativa. O envio ou decisão não concede aprovação nem libera oportunidades/propostas.
+- [ ] Decisões operacionais para análise privada de identidade: definir papéis administrativos autorizados e revisão de acesso; duração e revogação de URLs temporárias; prazo de retenção e descarte seguro de documentos, tentativas e decisões; taxonomia/versionamento dos motivos; procedimento de segunda revisão, contestação e incidentes. A decisão de identidade deve permanecer separada da aprovação profissional e de oportunidades/propostas até regra explícita posterior.
+- [ ] Interface administrativa para análise privada de identidade: consumir as rotas administrativas existentes para listar tentativas, abrir evidência temporária e registrar decisão manual. A API já existe; não há tela administrativa dedicada ainda.
+- [ ] Aplicar, em ambiente controlado, a migration `20261029000100_create_identity_document_cleanup_tasks` antes de habilitar o envio de documentos; ela mantém candidatos de upload e a limpeza/reconciliação de objetos privados órfãos após falhas de storage ou concorrência.
 - [ ] Dashboard administrativo completo.
 - [ ] Gerenciamento de usuários (edição, exclusão, suspensão, filtros, busca e exportação).
 - [ ] Gerenciamento completo de profissionais.
@@ -262,7 +282,7 @@ Os demais hardenings de segurança já registrados acima permanecem pendentes.
 - [ ] Profissionalizar a Home a partir da pergunta “Como podemos ajudar você hoje?”, com os caminhos “Buscar profissionais” e “Descrever o que preciso”, busca, categorias em destaque, sinais de confiança e CTA para profissionais.
 - [ ] Integrar o caminho “Descrever o que preciso” ao fluxo de criação de solicitação e recebimento de propostas, sem assumir novas APIs além das já existentes.
 - [ ] Criar a página de categoria conceitualmente prevista em `/servicos/[categorySlug]`, combinando descoberta e escolha de profissional com criação de solicitação para receber propostas; não tratá-la como simples lista de profissionais.
-- [ ] Criar perfil público profissional futuro, com definição posterior da rota final, dos dados expostos e das regras de privacidade.
+- [ ] Evoluir a moderação de alterações públicas do perfil profissional após a moderação obrigatória das fotos do portfólio.
 - [ ] Implementar filtros avançados planejados por localização/região, disponibilidade, avaliação, especialidades/subcategorias e verificação.
 - [ ] Definir e implementar os critérios de exibição pública: perfil ativo, `verificationStatus = APPROVED`, disponibilidade e categoria compatível. Incluir localização ou área de atendimento somente quando a regra correspondente existir.
 
@@ -319,6 +339,81 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Testes automatizados de autenticação e autorização.
 - [x] Integração da autenticação com o frontend.
 
+### Evolução de contas, PF/PJ e CPF (decisões aprovadas; a implementar)
+
+- [ ] Implementar a verificação profissional aprovada sem exigir CPF no
+  cadastro inicial de cliente: nome completo, CPF privado, CIN/RG ou CNH,
+  telefone e e-mail confirmados e CEP de referência privado, separado da
+  região de atendimento. CPF válido, documento enviado e CEP não bastam para
+  afirmar identidade verificada.
+- [x] Confirmacao de e-mail: apos o cadastro, criar token aleatorio com hash
+  persistido, validade de 24 horas e uso unico; enviar link pelo provedor
+  configurado e permitir reenvio com resposta neutra e rate limit. Login segue
+  permitido sem confirmacao, mas a submissao ou reenvio da verificacao
+  profissional exige e-mail confirmado. Falha de entrega invalida o token sem
+  expor o valor; CPF nao bloqueia enquanto o fluxo acessivel de cadastro nao
+  estiver definido.
+- [ ] Evoluir selfie de identidade para prova de vida, com critérios próprios: selfie simples não comprova presença; não bloquear login nem excluir histórico por pendências.
+- [ ] Implementar foto de perfil vinculada ao profissional individual cuja
+  identidade foi verificada e exibir previamente ao cliente quem realizará a
+  visita, sem apresentar a checagem como garantia de conduta ou qualidade.
+- [ ] Modelar ajudantes, substitutos e pessoas enviadas por empresas, exigindo
+  identificação prévia e ciência do cliente; critérios de verificação,
+  autorização e regras empresariais permanecem pendentes.
+- [ ] Implementar documentos privados com acesso interno restrito e canal de
+  denúncia de divergência de identidade ou comportamento, análise interna e
+  possibilidade de suspensão.
+- [ ] Definir a adequação dos profissionais existentes ao novo requisito.
+- [ ] Modelar PF/PJ preservando cadastro inicial simples para cliente e
+  profissional; CPF da pessoa física entra no fluxo de verificação profissional.
+  Pessoa jurídica mantém razão social, CNPJ e responsável identificado por nome
+  completo e CPF como decisões próprias pendentes.
+- [ ] Adicionar CPF privado à identidade pessoal, com validação estrutural
+  distinta da verificação de identidade e sem duplicá-lo em contas pessoais
+  independentes.
+- [ ] Implementar armazenamento proposto com CPF cifrado e índice HMAC único,
+  usando chaves separadas, após definição operacional.
+- [ ] Garantir erros públicos de conflito de CPF que não revelem a existência
+  nem dados de outra conta.
+- [x] Bloquear no backend, para o perfil profissional pessoal atual, a criação
+  de solicitação em categoria própria, impedir adicionar categoria com
+  solicitação própria aberta e revalidar categoria no envio de proposta,
+  preservando histórico e contratos.
+- [ ] Estender o bloqueio à união das categorias das empresas representadas
+  ativamente, antes de publicar e liberar contratação, quando a modelagem
+  empresarial for definida.
+- [ ] Impedir distribuição de oportunidade e envio de proposta para a própria
+  solicitação.
+- [ ] Cobrir as duas proteções backend com testes de autorização, integração e
+  concorrência pertinentes antes de liberar ativação de perfis adicionais.
+- [ ] Manter compatibilidade com usuários legados sem CPF, sem dados fictícios.
+- [ ] Derivar permissões empresariais da representação ativa e do perfil da
+  empresa, sem exigir perfil profissional pessoal do responsável.
+- [ ] Garantir um único responsável ativo por empresa no MVP, inclusive sob
+  concorrência.
+- [ ] Implementar ativação transacional e idempotente de cliente →
+  profissional e de profissional → cliente, preservando histórico, somente
+  após as proteções backend anteriores estarem implementadas e testadas.
+- [ ] Coordenar backend e frontend para que a obrigatoriedade de CPF não seja
+  publicada antes de os formulários enviarem o dado.
+- [ ] Definir a adequação das contas existentes sem CPF, sem criar CPF
+  fictício.
+- [ ] Definir cardinalidade entre empresa, responsáveis e conta pessoal,
+  inclusive outros representantes; não impor unicidade de CPF diretamente na
+  empresa.
+- [ ] Definir verificação do vínculo do responsável com a empresa.
+- [ ] Definir migração de pessoa física para atuação empresarial.
+- [ ] Definir aplicação das restrições por categoria à empresa e ao
+  responsável.
+- [ ] Definir privacidade e exposição dos dados empresariais.
+- [ ] Definir correção de CPF, acesso interno, auditoria e retenção.
+- [ ] Definir o efeito de mudanças de categorias sobre solicitações,
+  oportunidades e propostas existentes.
+- [ ] Definir a política temporal para mudanças de categorias e representações
+  sobre solicitações e propostas já existentes.
+- [ ] Definir o comportamento de chamadas repetidas de ativação com dados
+  diferentes.
+
 ### Administração de profissionais
 
 ### Concluído
@@ -347,7 +442,7 @@ Cada tarefa somente será considerada concluída quando:
 - [x] Frontend `/recuperar-senha` integrado ao endpoint real, com resposta neutra e erros sanitizados.
 - [x] Frontend `/redefinir-senha` seguro, com token no fragmento mantido somente em memória e sem auto-login.
 - [x] Validação manual ponta a ponta pela interface, incluindo Resend, expiração, redefinição e novo login.
-- [ ] Confirmação de e-mail.
+- [x] Confirmação de e-mail.
 - [ ] Encerramento de todas as sessões.
 - [ ] Listagem de sessões ativas.
 
@@ -417,10 +512,12 @@ Fornecer mecanismos progressivos de confiança e segurança para profissionais, 
 - [ ] obter da Meta permissão para criar o template pretendido `codigo_verificacao_soravi` (`AUTHENTICATION`, `pt_BR`, `COPY_CODE`, expiração de 10 minutos); a criação foi recusada por falta de permissão da WABA;
 - [ ] validar envio real de OTP, configurar e assinar o webhook e ativar o provider Meta em produção;
 - [ ] verificação básica de identidade;
-- [ ] solicitação de CPF/CNPJ somente quando necessária à verificação;
+- [ ] Integrar a verificação de identidade aos requisitos profissionais
+  aprovados, sem confundir validação de dígitos com identidade verificada;
 - [ ] registro do resultado da verificação sem armazenar documentos completos desnecessariamente;
 - [ ] evidências profissionais;
-- [ ] portfólio/fotos;
+- [x] Portfólio de fotos de trabalhos no perfil profissional, com autorização de proprietário, limite de 12 fotos JPEG/PNG/WebP de até 5 MiB e legenda opcional.
+- [ ] Denúncias e evolução do fluxo operacional de revisão após a moderação obrigatória das fotos do portfólio.
 - [ ] questionário curto por categoria;
 - [ ] checklist de curadoria;
 - [ ] classificação operacional de risco;
@@ -463,3 +560,9 @@ Critérios conceituais:
 ### Priorização
 
 Este épico não altera a prioridade geral do MVP sem aprovação do fundador e permanece fora do MVP imediato.
+# Consolidated pending work
+
+- Content moderation and operational flows, incluindo o portfólio profissional.
+- Contact and campaign management, including channel preferences, promotional authorization, and unsubscribe.
+- Identity-document retention/disposal and appeals.
+- Real integration-database validation of CPF-reveal audit persistence.
