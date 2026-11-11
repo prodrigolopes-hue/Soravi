@@ -18,9 +18,9 @@ import {
 import { useAuth } from "./auth-provider";
 import {
   phoneVerificationDestination,
+  safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
-import { safeDirectedRequestReturnTo } from "../../lib/directed-service-request";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const GENERIC_ERROR_MESSAGE =
@@ -91,9 +91,8 @@ export function PhoneVerificationForm() {
 
   const destination = phoneVerificationDestination(
     user?.roles ?? [],
-    safeDirectedRequestReturnTo(searchParams.get("returnTo")),
+    safePhoneVerificationReturnTo(searchParams.get("returnTo")),
   );
-  const isAdmin = Boolean(user?.roles.includes("ADMIN"));
 
   useEffect(() => {
     if (isLoading) {
@@ -105,10 +104,10 @@ export function PhoneVerificationForm() {
       return;
     }
 
-    if (isAdmin || user.phoneVerified) {
+    if (user.phoneVerified) {
       router.replace(destination);
     }
-  }, [accessToken, destination, isAdmin, isAuthenticated, isLoading, router, user]);
+  }, [accessToken, destination, isAuthenticated, isLoading, router, user]);
 
   useEffect(() => {
     if (cooldownSeconds <= 0) {
@@ -244,7 +243,6 @@ export function PhoneVerificationForm() {
     !isAuthenticated ||
     !accessToken ||
     !user ||
-    isAdmin ||
     user.phoneVerified
   ) {
     return (
