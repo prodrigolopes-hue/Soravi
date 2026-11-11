@@ -1,200 +1,22 @@
 import type { Metadata } from "next";
+import { LegalDocumentLayout, LegalSection } from "../../components/legal/legal-document-layout";
 
-import {
-  LegalDocumentLayout,
-  LegalSection,
-} from "../../components/legal/legal-document-layout";
-
-export const metadata: Metadata = {
-  title: "Política de Privacidade | Soravi",
-  description:
-    "Consulte a versão preliminar da Política de Privacidade da Soravi.",
-};
+export const metadata: Metadata = { title: "Política de Privacidade | Soravi", description: "Política de Privacidade da Soravi." };
 
 export default function PrivacyPolicyPage() {
-  return (
-    <LegalDocumentLayout
-      title="Política de Privacidade"
-      description="Entenda como a Soravi pretende utilizar e proteger os dados pessoais dos usuários."
-    >
-      <p className="mb-6 text-sm text-slate-500">
-        Versão 1.0 · Atualizada em 08/08/2026
-      </p>
-      <LegalSection title="1. Sobre esta política">
-        <p>
-          Esta Política de Privacidade apresenta, de forma preliminar, como a
-          Soravi pretende coletar, utilizar, armazenar, proteger e compartilhar
-          dados pessoais.
-        </p>
-
-        <p>
-          A identificação jurídica completa da empresa responsável pelo
-          tratamento será incluída antes da publicação da plataforma.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="2. Dados de cadastro">
-        <p>A Soravi poderá tratar informações como:</p>
-
-        <ul className="list-disc space-y-2 pl-6">
-          <li>nome;</li>
-          <li>e-mail;</li>
-          <li>telefone;</li>
-          <li>senha armazenada de forma protegida;</li>
-          <li>tipo de conta;</li>
-          <li>cidade ou área de atendimento;</li>
-          <li>categorias e descrição profissional.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="3. Dados de utilização da plataforma">
-        <p>
-          Quando as funcionalidades forem ativadas, também poderão ser
-          tratados dados relacionados a:
-        </p>
-
-        <ul className="list-disc space-y-2 pl-6">
-          <li>solicitações de serviço;</li>
-          <li>propostas enviadas e recebidas;</li>
-          <li>contratações realizadas;</li>
-          <li>mensagens trocadas pelo chat;</li>
-          <li>profissionais favoritos;</li>
-          <li>avaliações;</li>
-          <li>notificações e ações de moderação.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="4. Dados técnicos">
-        <p>
-          A plataforma poderá registrar informações técnicas necessárias para
-          segurança, diagnóstico e funcionamento, como endereço IP, data e
-          horário de acesso, navegador, dispositivo e registros de erro.
-        </p>
-
-        <p>
-          O uso de cookies e ferramentas de análise deverá ser documentado
-          antes de sua ativação.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="5. Cookies e consentimento">
-        <p>
-          A Soravi utiliza recursos essenciais para o funcionamento do site, como
-          manter a navegação segura e oferecer a experiência básica da plataforma.
-        </p>
-
-        <p>
-          O uso de analytics e dados de navegação somente ocorrerá quando a
-          preferência do usuário for aceita. Nenhum script de analytics será
-          carregado sem consentimento explícito.
-        </p>
-
-        <p>
-          Quando o consentimento for aceito, a Soravi pode utilizar métricas de
-          navegação para entender o uso da plataforma e melhorar a experiência.
-          A preferência é armazenada localmente no navegador, com versão e data
-          de atualização, e pode ser alterada a qualquer momento por meio do link
-          “Preferências de cookies” presente no rodapé.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="6. Finalidades">
-        <p>Os dados poderão ser utilizados para:</p>
-
-        <ul className="list-disc space-y-2 pl-6">
-          <li>criar e administrar contas;</li>
-          <li>conectar clientes e profissionais;</li>
-          <li>permitir solicitações, propostas e conversas;</li>
-          <li>enviar notificações relacionadas à plataforma;</li>
-          <li>prevenir fraudes e acessos não autorizados;</li>
-          <li>realizar moderação e suporte;</li>
-          <li>melhorar a experiência e o desempenho da Soravi;</li>
-          <li>cumprir obrigações legais e regulatórias.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="6. Bases legais">
-        <p>
-          Cada operação de tratamento deverá possuir uma base legal adequada,
-          como execução de contrato ou procedimentos preliminares, cumprimento
-          de obrigação legal, consentimento ou legítimo interesse, conforme o
-          caso.
-        </p>
-
-        <p>
-          O mapeamento definitivo das bases legais será documentado antes da
-          operação em produção.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="7. Compartilhamento">
-        <p>
-          Os dados poderão ser compartilhados somente quando necessário com
-          fornecedores de infraestrutura, armazenamento, comunicação,
-          monitoramento e segurança.
-        </p>
-
-        <p>
-          Também poderá ocorrer compartilhamento para cumprimento de obrigação
-          legal, ordem judicial ou proteção dos direitos e da segurança dos
-          usuários.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="8. Armazenamento e segurança">
-        <p>
-          A Soravi adotará medidas técnicas e administrativas proporcionais
-          aos riscos para proteger os dados contra acesso não autorizado,
-          perda, alteração ou divulgação indevida.
-        </p>
-
-        <p>
-          Senhas não deverão ser armazenadas em texto puro. Os prazos de
-          retenção e eliminação serão definidos conforme a finalidade, as
-          obrigações legais e a necessidade de defesa de direitos.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="9. Direitos dos titulares">
-        <p>
-          O usuário poderá solicitar, conforme as condições da legislação
-          aplicável:
-        </p>
-
-        <ul className="list-disc space-y-2 pl-6">
-          <li>confirmação da existência de tratamento;</li>
-          <li>acesso aos dados pessoais;</li>
-          <li>correção de dados incompletos ou desatualizados;</li>
-          <li>informações sobre compartilhamento;</li>
-          <li>anonimização, bloqueio ou eliminação quando cabível;</li>
-          <li>revogação do consentimento quando essa for a base utilizada;</li>
-          <li>portabilidade, conforme regulamentação aplicável.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="10. Canal de privacidade">
-        <p>
-          O e-mail ou formulário para exercício dos direitos dos titulares será
-          definido e incluído antes da publicação da plataforma.
-        </p>
-
-        <p>
-          Nenhuma solicitação deverá ser enviada para endereços provisórios ou
-          não monitorados.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="11. Atualizações">
-        <p>
-          Esta política poderá ser atualizada para acompanhar mudanças no
-          produto, na legislação ou nas práticas de tratamento de dados.
-        </p>
-
-        <p>
-          A versão definitiva deverá apresentar sua data de publicação e seu
-          histórico de alterações.
-        </p>
-      </LegalSection>
-    </LegalDocumentLayout>
-  );
+  return <LegalDocumentLayout title="Política de Privacidade" description="Como a Soravi trata dados pessoais.">
+    <p className="text-sm text-slate-500">Versão 1.1 · Vigente a partir de 11 de novembro de 2026</p>
+    <LegalSection title="1. Controladora e alcance"><p>Esta Política explica como Soravi Tecnologia e Serviços LTDA., CNPJ 69.148.698/0001-93, trata dados pessoais relativos aos usuários e visitantes de sua plataforma de conexão entre Clientes e Profissionais. Canal de privacidade: <a className="font-semibold text-blue-700 underline" href="mailto:soravioficial@outlook.com">soravioficial@outlook.com</a>.</p></LegalSection>
+    <LegalSection title="2. Quais dados podemos tratar"><p>Cadastro e conta: nome, e-mail, telefone, credenciais protegidas, perfis habilitados e registros de autenticação. Profissionais: apresentação, categorias, área de atuação, portfólio, status de aprovação e dados usados na verificação de identidade. Serviço: solicitações, descrição, localização fornecida, fotografias, propostas, condições comerciais, esclarecimentos, conversas e avaliações quando disponíveis. Operação: IP, data e hora, identificadores técnicos, dispositivo, logs, prevenção a fraudes, cookies e preferências.</p><p>Dados de CPF, documentos de identidade e eventualmente selfies possuem acesso restrito, não sendo exibidos como dados públicos do perfil. Fotos de portfólio e conteúdos publicados pelo usuário podem ser mostrados a terceiros conforme as permissões da plataforma.</p></LegalSection>
+    <LegalSection title="3. Finalidades e hipóteses legais"><p>Os dados são utilizados para: criar e manter contas; autenticar usuários; conectar Clientes e Profissionais; permitir oportunidades, propostas, contatos e contratos; enviar comunicações do serviço; prevenir fraude; moderar conteúdo; atender solicitações e direitos; manter a segurança; cumprir obrigações legais; e, quando autorizado ou baseado em outra hipótese legal adequada, produzir métricas de uso e comunicações promocionais.</p></LegalSection>
+    <LegalSection title="4. Identidade profissional"><p>A Soravi poderá submeter informações de identificação profissional à avaliação humana por pessoal autorizado, inclusive CPF e imagens de documentos oficiais. Quando habilitada e informada ao titular, a coleta de selfie poderá integrar novas tentativas de verificação. O procedimento descrito atualmente não utiliza reconhecimento facial automatizado nem prova de vida automatizada.</p><p>A aprovação cadastral, a confirmação de identidade e a comprovação de qualificação profissional são verificações diferentes. Nenhuma delas representa garantia absoluta sobre a conduta futura do prestador.</p></LegalSection>
+    <LegalSection title="5. Com quem compartilhamos dados"><p>Os dados podem ser compartilhados com participantes autorizados da solicitação ou contratação, quando necessário ao funcionamento do serviço; com provedores contratados para infraestrutura, armazenamento, mensagens, autenticação, análise e segurança; e com autoridades quando houver fundamento ou obrigação legal. O compartilhamento será limitado à finalidade e aos requisitos de segurança aplicáveis.</p></LegalSection>
+    <LegalSection title="6. Transferências internacionais"><p>O uso de serviços de infraestrutura e tecnologia poderá envolver tratamento internacional de dados. Nessas situações, a Soravi observará os mecanismos legais e as exigências de transparência aplicáveis, incluindo a LGPD e a regulamentação da ANPD.</p></LegalSection>
+    <LegalSection title="7. Armazenamento, segurança e conservação"><p>A Soravi adota controles de acesso e medidas de segurança proporcionais aos riscos, incluindo proteção de credenciais e armazenamento privado de evidências de identidade. Os dados são mantidos pelo tempo necessário às finalidades legítimas e às hipóteses legais de conservação.</p><p>O descarte de imagens de identidade não significa eliminação automática do CPF, decisões de verificação, logs e auditorias, que poderão demandar regras distintas. A exclusão física de arquivos depende da confirmação técnica de processamento.</p></LegalSection>
+    <LegalSection title="8. Cookies e ferramentas de medição"><p>São utilizados recursos técnicos necessários à autenticação, à segurança e à operação do site. Cookies ou tecnologias analíticas opcionais, quando ativadas, dependerão da escolha informada do visitante no banner de Cookies e Preferências. A escolha poderá ser revista pelo link disponível no rodapé.</p></LegalSection>
+    <LegalSection title="9. Direitos e solicitações dos titulares"><p>Nos termos da LGPD, o titular poderá solicitar confirmação de tratamento, acesso, correção, anonimização, bloqueio ou eliminação quando cabíveis, portabilidade nos termos da regulamentação, informação sobre compartilhamento, oposição nas hipóteses legais e revogação de consentimento quando utilizado. A Soravi poderá adotar medidas proporcionais de autenticação para impedir divulgação indevida.</p><p>A solicitação poderá ser encaminhada a <a className="font-semibold text-blue-700 underline" href="mailto:soravioficial@outlook.com">soravioficial@outlook.com</a>. A declaração completa referente à confirmação de tratamento ou acesso observará o prazo do art. 19 da LGPD. Pedidos de eliminação serão analisados conforme os fundamentos e as exceções legais, sem promessa de exclusão integral imediata.</p></LegalSection>
+    <LegalSection title="10. Crianças, adolescentes e dados de terceiros"><p>A criação de contas na Soravi é destinada a pessoas com 18 anos ou mais, tanto para Clientes quanto para Profissionais. Trata-se de autodeclaração no cadastro, não de verificação documental de idade.</p><p>Usuários devem evitar inserir dados pessoais de terceiros sem fundamento apropriado. Caso haja tratamento de dados de crianças ou adolescentes, serão observadas as exigências legais pertinentes e o melhor interesse, conforme aplicável.</p></LegalSection>
+    <LegalSection title="11. Incidentes e atualização da política"><p>A Soravi avaliará incidentes envolvendo dados pessoais e adotará as medidas e comunicações exigidas pela legislação e pela ANPD. Esta Política poderá ser atualizada quando houver mudanças relevantes nos tratamentos, com comunicação quando legalmente necessária.</p></LegalSection>
+    <LegalSection title="12. Contato"><p>Dúvidas ou pedidos sobre esta Política: <a className="font-semibold text-blue-700 underline" href="mailto:soravioficial@outlook.com">soravioficial@outlook.com</a>.</p></LegalSection>
+  </LegalDocumentLayout>;
 }

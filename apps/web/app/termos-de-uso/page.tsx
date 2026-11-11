@@ -1,164 +1,26 @@
 import type { Metadata } from "next";
+import { LegalDocumentLayout, LegalSection } from "../../components/legal/legal-document-layout";
 
-import {
-  LegalDocumentLayout,
-  LegalSection,
-} from "../../components/legal/legal-document-layout";
-
-export const metadata: Metadata = {
-  title: "Termos de Uso | Soravi",
-  description:
-    "Consulte a versão preliminar dos Termos de Uso da plataforma Soravi.",
-};
+export const metadata: Metadata = { title: "Termos de Uso | Soravi", description: "Termos de Uso da plataforma Soravi." };
 
 export default function TermsOfUsePage() {
-  return (
-    <LegalDocumentLayout
-      title="Termos de Uso"
-      description="Conheça as regras iniciais para utilização da plataforma Soravi."
-    >
-      <p className="mb-6 text-sm text-slate-500">
-        Versão 1.0 · Atualizada em 08/08/2026
-      </p>
-      <LegalSection title="1. Sobre a Soravi">
-        <p>
-          A Soravi é uma plataforma criada para conectar pessoas que precisam
-          de serviços a profissionais capazes de oferecer soluções.
-        </p>
-
-        <p>
-          A plataforma poderá permitir a criação de solicitações, o envio de
-          propostas, a comparação de profissionais, a comunicação entre os
-          usuários e a avaliação dos serviços concluídos.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="2. Aceitação dos termos">
-        <p>
-          Ao criar uma conta ou utilizar a plataforma, o usuário declara que
-          leu e compreendeu estes Termos de Uso.
-        </p>
-
-        <p>
-          A versão definitiva deverá informar a idade mínima, os dados
-          jurídicos da empresa responsável e as regras completas de
-          contratação.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="3. Cadastro e segurança da conta">
-        <p>
-          O usuário deverá fornecer informações verdadeiras, completas e
-          atualizadas durante o cadastro.
-        </p>
-
-        <p>
-          Cada pessoa será responsável por proteger sua senha e por informar à
-          Soravi caso identifique acesso não autorizado à sua conta.
-        </p>
-
-        <p>
-          Contas administrativas não poderão ser criadas pelo cadastro
-          público.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="4. Clientes e profissionais">
-        <p>
-          Clientes poderão publicar solicitações, receber propostas, escolher
-          profissionais, conversar e avaliar serviços concluídos.
-        </p>
-
-        <p>
-          Profissionais poderão apresentar seus serviços, informar categorias
-          e áreas de atendimento e enviar propostas para oportunidades
-          compatíveis.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="5. Solicitações e propostas">
-        <p>
-          As informações publicadas em solicitações e propostas deverão ser
-          claras, verdadeiras e relacionadas a serviços permitidos pela
-          plataforma.
-        </p>
-
-        <p>
-          O profissional poderá enviar somente uma proposta por solicitação,
-          podendo alterá-la enquanto a oportunidade estiver aberta, conforme
-          as regras da plataforma.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="6. Contratação e comunicação">
-        <p>
-          Quando o cliente aceitar uma proposta, a solicitação será encerrada
-          para novas propostas e o canal de conversa poderá ser liberado.
-        </p>
-
-        <p>
-          As mensagens poderão ser registradas para segurança, moderação e
-          suporte aos usuários.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="7. Pagamentos">
-        <p>
-          Na primeira versão da Soravi, pagamentos não serão processados dentro
-          da plataforma.
-        </p>
-
-        <p>
-          As regras finais sobre valores, cobranças, reembolsos e eventuais
-          conflitos deverão ser definidas e validadas juridicamente antes do
-          lançamento público.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="8. Condutas proibidas">
-        <p>Não será permitido utilizar a Soravi para:</p>
-
-        <ul className="list-disc space-y-2 pl-6">
-          <li>publicar informações falsas ou enganosas;</li>
-          <li>praticar fraude ou tentar obter vantagem indevida;</li>
-          <li>utilizar linguagem ofensiva, discriminatória ou ameaçadora;</li>
-          <li>publicar conteúdo ilegal ou inadequado;</li>
-          <li>tentar acessar contas, dados ou sistemas sem autorização;</li>
-          <li>prejudicar a segurança ou o funcionamento da plataforma.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="9. Moderação">
-        <p>
-          A Soravi poderá analisar denúncias, remover conteúdos, limitar
-          funcionalidades ou bloquear contas que violem as regras da
-          plataforma.
-        </p>
-
-        <p>
-          Os critérios de notificação, defesa e recurso deverão ser detalhados
-          na versão jurídica definitiva.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="10. Responsabilidades">
-        <p>
-          A redação definitiva sobre responsabilidades da Soravi, dos clientes
-          e dos profissionais será definida antes do lançamento.
-        </p>
-
-        <p>
-          Essa seção deverá passar por revisão jurídica específica e não deve
-          ser publicada em produção no formato atual.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="11. Contato">
-        <p>
-          O canal oficial para dúvidas jurídicas e solicitações relacionadas a
-          estes termos será informado antes da publicação da plataforma.
-        </p>
-      </LegalSection>
-    </LegalDocumentLayout>
-  );
+  return <LegalDocumentLayout title="Termos de Uso" description="Regras para utilização da plataforma Soravi.">
+    <p className="text-sm text-slate-500">Versão 1.1 · Vigente a partir de 11 de novembro de 2026</p>
+    <LegalSection title="1. Identificação e objeto"><p>A Soravi é uma plataforma digital destinada a aproximar pessoas interessadas em contratar serviços (“Clientes”) e profissionais ou prestadores independentes (“Profissionais”), oferecendo recursos para divulgação de solicitações, propostas e comunicação entre participantes.</p><p>A plataforma é operada por Soravi Tecnologia e Serviços LTDA., CNPJ 69.148.698/0001-93, conforme dados fornecidos para elaboração desta minuta.</p></LegalSection>
+    <LegalSection title="2. Aceitação, elegibilidade e alterações"><p>Ao cadastrar-se e aceitar expressamente estes Termos, o usuário concorda com as regras aplicáveis ao uso da plataforma. As condições vigentes deverão permanecer acessíveis para consulta. Alterações relevantes serão informadas por meio adequado e, quando exigível, dependerão de nova aceitação.</p><p>Para criar uma conta na Soravi, como Cliente ou Profissional, a pessoa deve ter 18 anos ou mais e declarar essa condição no cadastro. Trata-se de autodeclaração, não de verificação documental de idade.</p></LegalSection>
+    <LegalSection title="3. Conta, perfis e credenciais"><p>O usuário deve fornecer informações corretas, atualizadas e compatíveis com sua identidade, preservar a confidencialidade das credenciais e comunicar uso suspeito da conta. A mesma conta poderá disponibilizar os perfis Cliente e Profissional, observadas as verificações e permissões da plataforma.</p><p>A conta individual é pessoal e não pode ser transferida ou emprestada para simular a identidade de outro prestador. A plataforma poderá exigir confirmação de e-mail ou telefone em operações específicas.</p></LegalSection>
+    <LegalSection title="4. Funcionamento para clientes"><p>O Cliente poderá cadastrar solicitação de serviço com descrição, categoria, localização e, quando disponível, imagens; receber e avaliar propostas, solicitar informações complementares e escolher livremente um Profissional. A precisão e a licitude das informações fornecidas pelo Cliente são de sua responsabilidade, sem prejuízo dos deveres legais da Soravi.</p><p>O Cliente deve preservar informações pessoais de terceiros, não criar pedidos fictícios ou ofensivos e verificar as condições comerciais e técnicas antes de contratar.</p></LegalSection>
+    <LegalSection title="5. Funcionamento para profissionais"><p>O Profissional é responsável pela veracidade das informações de seu perfil, pela habilitação legal exigível à atividade, pela apresentação clara de preços, escopo e prazos e pelo cumprimento das obrigações legais, tributárias e profissionais aplicáveis.</p><p>A participação em oportunidades poderá depender de aprovação cadastral, disponibilidade e compatibilidade de categorias. O Profissional não poderá apresentar proposta para solicitação originada de sua própria conta nem se utilizar de categorias do próprio perfil para simular concorrência.</p></LegalSection>
+    <LegalSection title="6. Solicitações, oportunidades e propostas"><p>A publicação de uma solicitação não garante recebimento de propostas, disponibilidade de profissionais ou realização do serviço. O encaminhamento considera regras de elegibilidade e correspondência entre categorias e regiões de atuação.</p><p>As propostas deverão conter informações verdadeiras e condições objetivas. Os recursos de edição, retirada, limite de propostas visíveis e pedidos direcionados são regidos pelas condições mostradas na interface no momento da utilização.</p></LegalSection>
+    <LegalSection title="7. Esclarecimentos, chat e visitas técnicas"><p>O recurso “Pedir mais detalhes”, quando disponibilizado, permite contato privado e limitado entre Cliente e Profissional sobre uma oportunidade. Não substitui o chat contratual nem implica contratação.</p><p>O chat relativo à contratação, quando disponível, poderá ser habilitado após a escolha da proposta. Usuários devem respeitar a privacidade, não solicitar informações excessivas e evitar divulgar dados sensíveis desnecessários.</p></LegalSection>
+    <LegalSection title="8. Contratação e execução dos serviços"><p>O Cliente e o Profissional negociam e ajustam diretamente o objeto, valores, cronograma, materiais, deslocamento, garantias e demais condições do serviço. A aceitação de proposta na plataforma registra uma etapa da interação digital, mas não modifica obrigações legais eventualmente incidentes sobre a contratação.</p><p>A Soravi oferece a infraestrutura tecnológica de aproximação e não executa diretamente os serviços anunciados pelos Profissionais, salvo hipótese expressamente informada. A plataforma responde por seus próprios atos, omissões e serviços nos limites previstos em lei; nenhuma disposição deste documento afasta direitos irrenunciáveis do consumidor.</p></LegalSection>
+    <LegalSection title="9. Pagamentos, assinatura e cobranças"><p>As condições de pagamento de um serviço contratado entre Cliente e Profissional deverão ser acordadas entre as partes. Se a Soravi oferecer planos pagos, os valores, periodicidade, benefícios, renovação, cancelamento e eventuais reembolsos serão exibidos antes da contratação, em regras específicas que integrarão estes Termos.</p></LegalSection>
+    <LegalSection title="10. Avaliações, portfólios e conteúdos"><p>O usuário que publicar textos, imagens, avaliações ou portfólio declara possuir os direitos e autorizações necessários. Concede à Soravi licença não exclusiva, gratuita e limitada à hospedagem, exibição e operação desses conteúdos na plataforma, enquanto necessária às finalidades informadas e observados seus direitos.</p><p>Avaliações devem refletir experiências reais e não podem conter ameaças, discriminação, dados pessoais indevidos, fraude ou ataques ilícitos. A Soravi poderá moderar conteúdo conforme critérios proporcionais e motivados, mantendo canais de contestação quando aplicáveis.</p></LegalSection>
+    <LegalSection title="11. Condutas vedadas e segurança"><p>É vedado usar a Soravi para fraudar cadastros, criar pedidos fictícios, praticar discriminação, publicar conteúdo ilícito, manipular avaliações, explorar vulnerabilidades, acessar dados sem autorização, distribuir spam ou oferecer serviços proibidos pela legislação.</p><p>Violações poderão ensejar advertência, restrição de recursos, remoção de conteúdo e suspensão ou bloqueio da conta, conforme gravidade, riscos, deveres legais e possibilidade de contestação.</p></LegalSection>
+    <LegalSection title="12. Identidade e confiabilidade"><p>A Soravi poderá realizar verificação de cadastro e identidade de Profissionais, incluindo análise documental por pessoal autorizado. A indicação de cadastro aprovado ou identidade confirmada descreve apenas a verificação realizada e não representa garantia de qualificação, idoneidade, qualidade, segurança ou resultado do serviço.</p></LegalSection>
+    <LegalSection title="13. Privacidade, comunicações e cookies"><p>O tratamento de dados pessoais está descrito na Política de Privacidade. O uso de tecnologias de armazenamento e leitura no navegador segue as escolhas e informações apresentadas em Preferências de Cookies. Comunicações operacionais poderão decorrer do uso do serviço; marketing dependerá da hipótese legal e das escolhas aplicáveis.</p></LegalSection>
+    <LegalSection title="14. Disponibilidade, interrupções e responsabilidade"><p>A Soravi empregará esforços razoáveis para manter o funcionamento da plataforma, podendo ocorrer indisponibilidades, manutenção ou falhas técnicas. Nada nestes Termos exclui responsabilidade legal por defeitos do próprio serviço digital, dolo, culpa, deveres de segurança ou direitos obrigatórios de usuários e consumidores.</p></LegalSection>
+    <LegalSection title="15. Reclamações, suporte e resolução de conflitos"><p>O usuário poderá comunicar suspeitas de fraude, divergência de identidade, problemas com contas ou reclamações sobre interações pela plataforma por canal de atendimento indicado no site. A Soravi avaliará relatos relacionados a suas atribuições e, quando cabível, adotará medidas proporcionais.</p></LegalSection>
+    <LegalSection title="16. Legislação e disposições finais"><p>Estes Termos são interpretados conforme a legislação brasileira, inclusive o Código de Defesa do Consumidor quando aplicável. Qualquer disposição que contrarie norma cogente deverá ser interpretada de modo compatível com a lei, sem prejudicar a validade das demais disposições.</p></LegalSection>
+  </LegalDocumentLayout>;
 }
