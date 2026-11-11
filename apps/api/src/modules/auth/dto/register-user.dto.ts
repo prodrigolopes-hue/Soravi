@@ -1,6 +1,7 @@
 import { Transform } from "class-transformer";
 import {
   ArrayMaxSize,
+  Equals,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -94,17 +95,17 @@ export class RegisterUserDto {
   @MaxLength(32)
   acceptedPrivacyPolicyVersion!: string;
 
-  @IsOptional()
-  @IsBoolean({ message: "A aceita\u00e7\u00e3o dos Termos de Uso deve ser booleana." })
-  acceptedTerms?: boolean;
+  @IsBoolean({ message: "Confirme a aceita\u00e7\u00e3o dos Termos de Uso." })
+  @Equals(true, { message: "Voc\u00ea precisa aceitar os Termos de Uso." })
+  acceptedTerms!: boolean;
 
-  @IsOptional()
-  @IsBoolean({ message: "A aceita\u00e7\u00e3o da Pol\u00edtica de Privacidade deve ser booleana." })
-  acceptedPrivacyPolicy?: boolean;
+  @IsBoolean({ message: "Confirme a aceita\u00e7\u00e3o da Pol\u00edtica de Privacidade." })
+  @Equals(true, { message: "Voc\u00ea precisa aceitar a Pol\u00edtica de Privacidade." })
+  acceptedPrivacyPolicy!: boolean;
 
-  @IsOptional()
-  @IsBoolean({ message: "A confirma\u00e7\u00e3o de maioridade deve ser booleana." })
-  confirmedAgeAtLeast18?: boolean;
+  @IsBoolean({ message: "Confirme sua maioridade." })
+  @Equals(true, { message: "A cria\u00e7\u00e3o de conta \u00e9 permitida apenas para pessoas com 18 anos ou mais." })
+  confirmedAgeAtLeast18!: boolean;
 
   @Transform(({ value }: { value: unknown }) =>
     Array.isArray(value)
