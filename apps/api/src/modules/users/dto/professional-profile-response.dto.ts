@@ -15,6 +15,7 @@ interface ProfessionalProfileResponseProperties {
   isAvailable: boolean;
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalProfileCategoryResponseProperties[];
+  categoryRequests: Array<{ id: string; suggestedName: string; status: string; reviewNotes: string | null; createdAt: Date; resolvedCategory: { id: string; name: string; slug: string } | null }>;
   photo: ProfessionalProfilePhotoResponseProperties | null;
   portfolio: ProfessionalPortfolioItemResponseProperties[];
 }
@@ -60,6 +61,7 @@ export class ProfessionalProfileResponseDto {
   readonly isAvailable: boolean;
   readonly verificationStatus: ProfessionalVerificationStatus;
   readonly categories: ProfessionalProfileCategoryResponseDto[];
+  readonly categoryRequests: Array<{ id: string; suggestedName: string; status: string; reviewNotes: string | null; createdAt: Date; resolvedCategory: { id: string; name: string; slug: string } | null }>;
   readonly photo: ProfessionalProfilePhotoResponseDto | null;
   readonly portfolio: ProfessionalPortfolioItemResponseDto[];
 
@@ -74,6 +76,7 @@ export class ProfessionalProfileResponseDto {
     this.categories = properties.categories.map(
       (category) => new ProfessionalProfileCategoryResponseDto(category),
     );
+    this.categoryRequests = properties.categoryRequests;
     this.photo = properties.photo
       ? new ProfessionalProfilePhotoResponseDto(properties.photo)
       : null;

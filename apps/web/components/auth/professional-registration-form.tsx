@@ -27,7 +27,7 @@ import {
   isRegistrationContactConflict,
   REGISTRATION_CONTACT_CONFLICT_MESSAGE,
 } from "./registration-conflict";
-import { apiBaseUrl, categoriesUrl, categorySuggestionsUrl } from "../../lib/api";
+import { apiBaseUrl, categoriesUrl } from "../../lib/api";
 import { LEGAL_DOCUMENT_VERSIONS } from "../../lib/legal-document-versions";
 import {
   PASSWORD_HELP_TEXT,
@@ -177,9 +177,7 @@ export function ProfessionalRegistrationForm() {
   const [isSuggestionFormOpen, setIsSuggestionFormOpen] = useState(false);
   const [suggestedCategoryName, setSuggestedCategoryName] = useState("");
   const [suggestedCategoryDescription, setSuggestedCategoryDescription] = useState("");
-  const [suggestionPrivacyAccepted, setSuggestionPrivacyAccepted] = useState(false);
-  const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
-  const [suggestionMessage, setSuggestionMessage] = useState<string | null>(null);
+  const [requestedCategories, setRequestedCategories] = useState<Array<{ suggestedName: string; description?: string }>>([]);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesLoadState, setCategoriesLoadState] =
@@ -213,17 +211,13 @@ export function ProfessionalRegistrationForm() {
 
   const descriptionLength = watch("description").length;
   const selectedCategories = watch("categories");
-  const watchedName = watch("name");
-  const watchedEmail = watch("email");
-  const watchedPhone = watch("phone");
   const phoneField = register("phone");
   const categorySlugs = useMemo(
     () => new Set(categories.map((category) => category.slug)),
     [categories],
   );
-  const selectedCategoryCount = selectedCategories.length;
-  const canSubmitWithCategories =
-    categoriesLoadState === "success" && categories.length > 0;
+  const selectedCategoryCount = selectedCategories.length + requestedCategories.length;
+  const canSubmitWithCategories = categoriesLoadState === "success";
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -280,7 +274,7 @@ export function ProfessionalRegistrationForm() {
   async function handleValidSubmit(
     data: ProfessionalRegistrationFormData,
   ): Promise<void> {
-    if (!canSubmitWithCategories) {
+    if (!canSubmitWithCategories || selectedCategoryCount < 1 || selectedCategoryCount > 3) {
       setError("categories", {
         type: "manual",
         message:
@@ -329,6 +323,7 @@ export function ProfessionalRegistrationForm() {
             acceptedPrivacyPolicy: data.acceptedPrivacyPolicy,
             confirmedAgeAtLeast18: data.confirmedAgeAtLeast18,
             categorySlugs: data.categories,
+            categoryRequests: requestedCategories,
             professionalTitle: data.professionalTitle,
             serviceArea: data.serviceArea,
             description: data.description,
@@ -385,68 +380,20 @@ export function ProfessionalRegistrationForm() {
 
   async function handleCategorySuggestionSubmit(): Promise<void> {
     const normalizedSuggestedName = suggestedCategoryName.trim();
-    const normalizedName = watchedName.trim();
-    const normalizedEmail = watchedEmail.trim();
-    const normalizedPhone = watchedPhone.trim();
     const normalizedDescription = suggestedCategoryDescription.trim();
 
-    if (normalizedName.length === 0 || normalizedEmail.length === 0) {
-      setSuggestionMessage(null);
-      setSuggestionError("Preencha nome e e-mail no cadastro para enviar a sugestão.");
-      return;
-    }
-
     if (normalizedSuggestedName.length < 2) {
-      setSuggestionMessage(null);
       setSuggestionError("Informe uma categoria sugerida com pelo menos 2 caracteres.");
       return;
     }
-
-    if (!suggestionPrivacyAccepted) {
-      setSuggestionMessage(null);
-      setSuggestionError("Você precisa aceitar o aviso de privacidade para enviar a sugestão.");
+    if (selectedCategoryCount >= 3) {
+      setSuggestionError("O total entre categorias oficiais e solicitadas não pode ultrapassar três.");
       return;
     }
-
-    setIsSubmittingSuggestion(true);
-    setSuggestionMessage(null);
     setSuggestionError(null);
-
-    try {
-      const response = await fetch(categorySuggestionsUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: normalizedName,
-          email: normalizedEmail,
-          phone: normalizedPhone.length > 0 ? normalizedPhone : undefined,
-          suggestedName: normalizedSuggestedName,
-          description:
-            normalizedDescription.length > 0
-              ? normalizedDescription
-              : undefined,
-          privacyNoticeAccepted: true,
-        }),
-      });
-
-      if (!response.ok) {
-        setSuggestionError("Não foi possível enviar sua sugestão agora. Tente novamente.");
-        return;
-      }
-
-      setSuggestionMessage(
-        "Sugestão recebida. Você pode continuar seu cadastro normalmente com uma das categorias disponíveis ou aguardar a análise da Soravi.",
-      );
-      setSuggestedCategoryName("");
-      setSuggestedCategoryDescription("");
-      setSuggestionPrivacyAccepted(false);
-    } catch {
-      setSuggestionError("Não foi possível enviar sua sugestão agora. Tente novamente.");
-    } finally {
-      setIsSubmittingSuggestion(false);
-    }
+    setRequestedCategories((current) => [...current, { suggestedName: normalizedSuggestedName, ...(normalizedDescription ? { description: normalizedDescription } : {}) }]);
+    setSuggestedCategoryName("");
+    setSuggestedCategoryDescription("");
   }
 
   function handleInvalidSubmit(): void {
@@ -782,7 +729,6 @@ export function ProfessionalRegistrationForm() {
             type="button"
             onClick={() => {
               setIsSuggestionFormOpen((current) => !current);
-              setSuggestionMessage(null);
               setSuggestionError(null);
             }}
             className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
@@ -832,47 +778,22 @@ export function ProfessionalRegistrationForm() {
                 />
               </div>
 
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
-                  checked={suggestionPrivacyAccepted}
-                  onChange={(event) => setSuggestionPrivacyAccepted(event.target.checked)}
-                />
-
-                <span className="text-sm leading-6 text-slate-600">
-                  Autorizo o envio desta sugestão para análise da Soravi e confirmo que li a{" "}
-                  <Link
-                    href="/politica-de-privacidade"
-                    className="font-semibold text-blue-600 hover:text-blue-700"
-                  >
-                    Política de Privacidade
-                  </Link>
-                  .
-                </span>
-              </label>
-
               {suggestionError ? (
                 <p role="alert" className="text-sm font-medium text-red-600">
                   {suggestionError}
                 </p>
               ) : null}
 
-              {suggestionMessage ? (
-                <p role="status" className="text-sm font-medium text-blue-700">
-                  {suggestionMessage}
-                </p>
-              ) : null}
+              {requestedCategories.length > 0 ? <p role="status" className="text-sm font-medium text-blue-700">Solicitações adicionadas: {requestedCategories.map((item) => item.suggestedName).join(", ")}. Elas serão analisadas após o cadastro e não garantem aprovação nem oportunidades.</p> : null}
 
               <button
                 type="button"
                 onClick={() => {
                   void handleCategorySuggestionSubmit();
                 }}
-                disabled={isSubmittingSuggestion}
                 className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {isSubmittingSuggestion ? "Enviando sugestão..." : "Enviar sugestão"}
+                Adicionar ao cadastro
               </button>
             </div>
           ) : null}

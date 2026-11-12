@@ -34,6 +34,13 @@ const professionalProfileSelect = {
       },
     },
   },
+  categoryRequests: {
+    select: {
+      id: true, suggestedName: true, status: true, reviewNotes: true, createdAt: true,
+      resolvedCategory: { select: { id: true, name: true, slug: true } },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  },
   photo: {
     select: { objectKey: true },
   },
@@ -108,6 +115,21 @@ export class CurrentProfessionalProfileService {
       });
 
       if (categories.length !== input.categorySlugs.length) {
+        throw new InvalidProfessionalProfileCategoriesException();
+      }
+
+      const pendingRequestCount = await transaction.categoryRequest.count({
+        where: {
+          professionalProfileId: profile.id,
+          status: "PENDING",
+        },
+      });
+
+      if (categories.length === 0 && pendingRequestCount === 0) {
+        throw new InvalidProfessionalProfileCategoriesException();
+      }
+
+      if (categories.length + pendingRequestCount > 3) {
         throw new InvalidProfessionalProfileCategoriesException();
       }
 
@@ -198,6 +220,7 @@ export class CurrentProfessionalProfileService {
       isAvailable: profile.isAvailable,
       verificationStatus: profile.verificationStatus,
       categories: profile.professionalCategories.map(({ category }) => category),
+      categoryRequests: profile.categoryRequests,
       photo: await this.professionalProfilePhotoReadService.createTemporaryReadUrl(
         profile.photo?.objectKey,
       ),

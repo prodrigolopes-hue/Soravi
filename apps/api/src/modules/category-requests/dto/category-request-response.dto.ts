@@ -5,6 +5,8 @@ export interface CategoryRequestResponseDtoProperties {
   suggestedName: string;
   description: string | null;
   status: CategoryRequestStatus;
+  reviewNotes?: string | null;
+  resolvedCategory?: { id: string; name: string; slug: string } | null;
   createdAt: Date;
 }
 
@@ -13,6 +15,8 @@ export class CategoryRequestResponseDto {
   readonly suggestedName: string;
   readonly description: string | null;
   readonly status: CategoryRequestStatus;
+  readonly reviewNotes?: string | null;
+  readonly resolvedCategory?: { id: string; name: string; slug: string } | null;
   readonly createdAt: Date;
 
   constructor(properties: CategoryRequestResponseDtoProperties) {
@@ -20,6 +24,8 @@ export class CategoryRequestResponseDto {
     this.suggestedName = properties.suggestedName;
     this.description = properties.description;
     this.status = properties.status;
+    if (properties.reviewNotes !== undefined) this.reviewNotes = properties.reviewNotes;
+    if (properties.resolvedCategory !== undefined) this.resolvedCategory = properties.resolvedCategory;
     this.createdAt = properties.createdAt;
   }
 }

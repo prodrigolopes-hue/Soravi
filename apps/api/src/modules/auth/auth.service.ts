@@ -81,6 +81,16 @@ export class AuthService {
             input.categorySlugs,
           )
         : [];
+    const professionalCategoryRequests = input.initialRole === Role.PROFESSIONAL
+      ? this.validateProfessionalCategoryRequests(input.categoryRequests)
+      : [];
+
+    if (input.initialRole === Role.PROFESSIONAL && professionalCategorySlugs.length + professionalCategoryRequests.length < 1) {
+      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "Selecione ou solicite de 1 a 3 categorias." });
+    }
+    if (professionalCategorySlugs.length + professionalCategoryRequests.length > 3) {
+      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "O total de categorias e solicitações não pode ultrapassar três." });
+    }
 
     const normalizedEmail = this.normalizeEmail(input.email);
     const presentedPhone = input.phone?.trim();
@@ -213,6 +223,16 @@ export class AuthService {
                 }),
               ),
             });
+            if (professionalCategoryRequests.length > 0) {
+              await transaction.categoryRequest.createMany({
+                data: professionalCategoryRequests.map((request) => ({
+                  professionalProfileId: professionalProfile.id,
+                  suggestedName: request.suggestedName,
+                  suggestedNameNormalized: request.suggestedNameNormalized,
+                  description: request.description,
+                })),
+              });
+            }
           }
 
           return user.id;
@@ -636,13 +656,7 @@ export class AuthService {
   private validateProfessionalCategorySlugs(
     categorySlugs: string[] | undefined,
   ): string[] {
-    if (!categorySlugs || categorySlugs.length === 0) {
-      throw new BadRequestException({
-        code: "INVALID_CATEGORY_SLUGS",
-        message:
-          "Selecione de 1 a 3 categorias válidas.",
-      });
-    }
+    if (!categorySlugs || categorySlugs.length === 0) return [];
 
     const normalizedCategorySlugs = categorySlugs.map(
       (categorySlug) => categorySlug.trim(),
@@ -673,6 +687,22 @@ export class AuthService {
     }
 
     return normalizedCategorySlugs;
+  }
+
+  private validateProfessionalCategoryRequests(value: RegisterUserDto["categoryRequests"]): Array<{ suggestedName: string; suggestedNameNormalized: string; description: string | null }> {
+    if (!value || value.length === 0) return [];
+    const requests = value.map((item) => {
+      const suggestedName = typeof item?.suggestedName === "string" ? item.suggestedName.trim().replace(/\s+/g, " ") : "";
+      const description = typeof item?.description === "string" ? item.description.trim() || null : null;
+      if (suggestedName.length < 2 || suggestedName.length > 120 || (description?.length ?? 0) > 1000) {
+        throw new BadRequestException({ code: "INVALID_CATEGORY_REQUESTS", message: "Informe categorias solicitadas válidas." });
+      }
+      return { suggestedName, suggestedNameNormalized: suggestedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), description };
+    });
+    if (new Set(requests.map((request) => request.suggestedNameNormalized)).size !== requests.length) {
+      throw new BadRequestException({ code: "INVALID_CATEGORY_REQUESTS", message: "Não repita categorias solicitadas." });
+    }
+    return requests;
   }
 
   private async findActiveCategoriesBySlug(

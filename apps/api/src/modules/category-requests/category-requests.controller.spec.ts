@@ -13,12 +13,16 @@ describe("CategoryRequestsController", () => {
   let controller: CategoryRequestsController;
   let serviceMock: {
     createCategoryRequest: jest.Mock;
+    findMine: jest.Mock;
+    decide: jest.Mock;
     findAllAdminCategoryRequests: jest.Mock;
   };
 
   beforeEach(() => {
     serviceMock = {
       createCategoryRequest: jest.fn(),
+      findMine: jest.fn(),
+      decide: jest.fn(),
       findAllAdminCategoryRequests: jest.fn(),
     };
 
@@ -130,5 +134,15 @@ describe("CategoryRequestsController", () => {
     );
 
     expect(roles).toEqual([Role.ADMIN]);
+  });
+
+  it("protege a consulta própria para PROFESSIONAL", () => {
+    expect(Reflect.getMetadata("__guards__", CategoryRequestsController.prototype.findMine)).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(Reflect.getMetadata("roles", CategoryRequestsController.prototype.findMine)).toEqual([Role.PROFESSIONAL]);
+  });
+
+  it("protege a decisão para ADMIN", () => {
+    expect(Reflect.getMetadata("__guards__", CategoryRequestsController.prototype.decide)).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(Reflect.getMetadata("roles", CategoryRequestsController.prototype.decide)).toEqual([Role.ADMIN]);
   });
 });

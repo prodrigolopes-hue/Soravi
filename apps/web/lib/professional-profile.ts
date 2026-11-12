@@ -14,6 +14,7 @@ export interface ProfessionalProfilePhoto {
   url: string;
   expiresAt: string;
 }
+export interface ProfessionalCategoryRequest { id: string; suggestedName: string; status: "PENDING" | "APPROVED" | "REJECTED" | "MERGED"; reviewNotes: string | null; resolvedCategory: ProfessionalCategory | null; }
 export interface ProfessionalPortfolioItem { id: string; url: string | null; expiresAt: string | null; caption: string | null; status: "PENDING" | "APPROVED" | "REJECTED"; rejectionReasonCode: string | null; rejectionReason: string | null; }
 
 export interface ProfessionalProfile {
@@ -25,6 +26,7 @@ export interface ProfessionalProfile {
   isAvailable: boolean;
   verificationStatus: ProfessionalVerificationStatus;
   categories: ProfessionalCategory[];
+  categoryRequests: ProfessionalCategoryRequest[];
   photo: ProfessionalProfilePhoto | null;
   portfolio: ProfessionalPortfolioItem[];
 }
@@ -46,13 +48,18 @@ export function parseProfessionalProfile(
     typeof root.isAvailable !== "boolean" ||
     !isProfessionalVerificationStatus(root.verificationStatus) ||
     !Array.isArray(root.categories) ||
-    !isProfessionalProfilePhoto(root.photo) || !Array.isArray(root.portfolio)
+    !isProfessionalProfilePhoto(root.photo) || !Array.isArray(root.portfolio) || (root.categoryRequests !== undefined && !Array.isArray(root.categoryRequests))
   ) {
     return null;
   }
 
   const categories: ProfessionalCategory[] = [];
   const portfolio: ProfessionalPortfolioItem[] = [];
+  const categoryRequests: ProfessionalCategoryRequest[] = [];
+  for (const value of root.categoryRequests ?? []) {
+    if (!isRecord(value) || typeof value.id !== "string" || typeof value.suggestedName !== "string" || !["PENDING", "APPROVED", "REJECTED", "MERGED"].includes(String(value.status)) || !isNullableString(value.reviewNotes) || (value.resolvedCategory !== null && !parseProfessionalCategory(value.resolvedCategory))) return null;
+    categoryRequests.push({ id: value.id, suggestedName: value.suggestedName, status: value.status as ProfessionalCategoryRequest["status"], reviewNotes: value.reviewNotes, resolvedCategory: value.resolvedCategory ? parseProfessionalCategory(value.resolvedCategory) : null });
+  }
   for (const value of root.portfolio) {
     if (!isRecord(value) || typeof value.id !== "string" || !isNullableString(value.caption) || !isNullableString(value.rejectionReasonCode) || !isNullableString(value.rejectionReason) || !isNullableString(value.url) || !isNullableString(value.expiresAt) || !isProfessionalPortfolioStatus(value.status)) return null;
     portfolio.push({ id: value.id, caption: value.caption, url: value.url, expiresAt: value.expiresAt, status: value.status, rejectionReasonCode: value.rejectionReasonCode, rejectionReason: value.rejectionReason });
@@ -77,6 +84,7 @@ export function parseProfessionalProfile(
     isAvailable: root.isAvailable,
     verificationStatus: root.verificationStatus,
     categories,
+    categoryRequests,
     photo: root.photo,
     portfolio,
   };
