@@ -26,6 +26,7 @@ describe("CurrentProfessionalProfileService", () => {
     };
     category: { findMany: jest.Mock };
     professionalCategory: { deleteMany: jest.Mock; createMany: jest.Mock };
+    categoryRequest: { count: jest.Mock };
     serviceRequest: { findFirst: jest.Mock };
     $queryRaw: jest.Mock;
   };
@@ -46,6 +47,7 @@ describe("CurrentProfessionalProfileService", () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      categoryRequest: { count: jest.fn().mockResolvedValue(0) },
       serviceRequest: { findFirst: jest.fn().mockResolvedValue(null) },
       $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
     };
@@ -134,10 +136,27 @@ describe("CurrentProfessionalProfileService", () => {
   });
 
   it.each<{ categorySlugs: string[] }>([
-    { categorySlugs: [] },
     { categorySlugs: ["eletrica", "eletrica"] },
-  ])("rejeita categorias vazias ou duplicadas", async ({ categorySlugs }) => {
+  ])("rejeita categorias duplicadas", async ({ categorySlugs }) => {
     await expect(service.updateCurrent(userId, input({ categorySlugs }))).rejects.toBeInstanceOf(InvalidProfessionalProfileCategoriesException);
+    expect(transactionMock.professionalProfile.update).not.toHaveBeenCalled();
+  });
+
+  it("permite salvar sem categoria oficial quando há solicitação pendente", async () => {
+    transactionMock.category.findMany.mockResolvedValue([]);
+    transactionMock.categoryRequest.count.mockResolvedValue(1);
+
+    await expect(service.updateCurrent(userId, input({ categorySlugs: [] }))).resolves.toEqual(expect.objectContaining({ id: profileId }));
+    expect(transactionMock.professionalCategory.createMany).toHaveBeenCalledWith({ data: [] });
+  });
+
+  it("rejeita salvar sem categoria oficial quando não há solicitação pendente", async () => {
+    transactionMock.category.findMany.mockResolvedValue([]);
+    transactionMock.categoryRequest.count.mockResolvedValue(0);
+
+    await expect(service.updateCurrent(userId, input({ categorySlugs: [] })))
+      .rejects.toBeInstanceOf(InvalidProfessionalProfileCategoriesException);
+
     expect(transactionMock.professionalProfile.update).not.toHaveBeenCalled();
   });
 

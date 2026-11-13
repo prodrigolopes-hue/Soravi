@@ -8,6 +8,7 @@ import {
   adminCategoriesUrl,
   adminCategorySuggestionByIdUrl,
   adminCategoryRequestsUrl,
+  adminCategoryRequestByIdUrl,
   adminCategorySuggestionsUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
@@ -679,6 +680,7 @@ function AdminCategoryRequestsSection() {
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<AdminCategoryRequestsApiResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [decidingId, setDecidingId] = useState<string | null>(null);
 
   const isLoadingState = requestState === "loading";
   const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
@@ -742,6 +744,20 @@ function AdminCategoryRequestsSection() {
     }
   }, [accessToken]);
 
+  const decideRequest = useCallback(async (item: AdminCategoryRequestItem, decision: "CREATE" | "ASSOCIATE" | "REJECT"): Promise<void> => {
+    if (!accessToken || decidingId) return;
+    const reviewNotes = decision === "REJECT" ? window.prompt("Motivo da recusa (obrigatório):") : window.prompt("Nota de decisão (opcional):");
+    if (decision === "REJECT" && !reviewNotes?.trim()) return;
+    const categoryId = decision === "ASSOCIATE" ? window.prompt("ID da categoria oficial ativa: ") : null;
+    if (decision === "ASSOCIATE" && !categoryId?.trim()) return;
+    setDecidingId(item.id);
+    try {
+      const result = await fetch(adminCategoryRequestByIdUrl(item.id), { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, credentials: "include", body: JSON.stringify({ decision, ...(categoryId ? { categoryId } : {}), ...(reviewNotes?.trim() ? { reviewNotes: reviewNotes.trim() } : {}) }) });
+      if (!result.ok) { window.alert("Não foi possível registrar a decisão. Confira o limite de categorias e tente novamente."); return; }
+      await fetchCategoryRequests(page);
+    } finally { setDecidingId(null); }
+  }, [accessToken, decidingId, fetchCategoryRequests, page]);
+
   useEffect(() => {
     if (!accessToken) {
       setResponse(null);
@@ -803,6 +819,7 @@ function AdminCategoryRequestsSection() {
                   <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
                   <p><span className="font-medium text-slate-900">Revisada em:</span> {item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</p>
                 </div>
+                {item.status === "PENDING" ? <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Associar existente</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-3 py-2 text-sm font-semibold text-red-700">Recusar</button></div> : null}
               </article>
             ))}
           </div>
@@ -818,6 +835,7 @@ function AdminCategoryRequestsSection() {
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Categoria resolvida</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Criada em</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Revisada em</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -849,6 +867,7 @@ function AdminCategoryRequestsSection() {
                     </td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.status === "PENDING" ? <div className="flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Associar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-2 py-1 text-xs font-semibold text-red-700">Recusar</button></div> : "—"}</td>
                   </tr>
                 ))}
               </tbody>

@@ -39,6 +39,8 @@ describe("CategoryRequestsService", () => {
       create: jest.Mock;
       findMany: jest.Mock;
     };
+    professionalCategory: { count: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
 
@@ -53,13 +55,17 @@ describe("CategoryRequestsService", () => {
         create: jest.fn(),
         findMany: jest.fn(),
       },
+      professionalCategory: { count: jest.fn().mockResolvedValue(0) },
+      $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
       $transaction: jest.fn(),
     };
 
-    prismaMock.$transaction.mockImplementation(async () => [
-      await prismaMock.categoryRequest.count(),
-      await prismaMock.categoryRequest.findMany(),
-    ]);
+    prismaMock.categoryRequest.count.mockResolvedValue(0);
+    prismaMock.$transaction.mockImplementation(async (argument: unknown) =>
+      typeof argument === "function"
+        ? argument(prismaMock)
+        : [await prismaMock.categoryRequest.count(), await prismaMock.categoryRequest.findMany()],
+    );
 
     service = new CategoryRequestsService(
       prismaMock as unknown as PrismaService,

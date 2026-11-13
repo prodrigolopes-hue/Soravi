@@ -1,7 +1,6 @@
 import { Transform } from "class-transformer";
 import {
   ArrayMaxSize,
-  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -63,9 +62,6 @@ export class UpdateCurrentProfessionalProfileDto {
       : value,
   )
   @IsArray({ message: "As categorias devem ser uma lista." })
-  @ArrayMinSize(1, {
-    message: "Selecione pelo menos uma categoria.",
-  })
   @ArrayMaxSize(3, {
     message: "Selecione no máximo três categorias.",
   })

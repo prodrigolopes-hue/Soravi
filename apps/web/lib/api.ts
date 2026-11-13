@@ -336,6 +336,7 @@ export const categorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-s
 export const adminCategoriesUrl = `${normalizedApiBaseUrl}/api/v1/categories/admin`;
 
 export const adminCategoryRequestsUrl = `${normalizedApiBaseUrl}/api/v1/category-requests/admin`;
+export function adminCategoryRequestByIdUrl(id: string): string { return `${normalizedApiBaseUrl}/api/v1/category-requests/admin/${encodeURIComponent(id)}`; }
 
 export const adminCategorySuggestionsUrl = `${normalizedApiBaseUrl}/api/v1/category-suggestions/admin`;
 

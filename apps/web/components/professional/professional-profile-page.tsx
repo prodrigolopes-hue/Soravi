@@ -25,7 +25,7 @@ const profileFormSchema = z.object({
   professionalTitle: z.string().trim().max(80, "Use no máximo 80 caracteres."),
   serviceArea: z.string().trim().max(100, "Use no máximo 100 caracteres."),
   bio: z.string().trim().max(1000, "Use no máximo 1000 caracteres."),
-  categorySlugs: z.array(z.string()).min(1, "Selecione pelo menos uma categoria.").max(3, "Selecione no máximo três categorias.").refine((values) => new Set(values).size === values.length, "Não selecione categorias duplicadas."),
+  categorySlugs: z.array(z.string()).max(3, "Selecione no máximo três categorias.").refine((values) => new Set(values).size === values.length, "Não selecione categorias duplicadas."),
   isAvailable: z.boolean(),
 });
 
@@ -551,7 +551,7 @@ export function ProfessionalProfilePage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="categories-title">
             <h2 id="categories-title" className="text-xl font-bold text-slate-950">Categorias de serviço</h2>
-            <p id="categories-help" className="mt-2 text-sm leading-6 text-slate-600">Selecione de 1 a 3 categorias. Você escolheu {selectedCategories.length} de 3.</p>
+            <p id="categories-help" className="mt-2 text-sm leading-6 text-slate-600">Selecione até 3 categorias oficiais. {profile.categoryRequests.some((request) => request.status === "PENDING") ? "Você pode manter esta lista vazia enquanto suas solicitações estiverem em análise; elas não garantem oportunidades." : "Mantenha ao menos uma categoria oficial."} Você escolheu {selectedCategories.length} de 3.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {categoryOptions.map((category) => {
                 const isSelected = selectedCategories.includes(category.slug);
@@ -611,6 +611,7 @@ function ProfileView({ profile, onEdit, saveMessage }: { profile: ProfessionalPr
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="current-categories-title">
       <h2 id="current-categories-title" className="text-xl font-bold text-slate-950">Categorias de serviço</h2>
       <div className="mt-4 flex flex-wrap gap-2">{profile.categories.map((category) => <span key={category.id} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800">{category.name}</span>)}</div>
+      {profile.categoryRequests.length > 0 ? <div className="mt-5 space-y-2"><p className="text-sm font-semibold text-slate-800">Solicitações em análise ou decididas</p>{profile.categoryRequests.map((request) => <p key={request.id} className="text-sm text-slate-700">{request.suggestedName}: {request.status === "PENDING" ? "em análise; isso não garante aprovação nem oportunidades" : request.status === "REJECTED" ? `recusada${request.reviewNotes ? ` — ${request.reviewNotes}` : ""}` : `${request.status === "APPROVED" ? "aprovada" : "associada"}${request.resolvedCategory ? ` — ${request.resolvedCategory.name}` : ""}`}</p>)}</div> : null}
     </section>
 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="current-availability-title">

@@ -126,6 +126,11 @@ export class RegisterUserDto {
   })
   categorySlugs?: string[];
 
+  @IsOptional()
+  @IsArray({ message: "As solicitações de categoria devem ser uma lista." })
+  @ArrayMaxSize(3, { message: "Solicite no máximo três categorias." })
+  categoryRequests?: Array<{ suggestedName: string; description?: string }>;
+
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? value.trim() : value,
   )

@@ -21,7 +21,6 @@ describe("UpdateCurrentProfessionalProfileDto", () => {
   });
 
   it.each([
-    { categorySlugs: [] },
     { categorySlugs: ["eletrica", "pintura", "limpeza", "jardinagem"] },
     { categorySlugs: ["eletrica", " eletrica "] },
     { displayName: "A" },
@@ -33,6 +32,15 @@ describe("UpdateCurrentProfessionalProfileDto", () => {
     });
 
     expect(await validate(dto)).not.toHaveLength(0);
+  });
+
+  it("aceita lista de categorias vazia para decisão contextual do serviço", async () => {
+    const dto = plainToInstance(UpdateCurrentProfessionalProfileDto, {
+      ...validBody(),
+      categorySlugs: [],
+    });
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
   });
 });
 

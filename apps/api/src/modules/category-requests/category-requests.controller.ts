@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 
 import { Role } from "../../generated/prisma/client";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -12,6 +12,7 @@ import { CategoryRequestsAdminListResponseDto } from "./dto/category-requests-ad
 import { CategoryRequestsAdminQueryDto } from "./dto/category-requests-admin-query.dto";
 import { CreateCategoryRequestDto } from "./dto/create-category-request.dto";
 import { CategoryRequestResponseDto } from "./dto/category-request-response.dto";
+import { DecideCategoryRequestDto } from "./dto/decide-category-request.dto";
 
 @Controller("category-requests")
 export class CategoryRequestsController {
@@ -32,6 +33,13 @@ export class CategoryRequestsController {
     );
   }
 
+  @Get("mine")
+  @Roles(Role.PROFESSIONAL)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  findMine(@CurrentUser() currentUser: AuthenticatedUser): Promise<CategoryRequestResponseDto[]> {
+    return this.categoryRequestsService.findMine(currentUser.id);
+  }
+
   @Get("admin")
   @Roles(Role.ADMIN)
   @UseGuards(AccessTokenGuard, RolesGuard)
@@ -41,5 +49,12 @@ export class CategoryRequestsController {
     return this.categoryRequestsService.findAllAdminCategoryRequests(
       query,
     );
+  }
+
+  @Patch("admin/:id")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  decide(@Param("id") id: string, @CurrentUser() currentUser: AuthenticatedUser, @Body() input: DecideCategoryRequestDto): Promise<CategoryRequestResponseDto> {
+    return this.categoryRequestsService.decide(id, currentUser.id, input);
   }
 }
