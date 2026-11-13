@@ -33,6 +33,11 @@ import {
   PASSWORD_HELP_TEXT,
   passwordValidationMessage,
 } from "../../lib/password-policy";
+import {
+  professionalCategoryRegistrationPayload,
+  professionalCategorySelectionError,
+  type ProfessionalCategoryRequestInput,
+} from "./professional-registration-categories";
 
 interface ServiceCategory {
   id: string;
@@ -107,7 +112,6 @@ const professionalRegistrationSchema = z
       .max(500, "A descrição deve ter no máximo 500 caracteres."),
     categories: z
       .array(z.string())
-      .min(1, "Selecione pelo menos uma categoria.")
       .max(3, "Selecione no máximo três categorias."),
     password: z
       .string()
@@ -177,7 +181,7 @@ export function ProfessionalRegistrationForm() {
   const [isSuggestionFormOpen, setIsSuggestionFormOpen] = useState(false);
   const [suggestedCategoryName, setSuggestedCategoryName] = useState("");
   const [suggestedCategoryDescription, setSuggestedCategoryDescription] = useState("");
-  const [requestedCategories, setRequestedCategories] = useState<Array<{ suggestedName: string; description?: string }>>([]);
+  const [requestedCategories, setRequestedCategories] = useState<ProfessionalCategoryRequestInput[]>([]);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [categoriesLoadState, setCategoriesLoadState] =
@@ -274,11 +278,16 @@ export function ProfessionalRegistrationForm() {
   async function handleValidSubmit(
     data: ProfessionalRegistrationFormData,
   ): Promise<void> {
-    if (!canSubmitWithCategories || selectedCategoryCount < 1 || selectedCategoryCount > 3) {
+    const selectionError = professionalCategorySelectionError(
+      data.categories,
+      requestedCategories,
+    );
+    const requiresCategoryCatalog = data.categories.length > 0;
+
+    if (selectionError || (requiresCategoryCatalog && !canSubmitWithCategories)) {
       setError("categories", {
         type: "manual",
-        message:
-          "Não foi possível validar as categorias agora. Tente novamente em instantes.",
+        message: selectionError ?? "Não foi possível validar as categorias agora. Tente novamente em instantes.",
       });
       setFormMessage(null);
       setFormError(null);
@@ -322,8 +331,10 @@ export function ProfessionalRegistrationForm() {
             acceptedTerms: data.acceptedTerms,
             acceptedPrivacyPolicy: data.acceptedPrivacyPolicy,
             confirmedAgeAtLeast18: data.confirmedAgeAtLeast18,
-            categorySlugs: data.categories,
-            categoryRequests: requestedCategories,
+            ...professionalCategoryRegistrationPayload(
+              data.categories,
+              requestedCategories,
+            ),
             professionalTitle: data.professionalTitle,
             serviceArea: data.serviceArea,
             description: data.description,
@@ -392,6 +403,7 @@ export function ProfessionalRegistrationForm() {
     }
     setSuggestionError(null);
     setRequestedCategories((current) => [...current, { suggestedName: normalizedSuggestedName, ...(normalizedDescription ? { description: normalizedDescription } : {}) }]);
+    clearErrors("categories");
     setSuggestedCategoryName("");
     setSuggestedCategoryDescription("");
   }
@@ -654,7 +666,7 @@ export function ProfessionalRegistrationForm() {
         </legend>
 
         <p className="mt-1 text-sm text-slate-500">
-          Selecione de uma a três categorias.
+          Selecione de uma a três categorias oficiais ou sugeridas.
         </p>
 
         {categoriesLoadState === "loading" ? (
