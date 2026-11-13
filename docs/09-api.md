@@ -108,16 +108,18 @@ Campos principais:
 - `acceptedTermsVersion`;
 - `acceptedPrivacyPolicyVersion`;
 - `categorySlugs?: string[]`;
+- `categoryRequests?: Array<{ suggestedName: string; description?: string }>`;
 - `professionalTitle?: string`;
 - `serviceArea?: string`;
 - `description?: string`.
 
 Regras de categorias no registro:
 
-- para `initialRole = PROFESSIONAL`, `categorySlugs` é obrigatório na prática;
-- deve conter de 1 a 3 slugs;
+- para `initialRole = PROFESSIONAL`, a soma de `categorySlugs` e `categoryRequests` deve estar entre 1 e 3;
+- cada lista aceita no máximo 3 itens; o limite combinado é aplicado pelo backend;
 - slugs devem ser únicos;
 - slugs devem existir e estar ativos em `Category` (`isActive = true`);
+- `categoryRequests` cria solicitações `PENDING`, sem transformar a sugestão em categoria oficial;
 - validação final é sempre do backend.
 - `professionalTitle` e `serviceArea` são persistidos no `ProfessionalProfile`,
   e `description` é persistido como `bio`.
@@ -128,7 +130,7 @@ Compatibilidade:
 
 Transação de criação no registro profissional:
 
-- criação de `User`, `ProfessionalProfile` e vínculos `ProfessionalCategory` ocorre na mesma transação;
+- criação de `User`, `ProfessionalProfile`, vínculos `ProfessionalCategory` e `CategoryRequest` ocorre na mesma transação;
 - em caso de falha, não deve restar cadastro parcial.
 
 ------------------------------------------------------------------------
@@ -206,9 +208,12 @@ disponível — o valor é `null`. Caso exista, é `{ "url": "…", "expiresAt":
 
 O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
 `categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
-bio aceitam `null`; `categorySlugs` deve conter de 1 a 3 slugs únicos de
-categorias ativas; `isAvailable` é booleano. O retorno inclui `id`, os campos
-do perfil, `verificationStatus` e as categorias. Esta API suporta a rota web
+bio aceitam `null`; `categorySlugs` aceita de zero a três slugs únicos de
+categorias ativas, mas zero somente é válido quando há ao menos uma
+`CategoryRequest` `PENDING` do próprio perfil. O limite combinado entre vínculos
+oficiais e solicitações pendentes permanece três; `isAvailable` é booleano. O
+retorno inclui `id`, os campos do perfil, `verificationStatus`, categorias e
+solicitações de categoria. Esta API suporta a rota web
 `/profissional/perfil`, com visualização e edição explícita pelo profissional.
 
 O perfil editável e sua integração com o fluxo de verificação foram validados
@@ -663,6 +668,18 @@ Respostas relevantes:
 - `401 Unauthorized` - não autenticado ou token inválido;
 - `403 Forbidden` - usuário autenticado sem role `ADMIN`.
 
+## Solicitações de categoria do profissional
+
+`POST /api/v1/category-requests` exige `PROFESSIONAL`, token de acesso e telefone verificado. Recebe `suggestedName` e `description` opcional, normaliza o nome e cria uma solicitação `PENDING` somente se o perfil possuir menos de três escolhas combinadas e não houver pendência com o mesmo nome normalizado. A operação usa transação serializável e lock da conta para preservar o limite sob concorrência.
+
+`GET /api/v1/category-requests/mine` exige `PROFESSIONAL` e retorna exclusivamente as solicitações do perfil da sessão, com status, motivo de revisão e categoria resolvida quando existir.
+
+`PATCH /api/v1/category-requests/admin/:id` exige `ADMIN`. O body aceita `decision` igual a `CREATE`, `ASSOCIATE` ou `REJECT`. `CREATE` cria uma categoria oficial ativa ou seleciona a existente pelo slug; `ASSOCIATE` exige uma categoria oficial ativa; `REJECT` exige `reviewNotes`. A decisão é única, transacional e pode responder conflito se a solicitação já foi decidida, se houve concorrência ou se não há vaga no limite de três categorias.
+
+As respostas de `POST`, `GET /mine` e `PATCH` incluem `id`, `suggestedName`, `description`, `status`, `createdAt` e, quando aplicável, `reviewNotes` e `resolvedCategory`.
+
+**Estado de entrega:** contratos e fluxo validados em staging; não publicados em produção.
+
 ## Listagem administrativa de solicitações de categoria
 
 Endpoint administrativo para consulta de solicitações de categoria enviadas por profissionais.
@@ -751,7 +768,7 @@ Respostas relevantes:
 
 ## Sugestão pública de categoria
 
-Fluxo público para receber sugestão de categoria durante o cadastro profissional quando o usuário ainda não está autenticado.
+Fluxo público independente para receber sugestão de categoria sem criar conta profissional nem `CategoryRequest`.
 
 Escopo e separação:
 

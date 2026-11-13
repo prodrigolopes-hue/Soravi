@@ -466,15 +466,16 @@ Os filtros por localização/região, disponibilidade, avaliação, especialidad
 
 ## Categorias solicitadas por profissionais
 
-- a ausência de uma categoria não pode impedir o cadastro profissional;
-- o profissional poderá solicitar a inclusão de uma nova categoria;
-- a solicitação ficará pendente de análise;
-- categorias solicitadas não aparecem automaticamente na busca pública;
-- administradores ou moderadores poderão aprovar, rejeitar ou vincular a solicitação a uma categoria existente;
-- o resultado da análise poderá ser `APPROVED`, `REJECTED` ou `MERGED`;
-- solicitações repetidas podem ser mantidas como sinal de demanda;
-- uma solicitação marcada como `MERGED` deverá apontar para a categoria oficial correspondente;
-- o profissional deverá ser notificado futuramente sobre o resultado da análise.
+- No cadastro profissional, a pessoa deve escolher ao menos uma categoria oficial ativa ou adicionar ao menos uma solicitação de categoria. O total combinado é de um a três.
+- A conta, o perfil, os vínculos oficiais e as solicitações criadas no cadastro são persistidos na mesma transação; uma falha não deixa vínculos parciais.
+- A solicitação fica em `PENDING` e não é uma categoria oficial. Ela não aparece no catálogo, não habilita descoberta pública, distribuição de oportunidades ou envio de propostas e não garante aprovação profissional.
+- O profissional consulta somente as próprias solicitações e vê `PENDING`, `APPROVED`, `MERGED` ou `REJECTED`, incluindo a categoria resolvida ou o motivo de recusa quando aplicável.
+- Somente `ADMIN` decide uma solicitação: pode criar uma categoria oficial ativa, vinculá-la a uma categoria oficial ativa existente ou recusá-la com motivo. A decisão e o vínculo ao perfil são transacionais.
+- A aprovação ou vinculação respeita o máximo de três categorias oficiais. Se o perfil tiver alcançado o limite enquanto a solicitação aguardava análise, a decisão é recusada sem criar vínculo nem categoria parcial.
+- Não existe categoria oficial genérica “Outros”. Categorias criadas ou selecionadas pela decisão passam a aparecer, sem novo deploy, no cadastro e em todos os catálogos que consomem a lista completa de categorias ativas.
+- O fluxo público de `PublicCategorySuggestion` continua separado: registros antigos não são associados por e-mail ou telefone a uma conta ou `CategoryRequest`.
+
+**Estado de entrega:** este fluxo foi validado em staging e ainda não foi publicado em produção.
 
 ## Curadoria Inicial de Profissionais
 

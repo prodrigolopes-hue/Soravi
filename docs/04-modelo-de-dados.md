@@ -276,7 +276,7 @@ Política de integridade referencial:
 
 Regras de negócio no cadastro profissional:
 
-- profissional deve possuir de 1 a 3 categorias;
+- profissional deve possuir de 1 a 3 escolhas combinadas entre `ProfessionalCategory` e `CategoryRequest` pendente; pode não ter `ProfessionalCategory` enquanto aguarda ao menos uma solicitação pendente;
 - categorias selecionadas devem estar ativas (`isActive = true`);
 - slugs duplicados não são aceitos.
 
@@ -336,10 +336,13 @@ Estados possíveis:
 
 Regras:
 
-- a ausência de categoria não bloqueia o cadastro profissional;
+- `CategoryRequest` criada durante o cadastro pertence exclusivamente ao `ProfessionalProfile` criado na mesma transação; ela não reutiliza `PublicCategorySuggestion` por e-mail ou telefone;
+- o limite é de três escolhas entre vínculos oficiais e solicitações pendentes; na decisão, somente um novo vínculo oficial consome vaga;
 - `suggestedNameNormalized` auxilia na busca de solicitações semelhantes;
-- solicitações iguais não possuem restrição única, pois a quantidade também representa demanda;
-- solicitações pendentes não aparecem na busca pública.
+- solicitações pendentes duplicadas para o mesmo perfil e nome normalizado são recusadas; registros legados permanecem compatíveis e o índice parcial de pendências acelera essa consulta;
+- solicitações pendentes ou recusadas não aparecem na busca pública, não são categorias oficiais e não participam da distribuição.
+
+**Estado de entrega:** a migration aditiva `20261112000100_category_requests_registration_flow` e o fluxo foram validados em staging; não foram publicados em produção.
 
 ## Pré-cadastro de interesse (LaunchInterest)
 
@@ -362,7 +365,7 @@ Representa uma sugestão enviada no pré-cadastro profissional por pessoas ainda
 
 Objetivo e separação de domínio:
 
-- captar demanda de categorias já no cadastro profissional para reduzir abandono;
+- captar demanda pública de categorias fora da transação de cadastro profissional;
 - não cria conta de `User` nem `ProfessionalProfile`;
 - não substitui o fluxo de `LaunchInterest`;
 - não substitui o fluxo autenticado de `CategoryRequest`;

@@ -250,6 +250,16 @@ Ela deverá passar por moderação e poderá ser:
 
 Foi criado o modelo `CategoryRequest`, separado de `Category`, com status de análise, profissional solicitante, responsável pela revisão e categoria resolvida opcional.
 
+### Implementação do cadastro e da decisão
+
+O cadastro profissional aceita de uma a três escolhas combinadas entre categorias oficiais ativas e solicitações de categoria. A criação de `User`, `ProfessionalProfile`, `ProfessionalCategory` e `CategoryRequest` ocorre em uma única transação. Não se cria a categoria genérica “Outros”.
+
+A solicitação permanece inelegível para catálogo, descoberta, oportunidades e propostas até a decisão administrativa. Somente `ADMIN` pode criar uma categoria ativa, associar a solicitação a uma categoria ativa existente ou recusá-la com motivo. Aprovação e associação usam transação serializável, lock da conta e `upsert` do vínculo para evitar duplicação; se o perfil já tiver três categorias oficiais, a decisão falha sem efeito parcial.
+
+`PublicCategorySuggestion` continua sendo o fluxo público separado. Nenhuma sugestão anterior é anexada automaticamente a conta, perfil ou `CategoryRequest` por e-mail ou telefone.
+
+O fluxo, incluindo criação, decisão, limites, concorrência e exposição exclusiva de categorias oficiais ativas, foi validado em staging. Não foi publicado em produção.
+
 ## Categorias sem hierarquia no primeiro incremento
 
 ### Decisão
@@ -385,11 +395,11 @@ Após essas camadas, o profissional poderá ser:
 - encaminhado para análise manual adicional;
 - não aprovado naquele momento.
 
-## Sugestão pública de categoria no pré-cadastro profissional
+## Sugestão pública independente de categoria
 
 ### Decisão (2026-08-14)
 
-A Soravi deve captar sugestão de categoria já no cadastro profissional, antes de autenticação, por meio de uma entidade pública separada (`PublicCategorySuggestion`).
+A Soravi deve captar sugestões públicas de categoria fora da transação de cadastro profissional, por meio de uma entidade separada (`PublicCategorySuggestion`).
 
 ### Motivação
 
