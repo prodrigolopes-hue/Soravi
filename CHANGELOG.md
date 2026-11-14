@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-14
+
+### Categorias sugeridas no cadastro — publicado em produção
+
+- publicada em produção a entrega de categorias sugeridas no cadastro profissional, incluindo a migration `20261112000100_category_requests_registration_flow` aplicada com sucesso;
+- registrado o commit de merge `38bb376` como referência da publicação;
+- em staging, o fluxo completo foi testado, incluindo a sugestão de categoria durante o cadastro e seu processamento pelo fluxo correspondente;
+- em produção, foram confirmados o deploy, a migration aplicada, a prontidão da API e a presença da opção de sugerir categoria no cadastro;
+- estas verificações em produção não incluem nem afirmam a realização de um cadastro completo de teste em produção.
+
 ## 2026-10-11
 
 ### Google Analytics 4 — correção de transmissão validada em produção

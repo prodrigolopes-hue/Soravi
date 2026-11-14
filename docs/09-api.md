@@ -678,7 +678,7 @@ Respostas relevantes:
 
 As respostas de `POST`, `GET /mine` e `PATCH` incluem `id`, `suggestedName`, `description`, `status`, `createdAt` e, quando aplicável, `reviewNotes` e `resolvedCategory`.
 
-**Estado de entrega:** contratos e fluxo validados em staging; não publicados em produção.
+**Estado de entrega:** o fluxo completo foi testado em staging. Em produção, foram confirmados o deploy, a migration `20261112000100_category_requests_registration_flow` aplicada, a prontidão da API e a presença da opção de sugerir categoria no cadastro. Essas verificações não incluem nem afirmam a realização de um cadastro completo de teste em produção.
 
 ## Listagem administrativa de solicitações de categoria
 
