@@ -342,7 +342,7 @@ Regras:
 - solicitações pendentes duplicadas para o mesmo perfil e nome normalizado são recusadas; registros legados permanecem compatíveis e o índice parcial de pendências acelera essa consulta;
 - solicitações pendentes ou recusadas não aparecem na busca pública, não são categorias oficiais e não participam da distribuição.
 
-**Estado de entrega:** a migration aditiva `20261112000100_category_requests_registration_flow` e o fluxo foram validados em staging; não foram publicados em produção.
+**Estado de entrega:** a migration aditiva `20261112000100_category_requests_registration_flow` e o fluxo completo foram testados em staging. Em produção, a migration foi aplicada e foram confirmados o deploy, a prontidão da API e a presença da opção de sugerir categoria no cadastro; não foi realizado nem afirmado cadastro completo de teste em produção.
 
 ## Pré-cadastro de interesse (LaunchInterest)
 

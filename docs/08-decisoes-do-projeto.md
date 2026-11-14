@@ -258,7 +258,7 @@ A solicitação permanece inelegível para catálogo, descoberta, oportunidades 
 
 `PublicCategorySuggestion` continua sendo o fluxo público separado. Nenhuma sugestão anterior é anexada automaticamente a conta, perfil ou `CategoryRequest` por e-mail ou telefone.
 
-O fluxo, incluindo criação, decisão, limites, concorrência e exposição exclusiva de categorias oficiais ativas, foi validado em staging. Não foi publicado em produção.
+O fluxo completo, incluindo criação, decisão, limites, concorrência e exposição exclusiva de categorias oficiais ativas, foi testado em staging. A publicação em produção foi concluída pelo merge `38bb376`, com a migration `20261112000100_category_requests_registration_flow` aplicada; foram confirmados o deploy, a prontidão da API e a presença da opção no cadastro. Essas verificações não incluem nem afirmam cadastro completo de teste em produção.
 
 ## Categorias sem hierarquia no primeiro incremento
 

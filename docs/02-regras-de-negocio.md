@@ -475,7 +475,7 @@ Os filtros por localização/região, disponibilidade, avaliação, especialidad
 - Não existe categoria oficial genérica “Outros”. Categorias criadas ou selecionadas pela decisão passam a aparecer, sem novo deploy, no cadastro e em todos os catálogos que consomem a lista completa de categorias ativas.
 - O fluxo público de `PublicCategorySuggestion` continua separado: registros antigos não são associados por e-mail ou telefone a uma conta ou `CategoryRequest`.
 
-**Estado de entrega:** este fluxo foi validado em staging e ainda não foi publicado em produção.
+**Estado de entrega:** o fluxo completo foi testado em staging. Em produção, foram confirmados o deploy, a migration `20261112000100_category_requests_registration_flow` aplicada, a prontidão da API e a opção de sugerir categoria no cadastro. Essas verificações não incluem nem afirmam a realização de um cadastro completo de teste em produção.
 
 ## Curadoria Inicial de Profissionais
 
