@@ -14,7 +14,10 @@ describe("CustomerProfileActivationService", () => {
   beforeEach(() => {
     transaction = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
-      user: { findFirst: jest.fn().mockResolvedValue({ id: userId }) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({ id: userId }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       customerProfile: { upsert: jest.fn().mockResolvedValue({ id: "customer-profile-id" }) },
       userRole: { upsert: jest.fn().mockResolvedValue({ id: "customer-role-id" }) },
     };
@@ -56,6 +59,29 @@ describe("CustomerProfileActivationService", () => {
     expect(transaction.customerProfile.upsert).toHaveBeenCalledTimes(2);
     expect(transaction.userRole.upsert).toHaveBeenCalledTimes(2);
     expect(usersService.findSafeById).toHaveBeenCalledWith(userId);
+  });
+
+  it("ativa o cliente pendente que já confirmou e-mail e telefone ao criar perfil a partir do profissional", async () => {
+    transaction.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.activateCurrentProfessional(userId);
+
+    expect(transaction.user.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        roles: { some: { role: Role.PROFESSIONAL } },
+        professionalProfile: { is: { deletedAt: null } },
+      }),
+    }));
+    expect(transaction.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: UserStatus.PENDING,
+        emailVerifiedAt: { not: null },
+        phoneVerifiedAt: { not: null },
+        roles: { some: { role: Role.CUSTOMER } },
+        customerProfile: { is: {} },
+      }),
+      data: { status: UserStatus.ACTIVE },
+    }));
   });
 
   it.each(Object.values(UserStatus).filter((status) => status !== UserStatus.PENDING && status !== UserStatus.ACTIVE))

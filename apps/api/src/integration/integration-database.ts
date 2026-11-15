@@ -8,6 +8,11 @@ import { PrismaService } from "../database/prisma.service";
 
 const INTEGRATION_DATABASE_NAME = "soravi_integration_test";
 const LOCAL_DATABASE_HOSTS = new Set(["localhost", "127.0.0.1"]);
+const DEFAULT_INTEGRATION_DATABASE_PORT = "5432";
+const ALLOWED_INTEGRATION_DATABASE_PORTS = new Set([
+  DEFAULT_INTEGRATION_DATABASE_PORT,
+  "55432",
+]);
 
 function validateDatabaseUrl(rawUrl: string, expectedDatabase: string): URL {
   let url: URL;
@@ -20,11 +25,13 @@ function validateDatabaseUrl(rawUrl: string, expectedDatabase: string): URL {
   if (
     url.protocol !== "postgresql:" ||
     !LOCAL_DATABASE_HOSTS.has(url.hostname) ||
-    url.port !== "5432" ||
+    !ALLOWED_INTEGRATION_DATABASE_PORTS.has(
+      url.port || DEFAULT_INTEGRATION_DATABASE_PORT,
+    ) ||
     decodeURIComponent(url.pathname) !== `/${expectedDatabase}`
   ) {
     throw new Error(
-      `O banco de integração deve ser PostgreSQL local na porta 5432 e usar exclusivamente ${expectedDatabase}.`,
+      `O banco de integração deve ser PostgreSQL local nas portas 5432 ou 55432 e usar exclusivamente ${expectedDatabase}.`,
     );
   }
 

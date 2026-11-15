@@ -17,6 +17,7 @@
 - contas de cliente em `PENDING` passam a `ACTIVE` somente após as confirmações de e-mail e telefone, em qualquer ordem;
 - a regra não faz backfill, migration ou ativação em massa e preserva contas bloqueadas, suspensas, desativadas ou excluídas;
 - perfis profissionais continuam sujeitos à sua análise e aprovação próprias, inclusive em contas com os dois perfis.
+- verificados localmente: 47 testes unitários adicionais aprovados e uma suíte de integração PostgreSQL real, com um teste de confirmações concorrentes aprovado; o banco descartável estava com 52 migrations em dia.
 
 ## 2026-11-14
 

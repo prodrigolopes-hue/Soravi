@@ -321,6 +321,22 @@ describe("PhoneVerificationService", () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it("ativa o cliente pendente quando telefone é confirmado após e-mail", async () => {
+    prepareConfirmation();
+    transactionMock.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(service.confirmCode(userId, "012345")).resolves.toEqual({
+      activatedCustomerAccount: true,
+    });
+    expect(transactionMock.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: UserStatus.PENDING,
+        emailVerifiedAt: { not: null },
+        phoneVerifiedAt: { not: null },
+      }),
+    }));
+  });
+
   it("código incorreto incrementa attemptCount", async () => {
     prepareConfirmation();
     codeServiceMock.verifyCode.mockReturnValue(false);
