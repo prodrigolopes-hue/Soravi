@@ -2,6 +2,8 @@
 
 # Objetivo
 
+> Ativação de cliente: uma conta com `CustomerProfile` e papel `CUSTOMER` passa apenas de `PENDING` para `ACTIVE` depois que e-mail e telefone forem confirmados, em qualquer ordem. Não reativa estados protegidos e não altera a análise profissional.
+
 > Atualização: “Pedir mais detalhes” é um pedido privado e separado: o profissional elegível pergunta, o cliente responde uma única vez com fotos opcionais e o pedido é encerrado para consulta. Não é chat; outro esclarecimento exige outro pedido. Permanecem a exclusividade do pedido direcionado e as proteções de endereço.
 
 O profissional consulta, na própria oportunidade, todos os pedidos que criou, com pergunta, status, resposta e fotos temporariamente autorizadas.

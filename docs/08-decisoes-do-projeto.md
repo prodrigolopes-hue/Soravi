@@ -8,6 +8,8 @@
 
 ## Decisões operacionais atuais
 
+Contas de cliente passam automaticamente de `PENDING` para `ACTIVE` após ambas as confirmações de contato. A ativação não constitui aprovação profissional, não produz ativação em massa e não alcança estados administrativos protegidos.
+
 Solicitações são revisadas antes da publicação; não se persistem rascunhos no fluxo atual. A dependência operacional da janela de dez minutos foi removida e oportunidades são despachadas imediatamente após a publicação. Início e conclusão de contrato pertencem às telas de oportunidade e solicitação, respectivamente; conversa é somente status e comunicação. Staging usa API em subdomínio próprio e permanece separado de Production. O MVP mantém monólito modular, sem pagamentos internos e sem microserviços prematuros.
 
 Registrar todas as decisões estratégicas e técnicas da Soravi para

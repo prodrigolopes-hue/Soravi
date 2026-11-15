@@ -2,6 +2,8 @@
 
 # Objetivo
 
+Após uma confirmação válida de e-mail ou telefone, a API pode retornar `activatedCustomerAccount: true` quando a própria confirmação completar os requisitos e promover uma conta de cliente de `PENDING` para `ACTIVE`. Não há promoção para outros estados nem alteração da análise profissional.
+
 > Atualização: `POST /api/v1/opportunities/:opportunityId/pre-proposal-conversation/messages` cria um pedido separado. `POST /api/v1/pre-proposal-conversations/:conversationId/response` recebe a resposta única do cliente em `multipart/form-data` (`content` e até cinco `photos`) e encerra o pedido.
 
 `GET /api/v1/opportunities/:opportunityId/pre-proposal-conversations` retorna somente ao profissional proprietário da oportunidade os pedidos que ele criou, incluindo a resposta e URLs temporárias das fotos autorizadas.

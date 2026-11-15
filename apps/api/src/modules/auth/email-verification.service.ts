@@ -10,6 +10,7 @@ import {
   SendEmailVerificationInput,
 } from "./email-verification-delivery.port";
 import { EmailVerificationInvalidOrExpiredException } from "./errors/email-verification-invalid-or-expired.exception";
+import { tryAutoActivatePendingCustomer } from "../users/customer-account-auto-activation";
 
 const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1_000;
@@ -62,7 +63,7 @@ export class EmailVerificationService {
     }
   }
 
-  async confirm(rawToken: string): Promise<string> {
+  async confirm(rawToken: string): Promise<{ userId: string; activatedCustomerAccount: boolean }> {
     const tokenHash = this.hashToken(rawToken);
     const candidate = await this.prisma.emailVerificationToken.findUnique({
       where: { tokenHash },
@@ -104,7 +105,7 @@ export class EmailVerificationService {
         where: { userId: user.id, id: { not: token.id }, usedAt: null },
         data: { usedAt: now },
       });
-      return user.id;
+      return { userId: user.id, activatedCustomerAccount: await tryAutoActivatePendingCustomer(transaction, user.id) };
     });
   }
 

@@ -21,7 +21,7 @@ describe("PhoneVerificationService", () => {
   let service: PhoneVerificationService;
   let transactionMock: {
     $queryRaw: jest.Mock;
-    user: { update: jest.Mock };
+    user: { update: jest.Mock; updateMany: jest.Mock };
     phoneVerificationChallenge: {
       findFirst: jest.Mock;
       updateMany: jest.Mock;
@@ -40,7 +40,7 @@ describe("PhoneVerificationService", () => {
   beforeEach(() => {
     transactionMock = {
       $queryRaw: jest.fn(),
-      user: { update: jest.fn().mockResolvedValue({}) },
+      user: { update: jest.fn().mockResolvedValue({}), updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       phoneVerificationChallenge: {
         findFirst: jest.fn().mockResolvedValue(null),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),

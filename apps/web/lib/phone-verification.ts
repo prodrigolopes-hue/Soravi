@@ -138,7 +138,7 @@ export async function requestPhoneVerification(
 export async function confirmPhoneVerification(
   accessToken: string,
   code: string,
-): Promise<void> {
+): Promise<{ activatedCustomerAccount: boolean }> {
   try {
     const response = await fetch(`${phoneVerificationUrl}/confirm`, {
       method: "POST",
@@ -150,9 +150,12 @@ export async function confirmPhoneVerification(
       body: JSON.stringify({ code }),
     });
 
-    if (response.status !== 204) {
+    if (response.status !== 200) {
       await throwSanitizedApiError(response);
     }
+    const payload: unknown = await response.json().catch(() => null);
+    const data = payload && typeof payload === "object" && "data" in payload ? payload.data : null;
+    return { activatedCustomerAccount: Boolean(data && typeof data === "object" && "activatedCustomerAccount" in data && data.activatedCustomerAccount === true) };
   } catch (error) {
     if (error instanceof PhoneVerificationApiError) {
       throw error;

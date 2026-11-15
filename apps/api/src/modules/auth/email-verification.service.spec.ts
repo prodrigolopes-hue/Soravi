@@ -24,7 +24,7 @@ describe("EmailVerificationService", () => {
         create: jest.fn().mockResolvedValue({ id: tokenId }),
         update: jest.fn().mockResolvedValue({ id: tokenId }),
       },
-      user: { update: jest.fn().mockResolvedValue({ id: userId }) },
+      user: { update: jest.fn().mockResolvedValue({ id: userId }), updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     prisma = {
       user: { findUnique: jest.fn() },
@@ -71,7 +71,7 @@ describe("EmailVerificationService", () => {
       { id: tokenId, userId, tokenHash, expiresAt: new Date(Date.now() + 60_000), usedAt: null },
     ]);
 
-    await expect(service.confirm(rawToken)).resolves.toBe(userId);
+    await expect(service.confirm(rawToken)).resolves.toEqual({ userId, activatedCustomerAccount: false });
     const transaction = (prisma.$transaction as jest.Mock).mock.calls[0][0];
     expect(transaction).toBeDefined();
   });
