@@ -717,7 +717,7 @@ Os commits `e4210b9`, `e3000fd`, `14734d3`, `eecb5d6`, `e70392e`, `96abdd6`, `fa
 | Rate limit de login | 10 requisições / 15 minutos via `ThrottlerGuard`. |
 | Rate limit de refresh | 60 requisições / 15 minutos via `ThrottlerGuard`. |
 | Storage de rate limit | Redis compartilhado entre instâncias, sem fallback para memória (`d3f2183`). |
-| Senhas | 12 a 128 caracteres, sem composição obrigatória; senhas comuns bloqueadas pelo backend. |
+| Senhas | 8 a 128 caracteres, sem composição obrigatória; senhas comuns bloqueadas pelo backend. |
 | Troca de senha autenticada | `PATCH /api/v1/users/me/password`, 3 tentativas por hora, sessão atual preservada e demais sessões revogadas. |
 
 O limite absoluto é calculado como `createdAt.getTime() + 90 * 24 * 60 * 60 * 1000`, por timestamp/milissegundos, sem cálculo por calendário. O `expiresAt` efetivo é o menor entre a expiração deslizante do refresh e esse limite. Nenhuma renovação pode ultrapassar `createdAt + 90 dias`; ao atingir 90 dias desde a criação, novo login é obrigatório. Refresh e autenticação por access token rejeitam sessões cujo lifetime absoluto terminou, inclusive sessões já existentes. `AuthSession.createdAt` já existia, portanto não houve alteração de schema nem migration. Login e refresh devolvem ao cookie exatamente o `expiresAt` efetivamente persistido.

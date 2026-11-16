@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, ArrayUnique, IsArray, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class ActivateCurrentProfessionalProfileDto {
   @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value)
@@ -21,11 +21,16 @@ export class ActivateCurrentProfessionalProfileDto {
   bio!: string;
 
   @Transform(({ value }: { value: unknown }) => Array.isArray(value) ? value.map((item) => typeof item === "string" ? item.trim() : item) : value)
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(3)
   @ArrayUnique()
   @IsString({ each: true })
   @MinLength(1, { each: true })
-  categorySlugs!: string[];
+  categorySlugs?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  categoryRequests?: Array<{ suggestedName: string; description?: string }>;
 }

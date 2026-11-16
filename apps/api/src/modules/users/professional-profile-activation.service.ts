@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../database/prisma.service";
 import { lockUserCategoryProtection } from "../../database/user-transaction-lock";
@@ -34,20 +34,35 @@ export class ProfessionalProfileActivationService {
         return;
       }
 
-      if (input.categorySlugs.length < 1 || input.categorySlugs.length > 3 || new Set(input.categorySlugs).size !== input.categorySlugs.length) {
+      const categorySlugs = input.categorySlugs ?? [];
+      const categoryRequests = this.validateCategoryRequests(input.categoryRequests);
+      if (categorySlugs.length + categoryRequests.length < 1 || categorySlugs.length + categoryRequests.length > 3 || new Set(categorySlugs).size !== categorySlugs.length) {
         throw new InvalidProfessionalProfileCategoriesException();
       }
-      const categories = await transaction.category.findMany({ where: { slug: { in: input.categorySlugs }, isActive: true }, select: { id: true } });
-      if (categories.length !== input.categorySlugs.length) throw new InvalidProfessionalProfileCategoriesException();
+      const categories = await transaction.category.findMany({ where: { slug: { in: categorySlugs }, isActive: true }, select: { id: true } });
+      if (categories.length !== categorySlugs.length) throw new InvalidProfessionalProfileCategoriesException();
       await this.ensureNoOpenOwnRequest(transaction, userId, categories.map(({ id }) => id));
 
       await transaction.professionalProfile.create({ data: {
         userId, displayName: user.name, professionalTitle: input.professionalTitle, serviceArea: input.serviceArea, bio: input.bio,
         professionalCategories: { create: categories.map(({ id }) => ({ categoryId: id })) },
+        categoryRequests: { create: categoryRequests },
       } });
       await transaction.userRole.upsert({ where: { userId_role: { userId, role: Role.PROFESSIONAL } }, update: {}, create: { userId, role: Role.PROFESSIONAL } });
     });
     return this.usersService.findSafeById(userId);
+  }
+
+  private validateCategoryRequests(value: ActivateCurrentProfessionalProfileDto["categoryRequests"]): Array<{ suggestedName: string; suggestedNameNormalized: string; description: string | null }> {
+    if (!value || value.length === 0) return [];
+    const requests = value.map((item) => {
+      const suggestedName = typeof item?.suggestedName === "string" ? item.suggestedName.trim().replace(/\s+/g, " ") : "";
+      const description = typeof item?.description === "string" ? item.description.trim() || null : null;
+      if (suggestedName.length < 2 || suggestedName.length > 120 || (description?.length ?? 0) > 1000) throw new BadRequestException({ code: "INVALID_CATEGORY_REQUESTS", message: "Informe categorias sugeridas válidas." });
+      return { suggestedName, suggestedNameNormalized: suggestedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(), description };
+    });
+    if (new Set(requests.map(({ suggestedNameNormalized }) => suggestedNameNormalized)).size !== requests.length) throw new BadRequestException({ code: "INVALID_CATEGORY_REQUESTS", message: "Não repita categorias sugeridas." });
+    return requests;
   }
 
   private async ensureNoOpenOwnRequest(transaction: Prisma.TransactionClient, userId: string, categoryIds: string[]): Promise<void> {

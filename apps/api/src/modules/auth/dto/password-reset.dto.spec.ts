@@ -34,11 +34,12 @@ describe("Password reset DTOs", () => {
 
   it.each([
     "SenhaSegura1",
+    "Senha123",
     `${"a".repeat(127)}1`,
     "somenteletrasminusculas",
     "123456789012",
     "!@#$%^&*()_+",
-  ])("aceita nova senha de 12–128 caracteres independentemente da composição", async (newPassword) => {
+  ])("aceita nova senha de 8–128 caracteres independentemente da composição", async (newPassword) => {
     await expect(
       validate(createConfirmDto(newPassword)),
     ).resolves.toHaveLength(0);

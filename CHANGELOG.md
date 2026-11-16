@@ -1,5 +1,13 @@
 # Changelog
 
+## Não publicado
+
+### Senhas e ativação de perfil profissional
+
+- a política de senha passou a aceitar de 8 a 128 caracteres no cadastro, na alteração autenticada e na redefinição, mantendo a blocklist de senhas comuns, Argon2id e as demais proteções;
+- clientes autenticados agora podem ativar um perfil profissional com categorias oficiais, sugestões ou ambas, respeitando o limite combinado de três;
+- sugestões criadas nessa ativação permanecem como `CategoryRequest` pendentes e seguem o fluxo administrativo de análise existente.
+
 ## 2026-11-14
 
 ### Categorias sugeridas no cadastro — publicado em produção

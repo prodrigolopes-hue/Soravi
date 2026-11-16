@@ -44,7 +44,7 @@ export function passwordResetErrorMessage(status: number, code?: string): string
   if (code === "PASSWORD_RESET_INVALID_OR_EXPIRED") return "O link de redefinição é inválido ou expirou. Solicite um novo link.";
   if (code === "PASSWORD_TOO_COMMON") return "Escolha uma senha menos comum e difícil de adivinhar.";
   if (status === 429) return "Muitas tentativas. Aguarde um pouco e tente novamente.";
-  if (status === 400) return "A nova senha deve ter de 12 a 128 caracteres.";
+  if (status === 400) return "A nova senha deve ter de 8 a 128 caracteres.";
   return "Não foi possível redefinir sua senha agora. Tente novamente em instantes.";
 }
 

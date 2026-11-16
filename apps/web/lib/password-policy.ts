@@ -1,8 +1,8 @@
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
 export const PASSWORD_HELP_TEXT =
-  "Use de 12 a 128 caracteres. Evite senhas comuns ou fáceis de adivinhar.";
+  "Use de 8 a 128 caracteres. Evite senhas comuns ou fáceis de adivinhar.";
 
 export function passwordValidationMessage(password: string): string | null {
   if (!password) {

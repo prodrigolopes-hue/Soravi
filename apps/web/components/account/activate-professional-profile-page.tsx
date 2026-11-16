@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, BriefcaseBusiness, LoaderCircle, MapPin } from "lucide-react";
+import { AlertCircle, BriefcaseBusiness, Lightbulb, LoaderCircle, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,11 +16,12 @@ const schema = z.object({
   professionalTitle: z.string().trim().min(3, "Informe um título com pelo menos 3 caracteres.").max(80, "Use no máximo 80 caracteres."),
   serviceArea: z.string().trim().min(2, "Informe uma área de atendimento válida.").max(100, "Use no máximo 100 caracteres."),
   bio: z.string().trim().min(30, "A biografia deve ter pelo menos 30 caracteres.").max(500, "Use no máximo 500 caracteres."),
-  categorySlugs: z.array(z.string()).min(1, "Selecione pelo menos uma categoria.").max(3, "Selecione no máximo três categorias.").refine((items) => new Set(items).size === items.length, "Não selecione categorias duplicadas."),
+  categorySlugs: z.array(z.string()).max(3, "Selecione no máximo três categorias.").refine((items) => new Set(items).size === items.length, "Não selecione categorias duplicadas."),
 });
 
 type FormData = z.infer<typeof schema>;
 type CategoriesState = "loading" | "ready" | "error" | "empty";
+type CategoryRequest = { suggestedName: string; description?: string };
 
 export function ActivateProfessionalProfilePage() {
   const router = useRouter();
@@ -31,6 +32,10 @@ export function ActivateProfessionalProfilePage() {
   const [activationComplete, setActivationComplete] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [requestedCategories, setRequestedCategories] = useState<CategoryRequest[]>([]);
+  const [suggestedName, setSuggestedName] = useState("");
+  const [suggestedDescription, setSuggestedDescription] = useState("");
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const { register, handleSubmit, setError, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema), defaultValues: { professionalTitle: "", serviceArea: "", bio: "", categorySlugs: [] }, mode: "onTouched",
   });
@@ -66,6 +71,16 @@ export function ActivateProfessionalProfilePage() {
     if (next.length <= 3) setValue("categorySlugs", next, { shouldValidate: true, shouldDirty: true });
   }
 
+  function addSuggestion(): void {
+    const name = suggestedName.trim().replace(/\s+/g, " ");
+    const description = suggestedDescription.trim();
+    if (name.length < 2) { setSuggestionError("Informe uma categoria sugerida com pelo menos 2 caracteres."); return; }
+    if (selectedCategories.length + requestedCategories.length >= 3) { setSuggestionError("O total entre categorias oficiais e sugeridas não pode ultrapassar três."); return; }
+    if (requestedCategories.some((item) => item.suggestedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())) { setSuggestionError("Não repita categorias sugeridas."); return; }
+    setRequestedCategories((current) => [...current, { suggestedName: name, ...(description ? { description } : {}) }]);
+    setSuggestedName(""); setSuggestedDescription(""); setSuggestionError(null);
+  }
+
   async function updateSession(): Promise<void> {
     setIsRefreshing(true); setRefreshError(null);
     try {
@@ -82,9 +97,10 @@ export function ActivateProfessionalProfilePage() {
     if (data.categorySlugs.some((slug) => !categories.some((category) => category.slug === slug))) {
       setError("categorySlugs", { message: "Selecione apenas categorias ativas disponíveis." }); return;
     }
+    if (data.categorySlugs.length + requestedCategories.length < 1) { setError("categorySlugs", { message: "Selecione ou sugira pelo menos uma categoria." }); return; }
     setSubmitError(null);
     try {
-      const response = await fetch(professionalProfileActivationUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(data) });
+      const response = await fetch(professionalProfileActivationUrl, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ ...data, categoryRequests: requestedCategories }) });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         const code = getCode(payload);
@@ -105,7 +121,7 @@ export function ActivateProfessionalProfilePage() {
     <header className="mt-5"><p className="font-semibold text-blue-700">Perfil profissional</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Também quero trabalhar</h1><p className="mt-3 max-w-2xl leading-7 text-slate-600">Seu perfil de cliente será mantido. A criação do perfil profissional não representa aprovação. Após criar seu perfil, acesse o painel profissional para solicitar sua verificação.</p></header>
     <form className="mt-8 space-y-6" noValidate onSubmit={handleSubmit(submit)}>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h2 className="text-xl font-bold text-slate-950">Informações profissionais</h2><Field label="Título profissional" id="professionalTitle" error={errors.professionalTitle?.message}><div className="relative"><BriefcaseBusiness aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" /><input id="professionalTitle" maxLength={80} className={inputClass} aria-invalid={Boolean(errors.professionalTitle)} aria-describedby={errors.professionalTitle ? "professionalTitle-error" : undefined} {...register("professionalTitle")} /></div></Field><Field label="Área de atendimento" id="serviceArea" error={errors.serviceArea?.message}><div className="relative"><MapPin aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" /><input id="serviceArea" maxLength={100} className={inputClass} aria-invalid={Boolean(errors.serviceArea)} aria-describedby={errors.serviceArea ? "serviceArea-error" : undefined} {...register("serviceArea")} /></div></Field><Field label="Biografia profissional" id="bio" error={errors.bio?.message}><textarea id="bio" rows={6} maxLength={500} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-950 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100" aria-invalid={Boolean(errors.bio)} aria-describedby={errors.bio ? "bio-error" : undefined} {...register("bio")} /><p className="mt-2 text-right text-xs text-slate-500" aria-live="polite">{bioLength}/500 caracteres</p></Field></section>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h2 className="text-xl font-bold text-slate-950">Categorias de serviço</h2><p className="mt-2 text-sm leading-6 text-slate-600">Selecione de 1 a 3 categorias ativas. Você escolheu {selectedCategories.length} de 3.</p>{categoriesState === "loading" ? <p className="mt-4 text-sm text-slate-600">Carregando categorias...</p> : null}{categoriesState === "error" || categoriesState === "empty" ? <p role="alert" className="mt-4 text-sm text-red-700">Não foi possível carregar categorias ativas. Atualize a página e tente novamente.</p> : null}<div className="mt-4 grid gap-3 sm:grid-cols-2">{categories.map((category) => { const selected = selectedCategories.includes(category.slug); const disabled = !selected && selectedCategories.length >= 3; return <label key={category.id} className={`flex min-h-12 items-center gap-3 rounded-xl border p-3 ${selected ? "border-blue-500 bg-blue-50" : "border-slate-300"} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}><input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleCategory(category.slug)} aria-describedby={errors.categorySlugs ? "categorySlugs-error" : undefined} className="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" /><span className="text-sm font-semibold text-slate-800">{category.name}</span></label>; })}</div>{errors.categorySlugs ? <p id="categorySlugs-error" role="alert" className="mt-3 text-sm font-medium text-red-700">{errors.categorySlugs.message}</p> : null}</section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h2 className="text-xl font-bold text-slate-950">Categorias de serviço</h2><p className="mt-2 text-sm leading-6 text-slate-600">Selecione ou sugira de 1 a 3 categorias. Você escolheu {selectedCategories.length + requestedCategories.length} de 3.</p>{categoriesState === "loading" ? <p className="mt-4 text-sm text-slate-600">Carregando categorias...</p> : null}{categoriesState === "error" || categoriesState === "empty" ? <p role="alert" className="mt-4 text-sm text-red-700">Não foi possível carregar categorias ativas. Atualize a página e tente novamente.</p> : null}<div className="mt-4 grid gap-3 sm:grid-cols-2">{categories.map((category) => { const selected = selectedCategories.includes(category.slug); const disabled = !selected && selectedCategories.length + requestedCategories.length >= 3; return <label key={category.id} className={`flex min-h-12 items-center gap-3 rounded-xl border p-3 ${selected ? "border-blue-500 bg-blue-50" : "border-slate-300"} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}><input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleCategory(category.slug)} aria-describedby={errors.categorySlugs ? "categorySlugs-error" : undefined} className="size-4 rounded border border-slate-300 text-blue-600 focus:ring-blue-600" /><span className="text-sm font-semibold text-slate-800">{category.name}</span></label>; })}</div><div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-center gap-2 font-semibold text-slate-900"><Lightbulb aria-hidden="true" className="size-4 text-blue-700" />Sugerir categoria</div><p className="mt-1 text-sm text-slate-600">A sugestão será analisada pela equipe após a criação do perfil.</p><input value={suggestedName} onChange={(event) => setSuggestedName(event.target.value)} maxLength={120} placeholder="Ex.: Técnico em aquecedor" className="mt-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3" /><textarea value={suggestedDescription} onChange={(event) => setSuggestedDescription(event.target.value)} maxLength={1000} rows={2} placeholder="Descrição opcional" className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2" /><button type="button" onClick={addSuggestion} disabled={selectedCategories.length + requestedCategories.length >= 3} className="mt-3 min-h-11 rounded-lg border border-blue-300 bg-white px-3 text-sm font-semibold text-blue-800 disabled:opacity-60">Adicionar sugestão</button>{suggestionError ? <p role="alert" className="mt-2 text-sm text-red-700">{suggestionError}</p> : null}{requestedCategories.length ? <ul className="mt-3 text-sm text-blue-900">{requestedCategories.map((item) => <li key={item.suggestedName}>{item.suggestedName} <button type="button" onClick={() => setRequestedCategories((current) => current.filter((candidate) => candidate !== item))} className="underline">remover</button></li>)}</ul> : null}</div>{errors.categorySlugs ? <p id="categorySlugs-error" role="alert" className="mt-3 text-sm font-medium text-red-700">{errors.categorySlugs.message}</p> : null}</section>
       {submitError ? <div role="alert" className="flex gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800"><AlertCircle aria-hidden="true" className="size-5 shrink-0" />{submitError}</div> : null}
       <button type="submit" disabled={isSubmitting || categoriesState !== "ready"} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400">{isSubmitting ? <><LoaderCircle aria-hidden="true" className="size-5 animate-spin" />Criando perfil...</> : "Criar perfil profissional"}</button>
     </form>

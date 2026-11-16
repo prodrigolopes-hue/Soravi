@@ -61,12 +61,13 @@ describe("RegisterUserDto confirmações obrigatórias", () => {
 describe("RegisterUserDto password", () => {
   it.each([
     "SenhaSegura123",
+    "Senha123",
     "somenteletrasminusculas",
     "123456789012",
     "!@#$%^&*()_+",
     `${"a".repeat(127)}1`,
   ])(
-    "aceita senha de 12–128 caracteres independentemente da composição: %s",
+    "aceita senha de 8–128 caracteres independentemente da composição: %s",
     async (password) => {
       const dto = createDto(undefined);
       dto.password = password;
