@@ -1,5 +1,19 @@
-import { Transform } from "class-transformer";
-import { ArrayMaxSize, ArrayUnique, IsArray, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { ArrayMaxSize, ArrayUnique, IsArray, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
+
+class CategoryRequestDto {
+  @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  suggestedName!: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value)
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
 
 export class ActivateCurrentProfessionalProfileDto {
   @Transform(({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value)
@@ -32,5 +46,7 @@ export class ActivateCurrentProfessionalProfileDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(3)
-  categoryRequests?: Array<{ suggestedName: string; description?: string }>;
+  @ValidateNested({ each: true })
+  @Type(() => CategoryRequestDto)
+  categoryRequests?: CategoryRequestDto[];
 }

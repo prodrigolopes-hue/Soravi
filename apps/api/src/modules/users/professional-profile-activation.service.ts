@@ -39,7 +39,9 @@ export class ProfessionalProfileActivationService {
       if (categorySlugs.length + categoryRequests.length < 1 || categorySlugs.length + categoryRequests.length > 3 || new Set(categorySlugs).size !== categorySlugs.length) {
         throw new InvalidProfessionalProfileCategoriesException();
       }
-      const categories = await transaction.category.findMany({ where: { slug: { in: categorySlugs }, isActive: true }, select: { id: true } });
+      const categories = categorySlugs.length > 0
+        ? await transaction.category.findMany({ where: { slug: { in: categorySlugs }, isActive: true }, select: { id: true } })
+        : [];
       if (categories.length !== categorySlugs.length) throw new InvalidProfessionalProfileCategoriesException();
       await this.ensureNoOpenOwnRequest(transaction, userId, categories.map(({ id }) => id));
 

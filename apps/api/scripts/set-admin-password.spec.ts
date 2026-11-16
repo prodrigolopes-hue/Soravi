@@ -123,7 +123,7 @@ describe("set-admin-password", () => {
   });
 
   it.each([
-    ["Curta123", "pelo menos 12"],
+    ["Curta12", "pelo menos 8"],
     [`A1${"x".repeat(127)}`, "no máximo 128"],
     ["123456789012", "menos comum"],
     ["abcdefghijkl", "menos comum"],
@@ -131,7 +131,7 @@ describe("set-admin-password", () => {
     expect(() => validateAdminPassword(password)).toThrow(expectedMessage);
   });
 
-  it.each([["zqxjkvbnmwpl"], ["581047293618"]])(
+  it.each([["zqxjkvbn"], ["581047293618"]])(
     "aceita senha somente letras ou somente números quando não é comum",
     (password) => {
       expect(() => validateAdminPassword(password)).not.toThrow();

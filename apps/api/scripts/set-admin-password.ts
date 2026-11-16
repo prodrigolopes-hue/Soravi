@@ -93,7 +93,7 @@ export function validateDatabaseUrl(value: string | undefined): string {
 export function validateAdminPassword(password: string): void {
   if (password.length < PASSWORD_MIN_LENGTH) {
     throw new AdminPasswordOperationError(
-      "A nova senha deve ter pelo menos 12 caracteres.",
+      `A nova senha deve ter pelo menos ${PASSWORD_MIN_LENGTH} caracteres.`,
     );
   }
 

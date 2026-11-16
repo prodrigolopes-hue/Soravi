@@ -44,6 +44,7 @@ describe("ProfessionalProfileActivationService", () => {
   });
   it("cria perfil somente com categoria sugerida", async () => {
     await expect(service.activateCurrentCustomer(userId, { ...input, categorySlugs: [], categoryRequests: [{ suggestedName: "Técnico solar" }] })).resolves.toMatchObject({ id: userId });
+    expect(transaction.category.findMany).not.toHaveBeenCalled();
     expect(transaction.professionalProfile.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ categoryRequests: { create: [expect.objectContaining({ suggestedName: "Técnico solar" })] } }) }));
   });
   it("rejeita mais de três categorias oficiais e sugeridas juntas", async () => {
