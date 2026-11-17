@@ -6,7 +6,10 @@ import { Client } from "pg";
 
 const EXPECTED_DATABASE = "soravi_migration_bootstrap_test";
 const OPT_IN_VARIABLE = "RUN_MIGRATION_BOOTSTRAP_TEST";
+const ALTERNATE_PORT_OPT_IN_VARIABLE = "RUN_MIGRATION_BOOTSTRAP_ON_55432";
 const DATABASE_URL_VARIABLE = "MIGRATION_BOOTSTRAP_DATABASE_URL";
+const DEFAULT_PORT = "5432";
+const ALTERNATE_TEST_PORT = "55432";
 const MODERATION_MIGRATION =
   "20260814000100_add_public_category_suggestion_moderation";
 const SUGGESTIONS_MIGRATION = "20260814171754_add_public_category_suggestions";
@@ -103,16 +106,18 @@ export function validateBootstrapDatabaseUrl(value: string | undefined): string 
     databaseUrl.protocol === "postgres:" || databaseUrl.protocol === "postgresql:";
   const isLocalHost =
     databaseUrl.hostname === "localhost" || databaseUrl.hostname === "127.0.0.1";
+  const allowsAlternatePort = process.env[ALTERNATE_PORT_OPT_IN_VARIABLE] === "true";
+  const expectedPort = allowsAlternatePort ? ALTERNATE_TEST_PORT : DEFAULT_PORT;
 
   if (
     !supportedProtocol ||
     !isLocalHost ||
-    databaseUrl.port !== "5432" ||
+    databaseUrl.port !== expectedPort ||
     databaseUrl.pathname !== `/${EXPECTED_DATABASE}` ||
     databaseUrl.hash
   ) {
     throw new MigrationBootstrapError(
-      `O bootstrap aceita somente PostgreSQL em localhost/127.0.0.1:5432/${EXPECTED_DATABASE}.`,
+      `O bootstrap aceita somente PostgreSQL em localhost/127.0.0.1:${expectedPort}/${EXPECTED_DATABASE}.`,
     );
   }
 

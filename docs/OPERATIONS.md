@@ -68,7 +68,10 @@ ambientes existentes.
 Para validar uma instalação do zero, use exclusivamente o script versionado
 `apps/api/scripts/bootstrap-public-category-suggestions-migrations.ts`. Ele
 aceita apenas PostgreSQL em `localhost` ou `127.0.0.1`, porta `5432`, banco
-`soravi_migration_bootstrap_test`; não cria, apaga ou reseta banco algum. O
+`soravi_migration_bootstrap_test`; não cria, apaga ou reseta banco algum. Com
+o opt-in adicional `RUN_MIGRATION_BOOTSTRAP_ON_55432=true`, aceita somente a
+porta local alternativa `55432` para um teste descartável; nenhuma outra porta
+é aceita. O
 banco deve ser criado previamente e estar sem objetos de aplicação e sem
 `_prisma_migrations`.
 
@@ -77,6 +80,16 @@ Com a URL local fornecida somente no ambiente do processo, execute:
 ```powershell
 $env:RUN_MIGRATION_BOOTSTRAP_TEST = "true"
 $env:MIGRATION_BOOTSTRAP_DATABASE_URL = "postgresql://.../soravi_migration_bootstrap_test"
+npm run prisma:migrate:bootstrap-public-category-suggestions --workspace=@soravi/api
+```
+
+Quando a porta `5432` estiver ocupada, o procedimento descartável pode usar
+somente `55432`, sempre com os dois opt-ins explícitos:
+
+```powershell
+$env:RUN_MIGRATION_BOOTSTRAP_TEST = "true"
+$env:RUN_MIGRATION_BOOTSTRAP_ON_55432 = "true"
+$env:MIGRATION_BOOTSTRAP_DATABASE_URL = "postgresql://...:55432/soravi_migration_bootstrap_test"
 npm run prisma:migrate:bootstrap-public-category-suggestions --workspace=@soravi/api
 ```
 
