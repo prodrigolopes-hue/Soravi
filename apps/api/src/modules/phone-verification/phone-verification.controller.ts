@@ -33,13 +33,14 @@ export class PhoneVerificationController {
   }
 
   @Post("confirm")
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @UseGuards(AccessTokenGuard, ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 600_000 } })
   async confirmCode(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() input: PhoneVerificationConfirmDto,
-  ): Promise<void> {
-    await this.phoneVerificationService.confirmCode(currentUser.id, input.code);
+  ): Promise<{ data: { activatedCustomerAccount: boolean } }> {
+    const confirmation = await this.phoneVerificationService.confirmCode(currentUser.id, input.code);
+    return { data: confirmation };
   }
 }

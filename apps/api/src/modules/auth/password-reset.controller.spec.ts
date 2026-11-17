@@ -17,7 +17,10 @@ describe("AuthController password reset", () => {
   };
   const emailVerificationServiceMock = {
     requestVerification: jest.fn().mockResolvedValue(undefined),
-    confirm: jest.fn().mockResolvedValue("user-1"),
+    confirm: jest.fn().mockResolvedValue({
+      userId: "user-1",
+      activatedCustomerAccount: false,
+    }),
   };
   const accessTokenAuthServiceMock = {
     extractBearerToken: jest.fn(),
@@ -29,6 +32,10 @@ describe("AuthController password reset", () => {
     emailVerificationServiceMock as unknown as EmailVerificationService,
     accessTokenAuthServiceMock as unknown as AccessTokenAuthService,
   );
+
+  beforeEach(() => {
+    accessTokenAuthServiceMock.extractBearerToken.mockReturnValue(undefined);
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -69,7 +76,10 @@ describe("AuthController password reset", () => {
     );
 
     await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, undefined)).resolves.toEqual({
-      data: { currentSessionMatches: null },
+      data: {
+        currentSessionMatches: null,
+        activatedCustomerAccount: false,
+      },
     });
     expect(emailVerificationServiceMock.confirm).toHaveBeenCalledWith(
       "a".repeat(43),
@@ -80,12 +90,32 @@ describe("AuthController password reset", () => {
     accessTokenAuthServiceMock.extractBearerToken.mockReturnValue("access-token");
     accessTokenAuthServiceMock.authenticateAccessToken.mockResolvedValue({ id: "user-1" });
     await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, "Bearer access-token")).resolves.toEqual({
-      data: { currentSessionMatches: true },
+      data: {
+        currentSessionMatches: true,
+        activatedCustomerAccount: false,
+      },
     });
 
     accessTokenAuthServiceMock.authenticateAccessToken.mockResolvedValue({ id: "other-user" });
     await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, "Bearer access-token")).resolves.toEqual({
-      data: { currentSessionMatches: false },
+      data: {
+        currentSessionMatches: false,
+        activatedCustomerAccount: false,
+      },
+    });
+  });
+
+  it("inclui no contrato se a confirmacao ativou uma conta de cliente", async () => {
+    emailVerificationServiceMock.confirm.mockResolvedValueOnce({
+      userId: "user-1",
+      activatedCustomerAccount: true,
+    });
+
+    await expect(controller.confirmEmailVerification({ token: "a".repeat(43) }, undefined)).resolves.toEqual({
+      data: {
+        currentSessionMatches: null,
+        activatedCustomerAccount: true,
+      },
     });
   });
 

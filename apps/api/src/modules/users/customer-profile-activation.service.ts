@@ -6,6 +6,7 @@ import { Role, UserStatus } from "../../generated/prisma/client";
 import { UserResponseDto } from "./dto/user-response.dto";
 import { CustomerProfileActivationUnavailableException } from "./errors/customer-profile-activation-unavailable.exception";
 import { UsersService } from "./users.service";
+import { tryAutoActivatePendingCustomer } from "./customer-account-auto-activation";
 
 @Injectable()
 export class CustomerProfileActivationService {
@@ -43,6 +44,7 @@ export class CustomerProfileActivationService {
         update: {},
         create: { userId, role: Role.CUSTOMER },
       });
+      await tryAutoActivatePendingCustomer(transaction, userId);
     });
 
     return this.usersService.findSafeById(userId);

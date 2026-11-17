@@ -78,12 +78,18 @@ export class AuthController {
   async confirmEmailVerification(
     @Body() input: EmailVerificationConfirmDto,
     @Headers("authorization") authorization: string | undefined,
-  ): Promise<{ data: { currentSessionMatches: boolean | null } }> {
+  ): Promise<{
+    data: {
+      currentSessionMatches: boolean | null;
+      activatedCustomerAccount: boolean;
+    };
+  }> {
     const currentUser = await this.authenticateCurrentSession(authorization);
-    const confirmedUserId = await this.emailVerificationService.confirm(input.token);
+    const confirmation = await this.emailVerificationService.confirm(input.token);
     return {
       data: {
-        currentSessionMatches: currentUser === null ? null : currentUser.id === confirmedUserId,
+        currentSessionMatches: currentUser === null ? null : currentUser.id === confirmation.userId,
+        activatedCustomerAccount: confirmation.activatedCustomerAccount,
       },
     };
   }

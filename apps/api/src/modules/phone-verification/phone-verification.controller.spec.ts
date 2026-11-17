@@ -34,10 +34,11 @@ describe("PhoneVerificationController", () => {
     expect(serviceMock.requestChallenge).toHaveBeenCalledWith(currentUser.id);
   });
 
-  it("confirm usa apenas currentUser e code e não retorna dados", async () => {
+  it("confirm usa apenas currentUser e code e retorna o estado de ativação", async () => {
+    serviceMock.confirmCode.mockResolvedValue({ activatedCustomerAccount: true });
     await expect(
       controller.confirmCode(currentUser, { code: "012345" }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ data: { activatedCustomerAccount: true } });
     expect(serviceMock.confirmCode).toHaveBeenCalledWith(
       currentUser.id,
       "012345",
@@ -68,7 +69,7 @@ describe("PhoneVerificationController", () => {
         "__httpCode__",
         PhoneVerificationController.prototype.confirmCode,
       ),
-    ).toBe(HttpStatus.NO_CONTENT);
+    ).toBe(HttpStatus.OK);
   });
 
   it("configura limites distintos nos dois endpoints", () => {

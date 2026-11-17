@@ -70,6 +70,7 @@ export function PhoneVerificationForm() {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activationNotice, setActivationNotice] = useState(false);
   const requestInFlightRef = useRef(false);
   const confirmationInFlightRef = useRef(false);
   const phoneChangeInFlightRef = useRef(false);
@@ -104,7 +105,7 @@ export function PhoneVerificationForm() {
       return;
     }
 
-    if (user.phoneVerified) {
+    if (user.phoneVerified && !activationNotice) {
       router.replace(destination);
     }
   }, [accessToken, destination, isAuthenticated, isLoading, router, user]);
@@ -171,11 +172,12 @@ export function PhoneVerificationForm() {
     setSuccessMessage(null);
 
     try {
-      await confirmPhoneVerification(accessToken, code);
+      const confirmation = await confirmPhoneVerification(accessToken, code);
       setCode("");
-      setSuccessMessage("Telefone verificado com sucesso.");
+      setSuccessMessage(confirmation.activatedCustomerAccount ? "Telefone verificado. Sua conta foi ativada; você já pode contratar serviços." : "Telefone verificado com sucesso.");
+      setActivationNotice(confirmation.activatedCustomerAccount);
       await refreshSession();
-      router.replace(destination);
+      if (!confirmation.activatedCustomerAccount) router.replace(destination);
     } catch (error) {
       setErrorMessage(publicErrorMessage(error));
     } finally {
@@ -244,7 +246,7 @@ export function PhoneVerificationForm() {
     !isAuthenticated ||
     !accessToken ||
     !user ||
-    user.phoneVerified
+    (user.phoneVerified && !activationNotice)
   ) {
     return (
       <main className="bg-slate-50">
@@ -390,6 +392,8 @@ export function PhoneVerificationForm() {
                 Cancelar
               </button>
             </form>
+          ) : activationNotice ? (
+            <button type="button" onClick={() => router.replace(destination)} className="mt-8 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white">Ir para minha conta</button>
           ) : !codeSent ? (
             <button
               type="button"

@@ -13,6 +13,7 @@ import {
   PhoneVerificationDeliveryPort,
   SendPhoneVerificationOtpInput,
 } from "./phone-verification-delivery.port";
+import { tryAutoActivatePendingCustomer } from "../users/customer-account-auto-activation";
 
 interface LockedPhoneVerificationUser {
   id: string;
@@ -158,7 +159,7 @@ export class PhoneVerificationService {
     }
   }
 
-  async confirmCode(userId: string, code: string): Promise<void> {
+  async confirmCode(userId: string, code: string): Promise<{ activatedCustomerAccount: boolean }> {
     const confirmed = await this.prisma.$transaction(async (transaction) => {
       const user = await this.lockUser(transaction, userId);
       const challenge = await this.lockLatestActiveChallenge(
@@ -217,12 +218,13 @@ export class PhoneVerificationService {
         data: { consumedAt: now },
       });
 
-      return true;
+        return { activatedCustomerAccount: await tryAutoActivatePendingCustomer(transaction, user.id) };
     });
 
     if (!confirmed) {
       throw new InvalidPhoneVerificationCodeException();
     }
+    return confirmed;
   }
 
   private async lockUser(

@@ -26,6 +26,7 @@ export default function VerifyEmailPage() {
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const [fromProfessionalProfile, setFromProfessionalProfile] = useState(false);
   const [fromProfessionalRegistration, setFromProfessionalRegistration] = useState(false);
+  const [activatedCustomerAccount, setActivatedCustomerAccount] = useState(false);
   const hasStartedConfirmation = useRef(false);
   const guidance = registrationGuidance(fromProfessionalRegistration);
 
@@ -67,6 +68,7 @@ export default function VerifyEmailPage() {
         if (!response.ok) throw new Error("Email verification failed.");
         const payload: unknown = await response.json().catch(() => null);
         const nextSessionState = confirmationSessionState(hasSession, getCurrentSessionMatches(payload));
+        setActivatedCustomerAccount(getActivatedCustomerAccount(payload));
         if (nextSessionState === "other-account") await signOut();
         setSessionState(nextSessionState);
         setState("success");
@@ -98,9 +100,9 @@ export default function VerifyEmailPage() {
         {state === "registration" ? <>{guidance.title ? <h2 className="mt-3 text-lg font-bold text-slate-950">{guidance.title}</h2> : null}<p className="mt-3 leading-6 text-slate-700">{guidance.message}</p></> : null}
         {state === "invalid" ? <p className="mt-3 text-red-700">Este link é inválido ou expirou. Solicite um novo link.</p> : null}
         {state === "missing" ? <p className="mt-3 text-slate-700">Abra o link completo enviado para seu e-mail.</p> : null}
-        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Sua sessão foi mantida.</p>{fromProfessionalProfile ? <ResultLink href="/profissional/perfil" label="Voltar ao perfil profissional" /> : user?.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false ? <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"><h2 className="font-semibold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto para a análise privada. Isso não significa aprovação automática da identidade.</p><div className="mt-4 flex flex-wrap gap-3"><ResultLink href="/profissional/perfil" label="Completar cadastro" compact /><ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Fazer depois" compact /></div></div> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
-        {state === "success" && sessionState === "other-account" ? <><p className="mt-3 text-emerald-800">E-mail confirmado. Para proteger as contas, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente.</p><ResultLink href={loginHref} label="Entrar" /></> : null}
-        {state === "success" && sessionState === "signed-out" ? <><p className="mt-3 text-emerald-800">E-mail confirmado.</p><ResultLink href={loginHref} label="Entrar" /></> : null}
+        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços." : "E-mail confirmado. Sua sessão foi mantida."}</p>{fromProfessionalProfile ? <ResultLink href="/profissional/perfil" label="Voltar ao perfil profissional" /> : user?.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false ? <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"><h2 className="font-semibold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto para a análise privada. Isso não significa aprovação automática da identidade.</p><div className="mt-4 flex flex-wrap gap-3"><ResultLink href="/profissional/perfil" label="Completar cadastro" compact /><ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Fazer depois" compact /></div></div> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
+        {state === "success" && sessionState === "other-account" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços. Para protegê-la, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente." : "E-mail confirmado. Para proteger as contas, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente."}</p><ResultLink href={loginHref} label="Entrar" /></> : null}
+        {state === "success" && sessionState === "signed-out" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços." : "E-mail confirmado."}</p><ResultLink href={loginHref} label="Entrar" /></> : null}
         {state !== "success" ? (
           <form className="mt-5" onSubmit={(event) => void requestNewLink(event)}>
             <label htmlFor="verification-email" className="block text-sm font-semibold text-slate-800">E-mail</label>
@@ -120,6 +122,12 @@ function getCurrentSessionMatches(payload: unknown): boolean | null {
   const data = payload.data;
   if (typeof data !== "object" || data === null || !("currentSessionMatches" in data)) return null;
   return typeof data.currentSessionMatches === "boolean" ? data.currentSessionMatches : null;
+}
+
+function getActivatedCustomerAccount(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null || !("data" in payload)) return false;
+  const data = payload.data;
+  return typeof data === "object" && data !== null && "activatedCustomerAccount" in data && data.activatedCustomerAccount === true;
 }
 
 function ResultLink({ href, label, compact = false }: { href: string; label: string; compact?: boolean }) {

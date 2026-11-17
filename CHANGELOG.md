@@ -10,6 +10,15 @@
 - validação local concluída no commit `2126f04`: 1.318 testes da API, build da API e build do site aprovados; não foi executado nem é afirmado teste funcional em staging;
 - para uma futura publicação, a ordem operacional permanece API (e migrations pendentes, se houver) antes do site; esta anotação não registra deploy, merge ou promoção de ambiente.
 
+## 2026-11-15
+
+### Ativação automática de conta de cliente
+
+- contas de cliente em `PENDING` passam a `ACTIVE` somente após as confirmações de e-mail e telefone, em qualquer ordem;
+- a regra não faz backfill, migration ou ativação em massa e preserva contas bloqueadas, suspensas, desativadas ou excluídas;
+- perfis profissionais continuam sujeitos à sua análise e aprovação próprias, inclusive em contas com os dois perfis.
+- verificados localmente: 47 testes unitários adicionais aprovados e uma suíte de integração PostgreSQL real, com um teste de confirmações concorrentes aprovado; o banco descartável estava com 52 migrations em dia.
+
 ## 2026-11-14
 
 ### Categorias sugeridas no cadastro — publicado em produção
