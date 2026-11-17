@@ -7,6 +7,8 @@
 - administradores podem resolver uma solicitação pendente em uma a três categorias oficiais, existentes ou criadas explicitamente na decisão;
 - a decisão grava todas as resoluções e os vínculos do profissional em uma transação, preservando a resolução única legada para compatibilidade;
 - o limite combinado de três categorias oficiais e solicitações pendentes é revalidado antes de qualquer gravação parcial.
+- validada em banco PostgreSQL local descartável a migration `20261116000100_add_category_request_multi_resolution`: backfill de resolução legada, decisão em múltiplas categorias, limite de três com rollback sem alteração parcial e concorrência passaram em três testes de integração;
+- a validação usou exclusivamente `localhost:55432/soravi_migration_bootstrap_test`, com bootstrap histórico controlado; não houve alteração em staging ou produção.
 
 ### Senhas e ativação de perfil profissional
 
