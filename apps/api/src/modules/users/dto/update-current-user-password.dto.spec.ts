@@ -32,11 +32,11 @@ describe("UpdateCurrentUserPasswordDto", () => {
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
 
-  it("rejeita nova senha com menos de 12 caracteres", async () => {
+  it("rejeita nova senha com menos de 8 caracteres", async () => {
     const errors = await validate(
       plainToInstance(UpdateCurrentUserPasswordDto, {
         currentPassword: "senha atual",
-        newPassword: "12345678901",
+        newPassword: "1234567",
       }),
     );
 

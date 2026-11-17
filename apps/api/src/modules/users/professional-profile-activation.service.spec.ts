@@ -42,6 +42,14 @@ describe("ProfessionalProfileActivationService", () => {
     transaction.category.findMany.mockResolvedValue([]);
     await expect(service.activateCurrentCustomer(userId, input)).rejects.toMatchObject({ response: expect.objectContaining({ code: "INVALID_PROFESSIONAL_PROFILE_CATEGORIES" }) });
   });
+  it("cria perfil somente com categoria sugerida", async () => {
+    await expect(service.activateCurrentCustomer(userId, { ...input, categorySlugs: [], categoryRequests: [{ suggestedName: "Técnico solar" }] })).resolves.toMatchObject({ id: userId });
+    expect(transaction.category.findMany).not.toHaveBeenCalled();
+    expect(transaction.professionalProfile.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ categoryRequests: { create: [expect.objectContaining({ suggestedName: "Técnico solar" })] } }) }));
+  });
+  it("rejeita mais de três categorias oficiais e sugeridas juntas", async () => {
+    await expect(service.activateCurrentCustomer(userId, { ...input, categorySlugs: ["a", "b"], categoryRequests: [{ suggestedName: "Solar" }, { suggestedName: "Gás" }] })).rejects.toMatchObject({ response: expect.objectContaining({ code: "INVALID_PROFESSIONAL_PROFILE_CATEGORIES" }) });
+  });
   it("rejeita conflito com solicitação própria aberta", async () => {
     transaction.serviceRequest.findFirst.mockResolvedValue({ id: "request" });
     await expect(service.activateCurrentCustomer(userId, input)).rejects.toBeInstanceOf(ProfessionalCategoryOpenServiceRequestException);

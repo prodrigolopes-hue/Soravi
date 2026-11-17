@@ -21,7 +21,7 @@ export class PasswordResetConfirmDto {
 
   @IsString({ message: "A nova senha deve ser um texto." })
   @MinLength(PASSWORD_MIN_LENGTH, {
-    message: "A nova senha deve possuir pelo menos 12 caracteres.",
+    message: "A nova senha deve possuir pelo menos 8 caracteres.",
   })
   @MaxLength(PASSWORD_MAX_LENGTH, {
     message: "A nova senha deve possuir no máximo 128 caracteres.",
