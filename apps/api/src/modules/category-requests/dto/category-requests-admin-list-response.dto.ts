@@ -21,6 +21,7 @@ export type CategoryRequestsAdminItemRecord = {
     name: string;
     slug: string;
   } | null;
+  resolvedCategories?: Array<{ category: { id: string; name: string; slug: string } }>;
 };
 
 export class CategoryRequestsAdminProfessionalUserResponseDto {
@@ -78,6 +79,7 @@ export class CategoryRequestsAdminItemResponseDto {
   reviewedAt!: Date | null;
   professionalProfile!: CategoryRequestsAdminProfessionalProfileResponseDto;
   resolvedCategory!: CategoryRequestsAdminResolvedCategoryResponseDto | null;
+  resolvedCategories!: CategoryRequestsAdminResolvedCategoryResponseDto[];
 
   constructor(properties: CategoryRequestsAdminItemRecord) {
     this.id = properties.id;
@@ -94,6 +96,9 @@ export class CategoryRequestsAdminItemResponseDto {
         properties.resolvedCategory,
       )
       : null;
+    this.resolvedCategories = (properties.resolvedCategories ?? []).map(
+      (item) => new CategoryRequestsAdminResolvedCategoryResponseDto(item.category),
+    );
   }
 }
 

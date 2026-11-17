@@ -22,6 +22,7 @@ const CATEGORY_REQUEST_PUBLIC_SELECT = {
   status: true,
   reviewNotes: true,
   resolvedCategory: { select: { id: true, name: true, slug: true } },
+  resolvedCategories: { select: { category: { select: { id: true, name: true, slug: true } } }, orderBy: { category: { name: "asc" } } },
   createdAt: true,
 } satisfies Prisma.CategoryRequestSelect;
 
@@ -60,6 +61,7 @@ const CATEGORY_REQUEST_ADMIN_SELECT = {
       slug: true,
     },
   },
+  resolvedCategories: { select: { category: { select: { id: true, name: true, slug: true } } }, orderBy: { category: { name: "asc" } } },
 } satisfies Prisma.CategoryRequestSelect;
 
 @Injectable()
@@ -208,30 +210,45 @@ export class CategoryRequestsService {
         const updated = await transaction.categoryRequest.update({ where: { id }, data: { status: CategoryRequestStatus.REJECTED, reviewNotes: notes, reviewedAt: new Date(), reviewedByUserId: reviewerUserId }, select: CATEGORY_REQUEST_PUBLIC_SELECT });
         return new CategoryRequestResponseDto(updated);
       }
-      let categoryId: string;
-      if (input.decision === "ASSOCIATE") {
-        if (!input.categoryId) throw new BadRequestException({ code: "CATEGORY_ID_REQUIRED", message: "Selecione uma categoria existente." });
-        const category = await transaction.category.findFirst({ where: { id: input.categoryId, isActive: true }, select: { id: true } });
-        if (!category) throw new BadRequestException({ code: "INVALID_CATEGORY", message: "Selecione uma categoria oficial ativa." });
-        categoryId = category.id;
-      } else {
-        const name = input.categoryName?.trim() || request.suggestedName;
-        const slug = input.categorySlug?.trim().toLowerCase() || this.slugify(name);
-        if (!slug || slug === "outros") throw new BadRequestException({ code: "INVALID_CATEGORY_SLUG", message: "Informe uma categoria oficial específica." });
-        const existing = await transaction.category.findUnique({ where: { slug }, select: { id: true, isActive: true } });
-        if (existing) {
-          if (!existing.isActive) throw new ConflictException({ code: "CATEGORY_SLUG_INACTIVE", message: "Já existe uma categoria inativa com este identificador." });
-          categoryId = existing.id;
-        } else {
-          categoryId = (await transaction.category.create({ data: { name, slug, isActive: true }, select: { id: true } })).id;
+      const choices = this.resolutionChoices(input, request.suggestedName);
+      const categoryIds: string[] = [];
+      for (const choice of choices) {
+        if (choice.categoryId) {
+          const category = await transaction.category.findFirst({ where: { id: choice.categoryId, isActive: true }, select: { id: true } });
+          if (!category) throw new BadRequestException({ code: "INVALID_CATEGORY", message: "Selecione apenas categorias oficiais ativas." });
+          categoryIds.push(category.id); continue;
         }
+        const name = choice.create!.name.trim(); const slug = (choice.create!.slug?.trim().toLowerCase() || this.slugify(name));
+        if (!name || !slug || slug === "outros") throw new BadRequestException({ code: "INVALID_CATEGORY", message: "Informe categorias oficiais válidas." });
+        const existing = await transaction.category.findUnique({ where: { slug }, select: { id: true, isActive: true } });
+        if (existing) { if (!existing.isActive) throw new ConflictException({ code: "CATEGORY_SLUG_INACTIVE", message: "Já existe uma categoria inativa com este identificador." }); categoryIds.push(existing.id); }
+        else categoryIds.push((await transaction.category.create({ data: { name, slug, isActive: true }, select: { id: true } })).id);
       }
-      const existingAssociation = await transaction.professionalCategory.findUnique({ where: { professionalProfileId_categoryId: { professionalProfileId: request.professionalProfileId, categoryId } }, select: { id: true } });
-      if (!existingAssociation && categoryCount >= 3) throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "O profissional já atingiu o limite de três categorias." });
-      await transaction.professionalCategory.upsert({ where: { professionalProfileId_categoryId: { professionalProfileId: request.professionalProfileId, categoryId } }, update: {}, create: { professionalProfileId: request.professionalProfileId, categoryId } });
-      const updated = await transaction.categoryRequest.update({ where: { id }, data: { status: input.decision === "CREATE" ? CategoryRequestStatus.APPROVED : CategoryRequestStatus.MERGED, resolvedCategoryId: categoryId, reviewNotes: notes, reviewedAt: new Date(), reviewedByUserId: reviewerUserId }, select: CATEGORY_REQUEST_PUBLIC_SELECT });
+      if (new Set(categoryIds).size !== categoryIds.length) throw new BadRequestException({ code: "DUPLICATE_RESOLVED_CATEGORY", message: "Não repita categorias na decisão." });
+      const existingAssociations = await transaction.professionalCategory.findMany({ where: { professionalProfileId: request.professionalProfileId, categoryId: { in: categoryIds } }, select: { categoryId: true } });
+      const additions = categoryIds.length - existingAssociations.length;
+      const pending = await transaction.categoryRequest.count({ where: { professionalProfileId: request.professionalProfileId, status: CategoryRequestStatus.PENDING, id: { not: id } } });
+      if (categoryCount + additions + pending > 3) throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "Não foi possível concluir: este profissional ficaria com mais de três categorias ou solicitações pendentes." });
+      for (const categoryId of categoryIds) await transaction.professionalCategory.upsert({ where: { professionalProfileId_categoryId: { professionalProfileId: request.professionalProfileId, categoryId } }, update: {}, create: { professionalProfileId: request.professionalProfileId, categoryId } });
+      await transaction.categoryRequestResolvedCategory.createMany({ data: categoryIds.map((categoryId) => ({ categoryRequestId: id, categoryId })), skipDuplicates: true });
+      const updated = await transaction.categoryRequest.update({ where: { id }, data: { status: input.decision === "ASSOCIATE" ? CategoryRequestStatus.MERGED : CategoryRequestStatus.APPROVED, resolvedCategoryId: categoryIds[0], reviewNotes: notes, reviewedAt: new Date(), reviewedByUserId: reviewerUserId }, select: CATEGORY_REQUEST_PUBLIC_SELECT });
       return new CategoryRequestResponseDto(updated);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  private resolutionChoices(input: DecideCategoryRequestDto, suggestedName: string): Array<{ categoryId?: string; create?: { name: string; slug?: string } }> {
+    if (input.decision === "RESOLVE") {
+      if (!input.categories || input.categories.length < 1 || input.categories.length > 3) throw new BadRequestException({ code: "INVALID_RESOLUTION_CATEGORIES", message: "Escolha de uma a três categorias." });
+      return input.categories.map((item) => {
+        if (Boolean(item.categoryId) === Boolean(item.create)) throw new BadRequestException({ code: "INVALID_RESOLUTION_CATEGORIES", message: "Cada resolução deve escolher uma categoria existente ou criar uma nova." });
+        return item.create ? { create: item.create } : { categoryId: item.categoryId };
+      });
+    }
+    if (input.decision === "ASSOCIATE") {
+      if (!input.categoryId) throw new BadRequestException({ code: "CATEGORY_ID_REQUIRED", message: "Selecione uma categoria existente." });
+      return [{ categoryId: input.categoryId }];
+    }
+    return [{ create: { name: input.categoryName?.trim() || suggestedName, slug: input.categorySlug } }];
   }
 
   private slugify(value: string): string {

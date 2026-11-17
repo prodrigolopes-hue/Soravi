@@ -2,6 +2,12 @@
 
 ## Não publicado
 
+### Resolução de sugestões de categoria
+
+- administradores podem resolver uma solicitação pendente em uma a três categorias oficiais, existentes ou criadas explicitamente na decisão;
+- a decisão grava todas as resoluções e os vínculos do profissional em uma transação, preservando a resolução única legada para compatibilidade;
+- o limite combinado de três categorias oficiais e solicitações pendentes é revalidado antes de qualquer gravação parcial.
+
 ### Senhas e ativação de perfil profissional
 
 - a política de senha passou a aceitar de 8 a 128 caracteres no cadastro, na alteração autenticada e na redefinição, mantendo a blocklist de senhas comuns, Argon2id e as demais proteções;

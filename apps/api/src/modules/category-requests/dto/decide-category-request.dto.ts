@@ -1,8 +1,40 @@
-import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { Type } from "class-transformer";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsOptional, IsString, MaxLength, ValidateNested } from "class-validator";
+
+export class CreateResolvedCategoryDto {
+  @IsString()
+  @MaxLength(120)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  slug?: string;
+}
+
+export class ResolvedCategoryDto {
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateResolvedCategoryDto)
+  create?: CreateResolvedCategoryDto;
+}
 
 export class DecideCategoryRequestDto {
-  @IsIn(["CREATE", "ASSOCIATE", "REJECT"])
-  decision!: "CREATE" | "ASSOCIATE" | "REJECT";
+  // CREATE and ASSOCIATE remain accepted for one-category legacy clients.
+  @IsIn(["CREATE", "ASSOCIATE", "REJECT", "RESOLVE"])
+  decision!: "CREATE" | "ASSOCIATE" | "REJECT" | "RESOLVE";
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(3)
+  @ValidateNested({ each: true })
+  @Type(() => ResolvedCategoryDto)
+  categories?: ResolvedCategoryDto[];
 
   @IsOptional()
   @IsString()

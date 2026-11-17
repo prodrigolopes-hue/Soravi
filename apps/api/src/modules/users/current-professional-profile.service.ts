@@ -38,6 +38,7 @@ const professionalProfileSelect = {
     select: {
       id: true, suggestedName: true, status: true, reviewNotes: true, createdAt: true,
       resolvedCategory: { select: { id: true, name: true, slug: true } },
+      resolvedCategories: { select: { category: { select: { id: true, name: true, slug: true } } }, orderBy: { category: { name: "asc" } } },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   },

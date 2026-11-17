@@ -17,11 +17,13 @@ describe("CategoryRequestsService decisions", () => {
       $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
       categoryRequest: {
         findUnique: jest.fn().mockResolvedValue({ id: requestId, status: CategoryRequestStatus.PENDING, professionalProfileId: profileId, suggestedName: "Técnico solar" }),
+        count: jest.fn().mockResolvedValue(0),
         update: jest.fn().mockResolvedValue({ id: requestId, suggestedName: "Técnico solar", description: null, status: CategoryRequestStatus.APPROVED, reviewNotes: null, resolvedCategory: { id: "category-id", name: "Técnico solar", slug: "tecnico-solar" }, createdAt: new Date() }),
       },
       professionalProfile: { findUnique: jest.fn().mockResolvedValue({ userId }) },
-      professionalCategory: { count: jest.fn().mockResolvedValue(1), findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn().mockResolvedValue({}) },
+      professionalCategory: { count: jest.fn().mockResolvedValue(1), findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn().mockResolvedValue({}) },
       category: { findFirst: jest.fn(), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: "category-id" }) },
+      categoryRequestResolvedCategory: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma = { $transaction: jest.fn((callback: (value: typeof tx) => unknown) => callback(tx)) };
     service = new CategoryRequestsService(prisma as unknown as PrismaService);
@@ -39,6 +41,25 @@ describe("CategoryRequestsService decisions", () => {
     await service.decide(requestId, adminId, { decision: "ASSOCIATE", categoryId: "existing-category" });
     expect(tx.category.create).not.toHaveBeenCalled();
     expect(tx.categoryRequest.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: CategoryRequestStatus.MERGED, resolvedCategoryId: "existing-category" }) }));
+  });
+
+  it("resolve uma sugestão em categorias distintas sem associação parcial", async () => {
+    tx.category.findFirst
+      .mockResolvedValueOnce({ id: "plasterer" })
+      .mockResolvedValueOnce({ id: "curtains" });
+    await service.decide(requestId, adminId, {
+      decision: "RESOLVE",
+      categories: [{ categoryId: "plasterer" }, { categoryId: "curtains" }],
+      reviewNotes: "Serviços separados após análise.",
+    });
+    expect(tx.professionalCategory.upsert).toHaveBeenCalledTimes(2);
+    expect(tx.categoryRequestResolvedCategory.createMany).toHaveBeenCalledWith({
+      data: [{ categoryRequestId: requestId, categoryId: "plasterer" }, { categoryRequestId: requestId, categoryId: "curtains" }],
+      skipDuplicates: true,
+    });
+    expect(tx.categoryRequest.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ resolvedCategoryId: "plasterer", status: CategoryRequestStatus.APPROVED }),
+    }));
   });
 
   it("rejeita somente com motivo e não cria associação", async () => {
