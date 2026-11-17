@@ -40,34 +40,36 @@ describe("Category request multi-resolution migration", () => {
   });
 
   it("resolve categorias existente e nova, respeita três e reverte a quarta", async () => {
-    const fixture = await fixture("limit"); const existing = await category("existing"); const request = await requestFor(fixture.profileId, "Solar"); const service = new CategoryRequestsService(control);
-    const result = await service.decide(request.id, fixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: existing }, { create: { name: "Nova solar", slug: `new-${randomUUID()}` } }], reviewNotes: "Duas categorias." });
-    result.resolvedCategories.forEach((item) => categories.add(item.id));
-    expect(result.status).toBe("APPROVED"); expect(result.resolvedCategories).toHaveLength(2);
-    expect(await control.professionalCategory.count({ where: { professionalProfileId: fixture.profileId } })).toBe(3);
-    const excess = await requestFor(fixture.profileId, "Quarta"); const rollbackSlug = `rollback-${randomUUID()}`;
-    await expect(service.decide(excess.id, fixture.adminId, { decision: "RESOLVE", categories: [{ create: { name: "Não persiste", slug: rollbackSlug } }] })).rejects.toBeInstanceOf(ConflictException);
+    const testFixture = await createFixture("limit"); const existing = await category("existing"); const request = await requestFor(testFixture.profileId, "Solar"); const service = new CategoryRequestsService(control);
+    const result = await service.decide(request.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: existing }, { create: { name: "Nova solar", slug: `new-${randomUUID()}` } }], reviewNotes: "Duas categorias." });
+    const resolvedCategories = result.resolvedCategories;
+    expect(result.status).toBe("APPROVED"); expect(resolvedCategories).toHaveLength(2);
+    if (!resolvedCategories) throw new Error("A decisão aprovada deve retornar as categorias resolvidas.");
+    resolvedCategories.forEach((item) => categories.add(item.id));
+    expect(await control.professionalCategory.count({ where: { professionalProfileId: testFixture.profileId } })).toBe(3);
+    const excess = await requestFor(testFixture.profileId, "Quarta"); const rollbackSlug = `rollback-${randomUUID()}`;
+    await expect(service.decide(excess.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ create: { name: "Não persiste", slug: rollbackSlug } }] })).rejects.toBeInstanceOf(ConflictException);
     const unchanged = await control.categoryRequest.findUniqueOrThrow({ where: { id: excess.id }, include: { resolvedCategories: true } });
     expect(unchanged.status).toBe("PENDING"); expect(unchanged.resolvedCategoryId).toBeNull(); expect(unchanged.resolvedCategories).toHaveLength(0);
     expect(await control.category.findUnique({ where: { slug: rollbackSlug } })).toBeNull();
   });
 
   it("serializa duas decisões sem associação parcial", async () => {
-    const fixture = await fixture("race"); const one = await category("one"); const two = await category("two"); const three = await category("three"); const request = await requestFor(fixture.profileId, "Concorrente");
+    const testFixture = await createFixture("race"); const one = await category("one"); const two = await category("two"); const three = await category("three"); const request = await requestFor(testFixture.profileId, "Concorrente");
     const acquired = deferred<void>(); const release = deferred<void>(); const blockedPid = deferred<number>();
     const locked = new CategoryRequestsService(wrapPrisma(first, { afterQueryRaw: async (args) => { if (queryRawSql(args).includes('FROM "users"')) { acquired.resolve(); await release.promise; } } }));
     const competing = new CategoryRequestsService(wrapPrisma(second, { transactionStarted: (pid) => blockedPid.resolve(pid) }));
     let left: Promise<unknown> | undefined; let right: Promise<unknown> | undefined;
     try {
-      left = track(locked.decide(request.id, fixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: one }, { categoryId: two }] })); await acquired.promise;
-      right = track(competing.decide(request.id, fixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: three }] })); await waitUntilPostgresConfirmsBlocking(control, await blockedPid.promise); release.resolve();
+      left = track(locked.decide(request.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: one }, { categoryId: two }] })); await acquired.promise;
+      right = track(competing.decide(request.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: three }] })); await waitUntilPostgresConfirmsBlocking(control, await blockedPid.promise); release.resolve();
       const results = await Promise.allSettled([left, right]); expect(results.filter((item) => item.status === "fulfilled")).toHaveLength(1); expect(results.find((item) => item.status === "rejected")).toMatchObject({ reason: expect.any(ConflictException) });
       const persisted = await control.categoryRequest.findUniqueOrThrow({ where: { id: request.id }, include: { resolvedCategories: true } }); const ids = persisted.resolvedCategories.map((item) => item.categoryId).sort();
-      expect([[one, two].sort(), [three]]).toContainEqual(ids); expect(await control.professionalCategory.count({ where: { professionalProfileId: fixture.profileId } })).toBe(ids.length + 1);
+      expect([[one, two].sort(), [three]]).toContainEqual(ids); expect(await control.professionalCategory.count({ where: { professionalProfileId: testFixture.profileId } })).toBe(ids.length + 1);
     } finally { release.resolve(); await Promise.allSettled([left, right].filter((item): item is Promise<unknown> => item !== undefined)); }
   });
 
-  async function fixture(label: string) { const adminId = randomUUID(); const userId = randomUUID(); const profileId = randomUUID(); users.add(adminId); users.add(userId); await control.user.createMany({ data: [{ id: adminId, name: "Admin", email: `admin-${adminId}@example.test`, emailNormalized: `admin-${adminId}@example.test`, passwordHash: "test" }, { id: userId, name: "Professional", email: `professional-${userId}@example.test`, emailNormalized: `professional-${userId}@example.test`, passwordHash: "test" }] }); await control.userRole.create({ data: { userId: adminId, role: "ADMIN" } }); await control.professionalProfile.create({ data: { id: profileId, userId, displayName: `Professional ${label}` } }); const base = await category(`base-${label}`); await control.professionalCategory.create({ data: { professionalProfileId: profileId, categoryId: base } }); return { adminId, profileId }; }
+  async function createFixture(label: string) { const adminId = randomUUID(); const userId = randomUUID(); const profileId = randomUUID(); users.add(adminId); users.add(userId); await control.user.createMany({ data: [{ id: adminId, name: "Admin", email: `admin-${adminId}@example.test`, emailNormalized: `admin-${adminId}@example.test`, passwordHash: "test" }, { id: userId, name: "Professional", email: `professional-${userId}@example.test`, emailNormalized: `professional-${userId}@example.test`, passwordHash: "test" }] }); await control.userRole.create({ data: { userId: adminId, role: "ADMIN" } }); await control.professionalProfile.create({ data: { id: profileId, userId, displayName: `Professional ${label}` } }); const base = await category(`base-${label}`); await control.professionalCategory.create({ data: { professionalProfileId: profileId, categoryId: base } }); return { adminId, profileId }; }
   async function category(name: string) { const id = randomUUID(); categories.add(id); await control.category.create({ data: { id, name, slug: `${name}-${id}`, isActive: true } }); return id; }
   async function requestFor(professionalProfileId: string, suggestedName: string) { const id = randomUUID(); requests.add(id); return control.categoryRequest.create({ data: { id, professionalProfileId, suggestedName, suggestedNameNormalized: `${suggestedName}-${id}`.toLowerCase() } }); }
   function track<T>(operation: Promise<T>) { pending.add(operation); operation.finally(() => pending.delete(operation)).catch(() => undefined); return operation; }
