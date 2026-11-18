@@ -537,6 +537,7 @@ describe("CategoryRequestsService", () => {
           },
         },
         resolvedCategory: null,
+        resolvedCategories: [],
       },
     ]);
 
@@ -580,6 +581,22 @@ describe("CategoryRequestsService", () => {
             slug: true,
           },
         },
+        resolvedCategories: {
+          select: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+          orderBy: {
+            category: {
+              name: "asc",
+            },
+          },
+        },
       },
     });
 
@@ -603,6 +620,7 @@ describe("CategoryRequestsService", () => {
               },
             },
             resolvedCategory: null,
+            resolvedCategories: [],
           },
         ],
         2,
@@ -638,6 +656,15 @@ describe("CategoryRequestsService", () => {
           name: "Eletricista",
           slug: "eletricista",
         },
+        // Simula um registro antigo: a migration copiou resolvedCategoryId
+        // para a nova relação sem remover o campo legado.
+        resolvedCategories: [{
+          category: {
+            id: "category-id",
+            name: "Eletricista",
+            slug: "eletricista",
+          },
+        }],
       },
     ]);
 
@@ -665,6 +692,11 @@ describe("CategoryRequestsService", () => {
         name: "Eletricista",
         slug: "eletricista",
       },
+      resolvedCategories: [{
+        id: "category-id",
+        name: "Eletricista",
+        slug: "eletricista",
+      }],
     });
 
     expect(firstItem).not.toHaveProperty("description");

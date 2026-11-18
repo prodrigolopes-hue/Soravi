@@ -681,6 +681,7 @@ function AdminCategoryRequestsSection() {
   const [response, setResponse] = useState<AdminCategoryRequestsApiResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [resolutionItem, setResolutionItem] = useState<AdminCategoryRequestItem | null>(null);
 
   const isLoadingState = requestState === "loading";
   const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
@@ -752,11 +753,16 @@ function AdminCategoryRequestsSection() {
     if (decision === "ASSOCIATE" && !categoryId?.trim()) return;
     setDecidingId(item.id);
     try {
-      const result = await fetch(adminCategoryRequestByIdUrl(item.id), { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, credentials: "include", body: JSON.stringify({ decision, ...(categoryId ? { categoryId } : {}), ...(reviewNotes?.trim() ? { reviewNotes: reviewNotes.trim() } : {}) }) });
+        const result = await fetch(adminCategoryRequestByIdUrl(item.id), { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, credentials: "include", body: JSON.stringify({ decision, ...(categoryId ? { categoryId } : {}), ...(reviewNotes?.trim() ? { reviewNotes: reviewNotes.trim() } : {}) }) });
       if (!result.ok) { window.alert("Não foi possível registrar a decisão. Confira o limite de categorias e tente novamente."); return; }
       await fetchCategoryRequests(page);
     } finally { setDecidingId(null); }
   }, [accessToken, decidingId, fetchCategoryRequests, page]);
+
+  const completeResolution = useCallback(async (): Promise<void> => {
+    await fetchCategoryRequests(page);
+    setResolutionItem(null);
+  }, [fetchCategoryRequests, page]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -770,6 +776,7 @@ function AdminCategoryRequestsSection() {
 
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-live="polite">
+      {resolutionItem && accessToken ? <CategoryResolutionDialog item={resolutionItem} accessToken={accessToken} isSubmitting={decidingId !== null} onClose={() => setResolutionItem(null)} onComplete={completeResolution} /> : null}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Solicitações de categoria</h2>
@@ -819,7 +826,7 @@ function AdminCategoryRequestsSection() {
                   <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
                   <p><span className="font-medium text-slate-900">Revisada em:</span> {item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</p>
                 </div>
-                {item.status === "PENDING" ? <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Associar existente</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-3 py-2 text-sm font-semibold text-red-700">Recusar</button></div> : null}
+                {item.status === "PENDING" ? <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-3 py-2 text-sm font-semibold">Associar existente</button><button type="button" disabled={decidingId !== null} onClick={() => setResolutionItem(item)} className="rounded-lg border px-3 py-2 text-sm font-semibold">Resolver em várias</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-3 py-2 text-sm font-semibold text-red-700">Recusar</button></div> : null}
               </article>
             ))}
           </div>
@@ -867,7 +874,7 @@ function AdminCategoryRequestsSection() {
                     </td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.reviewedAt ? formatDate(item.reviewedAt) : "Ainda não revisada"}</td>
-                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.status === "PENDING" ? <div className="flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Associar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-2 py-1 text-xs font-semibold text-red-700">Recusar</button></div> : "—"}</td>
+                    <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.status === "PENDING" ? <div className="flex flex-wrap gap-2"><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "CREATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Criar e aprovar</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "ASSOCIATE")} className="rounded-lg border px-2 py-1 text-xs font-semibold">Associar</button><button type="button" disabled={decidingId !== null} onClick={() => setResolutionItem(item)} className="rounded-lg border px-2 py-1 text-xs font-semibold">Resolver em várias</button><button type="button" disabled={decidingId !== null} onClick={() => void decideRequest(item, "REJECT")} className="rounded-lg border px-2 py-1 text-xs font-semibold text-red-700">Recusar</button></div> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -899,6 +906,15 @@ function AdminCategoryRequestsSection() {
       ) : null}
     </section>
   );
+}
+
+function CategoryResolutionDialog({ item, accessToken, isSubmitting, onClose, onComplete }: { item: AdminCategoryRequestItem; accessToken: string; isSubmitting: boolean; onClose: () => void; onComplete: () => Promise<void> }) {
+  const [options, setOptions] = useState<AdminCategoryItem[]>([]); const [search, setSearch] = useState(""); const [choices, setChoices] = useState<Array<{ id?: string; name: string; slug: string }>>([]); const [name, setName] = useState(""); const [slug, setSlug] = useState(""); const [notes, setNotes] = useState(""); const [error, setError] = useState<string | null>(null); const [saving, setSaving] = useState(false);
+  useEffect(() => { void (async () => { try { const response = await fetch(`${adminCategoriesUrl}?page=1&pageSize=100`, { headers: { Authorization: `Bearer ${accessToken}` }, credentials: "include" }); const parsed = response.ok ? parseCategoriesRoot(await response.json()) : null; if (!parsed) throw new Error(); setOptions(parsed.items.filter((category) => category.isActive)); } catch { setError("Não foi possível carregar categorias oficiais."); } })(); }, [accessToken]);
+  const addExisting = (category: AdminCategoryItem) => { if (choices.length < 3 && !choices.some((choice) => choice.id === category.id)) setChoices((current) => [...current, { id: category.id, name: category.name, slug: category.slug }]); };
+  const submit = async () => { if (choices.length < 1 || choices.length > 3) { setError("Escolha de uma a três categorias."); return; } setSaving(true); setError(null); try { const response = await fetch(adminCategoryRequestByIdUrl(item.id), { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, credentials: "include", body: JSON.stringify({ decision: "RESOLVE", categories: choices.map((choice) => choice.id ? { categoryId: choice.id } : { create: { name: choice.name, ...(choice.slug ? { slug: choice.slug } : {}) } }), ...(notes.trim() ? { reviewNotes: notes.trim() } : {}) }) }); if (!response.ok) { const payload = await response.json().catch(() => null) as { message?: string } | null; setError(payload?.message ?? "Não foi possível salvar. Confira o limite de categorias."); return; } await onComplete(); } finally { setSaving(false); } };
+  const filtered = options.filter((category) => `${category.name} ${category.slug}`.toLowerCase().includes(search.toLowerCase()));
+  return <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 p-4 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby="resolve-category-title"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="flex justify-between gap-4"><div><h3 id="resolve-category-title" className="text-lg font-bold">Resolver em várias categorias</h3><p className="mt-1 text-sm text-slate-600">Selecione de 1 a 3 categorias para “{item.suggestedName}”.</p></div><button type="button" onClick={onClose} disabled={saving || isSubmitting}>Fechar</button></div>{error ? <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}<label className="mt-5 block text-sm font-semibold">Pesquisar categoria existente<input value={search} onChange={(event) => setSearch(event.target.value)} className="mt-1 w-full rounded-lg border p-2" placeholder="Nome ou slug" /></label><div className="mt-2 max-h-32 overflow-y-auto rounded-lg border">{filtered.map((category) => <button key={category.id} type="button" onClick={() => addExisting(category)} disabled={choices.length >= 3 || choices.some((choice) => choice.id === category.id)} className="block w-full border-b px-3 py-2 text-left text-sm disabled:opacity-50">{category.name} <span className="text-slate-500">{category.slug}</span></button>)}</div><div className="mt-5 rounded-lg border p-3"><p className="text-sm font-semibold">Nova categoria</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome" className="rounded border p-2" /><input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Slug opcional" className="rounded border p-2" /></div><button type="button" disabled={!name.trim() || choices.length >= 3} onClick={() => { setChoices((current) => [...current, { name: name.trim(), slug: slug.trim() }]); setName(""); setSlug(""); }} className="mt-2 rounded border px-3 py-2 text-sm font-semibold">Adicionar</button></div><p className="mt-5 text-sm font-semibold">Escolhas ({choices.length}/3)</p><ul className="mt-2 space-y-2">{choices.map((choice, index) => <li key={`${choice.id ?? choice.name}-${index}`} className="flex justify-between rounded bg-slate-50 p-2 text-sm">{choice.name}<button type="button" onClick={() => setChoices((current) => current.filter((_, currentIndex) => currentIndex !== index))} className="font-semibold text-red-700">Remover</button></li>)}</ul><label className="mt-5 block text-sm font-semibold">Nota opcional<textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={1000} rows={3} className="mt-1 w-full rounded border p-2" /></label><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} disabled={saving || isSubmitting}>Cancelar</button><button type="button" onClick={() => void submit()} disabled={saving || isSubmitting || choices.length < 1} className="rounded bg-blue-600 px-4 py-2 font-semibold text-white">{saving ? "Salvando..." : "Confirmar decisão"}</button></div></div></div>;
 }
 
 function AdminPublicCategorySuggestionsSection() {

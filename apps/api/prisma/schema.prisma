@@ -755,7 +755,8 @@ model Category {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  requests               CategoryRequest[]      @relation("CategoryRequestResolution")
+    requests               CategoryRequest[]      @relation("CategoryRequestResolution")
+    categoryRequestResolutions CategoryRequestResolvedCategory[]
   professionalCategories ProfessionalCategory[]
   serviceRequests        ServiceRequest[]
 
@@ -1243,6 +1244,7 @@ model CategoryRequest {
 
   professionalProfile ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
   resolvedCategory    Category?           @relation("CategoryRequestResolution", fields: [resolvedCategoryId], references: [id], onDelete: SetNull)
+    resolvedCategories  CategoryRequestResolvedCategory[]
   reviewedByUser      User?               @relation("CategoryRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt], map: "category_requests_status_created_at_idx")
@@ -1252,6 +1254,19 @@ model CategoryRequest {
   @@index([reviewedByUserId], map: "category_requests_reviewer_idx")
   @@map("category_requests")
 }
+
+  model CategoryRequestResolvedCategory {
+    categoryRequestId String @map("category_request_id") @db.Uuid
+    categoryId        String @map("category_id") @db.Uuid
+    createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+    categoryRequest CategoryRequest @relation(fields: [categoryRequestId], references: [id], onDelete: Cascade)
+    category        Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+    @@id([categoryRequestId, categoryId])
+    @@index([categoryId], map: "category_request_resolved_categories_category_id_idx")
+    @@map("category_request_resolved_categories")
+  }
 
 model LaunchInterest {
   id                           String               @id @default(uuid()) @db.Uuid

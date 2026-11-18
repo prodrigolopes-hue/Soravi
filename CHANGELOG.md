@@ -2,6 +2,16 @@
 
 ## Não publicado
 
+### Resolução de sugestões de categoria
+
+- administradores podem resolver uma solicitação pendente em uma a três categorias oficiais, existentes ou criadas explicitamente na decisão;
+- a decisão grava todas as resoluções e os vínculos do profissional em uma transação, preservando a resolução única legada para compatibilidade;
+- o limite combinado de três categorias oficiais e solicitações pendentes é revalidado antes de qualquer gravação parcial.
+- validados 7 testes unitários, 6 testes de integração PostgreSQL e os builds da API e do site; a suíte de integração cobriu backfill legado, decisão em múltiplas categorias, limite de três com rollback, ordens consecutivas e concorrência sem persistência parcial;
+- a validação usou exclusivamente `localhost:55432/soravi_migration_bootstrap_test`, com bootstrap histórico controlado; não houve alteração em staging ou produção.
+- categorias criadas durante uma decisão passam a receber a próxima posição ao final da lista; criações concorrentes são serializadas no PostgreSQL.
+- “Resolver em várias” substitui o prompt por um diálogo de pesquisa, inclusão, revisão e remoção de até três categorias, com nota opcional e erros da API visíveis ao administrador.
+
 ### Senhas e ativação de perfil profissional
 
 - a política de senha passou a aceitar de 8 a 128 caracteres no cadastro, na alteração autenticada e na redefinição, mantendo a blocklist de senhas comuns, Argon2id e as demais proteções;
