@@ -16,6 +16,10 @@ export interface PrismaGates {
     args: readonly unknown[],
     result: unknown,
   ) => Promise<void>;
+  afterExecuteRaw?: (
+    args: readonly unknown[],
+    result: unknown,
+  ) => Promise<void>;
 }
 
 interface BackendPidRow {
@@ -78,6 +82,14 @@ function wrapTransaction(
           const original = Reflect.get(target, property, receiver);
           const result: unknown = await Reflect.apply(original, target, args);
           await gates.afterQueryRaw?.(args, result);
+          return result;
+        };
+      }
+      if (property === "$executeRaw") {
+        return async (...args: unknown[]) => {
+          const original = Reflect.get(target, property, receiver);
+          const result: unknown = await Reflect.apply(original, target, args);
+          await gates.afterExecuteRaw?.(args, result);
           return result;
         };
       }

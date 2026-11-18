@@ -197,6 +197,7 @@ export class CategoryRequestsService {
 
   private async decideOnce(id: string, reviewerUserId: string, input: DecideCategoryRequestDto): Promise<CategoryRequestResponseDto> {
     return this.prisma.$transaction(async (transaction) => {
+      if (this.createsCategory(input)) await this.lockCategoryDisplayOrder(transaction);
       const request = await transaction.categoryRequest.findUnique({ where: { id }, select: { id: true, status: true, professionalProfileId: true, suggestedName: true } });
       if (!request) throw new NotFoundException({ code: "CATEGORY_REQUEST_NOT_FOUND", message: "Solicitação de categoria não encontrada." });
       if (request.status !== CategoryRequestStatus.PENDING) throw new ConflictException({ code: "CATEGORY_REQUEST_ALREADY_DECIDED", message: "A solicitação já foi decidida." });
@@ -222,7 +223,7 @@ export class CategoryRequestsService {
         if (!name || !slug || slug === "outros") throw new BadRequestException({ code: "INVALID_CATEGORY", message: "Informe categorias oficiais válidas." });
         const existing = await transaction.category.findUnique({ where: { slug }, select: { id: true, isActive: true } });
         if (existing) { if (!existing.isActive) throw new ConflictException({ code: "CATEGORY_SLUG_INACTIVE", message: "Já existe uma categoria inativa com este identificador." }); categoryIds.push(existing.id); }
-        else categoryIds.push((await transaction.category.create({ data: { name, slug, isActive: true }, select: { id: true } })).id);
+        else categoryIds.push((await transaction.category.create({ data: { name, slug, isActive: true, displayOrder: await this.nextCategoryDisplayOrder(transaction) }, select: { id: true } })).id);
       }
       if (new Set(categoryIds).size !== categoryIds.length) throw new BadRequestException({ code: "DUPLICATE_RESOLVED_CATEGORY", message: "Não repita categorias na decisão." });
       const existingAssociations = await transaction.professionalCategory.findMany({ where: { professionalProfileId: request.professionalProfileId, categoryId: { in: categoryIds } }, select: { categoryId: true } });
@@ -253,6 +254,19 @@ export class CategoryRequestsService {
 
   private slugify(value: string): string {
     return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 120);
+  }
+
+  private createsCategory(input: DecideCategoryRequestDto): boolean {
+    return input.decision === "CREATE" || (input.decision === "RESOLVE" && input.categories?.some((choice) => Boolean(choice.create)) === true);
+  }
+
+  private async lockCategoryDisplayOrder(transaction: Prisma.TransactionClient): Promise<void> {
+    await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(874216)`);
+  }
+
+  private async nextCategoryDisplayOrder(transaction: Prisma.TransactionClient): Promise<number> {
+    const [row] = await transaction.$queryRaw<Array<{ displayOrder: number | null }>>(Prisma.sql`SELECT MAX("display_order")::integer AS "displayOrder" FROM "categories"`);
+    return (row?.displayOrder ?? -1) + 1;
   }
 
   private isTransactionSerializationError(error: unknown): error is Prisma.PrismaClientKnownRequestError {

@@ -15,6 +15,7 @@ describe("CategoryRequestsService decisions", () => {
   beforeEach(() => {
     tx = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: userId }]),
+      $executeRaw: jest.fn().mockResolvedValue(1),
       categoryRequest: {
         findUnique: jest.fn().mockResolvedValue({ id: requestId, status: CategoryRequestStatus.PENDING, professionalProfileId: profileId, suggestedName: "Técnico solar" }),
         count: jest.fn().mockResolvedValue(0),
@@ -31,7 +32,7 @@ describe("CategoryRequestsService decisions", () => {
 
   it("aprova criando categoria ativa e associa o perfil", async () => {
     await service.decide(requestId, adminId, { decision: "CREATE" });
-    expect(tx.category.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ name: "Técnico solar", slug: "tecnico-solar", isActive: true }) }));
+    expect(tx.category.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ name: "Técnico solar", slug: "tecnico-solar", isActive: true, displayOrder: 0 }) }));
     expect(tx.professionalCategory.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: { professionalProfileId: profileId, categoryId: "category-id" } }));
     expect(tx.categoryRequest.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: CategoryRequestStatus.APPROVED, resolvedCategoryId: "category-id", reviewedByUserId: adminId }) }));
   });
