@@ -84,6 +84,7 @@ const adminProfessionalsSelect = {
       reviewedAt: true,
       reviewNotes: true,
       isAvailable: true,
+      professionalCategories: { select: { category: { select: { id: true, name: true, isActive: true } } } },
       identityVerificationAttempts: {
         where: { evidenceReferences: { some: { kind: "DOCUMENT" } } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -192,6 +193,7 @@ export class UsersService {
           reviewNotes: item.professionalProfile.reviewNotes,
           isAvailable: item.professionalProfile.isAvailable,
           identityVerification: item.professionalProfile.identityVerificationAttempts?.[0] ?? null,
+          categories: (item.professionalProfile.professionalCategories ?? []).map(({ category }) => category),
         },
       });
 

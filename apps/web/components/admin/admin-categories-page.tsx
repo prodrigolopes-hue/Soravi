@@ -12,6 +12,7 @@ import {
   adminCategorySuggestionsUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
+import { CategoryManagementButtons, CategoryManagementDialog } from "./category-management-dialog";
 import { AdminBackLink } from "./admin-back-link";
 
 const PAGE_SIZE = 20;
@@ -501,6 +502,7 @@ function AdminCategoriesSection() {
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<AdminCategoriesApiResponse | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [management, setManagement] = useState<{ item: AdminCategoryItem; mode: "edit" | "split" } | null>(null);
 
   const isLoadingState = requestState === "loading";
   const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
@@ -615,6 +617,7 @@ function AdminCategoriesSection() {
                   <p><span className="font-medium text-slate-900">Ordem:</span> {item.displayOrder}</p>
                   <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
                   <p><span className="font-medium text-slate-900">Atualizada em:</span> {formatDate(item.updatedAt)}</p>
+                  <CategoryManagementButtons item={item} onOpen={setManagement} />
                 </div>
               </article>
             ))}
@@ -631,6 +634,7 @@ function AdminCategoriesSection() {
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Ordem</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Criada em</th>
                   <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Atualizada em</th>
+                  <th scope="col" className="border-b border-slate-200 px-3 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -642,6 +646,7 @@ function AdminCategoriesSection() {
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.displayOrder}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.updatedAt)}</td>
+                    <td className="border-b border-slate-100 px-3 py-4"><CategoryManagementButtons item={item} onOpen={setManagement} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -671,6 +676,7 @@ function AdminCategoriesSection() {
           </div>
         </>
       ) : null}
+      {management && accessToken ? <CategoryManagementDialog item={management.item} mode={management.mode} accessToken={accessToken} onClose={() => setManagement(null)} onSaved={async () => { setManagement(null); await fetchCategories(page); }} /> : null}
     </section>
   );
 }

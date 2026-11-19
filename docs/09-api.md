@@ -1164,3 +1164,8 @@ Requer:
 
 ```text
 Authorization: Bearer <accessToken>
+
+
+## Gestão administrativa de categorias
+
+Os endpoints `GET /api/v1/categories/admin/:id/split-preview`, `PATCH /api/v1/categories/admin/:id` e `POST /api/v1/categories/admin/:id/split` exigem autenticação e papel `ADMIN`. A edição recebe `expectedName` e altera somente o nome; o endereço é preservado. Uma mudança concorrente no nome é recusada. A prévia lista profissionais vinculados e contagens de solicitações de serviço e sugestões cuja resolução principal é a categoria. A separação recebe `expectedName`, `originalName`, `newName` e `professionalProfileIds` escolhidos explicitamente, cria categoria com endereço gerado, preserva o registro original e todos os vínculos e históricos anteriores, e associa a nova categoria aos profissionais selecionados. O limite combinado de dez é revalidado em transação serializável. Solicitações de serviço e resoluções históricas não são redistribuídas automaticamente. A listagem administrativa de profissionais inclui categorias vinculadas e seu estado ativo.

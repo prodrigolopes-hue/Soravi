@@ -2,6 +2,14 @@
 
 ## Não publicado
 
+### Gestão administrativa de categorias
+
+- administradores podem editar o nome de uma categoria mantendo o endereço e vínculos existentes;
+- a separação cria uma nova categoria e associa apenas os profissionais escolhidos, preservando o registro original, endereços, solicitações de serviço e histórico;
+- a decisão é transacional, valida o limite combinado de dez e recusa vínculos desatualizados;
+- a lista administrativa de profissionais mostra as categorias vinculadas, identificando categorias inativas;
+- cinco testes PostgreSQL validaram edição, separação, histórico, limites e nomes desatualizados; a validação funcional em staging permanece pendente.
+
 ### Limite de categorias profissionais
 
 - aumenta para dez o limite combinado de categorias oficiais e sugestões pendentes no cadastro, ativação, perfil e decisões administrativas; cada decisão de sugestão continua limitada a três categorias.
