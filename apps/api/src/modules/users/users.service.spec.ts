@@ -268,6 +268,7 @@ describe("UsersService", () => {
             reviewedAt: true,
             reviewNotes: true,
             isAvailable: true,
+            professionalCategories: { select: { category: { select: { id: true, name: true, isActive: true } } } },
             identityVerificationAttempts: {
               where: { evidenceReferences: { some: { kind: "DOCUMENT" } } },
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -307,6 +308,7 @@ describe("UsersService", () => {
           displayName: "Profissional A",
           verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
           isAvailable: true,
+          professionalCategories: [{ category: { id: "cat-1", name: "Gesseiro", isActive: true } }],
         },
       },
     ]);
@@ -328,6 +330,7 @@ describe("UsersService", () => {
         displayName: "Profissional A",
         verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
         identityVerification: null,
+        categories: [{ id: "cat-1", name: "Gesseiro", isActive: true }],
         isAvailable: true,
       },
     });

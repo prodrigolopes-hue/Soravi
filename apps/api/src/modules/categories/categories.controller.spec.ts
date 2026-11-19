@@ -98,4 +98,9 @@ describe("CategoriesController", () => {
 
     expect(roles).toEqual([Role.ADMIN]);
   });
+  it.each(["splitPreview", "editName", "split"] as const)("restringe %s a administradores autenticados", (method) => {
+    expect(Reflect.getMetadata("__guards__", CategoriesController.prototype[method])).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(Reflect.getMetadata("roles", CategoriesController.prototype[method])).toEqual([Role.ADMIN]);
+  });
+
 });

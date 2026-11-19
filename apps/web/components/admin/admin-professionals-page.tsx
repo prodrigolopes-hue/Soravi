@@ -25,6 +25,7 @@ interface AdminProfessionalProfile {
   reviewNotes: string | null;
   isAvailable: boolean;
   identityVerification: { id: string; status: string; result: string } | null;
+  categories: Array<{ id: string; name: string; isActive: boolean }> | null;
 }
 
 interface AdminProfessional {
@@ -59,6 +60,11 @@ type RequestState =
   | "error"
   | "unauthorized"
   | "forbidden";
+
+function formatCategories(categories: AdminProfessionalProfile["categories"]): string {
+  if (categories === null) return "Indisponíveis";
+  return categories.length ? categories.map((category) => `${category.name}${category.isActive ? "" : " (inativa)"}`).join(", ") : "Nenhuma vinculada";
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -103,6 +109,7 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     reviewNotes: candidate.reviewNotes,
     isAvailable: candidate.isAvailable,
     identityVerification: candidate.identityVerification as AdminProfessionalProfile["identityVerification"],
+    categories: Array.isArray(candidate.categories) && candidate.categories.every((category) => isRecord(category) && typeof category.id === "string" && typeof category.name === "string" && typeof category.isActive === "boolean") ? candidate.categories : null,
   };
 }
 
@@ -547,6 +554,7 @@ export function AdminProfessionalsPage() {
                       <p>
                         <span className="font-medium text-slate-900">Perfil profissional:</span> {formatVerificationStatus(item.professionalProfile.verificationStatus)}
                       </p>
+                      <p><span className="font-medium text-slate-900">Categorias:</span> {formatCategories(item.professionalProfile.categories)}</p>
                       <p><span className="font-medium text-slate-900">Identidade:</span> {formatIdentityStatus(item.professionalProfile.identityVerification)}</p>
                       {item.professionalProfile.reviewNotes ? <p><span className="font-medium text-slate-900">Nota da revisão:</span> {item.professionalProfile.reviewNotes}</p> : null}
                       <p>
@@ -611,6 +619,7 @@ export function AdminProfessionalsPage() {
                           <p className="font-semibold">{item.professionalProfile.displayName}</p>
                           <p className="mt-1">{item.name}</p>
                           <p className="mt-1 break-all text-slate-700">{item.email}</p>
+                          <p className="mt-2 text-slate-700"><span className="font-medium">Categorias:</span> {formatCategories(item.professionalProfile.categories)}</p>
                         </td>
                         <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
                           {item.phone ?? "Não informado"}

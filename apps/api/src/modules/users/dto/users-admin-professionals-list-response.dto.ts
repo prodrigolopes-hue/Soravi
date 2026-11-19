@@ -21,6 +21,7 @@ export type UsersAdminProfessionalRecord = {
     reviewedAt?: Date | null;
     reviewNotes?: string | null;
     isAvailable: boolean;
+    categories?: Array<{ id: string; name: string; isActive: boolean }>;
     identityVerification?: { id: string; status: ProfessionalIdentityVerificationAttemptStatus; result: IdentityVerificationResult } | null;
   };
 };
@@ -33,6 +34,7 @@ export class UsersAdminProfessionalProfileItemResponseDto {
   reviewNotes?: string | null;
   isAvailable!: boolean;
   identityVerification?: UsersAdminProfessionalRecord["professionalProfile"]["identityVerification"];
+  categories!: Array<{ id: string; name: string; isActive: boolean }>;
 
   constructor(record: UsersAdminProfessionalRecord["professionalProfile"]) {
     this.id = record.id;
@@ -41,6 +43,7 @@ export class UsersAdminProfessionalProfileItemResponseDto {
     if (record.reviewedAt !== undefined) this.reviewedAt = record.reviewedAt;
     if (record.reviewNotes !== undefined) this.reviewNotes = record.reviewNotes;
     this.isAvailable = record.isAvailable;
+    this.categories = record.categories ?? [];
     if (record.identityVerification !== undefined) this.identityVerification = record.identityVerification;
   }
 }
