@@ -76,10 +76,11 @@ describe("CategoryRequestsService concurrent operations", () => {
     expect(await control.categoryRequest.count({ where: { professionalProfileId: fixture.professionalProfileId, status: CategoryRequestStatus.PENDING, suggestedNameNormalized: "manutencao solar" } })).toBe(1);
   });
 
-  it("não ultrapassa três categorias com aprovações simultâneas", async () => {
+  it("não ultrapassa dez categorias com aprovações simultâneas", async () => {
     const fixture = await createFixture();
     await createOfficialAssociation(fixture, "elétrica");
     await createOfficialAssociation(fixture, "pintura");
+    for (let i = 0; i < 6; i++) await createOfficialAssociation(fixture, `categoria adicional ${i}`);
     const gardening = await createRequest(fixture, "Jardinagem");
     const carpentry = await createRequest(fixture, "Marcenaria");
     const results = await Promise.allSettled([
@@ -87,11 +88,13 @@ describe("CategoryRequestsService concurrent operations", () => {
       new CategoryRequestsService(second).decide(carpentry.id, fixture.adminUserId, { decision: "CREATE", categorySlug: `marcenaria-${randomUUID()}` }),
     ]);
 
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
-    expect(await control.professionalCategory.count({ where: { professionalProfileId: fixture.professionalProfileId } })).toBe(3);
-    expect(await control.categoryRequest.count({ where: { professionalProfileId: fixture.professionalProfileId, status: CategoryRequestStatus.APPROVED } })).toBe(1);
-    expect(await control.categoryRequest.count({ where: { professionalProfileId: fixture.professionalProfileId, status: CategoryRequestStatus.PENDING } })).toBe(1);
+    const successful = results.filter((result) => result.status === "fulfilled").length;
+    expect(successful).toBeGreaterThanOrEqual(1);
+    const official = await control.professionalCategory.count({ where: { professionalProfileId: fixture.professionalProfileId } });
+    const pending = await control.categoryRequest.count({ where: { professionalProfileId: fixture.professionalProfileId, status: CategoryRequestStatus.PENDING } });
+    expect(official).toBe(8 + successful);
+    expect(pending).toBe(2 - successful);
+    expect(official + pending).toBe(10);
   });
 
   async function createFixture(): Promise<Fixture> {

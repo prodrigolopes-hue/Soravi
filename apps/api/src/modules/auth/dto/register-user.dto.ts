@@ -121,14 +121,14 @@ export class RegisterUserDto {
     each: true,
     message: "A categoria deve possuir pelo menos 1 caractere.",
   })
-  @ArrayMaxSize(3, {
-    message: "Selecione no máximo três categorias.",
+  @ArrayMaxSize(10, {
+    message: "Selecione no máximo dez categorias.",
   })
   categorySlugs?: string[];
 
   @IsOptional()
   @IsArray({ message: "As solicitações de categoria devem ser uma lista." })
-  @ArrayMaxSize(3, { message: "Solicite no máximo três categorias." })
+  @ArrayMaxSize(10, { message: "Solicite no máximo dez categorias." })
   categoryRequests?: Array<{ suggestedName: string; description?: string }>;
 
   @Transform(({ value }: { value: unknown }) =>

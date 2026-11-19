@@ -62,8 +62,8 @@ export class UpdateCurrentProfessionalProfileDto {
       : value,
   )
   @IsArray({ message: "As categorias devem ser uma lista." })
-  @ArrayMaxSize(3, {
-    message: "Selecione no máximo três categorias.",
+  @ArrayMaxSize(10, {
+    message: "Selecione no máximo dez categorias.",
   })
   @ArrayUnique({
     message: "Não selecione categorias duplicadas.",

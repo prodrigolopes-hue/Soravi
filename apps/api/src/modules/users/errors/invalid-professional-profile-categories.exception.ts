@@ -4,7 +4,7 @@ export class InvalidProfessionalProfileCategoriesException extends BadRequestExc
   constructor() {
     super({
       code: "INVALID_PROFESSIONAL_PROFILE_CATEGORIES",
-      message: "Selecione de 1 a 3 categorias ativas e sem duplicidade.",
+      message: "Selecione de 1 a 10 categorias ativas e sem duplicidade.",
     });
   }
 }

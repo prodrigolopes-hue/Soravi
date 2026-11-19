@@ -47,8 +47,8 @@ describe("ProfessionalProfileActivationService", () => {
     expect(transaction.category.findMany).not.toHaveBeenCalled();
     expect(transaction.professionalProfile.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ categoryRequests: { create: [expect.objectContaining({ suggestedName: "Técnico solar" })] } }) }));
   });
-  it("rejeita mais de três categorias oficiais e sugeridas juntas", async () => {
-    await expect(service.activateCurrentCustomer(userId, { ...input, categorySlugs: ["a", "b"], categoryRequests: [{ suggestedName: "Solar" }, { suggestedName: "Gás" }] })).rejects.toMatchObject({ response: expect.objectContaining({ code: "INVALID_PROFESSIONAL_PROFILE_CATEGORIES" }) });
+  it("rejeita mais de dez categorias oficiais e sugeridas juntas", async () => {
+    await expect(service.activateCurrentCustomer(userId, { ...input, categorySlugs: Array.from({ length: 10 }, (_, index) => `category-${index}`), categoryRequests: [{ suggestedName: "Solar" }] })).rejects.toMatchObject({ response: expect.objectContaining({ code: "INVALID_PROFESSIONAL_PROFILE_CATEGORIES" }) });
   });
   it("rejeita conflito com solicitação própria aberta", async () => {
     transaction.serviceRequest.findFirst.mockResolvedValue({ id: "request" });

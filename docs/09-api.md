@@ -117,8 +117,8 @@ Campos principais:
 
 Regras de categorias no registro:
 
-- para `initialRole = PROFESSIONAL`, a soma de `categorySlugs` e `categoryRequests` deve estar entre 1 e 3;
-- cada lista aceita no máximo 3 itens; o limite combinado é aplicado pelo backend;
+- para `initialRole = PROFESSIONAL`, a soma de `categorySlugs` e `categoryRequests` deve estar entre 1 e 10;
+- cada lista aceita no máximo 10 itens; o limite combinado é aplicado pelo backend;
 - slugs devem ser únicos;
 - slugs devem existir e estar ativos em `Category` (`isActive = true`);
 - `categoryRequests` cria solicitações `PENDING`, sem transformar a sugestão em categoria oficial;
@@ -159,7 +159,7 @@ GET /api/v1/users/me - Dados do usuário autenticado
 
 POST `/api/v1/users/me/roles/professional` ativa o perfil profissional da
 conta cliente autenticada. Recebe `professionalTitle`, `serviceArea`, `bio` e
-de 1 a 3 `categorySlugs` ativos e distintos. Exige sessão válida, `CUSTOMER`,
+de 1 a 10 escolhas entre `categorySlugs` ativos e sugestões. Exige sessão válida, `CUSTOMER`,
 conta `PENDING` ou `ACTIVE` e perfil cliente existente. A criação começa com
 verificação `NOT_STARTED` e disponibilidade ativa; não altera telefone, status
 da conta, perfil cliente ou outros papéis, nem aprova ou submete verificação.
@@ -210,10 +210,10 @@ disponível — o valor é `null`. Caso exista, é `{ "url": "…", "expiresAt":
 
 O `PATCH` recebe `displayName`, `professionalTitle`, `serviceArea`, `bio`,
 `categorySlugs` e `isAvailable`. `displayName` é obrigatório; título, área e
-bio aceitam `null`; `categorySlugs` aceita de zero a três slugs únicos de
+bio aceitam `null`; `categorySlugs` aceita de zero a dez slugs únicos de
 categorias ativas, mas zero somente é válido quando há ao menos uma
 `CategoryRequest` `PENDING` do próprio perfil. O limite combinado entre vínculos
-oficiais e solicitações pendentes permanece três; `isAvailable` é booleano. O
+oficiais e solicitações pendentes é dez; `isAvailable` é booleano. O
 retorno inclui `id`, os campos do perfil, `verificationStatus`, categorias e
 solicitações de categoria. Esta API suporta a rota web
 `/profissional/perfil`, com visualização e edição explícita pelo profissional.
@@ -672,11 +672,11 @@ Respostas relevantes:
 
 ## Solicitações de categoria do profissional
 
-`POST /api/v1/category-requests` exige `PROFESSIONAL`, token de acesso e telefone verificado. Recebe `suggestedName` e `description` opcional, normaliza o nome e cria uma solicitação `PENDING` somente se o perfil possuir menos de três escolhas combinadas e não houver pendência com o mesmo nome normalizado. A operação usa transação serializável e lock da conta para preservar o limite sob concorrência.
+`POST /api/v1/category-requests` exige `PROFESSIONAL`, token de acesso e telefone verificado. Recebe `suggestedName` e `description` opcional, normaliza o nome e cria uma solicitação `PENDING` somente se o perfil possuir menos de dez escolhas combinadas e não houver pendência com o mesmo nome normalizado. A operação usa transação serializável e lock da conta para preservar o limite sob concorrência.
 
 `GET /api/v1/category-requests/mine` exige `PROFESSIONAL` e retorna exclusivamente as solicitações do perfil da sessão, com status, motivo de revisão e categoria resolvida quando existir.
 
-`PATCH /api/v1/category-requests/admin/:id` exige `ADMIN`. O body aceita `decision` igual a `CREATE`, `ASSOCIATE` ou `REJECT`. `CREATE` cria uma categoria oficial ativa ou seleciona a existente pelo slug; `ASSOCIATE` exige uma categoria oficial ativa; `REJECT` exige `reviewNotes`. A decisão é única, transacional e pode responder conflito se a solicitação já foi decidida, se houve concorrência ou se não há vaga no limite de três categorias.
+`PATCH /api/v1/category-requests/admin/:id` exige `ADMIN`. O body aceita `decision` igual a `CREATE`, `ASSOCIATE` ou `REJECT`. `CREATE` cria uma categoria oficial ativa ou seleciona a existente pelo slug; `ASSOCIATE` exige uma categoria oficial ativa; `REJECT` exige `reviewNotes`. A decisão é única, transacional e pode responder conflito se a solicitação já foi decidida, se houve concorrência ou se não há vaga no limite de dez escolhas combinadas.
 
 As respostas de `POST`, `GET /mine` e `PATCH` incluem `id`, `suggestedName`, `description`, `status`, `createdAt` e, quando aplicável, `reviewNotes` e `resolvedCategory`.
 

@@ -21,7 +21,7 @@ describe("UpdateCurrentProfessionalProfileDto", () => {
   });
 
   it.each([
-    { categorySlugs: ["eletrica", "pintura", "limpeza", "jardinagem"] },
+    { categorySlugs: Array.from({ length: 11 }, (_, index) => `categoria-${index}`) },
     { categorySlugs: ["eletrica", " eletrica "] },
     { displayName: "A" },
     { isAvailable: "true" },

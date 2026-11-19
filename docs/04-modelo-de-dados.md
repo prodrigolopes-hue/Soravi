@@ -276,7 +276,7 @@ Política de integridade referencial:
 
 Regras de negócio no cadastro profissional:
 
-- profissional deve possuir de 1 a 3 escolhas combinadas entre `ProfessionalCategory` e `CategoryRequest` pendente; pode não ter `ProfessionalCategory` enquanto aguarda ao menos uma solicitação pendente;
+- profissional deve possuir de 1 a 10 escolhas combinadas entre `ProfessionalCategory` e `CategoryRequest` pendente; pode não ter `ProfessionalCategory` enquanto aguarda ao menos uma solicitação pendente;
 - categorias selecionadas devem estar ativas (`isActive = true`);
 - slugs duplicados não são aceitos.
 

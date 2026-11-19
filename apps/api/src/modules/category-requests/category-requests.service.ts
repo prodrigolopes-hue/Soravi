@@ -150,8 +150,8 @@ export class CategoryRequestsService {
       transaction.professionalCategory.count({ where: { professionalProfileId: professionalProfile.id } }),
       transaction.categoryRequest.count({ where: { professionalProfileId: professionalProfile.id, status: CategoryRequestStatus.PENDING } }),
     ]);
-    if (officialCategoryCount + pendingRequestCount >= 3) {
-      throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "O profissional já atingiu o limite de três categorias e solicitações." });
+    if (officialCategoryCount + pendingRequestCount >= 10) {
+      throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "O profissional já atingiu o limite de dez categorias e solicitações." });
     }
 
     const categoryRequest =
@@ -229,7 +229,7 @@ export class CategoryRequestsService {
       const existingAssociations = await transaction.professionalCategory.findMany({ where: { professionalProfileId: request.professionalProfileId, categoryId: { in: categoryIds } }, select: { categoryId: true } });
       const additions = categoryIds.length - existingAssociations.length;
       const pending = await transaction.categoryRequest.count({ where: { professionalProfileId: request.professionalProfileId, status: CategoryRequestStatus.PENDING, id: { not: id } } });
-      if (categoryCount + additions + pending > 3) throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "Não foi possível concluir: este profissional ficaria com mais de três categorias ou solicitações pendentes." });
+      if (categoryCount + additions + pending > 10) throw new ConflictException({ code: "PROFESSIONAL_CATEGORY_LIMIT_REACHED", message: "Não foi possível concluir: este profissional ficaria com mais de dez categorias ou solicitações pendentes." });
       for (const categoryId of categoryIds) await transaction.professionalCategory.upsert({ where: { professionalProfileId_categoryId: { professionalProfileId: request.professionalProfileId, categoryId } }, update: {}, create: { professionalProfileId: request.professionalProfileId, categoryId } });
       await transaction.categoryRequestResolvedCategory.createMany({ data: categoryIds.map((categoryId) => ({ categoryRequestId: id, categoryId })), skipDuplicates: true });
       const updated = await transaction.categoryRequest.update({ where: { id }, data: { status: input.decision === "ASSOCIATE" ? CategoryRequestStatus.MERGED : CategoryRequestStatus.APPROVED, resolvedCategoryId: categoryIds[0], reviewNotes: notes, reviewedAt: new Date(), reviewedByUserId: reviewerUserId }, select: CATEGORY_REQUEST_PUBLIC_SELECT });

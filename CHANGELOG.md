@@ -2,6 +2,11 @@
 
 ## Não publicado
 
+### Limite de categorias profissionais
+
+- aumenta para dez o limite combinado de categorias oficiais e sugestões pendentes no cadastro, ativação, perfil e decisões administrativas; cada decisão de sugestão continua limitada a três categorias.
+- validados testes focados da API e do site, builds da API e do site e nove testes de integração PostgreSQL em banco local descartável; o fluxo ainda requer validação em staging.
+
 ### Resolução de sugestões de categoria
 
 - administradores podem resolver uma solicitação pendente em uma a três categorias oficiais, existentes ou criadas explicitamente na decisão;

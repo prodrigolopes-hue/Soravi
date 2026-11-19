@@ -39,7 +39,7 @@ describe("Category request multi-resolution migration", () => {
     expect(request?.resolvedCategories).toEqual(expect.arrayContaining([expect.objectContaining({ categoryId: backfillCategoryId })]));
   });
 
-  it("resolve categorias existente e nova, respeita três e reverte a quarta", async () => {
+  it("resolve categorias existente e nova, respeita dez e reverte a décima primeira", async () => {
     const testFixture = await createFixture("limit"); const existing = await category("existing"); const request = await requestFor(testFixture.profileId, "Solar"); const service = new CategoryRequestsService(control);
     const result = await service.decide(request.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ categoryId: existing }, { create: { name: "Nova solar", slug: `new-${randomUUID()}` } }], reviewNotes: "Duas categorias." });
     const resolvedCategories = result.resolvedCategories;
@@ -47,7 +47,8 @@ describe("Category request multi-resolution migration", () => {
     if (!resolvedCategories) throw new Error("A decisão aprovada deve retornar as categorias resolvidas.");
     resolvedCategories.forEach((item) => categories.add(item.id));
     expect(await control.professionalCategory.count({ where: { professionalProfileId: testFixture.profileId } })).toBe(3);
-    const excess = await requestFor(testFixture.profileId, "Quarta"); const rollbackSlug = `rollback-${randomUUID()}`;
+    for (let i = 0; i < 7; i++) { const id = await category(`limit-extra-${i}`); await control.professionalCategory.create({ data: { professionalProfileId: testFixture.profileId, categoryId: id } }); }
+    const excess = await requestFor(testFixture.profileId, "Décima primeira"); const rollbackSlug = `rollback-${randomUUID()}`;
     await expect(service.decide(excess.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ create: { name: "Não persiste", slug: rollbackSlug } }] })).rejects.toBeInstanceOf(ConflictException);
     const unchanged = await control.categoryRequest.findUniqueOrThrow({ where: { id: excess.id }, include: { resolvedCategories: true } });
     expect(unchanged.status).toBe("PENDING"); expect(unchanged.resolvedCategoryId).toBeNull(); expect(unchanged.resolvedCategories).toHaveLength(0);
@@ -144,14 +145,15 @@ describe("Category request multi-resolution migration", () => {
     const second = await category("display-order-rollback-second");
     const third = await category("display-order-rollback-third");
     await control.professionalCategory.createMany({ data: [{ professionalProfileId: testFixture.profileId, categoryId: second }, { professionalProfileId: testFixture.profileId, categoryId: third }] });
-    const request = await requestFor(testFixture.profileId, "Quarta nova");
+    for (let i = 0; i < 7; i++) { const id = await category(`rollback-extra-${i}`); await control.professionalCategory.create({ data: { professionalProfileId: testFixture.profileId, categoryId: id } }); }
+    const request = await requestFor(testFixture.profileId, "Décima primeira nova");
     const rollbackSlug = `display-order-rollback-${randomUUID()}`;
     const service = new CategoryRequestsService(control);
 
     await expect(service.decide(request.id, testFixture.adminId, { decision: "RESOLVE", categories: [{ create: { name: "Quarta nova", slug: rollbackSlug } }] })).rejects.toBeInstanceOf(ConflictException);
 
     expect(await control.category.findUnique({ where: { slug: rollbackSlug } })).toBeNull();
-    expect(await control.professionalCategory.count({ where: { professionalProfileId: testFixture.profileId } })).toBe(3);
+    expect(await control.professionalCategory.count({ where: { professionalProfileId: testFixture.profileId } })).toBe(10);
     const unchanged = await control.categoryRequest.findUniqueOrThrow({ where: { id: request.id }, include: { resolvedCategories: true } });
     expect(unchanged.status).toBe("PENDING");
     expect(unchanged.resolvedCategoryId).toBeNull();

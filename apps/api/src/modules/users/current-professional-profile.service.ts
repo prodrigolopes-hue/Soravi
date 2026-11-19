@@ -130,7 +130,7 @@ export class CurrentProfessionalProfileService {
         throw new InvalidProfessionalProfileCategoriesException();
       }
 
-      if (categories.length + pendingRequestCount > 3) {
+      if (categories.length + pendingRequestCount > 10) {
         throw new InvalidProfessionalProfileCategoriesException();
       }
 

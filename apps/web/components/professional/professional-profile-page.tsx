@@ -25,7 +25,7 @@ const profileFormSchema = z.object({
   professionalTitle: z.string().trim().max(80, "Use no máximo 80 caracteres."),
   serviceArea: z.string().trim().max(100, "Use no máximo 100 caracteres."),
   bio: z.string().trim().max(1000, "Use no máximo 1000 caracteres."),
-  categorySlugs: z.array(z.string()).max(3, "Selecione no máximo três categorias.").refine((values) => new Set(values).size === values.length, "Não selecione categorias duplicadas."),
+  categorySlugs: z.array(z.string()).max(10, "Selecione no máximo dez categorias.").refine((values) => new Set(values).size === values.length, "Não selecione categorias duplicadas."),
   isAvailable: z.boolean(),
 });
 
@@ -288,7 +288,7 @@ export function ProfessionalProfilePage() {
       ? selectedCategories.filter((value) => value !== slug)
       : [...selectedCategories, slug];
 
-    if (nextCategories.length > 3) {
+    if (nextCategories.length + (profile?.categoryRequests.filter((request) => request.status === "PENDING").length ?? 0) > 10) {
       return;
     }
 
@@ -551,11 +551,11 @@ export function ProfessionalProfilePage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="categories-title">
             <h2 id="categories-title" className="text-xl font-bold text-slate-950">Categorias de serviço</h2>
-            <p id="categories-help" className="mt-2 text-sm leading-6 text-slate-600">Selecione até 3 categorias oficiais. {profile.categoryRequests.some((request) => request.status === "PENDING") ? "Você pode manter esta lista vazia enquanto suas solicitações estiverem em análise; elas não garantem oportunidades." : "Mantenha ao menos uma categoria oficial."} Você escolheu {selectedCategories.length} de 3.</p>
+            <p id="categories-help" className="mt-2 text-sm leading-6 text-slate-600">Selecione até 10 categorias oficiais. {profile.categoryRequests.some((request) => request.status === "PENDING") ? "Você pode manter esta lista vazia enquanto suas solicitações estiverem em análise; elas não garantem oportunidades." : "Mantenha ao menos uma categoria oficial."} Você escolheu {selectedCategories.length} categorias oficiais; as solicitações pendentes também contam para o limite de 10.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {categoryOptions.map((category) => {
                 const isSelected = selectedCategories.includes(category.slug);
-                const isDisabled = !isSelected && selectedCategories.length >= 3;
+                const isDisabled = !isSelected && selectedCategories.length + profile.categoryRequests.filter((request) => request.status === "PENDING").length >= 10;
                 return <label key={category.id} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${isSelected ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-white hover:border-blue-300"} ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}><input type="checkbox" checked={isSelected} disabled={isDisabled} onChange={() => toggleCategory(category.slug)} aria-describedby="categories-help categories-error" className="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600" /><span className="text-sm font-semibold text-slate-800">{category.name}</span></label>;
               })}
             </div>

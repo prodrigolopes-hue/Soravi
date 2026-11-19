@@ -530,7 +530,7 @@ describe("AuthService", () => {
   it.each([
     ["sem categorySlugs", undefined],
     ["com array vazio", []],
-    ["com 4 categorias", ["eletricista", "encanador", "pintor", "diarista"]],
+    ["com 11 categorias", Array.from({ length: 11 }, (_, index) => `categoria-${index}`)],
     ["com slug duplicado", ["eletricista", "eletricista"]],
   ])(
     "deve rejeitar cadastro profissional %s",
