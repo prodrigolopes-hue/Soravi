@@ -112,7 +112,7 @@ const professionalRegistrationSchema = z
       .max(500, "A descrição deve ter no máximo 500 caracteres."),
     categories: z
       .array(z.string())
-      .max(3, "Selecione no máximo três categorias."),
+      .max(10, "Selecione no máximo dez categorias."),
     password: z
       .string()
       .superRefine((value, context) => {
@@ -397,8 +397,8 @@ export function ProfessionalRegistrationForm() {
       setSuggestionError("Informe uma categoria sugerida com pelo menos 2 caracteres.");
       return;
     }
-    if (selectedCategoryCount >= 3) {
-      setSuggestionError("O total entre categorias oficiais e solicitadas não pode ultrapassar três.");
+    if (selectedCategoryCount >= 10) {
+      setSuggestionError("O total entre categorias oficiais e solicitadas não pode ultrapassar dez.");
       return;
     }
     setSuggestionError(null);
@@ -666,7 +666,7 @@ export function ProfessionalRegistrationForm() {
         </legend>
 
         <p className="mt-1 text-sm text-slate-500">
-          Selecione de uma a três categorias oficiais ou sugeridas.
+          Selecione de uma a dez categorias oficiais ou sugeridas.
         </p>
 
         {categoriesLoadState === "loading" ? (
@@ -694,7 +694,7 @@ export function ProfessionalRegistrationForm() {
                 const isSelected = selectedCategories.includes(category.slug);
                 const isDisabled =
                   !canSubmitWithCategories ||
-                  (!isSelected && selectedCategoryCount >= 3);
+                  (!isSelected && selectedCategoryCount >= 10);
 
                 return (
                   <label

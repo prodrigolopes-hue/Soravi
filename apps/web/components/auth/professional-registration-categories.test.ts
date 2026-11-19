@@ -21,6 +21,10 @@ test("rejeita quando não há escolha", () => {
   assert.equal(professionalCategorySelectionError([], []), "Selecione pelo menos uma categoria oficial ou sugira uma categoria.");
 });
 
-test("rejeita mais de três escolhas combinadas", () => {
-  assert.equal(professionalCategorySelectionError(["eletrica", "pintura"], [{ suggestedName: "Técnico solar" }, { suggestedName: "Jardinagem" }]), "Selecione no máximo três categorias entre oficiais e sugeridas.");
+test("rejeita mais de dez escolhas combinadas", () => {
+  assert.equal(professionalCategorySelectionError(Array.from({ length: 10 }, (_, index) => `categoria-${index}`), [{ suggestedName: "Técnico solar" }]), "Selecione no máximo dez categorias entre oficiais e sugeridas.");
+});
+
+test("aceita dez escolhas combinadas", () => {
+  assert.equal(professionalCategorySelectionError(Array.from({ length: 9 }, (_, index) => `categoria-${index}`), [{ suggestedName: "Técnico solar" }]), null);
 });

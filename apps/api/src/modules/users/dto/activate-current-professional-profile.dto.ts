@@ -37,7 +37,7 @@ export class ActivateCurrentProfessionalProfileDto {
   @Transform(({ value }: { value: unknown }) => Array.isArray(value) ? value.map((item) => typeof item === "string" ? item.trim() : item) : value)
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(10)
   @ArrayUnique()
   @IsString({ each: true })
   @MinLength(1, { each: true })
@@ -45,7 +45,7 @@ export class ActivateCurrentProfessionalProfileDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(10)
   @ValidateNested({ each: true })
   @Type(() => CategoryRequestDto)
   categoryRequests?: CategoryRequestDto[];

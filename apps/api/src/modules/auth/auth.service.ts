@@ -86,10 +86,10 @@ export class AuthService {
       : [];
 
     if (input.initialRole === Role.PROFESSIONAL && professionalCategorySlugs.length + professionalCategoryRequests.length < 1) {
-      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "Selecione ou solicite de 1 a 3 categorias." });
+      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "Selecione ou solicite de 1 a 10 categorias." });
     }
-    if (professionalCategorySlugs.length + professionalCategoryRequests.length > 3) {
-      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "O total de categorias e solicitações não pode ultrapassar três." });
+    if (professionalCategorySlugs.length + professionalCategoryRequests.length > 10) {
+      throw new BadRequestException({ code: "INVALID_CATEGORIES", message: "O total de categorias e solicitações não pode ultrapassar dez." });
     }
 
     const normalizedEmail = this.normalizeEmail(input.email);
@@ -670,19 +670,19 @@ export class AuthService {
       throw new BadRequestException({
         code: "INVALID_CATEGORY_SLUGS",
         message:
-          "Selecione de 1 a 3 categorias válidas.",
+          "Selecione de 1 a 10 categorias válidas.",
       });
     }
 
     if (
-      normalizedCategorySlugs.length > 3 ||
+      normalizedCategorySlugs.length > 10 ||
       new Set(normalizedCategorySlugs).size !==
         normalizedCategorySlugs.length
     ) {
       throw new BadRequestException({
         code: "INVALID_CATEGORY_SLUGS",
         message:
-          "Selecione de 1 a 3 categorias válidas.",
+          "Selecione de 1 a 10 categorias válidas.",
       });
     }
 
@@ -726,7 +726,7 @@ export class AuthService {
       throw new BadRequestException({
         code: "INVALID_CATEGORY_SLUGS",
         message:
-          "Selecione de 1 a 3 categorias válidas.",
+          "Selecione de 1 a 10 categorias válidas.",
       });
     }
 

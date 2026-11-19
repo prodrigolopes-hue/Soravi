@@ -70,8 +70,14 @@ describe("CategoryRequestsService decisions", () => {
     expect(tx.categoryRequest.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: CategoryRequestStatus.REJECTED, reviewNotes: "Escopo indisponível." }) }));
   });
 
-  it("bloqueia aprovação que adicionaria uma quarta categoria", async () => {
-    tx.professionalCategory.count.mockResolvedValue(3);
+  it("permite aprovação que completa dez categorias", async () => {
+    tx.professionalCategory.count.mockResolvedValue(9);
+    await service.decide(requestId, adminId, { decision: "CREATE" });
+    expect(tx.professionalCategory.upsert).toHaveBeenCalled();
+  });
+
+  it("bloqueia aprovação que adicionaria uma décima primeira categoria", async () => {
+    tx.professionalCategory.count.mockResolvedValue(10);
     await expect(service.decide(requestId, adminId, { decision: "CREATE" })).rejects.toBeInstanceOf(ConflictException);
     expect(tx.professionalCategory.upsert).not.toHaveBeenCalled();
     expect(tx.categoryRequest.update).not.toHaveBeenCalled();

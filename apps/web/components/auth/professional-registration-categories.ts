@@ -10,7 +10,7 @@ export function professionalCategorySelectionError(
   const total = categorySlugs.length + categoryRequests.length;
 
   if (total === 0) return "Selecione pelo menos uma categoria oficial ou sugira uma categoria.";
-  if (total > 3) return "Selecione no máximo três categorias entre oficiais e sugeridas.";
+  if (total > 10) return "Selecione no máximo dez categorias entre oficiais e sugeridas.";
   return null;
 }
 

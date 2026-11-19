@@ -36,7 +36,7 @@ export class ProfessionalProfileActivationService {
 
       const categorySlugs = input.categorySlugs ?? [];
       const categoryRequests = this.validateCategoryRequests(input.categoryRequests);
-      if (categorySlugs.length + categoryRequests.length < 1 || categorySlugs.length + categoryRequests.length > 3 || new Set(categorySlugs).size !== categorySlugs.length) {
+      if (categorySlugs.length + categoryRequests.length < 1 || categorySlugs.length + categoryRequests.length > 10 || new Set(categorySlugs).size !== categorySlugs.length) {
         throw new InvalidProfessionalProfileCategoriesException();
       }
       const categories = categorySlugs.length > 0
