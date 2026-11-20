@@ -4,6 +4,7 @@
 
 ### Identidade e oportunidades profissionais
 
+- a administração pode examinar serviço, área, descrição e categorias antes de aprovar ou rejeitar um perfil profissional;
 - novas tentativas de identidade exigem documento e selfie e só são iniciadas com `PROFESSIONAL_IDENTITY_SELFIE_ENABLED=true`; tentativas anteriores mantêm seus requisitos registrados;
 - o cadastro profissional exige CPF e permite enviar documento e selfie na etapa seguinte ou depois; confirmar os contatos continua necessário;
 - a distribuição de novas oportunidades exige que a tentativa de identidade mais recente esteja encerrada e confirmada, além dos critérios existentes; oportunidades já atribuídas e serviços existentes não são alterados;
