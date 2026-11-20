@@ -14,7 +14,7 @@ describe("ActivateCurrentProfessionalProfileDto", () => {
   it("rejeita sugestão sem nome válido", async () => {
     await expect(validate(plainToInstance(ActivateCurrentProfessionalProfileDto, { ...valid, categorySlugs: [], categoryRequests: [{ suggestedName: "a" }] }))).resolves.not.toHaveLength(0);
   });
-  it.each([{ professionalTitle: "ab" }, { serviceArea: "a" }, { bio: "curta" }, { categorySlugs: ["a", "a"] }, { categorySlugs: ["a", "b", "c", "d"] }])("rejeita entrada inválida %#", async (override) => {
+  it.each([{ professionalTitle: "ab" }, { serviceArea: "a" }, { bio: "curta" }, { categorySlugs: ["a", "a"] }, { categorySlugs: Array.from({ length: 11 }, (_, index) => `categoria-${index}`) }])("rejeita entrada inválida %#", async (override) => {
     await expect(validate(plainToInstance(ActivateCurrentProfessionalProfileDto, { ...valid, ...override }))).resolves.not.toHaveLength(0);
   });
 });

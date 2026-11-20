@@ -83,7 +83,7 @@ export function postLoginDestination(
     user.professionalRegistrationCompleted === false &&
     !safeDirectedRequestReturnTo(returnTo)
   ) {
-    return "/profissional?completeProfessional=1";
+    return "/profissional/perfil?completeProfessional=1";
   }
 
   return phoneVerificationDestination(user.roles, returnTo);
@@ -218,7 +218,7 @@ export function phoneVerificationGuardDecision({
   if (pathname === "/verificar-telefone") {
     return redirectDecision(
       pathname,
-      phoneVerificationDestination(user.roles, returnTo),
+      postLoginDestination(user, returnTo),
     );
   }
 

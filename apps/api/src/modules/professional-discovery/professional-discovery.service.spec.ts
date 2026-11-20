@@ -16,6 +16,7 @@ describe("ProfessionalDiscoveryService", () => {
     serviceArea: "Niterói",
     bio: "Atendimento residencial.",
     portfolioItems: [],
+    identityVerificationAttempts: [{ status: "CLOSED", result: "CONFIRMED" }],
     professionalCategories: [{ category: { id: "category-id", name: "Elétrica", slug: "eletrica" } }],
   };
   let prisma: {
@@ -81,6 +82,7 @@ describe("ProfessionalDiscoveryService", () => {
         id: professional.id,
         displayName: professional.displayName,
         professionalTitle: professional.professionalTitle,
+        identityVerified: true,
         serviceArea: professional.serviceArea,
         categories: [{ id: "category-id", name: "Elétrica", slug: "eletrica" }],
         reputation: { averageRating: 4.5, reviewCount: 2 },
@@ -91,6 +93,18 @@ describe("ProfessionalDiscoveryService", () => {
     expect(result.items[0]).not.toHaveProperty("bio");
     expect(prisma.professionalProfile.findMany.mock.calls[0][0].select).not.toHaveProperty("averageRating");
     expect(prisma.professionalProfile.findMany.mock.calls[0][0].select).not.toHaveProperty("reviewCount");
+  });
+
+  it.each([
+    [[], false],
+    [[{ status: "UNDER_REVIEW", result: "PENDING" }], false],
+    [[{ status: "CLOSED", result: "NOT_CONFIRMED" }], false],
+    [[{ status: "CLOSED", result: "CONFIRMED" }], true],
+  ])("publica apenas a indicação de identidade confirmada (%j)", async (attempts, expected) => {
+    prisma.professionalProfile.findMany.mockResolvedValue([{ ...professional, identityVerificationAttempts: attempts }]);
+    const result = await service.findByCategory("eletrica", new PublicProfessionalDiscoveryQueryDto());
+    expect(result.items[0].identityVerified).toBe(expected);
+    expect(result.items[0]).not.toHaveProperty("identityVerificationAttempts");
   });
 
   it("retorna somente URL temporária da foto sem campos internos", async () => {
@@ -153,7 +167,7 @@ describe("ProfessionalDiscoveryService", () => {
       pagination: { page: 2, limit: 5, total: 1, totalPages: 1 },
     });
     expect(Object.keys(result).sort()).toEqual([
-      "bio", "categories", "displayName", "id", "photo", "portfolio", "professionalTitle",
+      "bio", "categories", "displayName", "id", "identityVerified", "photo", "portfolio", "professionalTitle",
       "reputation", "reviews", "serviceArea",
     ]);
     expect(Object.keys(result.reviews.items[0]).sort()).toEqual(["comment", "publishedAt", "rating"]);

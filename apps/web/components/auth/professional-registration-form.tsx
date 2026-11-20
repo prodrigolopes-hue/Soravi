@@ -1046,6 +1046,8 @@ export function ProfessionalRegistrationForm() {
         </div>
       ) : null}
 
+      <p className="text-sm text-slate-600">Após criar a conta, confirme seus contatos e envie seu CPF, documento e selfie no perfil profissional. A identidade precisa ser confirmada para receber oportunidades.</p>
+
       <button
         type="submit"
         disabled={!canSubmitWithCategories}

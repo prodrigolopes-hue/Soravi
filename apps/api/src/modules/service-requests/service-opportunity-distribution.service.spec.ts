@@ -67,11 +67,11 @@ describe("ServiceOpportunityDistributionService", () => {
           .mockResolvedValue([
             {
               id: firstProfessionalProfileId,
-              userId: firstProfessionalUserId,
+              userId: firstProfessionalUserId, identityVerificationAttempts: [{ status: "CLOSED", result: "CONFIRMED" }],
             },
             {
               id: secondProfessionalProfileId,
-              userId: secondProfessionalUserId,
+              userId: secondProfessionalUserId, identityVerificationAttempts: [{ status: "CLOSED", result: "CONFIRMED" }],
             },
           ]),
       },
@@ -209,7 +209,7 @@ describe("ServiceOpportunityDistributionService", () => {
           },
         },
       },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, identityVerificationAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { status: true, result: true } } },
     });
   });
 
@@ -224,7 +224,7 @@ describe("ServiceOpportunityDistributionService", () => {
     transactionMock.professionalProfile.findMany.mockResolvedValue([
       {
         id: secondProfessionalProfileId,
-        userId: secondProfessionalUserId,
+        userId: secondProfessionalUserId, identityVerificationAttempts: [{ status: "CLOSED", result: "CONFIRMED" }],
       },
     ]);
     transactionMock.serviceOpportunity.createManyAndReturn.mockResolvedValue([
@@ -257,6 +257,17 @@ describe("ServiceOpportunityDistributionService", () => {
         ],
       }),
     );
+  });
+
+  it.each([
+    [[]],
+    [[{ status: "UNDER_REVIEW", result: "PENDING" }]],
+    [[{ status: "CLOSED", result: "NOT_CONFIRMED" }]],
+    [[{ status: "CLOSED", result: "INCONCLUSIVE" }]],
+  ])("não distribui a profissional sem identidade confirmada (%j)", async (identityVerificationAttempts) => {
+    transactionMock.professionalProfile.findMany.mockResolvedValue([{ id: firstProfessionalProfileId, userId: firstProfessionalUserId, identityVerificationAttempts }]);
+    await expect(service.distribute(serviceRequestId)).resolves.toEqual({ dispatched: false, opportunitiesCreated: 0 });
+    expect(transactionMock.serviceOpportunity.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it("não marca a solicitação quando não há profissional elegível", async () => {
@@ -499,7 +510,7 @@ describe("ServiceOpportunityDistributionService", () => {
       customerProfile: { userId: customerUserId },
     });
     transactionMock.professionalProfile.findMany.mockResolvedValue([
-      { id: firstProfessionalProfileId, userId: firstProfessionalUserId },
+      { id: firstProfessionalProfileId, userId: firstProfessionalUserId, identityVerificationAttempts: [{ status: "CLOSED", result: "CONFIRMED" }] },
     ]);
     transactionMock.serviceOpportunity.createManyAndReturn.mockRejectedValue(
       new Error("database unavailable"),

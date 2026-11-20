@@ -2,6 +2,13 @@
 
 ## Não publicado
 
+### Identidade e oportunidades profissionais
+
+- novas tentativas de identidade exigem documento e selfie e só são iniciadas com `PROFESSIONAL_IDENTITY_SELFIE_ENABLED=true`; tentativas anteriores mantêm seus requisitos registrados;
+- profissionais são orientados a concluir a identidade após confirmar o telefone; a etapa não representa aprovação automática;
+- a distribuição de novas oportunidades exige que a tentativa de identidade mais recente esteja encerrada e confirmada, além dos critérios existentes; oportunidades já atribuídas e serviços existentes não são alterados;
+- o perfil e as listas públicas exibem somente um indicador de identidade confirmada, sem dados dos documentos.
+
 ### Gestão administrativa de categorias
 
 - administradores podem editar o nome de uma categoria mantendo o endereço e vínculos existentes;

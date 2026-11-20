@@ -480,8 +480,8 @@ export function ProfessionalProfilePage() {
 
         <section className="mt-7 rounded-2xl border border-blue-200 bg-blue-50 p-5" aria-labelledby="registration-summary-title">
           <h2 id="registration-summary-title" className="font-bold text-blue-950">Resumo do cadastro profissional</h2>
-          <ul className="mt-3 space-y-1 text-sm leading-6 text-blue-900"><li>E-mail: {user?.emailVerified ? "confirmado" : "pendente"}</li><li>Telefone: {user?.phoneVerified ? "confirmado" : "pendente"}</li><li>CPF e documento privado: {user?.professionalRegistrationCompleted ? "enviados" : "pendentes"}</li><li>Informações e categorias: {profile.categories.length > 0 ? "preenchidas" : "pendentes"}</li></ul>
-          <p className="mt-3 text-sm leading-6 text-blue-900">A análise de identidade confirma seu documento. A verificação do perfil profissional é uma decisão separada e não libera oportunidades automaticamente.</p>
+          <ul className="mt-3 space-y-1 text-sm leading-6 text-blue-900"><li>E-mail: {user?.emailVerified ? "confirmado" : "pendente"}</li><li>Telefone: {user?.phoneVerified ? "confirmado" : "pendente"}</li><li>Envio para identidade: {user?.professionalRegistrationCompleted ? "concluído" : "pendente"}</li><li>Informações e categorias: {profile.categories.length > 0 ? "preenchidas" : "pendentes"}</li></ul>
+          <p className="mt-3 text-sm leading-6 text-blue-900">Envie seu documento e selfie para análise. Você poderá receber novas oportunidades após a confirmação da identidade e aprovação do perfil profissional.</p>
         </section>
 
         {accessToken && user ? (
@@ -492,7 +492,7 @@ export function ProfessionalProfilePage() {
           />
         ) : null}
 
-        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} /> : null}
+        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} onEvidenceSubmitted={refreshSession} /> : null}
 
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="professional-photo-title">
           <h2 id="professional-photo-title" className="text-xl font-bold text-slate-950">Foto profissional</h2>

@@ -18,6 +18,7 @@ import {
 import { useAuth } from "./auth-provider";
 import {
   phoneVerificationDestination,
+  postLoginDestination,
   safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
@@ -90,10 +91,7 @@ export function PhoneVerificationForm() {
   });
   const newPhoneField = registerPhoneChange("phone");
 
-  const destination = phoneVerificationDestination(
-    user?.roles ?? [],
-    safePhoneVerificationReturnTo(searchParams.get("returnTo")),
-  );
+  const destination = user ? postLoginDestination({ ...user, phoneVerified: true }, safePhoneVerificationReturnTo(searchParams.get("returnTo"))) : phoneVerificationDestination([], null);
 
   useEffect(() => {
     if (isLoading) {

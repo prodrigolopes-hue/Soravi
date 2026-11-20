@@ -63,7 +63,7 @@ test("profissional incompleto recebe a orientacao sem usar a aprovacao do perfil
       roles: ["PROFESSIONAL"],
       professionalRegistrationCompleted: false,
     }),
-    "/profissional?completeProfessional=1",
+    "/profissional/perfil?completeProfessional=1",
   );
   assert.equal(
     postLoginDestination({
@@ -197,6 +197,10 @@ test("verificados saem da verificacao para o destino do papel", () => {
     }),
     { type: "redirect", destination: "/profissional" },
   );
+});
+
+test("apos confirmar telefone profissional com identidade incompleta segue para concluir cadastro", () => {
+  assert.deepEqual(phoneVerificationGuardDecision({ isLoading: false, pathname: "/verificar-telefone", user: { ...professional, professionalRegistrationCompleted: false } }), { type: "redirect", destination: "/profissional/perfil?completeProfessional=1" });
 });
 
 test("ADMIN fica fora da exigencia e sai da verificacao para admin", () => {

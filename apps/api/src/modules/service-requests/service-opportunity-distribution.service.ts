@@ -87,7 +87,7 @@ export class ServiceOpportunityDistributionService {
         return NOT_DISPATCHED;
       }
 
-      const professionals = await transaction.professionalProfile.findMany({
+      const candidates = await transaction.professionalProfile.findMany({
         where: {
           ...(serviceRequest.targetProfessionalProfileId
             ? { id: serviceRequest.targetProfessionalProfileId }
@@ -110,8 +110,10 @@ export class ServiceOpportunityDistributionService {
             },
           },
         },
-        select: { id: true, userId: true },
+        select: { id: true, userId: true, identityVerificationAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { status: true, result: true } } },
       });
+
+      const professionals = candidates.filter(({ identityVerificationAttempts }) => identityVerificationAttempts[0]?.status === "CLOSED" && identityVerificationAttempts[0]?.result === "CONFIRMED");
 
       if (professionals.length === 0) {
         if (serviceRequest.targetProfessionalProfileId) {

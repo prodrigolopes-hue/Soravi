@@ -7,7 +7,7 @@ import { canSubmitIdentityEvidence, isIdentityStatus, shouldShowSelfieUpload, ty
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export function ProfessionalIdentityDocumentUpload({ accessToken }: { accessToken: string }) {
+export function ProfessionalIdentityDocumentUpload({ accessToken, onEvidenceSubmitted }: { accessToken: string; onEvidenceSubmitted?: () => Promise<unknown> }) {
   const [file, setFile] = useState<File | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +77,8 @@ export function ProfessionalIdentityDocumentUpload({ accessToken }: { accessToke
         const code = typeof payload === "object" && payload !== null && "code" in payload ? (payload as { code?: unknown }).code : undefined;
         setError(code === "PERSONAL_IDENTITY_REQUIRED"
           ? "Cadastre seu CPF antes de enviar o documento."
+          : code === "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE"
+            ? "A verificação de identidade está temporariamente indisponível. Tente novamente mais tarde."
           : code === "PROFESSIONAL_IDENTITY_DOCUMENT_ALREADY_SUBMITTED"
             ? "Documento enviado — aguardando análise."
             : code === "PROFESSIONAL_IDENTITY_ALREADY_CONFIRMED"
@@ -86,6 +88,7 @@ export function ProfessionalIdentityDocumentUpload({ accessToken }: { accessToke
       }
       setFile(null);
       await refreshStatus();
+      await onEvidenceSubmitted?.();
     } catch {
       setError("Não foi possível enviar o documento agora. Tente novamente.");
     } finally {
@@ -102,13 +105,14 @@ export function ProfessionalIdentityDocumentUpload({ accessToken }: { accessToke
       if (!response.ok) throw new Error();
       setSelfie(null);
       await refreshStatus();
+      await onEvidenceSubmitted?.();
     } catch { setError("Não foi possível enviar a selfie agora. Tente novamente."); } finally { setIsSubmitting(false); }
   }
 
   const guidance = status?.status === "UNDER_REVIEW" ? "Documento enviado — aguardando análise." : status?.status === "CLOSED" && status.result === "CONFIRMED" ? "Identidade confirmada." : status?.status === "CLOSED" ? "Não foi possível confirmar sua identidade. Revise a imagem e envie um novo documento." : null;
   return <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="identity-document-title">
     <h2 id="identity-document-title" className="text-xl font-bold text-slate-950">Documento de identidade</h2>
-    <p className="mt-2 text-sm leading-6 text-slate-600">Envie uma foto legível da sua CIN, RG ou CNH. O arquivo é usado somente na análise interna de identidade e não aparece para clientes nem no seu perfil público.</p>
+    <p className="mt-2 text-sm leading-6 text-slate-600">Envie uma foto legível da sua CIN, RG ou CNH. Após o envio, você poderá adicionar uma selfie. Os arquivos são usados somente na análise interna e não aparecem para clientes nem no seu perfil público.</p>
     {guidance ? <p role="status" className="mt-3 text-sm font-medium text-slate-800">{guidance}</p> : null}
     {maySubmit ? <label className="mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Selecionar documento<input type="file" accept="image/jpeg,image/png" className="sr-only" disabled={isSubmitting} onChange={selectFile} /></label> : null}
     {file ? <p className="mt-3 text-sm text-slate-700">Arquivo selecionado: {file.name}</p> : null}
