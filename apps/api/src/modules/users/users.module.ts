@@ -14,6 +14,7 @@ import { ProfessionalVerificationSubmissionService } from "./professional-verifi
 import { ProfessionalVerificationReviewService } from "./professional-verification-review.service";
 import { UsersService } from "./users.service";
 import { personalIdentityRecordingProvider } from "./personal-identity-recording.provider";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "./personal-identity-recording.provider";
 import { PersonalIdentityStatusService } from "./personal-identity-status.service";
 import { ProfessionalProfilePhotoService } from "./professional-profile-photo.service";
 import { ProfessionalProfilePhotoProcessor } from "./professional-profile-photo.processor";
@@ -52,6 +53,6 @@ import { ProfessionalIdentityEvidenceDisposalService } from "./professional-iden
     ProfessionalIdentityVerificationStatusService,
     ProfessionalPortfolioService,
   ],
-  exports: [UsersService, ProfessionalProfilePhotoReadService],
+  exports: [UsersService, ProfessionalProfilePhotoReadService, PERSONAL_IDENTITY_RECORDING_SERVICE],
 })
 export class UsersModule {}

@@ -9,7 +9,7 @@ import {
 
 import { normalizeCpf } from "../../../common/cpf/cpf";
 
-function IsValidCpf(validationOptions?: ValidationOptions): PropertyDecorator {
+export function IsValidCpf(validationOptions?: ValidationOptions): PropertyDecorator {
   return (target, propertyKey) => {
     registerDecorator({
       name: "isValidCpf",

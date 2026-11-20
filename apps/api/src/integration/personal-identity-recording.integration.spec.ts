@@ -104,6 +104,19 @@ describe("Personal identity recording concurrency", () => {
     await setBinding(CpfHmacKeyBindingState.UNINITIALIZED);
   });
 
+  it("registra o CPF junto da conta e reverte ambos se o cadastro falhar", async () => {
+    const id = randomUUID();
+    const email = `registration-${randomUUID()}@example.test`;
+    await expect(controlPrisma.$transaction(async (transaction) => {
+      await transaction.user.create({ data: { id, name: "Cadastro de teste", email, emailNormalized: email, passwordHash: "integration-only", status: UserStatus.PENDING } });
+      await service(controlPrisma).recordInitialInTransaction(transaction, id, cpf);
+      expect(await transaction.personalIdentity.count({ where: { userId: id } })).toBe(1);
+      throw new Error("rollback de teste");
+    })).rejects.toThrow("rollback de teste");
+    expect(await controlPrisma.user.findUnique({ where: { id } })).toBeNull();
+    expect(await controlPrisma.personalIdentity.count({ where: { userId: id } })).toBe(0);
+  });
+
   it("serializes simultaneous initial recordings for the same account", async () => {
     const userId = await createUser();
     const firstUserLocked = deferred<void>();

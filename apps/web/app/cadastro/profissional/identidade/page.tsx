@@ -14,8 +14,9 @@ export default function ProfessionalIdentityRegistrationPage() {
     <p className="font-semibold text-blue-700">Cadastro profissional</p>
     <h1 className="mt-2 text-3xl font-bold text-slate-950">Confirme sua identidade</h1>
     <p className="mt-3 leading-7 text-slate-600">Informe seu CPF e envie seu documento e sua selfie para análise. Você poderá receber novas oportunidades depois que sua identidade for confirmada e seu perfil aprovado.</p>
+    <p className="mt-3 text-sm text-slate-600">Confira seu e-mail para confirmar sua conta. Você também precisará confirmar seu telefone.</p>
     <PersonalIdentityCollection key={`${user.id}:${accessToken}`} userId={user.id} accessToken={accessToken} />
     <ProfessionalIdentityDocumentUpload accessToken={accessToken} onEvidenceSubmitted={refreshSession} />
-    {user.professionalRegistrationCompleted ? <div className="mt-6 rounded-xl bg-emerald-50 p-4"><p role="status">Etapa de identidade concluída. Acompanhe a situação no seu perfil.</p><Link className="mt-3 inline-block font-semibold text-blue-700 underline" href="/profissional/perfil">Continuar para meu perfil</Link></div> : <p className="mt-6 text-sm text-slate-600">Você pode voltar depois para concluir esta etapa. Enquanto isso, não receberá novas oportunidades.</p>}
+    {user.professionalRegistrationCompleted ? <div className="mt-6 rounded-xl bg-emerald-50 p-4"><p role="status">Etapa de identidade concluída. Acompanhe a situação no seu perfil.</p><Link className="mt-3 inline-block font-semibold text-blue-700 underline" href="/profissional/perfil">Continuar para meu perfil</Link></div> : <div className="mt-6"><p className="text-sm text-slate-600">Você poderá enviar os documentos depois. Até a confirmação da identidade, não receberá novas oportunidades.</p><Link className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 font-semibold text-slate-800" href="/profissional/perfil">Enviar depois</Link></div>}
   </div></main>;
 }
