@@ -5,7 +5,7 @@
 ### Identidade e oportunidades profissionais
 
 - novas tentativas de identidade exigem documento e selfie e só são iniciadas com `PROFESSIONAL_IDENTITY_SELFIE_ENABLED=true`; tentativas anteriores mantêm seus requisitos registrados;
-- o cadastro profissional aceita CPF opcional e permite enviar documento e selfie na etapa seguinte ou depois; confirmar os contatos continua necessário;
+- o cadastro profissional exige CPF e permite enviar documento e selfie na etapa seguinte ou depois; confirmar os contatos continua necessário;
 - a distribuição de novas oportunidades exige que a tentativa de identidade mais recente esteja encerrada e confirmada, além dos critérios existentes; oportunidades já atribuídas e serviços existentes não são alterados;
 - o perfil e as listas públicas exibem somente um indicador de identidade confirmada, sem dados dos documentos.
 

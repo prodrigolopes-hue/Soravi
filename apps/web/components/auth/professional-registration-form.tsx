@@ -80,7 +80,7 @@ const professionalRegistrationSchema = z
       .trim()
       .min(1, "Informe seu nome completo.")
       .min(3, "O nome deve ter pelo menos 3 caracteres."),
-    cpf: z.string().trim().refine((value) => !value || validCpf(value), "Digite um CPF válido."),
+    cpf: z.string().trim().min(1, "Informe seu CPF.").refine((value) => validCpf(value), "Digite um CPF válido."),
     email: z
       .string()
       .trim()
@@ -337,7 +337,7 @@ export function ProfessionalRegistrationForm() {
           },
           body: JSON.stringify({
             name: data.name,
-            ...(data.cpf ? { cpf: data.cpf } : {}),
+            cpf: data.cpf,
             email: data.email,
             phone: data.phone,
             password: data.password,
@@ -484,7 +484,7 @@ export function ProfessionalRegistrationForm() {
       <div>
         <label htmlFor="cpf" className="block text-sm font-semibold text-slate-800">CPF</label>
         <input id="cpf" type="text" inputMode="numeric" autoComplete="off" maxLength={14} placeholder="000.000.000-00" className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-slate-950" aria-invalid={Boolean(errors.cpf)} aria-describedby={errors.cpf ? "cpf-error" : "cpf-help"} {...register("cpf")} />
-        <p id="cpf-help" className="mt-2 text-sm text-slate-600">Você também pode informar seu CPF depois.</p>
+        <p id="cpf-help" className="mt-2 text-sm text-slate-600">Seu CPF é usado na verificação da sua identidade.</p>
         {errors.cpf ? <p id="cpf-error" role="alert" className="mt-2 text-sm text-red-600">{errors.cpf.message}</p> : null}
       </div>
 

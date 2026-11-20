@@ -30,7 +30,7 @@ type InitialRegistrationRole =
   (typeof INITIAL_REGISTRATION_ROLES)[number];
 
 export class RegisterUserDto {
-  @IsOptional()
+  @ValidateIf((object: RegisterUserDto) => object.initialRole === Role.PROFESSIONAL || object.cpf !== undefined)
   @IsString()
   @MaxLength(14)
   @IsValidCpf({ message: "CPF inválido." })
