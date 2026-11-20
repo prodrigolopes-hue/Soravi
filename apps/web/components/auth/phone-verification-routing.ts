@@ -83,7 +83,7 @@ export function postLoginDestination(
     user.professionalRegistrationCompleted === false &&
     !safeDirectedRequestReturnTo(returnTo)
   ) {
-    return "/profissional/perfil?completeProfessional=1";
+    return "/cadastro/profissional/identidade";
   }
 
   return phoneVerificationDestination(user.roles, returnTo);
