@@ -56,7 +56,7 @@ const verificationStyles = {
 } as const;
 
 export function ProfessionalProfilePage() {
-  const { accessToken, isAuthenticated, isLoading, user, refreshSession } = useAuth();
+  const { accessToken, isAuthenticated, isLoading, user, refreshSession, refreshUser } = useAuth();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadMessage, setLoadMessage] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
@@ -492,7 +492,7 @@ export function ProfessionalProfilePage() {
           />
         ) : null}
 
-        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} onEvidenceSubmitted={refreshSession} /> : null}
+        {accessToken ? <ProfessionalIdentityDocumentUpload accessToken={accessToken} onEvidenceSubmitted={refreshUser} /> : null}
 
         <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" aria-labelledby="professional-photo-title">
           <h2 id="professional-photo-title" className="text-xl font-bold text-slate-950">Foto profissional</h2>
