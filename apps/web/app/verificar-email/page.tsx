@@ -25,6 +25,7 @@ export default function VerifyEmailPage() {
   const [loginHref, setLoginHref] = useState("/entrar");
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const [fromProfessionalProfile, setFromProfessionalProfile] = useState(false);
+  const [fromProfessionalOnboarding, setFromProfessionalOnboarding] = useState(false);
   const [fromProfessionalRegistration, setFromProfessionalRegistration] = useState(false);
   const [activatedCustomerAccount, setActivatedCustomerAccount] = useState(false);
   const hasStartedConfirmation = useRef(false);
@@ -35,6 +36,7 @@ export default function VerifyEmailPage() {
     const from = new URLSearchParams(window.location.search).get("from");
     const fromRegistration = from === "registration" || from === "professional-registration";
     setFromProfessionalProfile(from === "professional-profile");
+    setFromProfessionalOnboarding(from === "professional-onboarding");
     setFromProfessionalRegistration(from === "professional-registration");
     const returnTo = safeDirectedRequestReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
     setReturnTo(returnTo);
@@ -100,7 +102,7 @@ export default function VerifyEmailPage() {
         {state === "registration" ? <>{guidance.title ? <h2 className="mt-3 text-lg font-bold text-slate-950">{guidance.title}</h2> : null}<p className="mt-3 leading-6 text-slate-700">{guidance.message}</p></> : null}
         {state === "invalid" ? <p className="mt-3 text-red-700">Este link é inválido ou expirou. Solicite um novo link.</p> : null}
         {state === "missing" ? <p className="mt-3 text-slate-700">Abra o link completo enviado para seu e-mail.</p> : null}
-        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços." : "E-mail confirmado. Sua sessão foi mantida."}</p>{fromProfessionalProfile ? <ResultLink href="/profissional/perfil" label="Voltar ao perfil profissional" /> : user?.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false ? <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950"><h2 className="font-semibold">Complete seu cadastro profissional</h2><p className="mt-2 text-sm leading-6">Cadastre seu CPF e envie um documento com foto e uma selfie para a análise privada. Isso não significa aprovação automática da identidade.</p><div className="mt-4 flex flex-wrap gap-3"><ResultLink href="/profissional/perfil" label="Completar cadastro" compact /><ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Fazer depois" compact /></div></div> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
+        {state === "success" && sessionState === "current-account" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços." : "E-mail confirmado. Sua sessão foi mantida."}</p>{fromProfessionalProfile ? <ResultLink href="/profissional/perfil" label="Voltar ao perfil profissional" /> : returnTo && user ? <ResultLink href={phoneVerificationDestination(user.roles, returnTo)} label="Continuar solicitação" /> : user?.roles.includes("PROFESSIONAL") ? <ResultLink href="/cadastro/profissional/contatos" label="Continuar confirmação de contatos" /> : <ResultLink href="/conta" label="Ir para minha conta" />}</> : null}
         {state === "success" && sessionState === "other-account" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços. Para protegê-la, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente." : "E-mail confirmado. Para proteger as contas, encerramos somente a sessão que estava aberta neste navegador. Entre na conta correspondente."}</p><ResultLink href={loginHref} label="Entrar" /></> : null}
         {state === "success" && sessionState === "signed-out" ? <><p className="mt-3 text-emerald-800">{activatedCustomerAccount ? "E-mail confirmado. Sua conta de cliente foi ativada; você já pode contratar serviços." : "E-mail confirmado."}</p><ResultLink href={loginHref} label="Entrar" /></> : null}
         {state !== "success" ? (
@@ -111,7 +113,7 @@ export default function VerifyEmailPage() {
             {resendState === "sent" ? <p className="mt-3 text-sm text-slate-700">Se houver uma conta não confirmada com este e-mail, enviaremos as instruções.</p> : null}
           </form>
         ) : null}
-        {state !== "success" ? <ResultLink href={loginHref} label={guidance.loginLabel} /> : null}
+        {state !== "success" ? fromProfessionalOnboarding && isAuthenticated ? <ResultLink href="/cadastro/profissional/contatos" label="Voltar à confirmação de contatos" /> : <ResultLink href={loginHref} label={guidance.loginLabel} /> : null}
       </section>
     </main>
   );
