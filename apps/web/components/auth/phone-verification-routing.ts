@@ -89,6 +89,13 @@ export function postLoginDestination(
   return phoneVerificationDestination(user.roles, returnTo);
 }
 
+export function professionalRegistrationDestination(user: PostLoginUser): string {
+  if (!user.roles.includes("ADMIN") && user.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false) {
+    return "/cadastro/profissional/identidade";
+  }
+  return phoneVerificationDestination(user.roles);
+}
+
 export type PhoneVerificationGuardDecision =
   | { type: "pending" }
   | { type: "allow" }

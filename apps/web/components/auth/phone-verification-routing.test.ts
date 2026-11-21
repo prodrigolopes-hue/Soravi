@@ -5,6 +5,7 @@ import {
   phoneVerificationDestination,
   phoneVerificationGuardDecision,
   postLoginDestination,
+  professionalRegistrationDestination,
   safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
@@ -14,6 +15,13 @@ const professional = {
   phoneVerified: true,
   roles: ["PROFESSIONAL"],
 } as const;
+
+test("novo profissional segue do cadastro para a etapa de identidade mesmo sem telefone confirmado", () => {
+  assert.equal(professionalRegistrationDestination({ phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: false }), "/cadastro/profissional/identidade");
+  assert.equal(professionalRegistrationDestination({ phoneVerified: true, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: true }), "/profissional");
+  assert.equal(professionalRegistrationDestination({ phoneVerified: false, roles: ["ADMIN", "PROFESSIONAL"], professionalRegistrationCompleted: false }), "/admin");
+  assert.deepEqual(phoneVerificationGuardDecision({ isLoading: false, pathname: "/cadastro/profissional/identidade", user: { phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: false } }), { type: "allow" });
+});
 
 test("define destinos por papel e fallback seguro", () => {
   assert.equal(phoneVerificationDestination(["CUSTOMER"]), "/cliente");
