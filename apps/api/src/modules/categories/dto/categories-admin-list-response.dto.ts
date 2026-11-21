@@ -5,6 +5,7 @@ export type CategoriesAdminCategoryRecord = Pick<
   "id" | "name" | "slug" | "displayOrder"
 > & {
   isActive: boolean;
+  isFeatured?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -14,6 +15,7 @@ export class CategoriesAdminCategoryItemResponseDto {
   name!: string;
   slug!: string;
   isActive!: boolean;
+  isFeatured!: boolean;
   displayOrder!: number;
   createdAt!: Date;
   updatedAt!: Date;
@@ -23,6 +25,7 @@ export class CategoriesAdminCategoryItemResponseDto {
     this.name = record.name;
     this.slug = record.slug;
     this.isActive = record.isActive;
+    this.isFeatured = record.isFeatured ?? false;
     this.displayOrder = record.displayOrder;
     this.createdAt = record.createdAt;
     this.updatedAt = record.updatedAt;

@@ -6,8 +6,20 @@ import { CategoriesService } from "./categories.service";
 import { CategoriesAdminListResponseDto } from "./dto/categories-admin-list-response.dto";
 import { CategoriesAdminQueryDto } from "./dto/categories-admin-query.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
+import { SetCategoryFeaturedDto } from "./dto/set-category-featured.dto";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 
 describe("CategoriesController", () => {
+  it("restringe a seleção de destaque a administradores autenticados", () => {
+    expect(Reflect.getMetadata("__guards__", CategoriesController.prototype.setFeatured)).toEqual([AccessTokenGuard, RolesGuard]);
+    expect(Reflect.getMetadata("roles", CategoriesController.prototype.setFeatured)).toEqual([Role.ADMIN]);
+  });
+  it("aceita somente decisão booleana para destaque", async () => {
+    expect(await validate(plainToInstance(SetCategoryFeaturedDto, { isFeatured: true }))).toHaveLength(0);
+    expect((await validate(plainToInstance(SetCategoryFeaturedDto, { isFeatured: "true" }))).length).toBeGreaterThan(0);
+    expect((await validate(plainToInstance(SetCategoryFeaturedDto, {}))).length).toBeGreaterThan(0);
+  });
   let controller: CategoriesController;
   let categoriesServiceMock: {
     findActiveCategories: jest.Mock;

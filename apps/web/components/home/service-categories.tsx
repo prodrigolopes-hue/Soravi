@@ -20,6 +20,7 @@ interface ServiceCategory {
   description: string | null;
   icon: string | null;
   displayOrder: number;
+  isFeatured?: boolean;
 }
 
 const categoryIconMap: Record<string, LucideIcon> = {
@@ -71,7 +72,7 @@ function resolveCategoryIcon(icon: string | null): LucideIcon {
 async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
   try {
     const response = await fetch(categoriesUrl, {
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -88,8 +89,9 @@ async function fetchServiceCategories(): Promise<ServiceCategory[] | null> {
 
 export async function ServiceCategories() {
   const categories = await fetchServiceCategories();
-  const hasCategories = Array.isArray(categories) && categories.length > 0;
-  const isEmptyList = Array.isArray(categories) && categories.length === 0;
+  const featured = categories ? (categories.some((item) => typeof item.isFeatured === "boolean") ? categories.filter((item) => item.isFeatured === true) : categories).slice(0, 8) : null;
+  const hasCategories = Array.isArray(featured) && featured.length > 0;
+  const isEmptyList = Array.isArray(featured) && featured.length === 0;
 
   return (
     <section
@@ -106,13 +108,13 @@ export async function ServiceCategories() {
             Encontre ajuda para diferentes necessidades
           </h2>
           <p className="mt-4 text-lg leading-8 text-slate-600">
-            Conheça as categorias disponíveis para criar sua solicitação.
+            Conheça algumas categorias de serviços disponíveis.
           </p>
         </div>
 
         {hasCategories ? (
           <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {categories.map(({ id, name, slug, description, icon }) => {
+            {featured.map(({ id, name, slug, description, icon }) => {
               const Icon = resolveCategoryIcon(icon);
               const imageSrc = categoryImageBySlug[slug];
 
@@ -155,10 +157,11 @@ export async function ServiceCategories() {
         ) : (
           <p className="mt-10 text-sm leading-6 text-slate-600">
             {isEmptyList
-              ? "Nenhuma categoria disponível no momento."
+              ? "Nenhuma categoria em destaque no momento."
               : "As categorias estarão disponíveis em instantes."}
           </p>
         )}
+        <div className="mt-8"><Link href="/categorias" className="inline-flex min-h-11 items-center rounded-xl border border-blue-600 px-5 py-3 font-semibold text-blue-700 hover:bg-blue-50">Ver todas as categorias</Link></div>
       </div>
     </section>
   );

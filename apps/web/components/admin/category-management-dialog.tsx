@@ -3,12 +3,27 @@
 import { useEffect, useState } from "react";
 import { adminCategoriesUrl } from "../../lib/api";
 
-export type CategoryManagementItem = { id: string; name: string; slug: string; isActive: boolean; displayOrder: number; createdAt: string; updatedAt: string };
+export type CategoryManagementItem = { id: string; name: string; slug: string; isActive: boolean; isFeatured: boolean | null; displayOrder: number; createdAt: string; updatedAt: string };
 type Mode = "edit" | "split";
 type Preview = { serviceRequests: number; historicalRequests: number; professionals: Array<{ id: string; displayName: string; user: { email: string } }> };
 
 export function CategoryManagementButtons({ item, onOpen }: { item: CategoryManagementItem; onOpen: (value: { item: CategoryManagementItem; mode: Mode }) => void }) {
   return <div className="flex flex-wrap gap-2"><button type="button" onClick={() => onOpen({ item, mode: "edit" })} className="rounded-lg border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800">Editar nome</button><button type="button" disabled={!item.isActive} onClick={() => onOpen({ item, mode: "split" })} className="rounded-lg border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800 disabled:opacity-50">Separar</button></div>;
+}
+
+export function CategoryFeaturedToggle({ item, accessToken, onSaved }: { item: CategoryManagementItem; accessToken: string; onSaved: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (item.isFeatured === null) return <p className="text-xs text-slate-600">Controle da página inicial indisponível.</p>;
+  async function toggle() {
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(`${adminCategoriesUrl}/${encodeURIComponent(item.id)}/featured`, { method: "PATCH", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ isFeatured: !item.isFeatured }) });
+      if (!response.ok) { const body: unknown = await response.json().catch(() => null); throw new Error(body && typeof body === "object" && "message" in body && typeof body.message === "string" ? body.message : "Não foi possível alterar o destaque."); }
+      await onSaved();
+    } catch (err) { setError(err instanceof Error ? err.message : "Não foi possível alterar o destaque."); } finally { setBusy(false); }
+  }
+  return <div><button type="button" disabled={busy || (!item.isActive && !item.isFeatured)} onClick={() => void toggle()} className="rounded-lg border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800 disabled:opacity-50">{busy ? "Salvando..." : item.isFeatured ? "Retirar da página inicial" : "Mostrar na página inicial"}</button>{error ? <p role="alert" className="mt-2 text-sm text-red-700">{error}</p> : null}</div>;
 }
 
 export function CategoryManagementDialog({ item, mode, accessToken, onClose, onSaved }: { item: CategoryManagementItem; mode: Mode; accessToken: string; onClose: () => void; onSaved: () => Promise<void> }) {

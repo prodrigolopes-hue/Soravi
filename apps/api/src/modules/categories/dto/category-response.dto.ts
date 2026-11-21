@@ -5,6 +5,7 @@ export interface CategoryResponseDtoProperties {
   description: string | null;
   icon: string | null;
   displayOrder: number;
+  isFeatured?: boolean;
 }
 
 export class CategoryResponseDto {
@@ -14,6 +15,7 @@ export class CategoryResponseDto {
   readonly description: string | null;
   readonly icon: string | null;
   readonly displayOrder: number;
+  readonly isFeatured: boolean;
 
   constructor(properties: CategoryResponseDtoProperties) {
     this.id = properties.id;
@@ -22,5 +24,6 @@ export class CategoryResponseDto {
     this.description = properties.description;
     this.icon = properties.icon;
     this.displayOrder = properties.displayOrder;
+    this.isFeatured = properties.isFeatured ?? false;
   }
 }

@@ -2,6 +2,12 @@
 
 ## Não publicado
 
+### Categorias na página inicial
+
+- a administração pode escolher até oito categorias ativas para a página inicial, sem alterar sua disponibilidade no cadastro;
+- adicionada página de todas as categorias com pesquisa e ordenação;
+- a migration inicializa os oito destaques tradicionais existentes e deixa novas categorias fora da página inicial até escolha administrativa.
+
 ### Identidade e oportunidades profissionais
 
 - a administração pode examinar serviço, área, descrição e categorias antes de aprovar ou rejeitar um perfil profissional;
