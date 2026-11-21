@@ -5,6 +5,7 @@ import {
   phoneVerificationDestination,
   phoneVerificationGuardDecision,
   postLoginDestination,
+  professionalRegistrationDestination,
   safePhoneVerificationReturnTo,
   sanitizeVerificationCode,
 } from "./phone-verification-routing";
@@ -14,6 +15,13 @@ const professional = {
   phoneVerified: true,
   roles: ["PROFESSIONAL"],
 } as const;
+
+test("novo profissional segue do cadastro para a etapa de identidade mesmo sem telefone confirmado", () => {
+  assert.equal(professionalRegistrationDestination({ phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: false }), "/cadastro/profissional/identidade");
+  assert.equal(professionalRegistrationDestination({ phoneVerified: true, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: true }), "/profissional");
+  assert.equal(professionalRegistrationDestination({ phoneVerified: false, roles: ["ADMIN", "PROFESSIONAL"], professionalRegistrationCompleted: false }), "/admin");
+  assert.deepEqual(phoneVerificationGuardDecision({ isLoading: false, pathname: "/cadastro/profissional/identidade", user: { phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: false } }), { type: "allow" });
+});
 
 test("define destinos por papel e fallback seguro", () => {
   assert.equal(phoneVerificationDestination(["CUSTOMER"]), "/cliente");
@@ -63,7 +71,7 @@ test("profissional incompleto recebe a orientacao sem usar a aprovacao do perfil
       roles: ["PROFESSIONAL"],
       professionalRegistrationCompleted: false,
     }),
-    "/profissional?completeProfessional=1",
+    "/cadastro/profissional/identidade",
   );
   assert.equal(
     postLoginDestination({
@@ -197,6 +205,10 @@ test("verificados saem da verificacao para o destino do papel", () => {
     }),
     { type: "redirect", destination: "/profissional" },
   );
+});
+
+test("apos confirmar telefone profissional com identidade incompleta segue para concluir cadastro", () => {
+  assert.deepEqual(phoneVerificationGuardDecision({ isLoading: false, pathname: "/verificar-telefone", user: { ...professional, professionalRegistrationCompleted: false } }), { type: "redirect", destination: "/cadastro/profissional/identidade" });
 });
 
 test("ADMIN fica fora da exigencia e sai da verificacao para admin", () => {

@@ -23,6 +23,7 @@ import {
   type SignUpEventTracker,
 } from "../analytics/google-analytics-events";
 import { useCookieConsent } from "../cookies/cookie-consent";
+import { useAuth } from "./auth-provider";
 import {
   isRegistrationContactConflict,
   REGISTRATION_CONTACT_CONFLICT_MESSAGE,
@@ -79,6 +80,7 @@ const professionalRegistrationSchema = z
       .trim()
       .min(1, "Informe seu nome completo.")
       .min(3, "O nome deve ter pelo menos 3 caracteres."),
+    cpf: z.string().trim().min(1, "Informe seu CPF.").refine((value) => validCpf(value), "Digite um CPF válido."),
     email: z
       .string()
       .trim()
@@ -146,6 +148,18 @@ type ProfessionalRegistrationFormData = z.infer<
   typeof professionalRegistrationSchema
 >;
 
+function validCpf(value: string): boolean {
+  if (!/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/.test(value)) return false;
+  const digits = value.replace(/\D/g, "");
+  if (new Set(digits).size === 1) return false;
+  const check = (part: string) => {
+    const remainder = [...part].reduce((sum, digit, index) => sum + Number(digit) * (part.length + 1 - index), 0) % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  const first = check(digits.slice(0, 9));
+  return digits === digits.slice(0, 9) + first + check(digits.slice(0, 9) + first);
+}
+
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
 
@@ -166,6 +180,7 @@ function formatPhone(value: string): string {
 
 export function ProfessionalRegistrationForm() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const { preference } = useCookieConsent();
   const signUpEventTrackerRef = useRef<SignUpEventTracker | null>(null);
   const signUpEventTracker =
@@ -198,6 +213,7 @@ export function ProfessionalRegistrationForm() {
     resolver: zodResolver(professionalRegistrationSchema),
     defaultValues: {
       name: "",
+      cpf: "",
       email: "",
       phone: "",
       professionalTitle: "",
@@ -321,6 +337,7 @@ export function ProfessionalRegistrationForm() {
           },
           body: JSON.stringify({
             name: data.name,
+            cpf: data.cpf,
             email: data.email,
             phone: data.phone,
             password: data.password,
@@ -363,6 +380,11 @@ export function ProfessionalRegistrationForm() {
           return;
         }
 
+        if (code === "PERSONAL_IDENTITY_CPF_UNAVAILABLE") {
+          setError("cpf", { type: "manual", message: "Não foi possível usar o CPF informado." });
+          return;
+        }
+
         setFormMessage(null);
         setFormError(
           isRegistrationContactConflict(response.status, code)
@@ -377,10 +399,13 @@ export function ProfessionalRegistrationForm() {
         preference?.analytics === "accepted",
       );
 
-      setFormMessage(
-        "Cadastro profissional concluído. Confira seu e-mail e a caixa de spam para confirmar o acesso.",
-      );
-      router.replace("/verificar-email?from=professional-registration");
+      const authenticated = await signIn(data.email, data.password).catch(() => null);
+      if (authenticated) {
+        router.replace("/cadastro/profissional/identidade");
+      } else {
+        setFormMessage("Conta criada. Entre para continuar seu cadastro e confira seu e-mail para confirmar o acesso.");
+        router.replace("/verificar-email?from=professional-registration");
+      }
     } catch {
       setFormMessage(null);
       setFormError(
@@ -454,6 +479,13 @@ export function ProfessionalRegistrationForm() {
             {errors.name.message}
           </p>
         ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="cpf" className="block text-sm font-semibold text-slate-800">CPF</label>
+        <input id="cpf" type="text" inputMode="numeric" autoComplete="off" maxLength={14} placeholder="000.000.000-00" className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-slate-950" aria-invalid={Boolean(errors.cpf)} aria-describedby={errors.cpf ? "cpf-error" : "cpf-help"} {...register("cpf")} />
+        <p id="cpf-help" className="mt-2 text-sm text-slate-600">Seu CPF é usado na verificação da sua identidade.</p>
+        {errors.cpf ? <p id="cpf-error" role="alert" className="mt-2 text-sm text-red-600">{errors.cpf.message}</p> : null}
       </div>
 
       <div>
@@ -1045,6 +1077,7 @@ export function ProfessionalRegistrationForm() {
           {formMessage}
         </div>
       ) : null}
+
 
       <button
         type="submit"

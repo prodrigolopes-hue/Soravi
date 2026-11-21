@@ -39,20 +39,19 @@ describe("ProfessionalIdentityDocumentService", () => {
     transaction.professionalIdentityVerificationAttempt.findFirst.mockResolvedValue({
       id: "closed-attempt", status: "CLOSED", result: "NOT_CONFIRMED",
     });
-    transaction.professionalIdentityVerificationAttempt.create.mockResolvedValue({ id: "new-attempt" });
+    transaction.professionalIdentityVerificationAttempt.create.mockResolvedValue({ id: "new-attempt", requiresSelfie: true });
 
-    await service.submitCurrent("user-id", { buffer: Buffer.from("upload"), declaredMimeType: "image/png" });
+    const enabled = new ProfessionalIdentityDocumentService(prisma as never, storage as never, { get: jest.fn().mockReturnValue("true") } as never);
+    await enabled.submitCurrent("user-id", { buffer: Buffer.from("upload"), declaredMimeType: "image/png" });
 
     expect(transaction.professionalIdentityVerificationAttempt.create).toHaveBeenCalledWith({
-      data: { professionalProfileId: "profile-id", personalIdentityId: "identity-id", requiresSelfie: false },
+      data: { professionalProfileId: "profile-id", personalIdentityId: "identity-id", requiresSelfie: true },
       select: { id: true, requiresSelfie: true },
     });
     expect(transaction.identityVerificationEvidenceReference.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ attemptId: "new-attempt", kind: "DOCUMENT" }),
     }));
-    expect(transaction.professionalIdentityVerificationAttempt.update).toHaveBeenCalledWith({
-      where: { id: "new-attempt" }, data: { status: "UNDER_REVIEW" },
-    });
+    expect(transaction.professionalIdentityVerificationAttempt.update).not.toHaveBeenCalled();
   });
 
   it("mantém aguardando evidência após documento quando a nova tentativa exige selfie", async () => {
@@ -78,6 +77,13 @@ describe("ProfessionalIdentityDocumentService", () => {
 
     expect(transaction.professionalIdentityVerificationAttempt.create).not.toHaveBeenCalled();
     expect(transaction.identityVerificationEvidenceReference.create).not.toHaveBeenCalled();
+  });
+
+  it("recusa iniciar nova tentativa quando a coleta de selfie está desabilitada", async () => {
+    transaction.professionalIdentityVerificationAttempt.findFirst.mockResolvedValue(null);
+    await expect(service.submitCurrent("user-id", { buffer: Buffer.from("upload"), declaredMimeType: "image/png" })).rejects.toMatchObject({ response: expect.objectContaining({ code: "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE" }) });
+    expect(transaction.professionalIdentityVerificationAttempt.create).not.toHaveBeenCalled();
+    expect(storage.delete).toHaveBeenCalled();
   });
 
   it("mantém a selfie indisponível quando o recurso está desabilitado", async () => {
@@ -155,7 +161,8 @@ describe("ProfessionalIdentityDocumentService", () => {
     transaction.professionalIdentityVerificationAttempt.create.mockResolvedValue({ id: "new-attempt", requiresSelfie: true });
     transaction.identityVerificationEvidenceReference.findMany.mockResolvedValue([{ kind: "DOCUMENT" }]);
 
-    await service.submitCurrent("user-id", { buffer: Buffer.from("document"), declaredMimeType: "image/png" });
+    const enabled = new ProfessionalIdentityDocumentService(prisma as never, storage as never, { get: jest.fn().mockReturnValue("true") } as never);
+    await enabled.submitCurrent("user-id", { buffer: Buffer.from("document"), declaredMimeType: "image/png" });
 
     expect(transaction.identityVerificationEvidenceReference.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ attemptId: "new-attempt" }) }));
     expect(transaction.identityVerificationEvidenceReference.findMany).toHaveBeenCalledWith({ where: { attemptId: "new-attempt", supersededAt: null }, select: { kind: true } });

@@ -44,13 +44,9 @@ const safeUserSelect = {
       reviewNotes: true,
       isAvailable: true,
       identityVerificationAttempts: {
-        where: {
-          evidenceReferences: {
-            some: { kind: "DOCUMENT" },
-          },
-        },
-        select: { id: true },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 1,
+        select: { status: true, result: true, requiresSelfie: true, evidenceReferences: { where: { supersededAt: null }, select: { kind: true } } },
       },
     },
   },
@@ -80,6 +76,9 @@ const adminProfessionalsSelect = {
     select: {
       id: true,
       displayName: true,
+      professionalTitle: true,
+      serviceArea: true,
+      bio: true,
       verificationStatus: true,
       reviewedAt: true,
       reviewNotes: true,
@@ -188,6 +187,9 @@ export class UsersService {
         professionalProfile: {
           id: item.professionalProfile.id,
           displayName: item.professionalProfile.displayName,
+          professionalTitle: item.professionalProfile.professionalTitle,
+          serviceArea: item.professionalProfile.serviceArea,
+          bio: item.professionalProfile.bio,
           verificationStatus: item.professionalProfile.verificationStatus,
           reviewedAt: item.professionalProfile.reviewedAt,
           reviewNotes: item.professionalProfile.reviewNotes,
@@ -221,6 +223,16 @@ export class UsersService {
       throw new UserNotFoundException();
     }
 
+    const identityAttempt = user.professionalProfile?.identityVerificationAttempts[0];
+    const identityEvidenceComplete = Boolean(
+      identityAttempt && (
+        (identityAttempt.status === "CLOSED" && identityAttempt.result === "CONFIRMED") ||
+        (identityAttempt.status !== "CANCELLED" && identityAttempt.status !== "CLOSED" &&
+          identityAttempt.evidenceReferences.some((evidence) => evidence.kind === "DOCUMENT") &&
+          (!identityAttempt.requiresSelfie || identityAttempt.evidenceReferences.some((evidence) => evidence.kind === "SELFIE")))
+      ),
+    );
+
     return new UserResponseDto({
       id: user.id,
       name: user.name,
@@ -242,7 +254,7 @@ export class UsersService {
         : null,
       professionalRegistrationCompleted:
         user.personalIdentity !== null &&
-        (user.professionalProfile?.identityVerificationAttempts.length ?? 0) > 0,
+        identityEvidenceComplete,
       createdAt: user.createdAt,
     });
   }

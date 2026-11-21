@@ -49,6 +49,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -282,6 +283,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [clearSession]);
 
+  const refreshUser = useCallback(async (): Promise<boolean> => {
+    if (!accessToken) return false;
+    const operationVersion = authOperationVersionRef.current;
+    try {
+      const nextUser = await fetchCurrentUser(accessToken);
+      if (operationVersion !== authOperationVersionRef.current) return false;
+      setUser(nextUser);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [accessToken]);
+
   const refreshSession = useCallback(async (): Promise<boolean> => {
     const operationVersion = authOperationVersionRef.current;
 
@@ -420,11 +434,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       signIn,
       signOut,
       refreshSession,
+      refreshUser,
     }),
     [
       accessToken,
       isLoading,
       refreshSession,
+      refreshUser,
       signIn,
       signOut,
       user,

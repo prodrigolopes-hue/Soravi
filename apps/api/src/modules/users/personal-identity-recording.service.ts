@@ -30,11 +30,21 @@ export class PersonalIdentityRecordingService {
   }
 
   async recordInitial(userId: string, cpf: string): Promise<PersonalIdentityRecordingResult> {
+    try {
+      await this.prisma.$transaction((transaction) => this.recordInitialInTransaction(transaction, userId, cpf));
+    } catch (error: unknown) {
+      if (this.isCpfHmacUniqueConstraintError(error)) throw new PersonalIdentityCpfUnavailableException();
+      if (error instanceof Prisma.PrismaClientKnownRequestError) throw new PersonalIdentityPersistenceException();
+      throw error;
+    }
+    return { recorded: true };
+  }
+
+  async recordInitialInTransaction(transaction: Prisma.TransactionClient, userId: string, cpf: string): Promise<void> {
     const normalizedCpf = normalizeCpf(cpf);
     const cpfHmac = this.cpfProtector.hmac(normalizedCpf);
     const hmacKeyFingerprint = this.cpfProtector.hmacKeyFingerprint();
     try {
-      await this.prisma.$transaction(async (transaction) => {
         await lockCpfHmacKeyBinding(transaction);
         const binding = await transaction.cpfHmacKeyBinding.findUnique({
           where: { scope: CPF_HMAC_KEY_BINDING_SCOPE },
@@ -92,13 +102,11 @@ export class PersonalIdentityRecordingService {
         await transaction.personalIdentity.create({
           data: { userId, cpfEnvelope, cpfHmac, hmacKeyId: this.hmacKeyId },
         });
-      });
     } catch (error: unknown) {
       if (this.isCpfHmacUniqueConstraintError(error)) throw new PersonalIdentityCpfUnavailableException();
       if (error instanceof Prisma.PrismaClientKnownRequestError) throw new PersonalIdentityPersistenceException();
       throw error;
     }
-    return { recorded: true };
   }
 
   private isCpfHmacUniqueConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {

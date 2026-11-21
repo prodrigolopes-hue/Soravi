@@ -264,6 +264,9 @@ describe("UsersService", () => {
           select: {
             id: true,
             displayName: true,
+            professionalTitle: true,
+            serviceArea: true,
+            bio: true,
             verificationStatus: true,
             reviewedAt: true,
             reviewNotes: true,
@@ -306,6 +309,9 @@ describe("UsersService", () => {
         professionalProfile: {
           id: "46c03da3-548b-4de6-bf75-783b1fade999",
           displayName: "Profissional A",
+          professionalTitle: "Gesseiro",
+          serviceArea: "Niterói",
+          bio: "Experiência em serviços de gesso.",
           verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
           isAvailable: true,
           professionalCategories: [{ category: { id: "cat-1", name: "Gesseiro", isActive: true } }],
@@ -328,6 +334,9 @@ describe("UsersService", () => {
       professionalProfile: {
         id: "46c03da3-548b-4de6-bf75-783b1fade999",
         displayName: "Profissional A",
+        professionalTitle: "Gesseiro",
+        serviceArea: "Niterói",
+        bio: "Experiência em serviços de gesso.",
         verificationStatus: ProfessionalVerificationStatus.NOT_STARTED,
         identityVerification: null,
         categories: [{ id: "cat-1", name: "Gesseiro", isActive: true }],
@@ -341,7 +350,6 @@ describe("UsersService", () => {
     expect(firstItem).not.toHaveProperty("phoneVerifiedAt");
     expect(firstItem).not.toHaveProperty("sessions");
     expect(firstItem).not.toHaveProperty("legalAcceptances");
-    expect(firstItem.professionalProfile).not.toHaveProperty("bio");
     expect(firstItem.professionalProfile).not.toHaveProperty("averageRating");
     expect(firstItem.professionalProfile).not.toHaveProperty("reviewCount");
     expect(firstItem.professionalProfile).not.toHaveProperty("servicesCompletedCount");

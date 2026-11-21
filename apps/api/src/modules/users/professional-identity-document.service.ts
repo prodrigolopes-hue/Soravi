@@ -87,11 +87,15 @@ export class ProfessionalIdentityDocumentService {
           throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_ALREADY_CONFIRMED", message: "Sua identidade já foi confirmada." });
         }
 
-        const selfieEnabled = this.isSelfieEnabled();
+        // Não inicia uma nova tentativa se a coleta de selfie estiver desabilitada.
+        // Tentativas anteriores aguardando evidências mantêm os requisitos originais.
+        if (latestAttempt?.status !== ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE && !this.isSelfieEnabled()) {
+          throw new ConflictException({ code: "PROFESSIONAL_IDENTITY_SELFIE_UNAVAILABLE", message: "A verificação de identidade está temporariamente indisponível. Tente novamente mais tarde." });
+        }
         const attempt = latestAttempt?.status === ProfessionalIdentityVerificationAttemptStatus.AWAITING_EVIDENCE
           ? latestAttempt
           : await transaction.professionalIdentityVerificationAttempt.create({
-          data: { professionalProfileId: profile.id, personalIdentityId: identity.id, requiresSelfie: selfieEnabled },
+          data: { professionalProfileId: profile.id, personalIdentityId: identity.id, requiresSelfie: true },
           select: { id: true, requiresSelfie: true },
         });
         if (kind === "SELFIE" && !attempt.requiresSelfie) {

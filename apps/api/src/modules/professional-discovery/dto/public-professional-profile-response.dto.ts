@@ -18,6 +18,7 @@ export interface PublicProfessionalProfileProperties {
   id: string;
   displayName: string;
   professionalTitle: string | null;
+  identityVerified: boolean;
   serviceArea: string | null;
   bio: string | null;
   categories: PublicProfessionalCategoryProperties[];
@@ -46,6 +47,7 @@ export class PublicProfessionalProfileResponseDto {
   readonly id: string;
   readonly displayName: string;
   readonly professionalTitle: string | null;
+  readonly identityVerified: boolean;
   readonly serviceArea: string | null;
   readonly bio: string | null;
   readonly categories: PublicProfessionalCategoryResponseDto[];
@@ -61,6 +63,7 @@ export class PublicProfessionalProfileResponseDto {
     this.id = properties.id;
     this.displayName = properties.displayName;
     this.professionalTitle = properties.professionalTitle;
+    this.identityVerified = properties.identityVerified;
     this.serviceArea = properties.serviceArea;
     this.bio = properties.bio;
     this.categories = properties.categories.map(

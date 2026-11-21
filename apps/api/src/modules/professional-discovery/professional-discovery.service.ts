@@ -16,6 +16,7 @@ const publicProfessionalSelect = {
   id: true,
   displayName: true,
   professionalTitle: true,
+  identityVerificationAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { status: true, result: true } },
   serviceArea: true,
   bio: true,
   professionalCategories: {
@@ -126,6 +127,7 @@ export class ProfessionalDiscoveryService {
       id: professional.id,
       displayName: professional.displayName,
       professionalTitle: professional.professionalTitle,
+      identityVerified: professional.identityVerificationAttempts[0]?.status === "CLOSED" && professional.identityVerificationAttempts[0]?.result === "CONFIRMED",
       serviceArea: professional.serviceArea,
       bio: professional.bio,
       categories: professional.professionalCategories.map(({ category }) => category),
@@ -195,6 +197,7 @@ export class ProfessionalDiscoveryService {
       id: professional.id,
       displayName: professional.displayName,
       professionalTitle: professional.professionalTitle,
+      identityVerified: professional.identityVerificationAttempts[0]?.status === "CLOSED" && professional.identityVerificationAttempts[0]?.result === "CONFIRMED",
       serviceArea: professional.serviceArea,
       categories: professional.professionalCategories.map(({ category }) => category),
       reputation: reputations.get(professional.id) ?? {

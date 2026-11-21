@@ -1,5 +1,6 @@
 "use client";
 
+import { IdentityVerifiedBadge } from "./identity-verified-badge";
 import { ChevronLeft, ChevronRight, FileText, Loader2, MapPin, ShieldAlert, Star } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -73,7 +74,7 @@ export function PublicProfessionalProfilePage({ professionalProfileId }: { profe
   return <main className="min-h-full bg-slate-50"><div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
     <Link href={profile.categories[0] ? `/servicos/${encodeURIComponent(profile.categories[0].slug)}` : "/"} className="inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Voltar para profissionais</Link>
     <article className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-      <header className="flex gap-4"><ProfessionalAvatar name={profile.displayName} photo={profile.photo} className="size-20" onRefresh={refreshPhoto} /><div><p className="font-semibold text-blue-600">Perfil profissional</p><h1 className="mt-2 text-3xl font-bold text-slate-950">{profile.displayName}</h1>{profile.professionalTitle ? <p className="mt-2 text-lg font-semibold text-slate-700">{profile.professionalTitle}</p> : null}</div></header>
+      <header className="flex gap-4"><ProfessionalAvatar name={profile.displayName} photo={profile.photo} className="size-20" onRefresh={refreshPhoto} /><div><p className="font-semibold text-blue-600">Perfil profissional</p><h1 className="mt-2 text-3xl font-bold text-slate-950">{profile.displayName}</h1>{profile.professionalTitle ? <p className="mt-2 text-lg font-semibold text-slate-700">{profile.professionalTitle}</p> : null}{profile.identityVerified ? <IdentityVerifiedBadge /> : null}</div></header>
       <div className="mt-6 grid gap-4 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Reputação</p><p className="mt-2 flex gap-2 font-bold"><Star className="size-5 fill-amber-400 text-amber-400" />{profile.reputation.reviewCount ? `${profile.reputation.averageRating.toFixed(1)} (${profile.reputation.reviewCount})` : "Ainda sem avaliações"}</p></div>{profile.serviceArea ? <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Área de atendimento</p><p className="mt-2 flex gap-2"><MapPin className="size-4" />{profile.serviceArea}</p></div> : null}</div>
       {profile.bio ? <section className="mt-7"><h2 className="text-xl font-bold">Sobre o profissional</h2><p className="mt-3 whitespace-pre-wrap leading-7">{profile.bio}</p></section> : null}
       <section className="mt-7"><h2 className="text-xl font-bold">Categorias atendidas</h2><ul className="mt-3 flex flex-wrap gap-2">{profile.categories.map((category) => <li key={category.id}><Link href={`/servicos/${encodeURIComponent(category.slug)}`} className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-800">{category.name}</Link></li>)}</ul></section>

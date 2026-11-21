@@ -359,6 +359,26 @@ describe("AuthService", () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
+  it("registra CPF protegido na mesma transação da conta profissional", async () => {
+    const input = { ...createRegistrationInput(Role.PROFESSIONAL, ["eletricista"]), cpf: "529.982.247-25" };
+    const identity = { recordInitialInTransaction: jest.fn().mockResolvedValue(undefined) };
+    authService = new AuthService(prismaMock as unknown as PrismaService, usersServiceMock as unknown as UsersService, authTokensServiceMock as unknown as AuthTokensService, identity as never);
+    prismaMock.user.findFirst.mockResolvedValue(null);
+    transactionClientMock.category.findMany.mockResolvedValue([{ id: "category-id", slug: "eletricista" }]);
+    transactionClientMock.user.create.mockResolvedValue({ id: userId });
+    transactionClientMock.professionalProfile.create.mockResolvedValue({ id: professionalProfileId, userId });
+    usersServiceMock.findSafeById.mockResolvedValue(createProfessionalResponse());
+    await authService.register(input);
+    expect(identity.recordInitialInTransaction).toHaveBeenCalledWith(transactionClientMock, userId, input.cpf);
+    expect(transactionClientMock.user.create.mock.calls[0][0].data).not.toHaveProperty("cpf");
+  });
+
+  it("interrompe o cadastro com CPF se a proteção estiver indisponível", async () => {
+    const input = { ...createRegistrationInput(Role.PROFESSIONAL, ["eletricista"]), cpf: "529.982.247-25" };
+    await expect(authService.register(input)).rejects.toMatchObject({ response: { code: "PERSONAL_IDENTITY_RECORDING_UNAVAILABLE" } });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it("deve cadastrar um profissional com perfil profissional", async () => {
     const input = createRegistrationInput(Role.PROFESSIONAL, [
       "eletricista",

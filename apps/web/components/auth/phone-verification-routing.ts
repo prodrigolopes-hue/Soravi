@@ -83,10 +83,17 @@ export function postLoginDestination(
     user.professionalRegistrationCompleted === false &&
     !safeDirectedRequestReturnTo(returnTo)
   ) {
-    return "/profissional?completeProfessional=1";
+    return "/cadastro/profissional/identidade";
   }
 
   return phoneVerificationDestination(user.roles, returnTo);
+}
+
+export function professionalRegistrationDestination(user: PostLoginUser): string {
+  if (!user.roles.includes("ADMIN") && user.roles.includes("PROFESSIONAL") && user.professionalRegistrationCompleted === false) {
+    return "/cadastro/profissional/identidade";
+  }
+  return phoneVerificationDestination(user.roles);
 }
 
 export type PhoneVerificationGuardDecision =
@@ -218,7 +225,7 @@ export function phoneVerificationGuardDecision({
   if (pathname === "/verificar-telefone") {
     return redirectDecision(
       pathname,
-      phoneVerificationDestination(user.roles, returnTo),
+      postLoginDestination(user, returnTo),
     );
   }
 

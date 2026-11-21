@@ -88,6 +88,10 @@ describe("RegisterUserDto password", () => {
 });
 
 describe("RegisterUserDto professional details", () => {
+  it.each([undefined, null, "", "11111111111"])("rejeita CPF profissional ausente ou inválido", async (cpf) => {
+    const dto = plainToInstance(RegisterUserDto, { ...professionalBody(), cpf });
+    expect((await validate(dto)).some((error) => error.property === "cpf")).toBe(true);
+  });
   it("exige e normaliza os dados profissionais para PROFESSIONAL", async () => {
     const dto = plainToInstance(RegisterUserDto, {
       ...professionalBody(),
@@ -145,6 +149,7 @@ function professionalBody() {
   return {
     ...createDto(undefined),
     initialRole: Role.PROFESSIONAL,
+    cpf: "529.982.247-25",
     categorySlugs: ["eletrica"],
     professionalTitle: "Eletricista residencial",
     serviceArea: "Campinas e região",

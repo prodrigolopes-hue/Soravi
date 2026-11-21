@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import {
   BadRequestException,
+  Inject,
+  Optional,
   Injectable,
 } from "@nestjs/common";
 import {
@@ -19,6 +21,8 @@ import {
   UserStatus,
 } from "../../generated/prisma/client";
 import { UsersService } from "../users/users.service";
+import { PERSONAL_IDENTITY_RECORDING_SERVICE } from "../users/personal-identity-recording.provider";
+import { PersonalIdentityRecordingService } from "../users/personal-identity-recording.service";
 import { LoginResponseDto } from "./dto/login-response.dto";
 import { LoginUserDto } from "./dto/login-user.dto";
 import { RegisterResponseDto } from "./dto/register-response.dto";
@@ -68,12 +72,16 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
     private readonly authTokensService: AuthTokensService,
+    @Optional() @Inject(PERSONAL_IDENTITY_RECORDING_SERVICE)
+    private readonly personalIdentityRecordingService?: PersonalIdentityRecordingService,
   ) { }
 
   async register(
     input: RegisterUserDto,
   ): Promise<RegisterResponseDto> {
     this.ensurePublicRegistrationRole(input.initialRole);
+    if (input.cpf && input.initialRole !== Role.PROFESSIONAL) throw new BadRequestException({ code: "INVALID_CPF_ROLE", message: "CPF disponível apenas no cadastro profissional." });
+    if (input.cpf && !this.personalIdentityRecordingService) throw new BadRequestException({ code: "PERSONAL_IDENTITY_RECORDING_UNAVAILABLE", message: "Não foi possível registrar o CPF agora." });
 
     const professionalCategorySlugs =
       input.initialRole === Role.PROFESSIONAL
@@ -203,6 +211,7 @@ export class AuthService {
           }
 
           if (input.initialRole === Role.PROFESSIONAL) {
+            if (input.cpf) await this.personalIdentityRecordingService!.recordInitialInTransaction(transaction, user.id, input.cpf);
             const professionalProfile =
               await transaction.professionalProfile.create({
               data: {

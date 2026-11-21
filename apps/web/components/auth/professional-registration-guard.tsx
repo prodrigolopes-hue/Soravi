@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { useAuth } from "./auth-provider";
-import { phoneVerificationDestination } from "./phone-verification-routing";
+import { professionalRegistrationDestination } from "./phone-verification-routing";
 
 interface ProfessionalRegistrationGuardProps {
   children: ReactNode;
@@ -17,7 +17,7 @@ export function ProfessionalRegistrationGuard({
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
   const redirectDestination = user
-    ? phoneVerificationDestination(user.roles)
+    ? professionalRegistrationDestination(user)
     : null;
 
   useEffect(() => {

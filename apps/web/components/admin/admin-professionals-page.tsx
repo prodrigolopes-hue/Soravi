@@ -20,6 +20,10 @@ type KnownVerificationStatus = (typeof knownVerificationStatusValues)[number];
 interface AdminProfessionalProfile {
   id: string;
   displayName: string;
+  professionalTitle: string | null;
+  serviceArea: string | null;
+  bio: string | null;
+  reviewDetailsAvailable: boolean;
   verificationStatus: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
@@ -104,6 +108,10 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
   return {
     id: candidate.id,
     displayName: candidate.displayName,
+    professionalTitle: typeof candidate.professionalTitle === "string" ? candidate.professionalTitle : null,
+    serviceArea: typeof candidate.serviceArea === "string" ? candidate.serviceArea : null,
+    bio: typeof candidate.bio === "string" ? candidate.bio : null,
+    reviewDetailsAvailable: isNullableString(candidate.professionalTitle) && isNullableString(candidate.serviceArea) && isNullableString(candidate.bio),
     verificationStatus: candidate.verificationStatus,
     reviewedAt: candidate.reviewedAt,
     reviewNotes: candidate.reviewNotes,
@@ -111,6 +119,23 @@ function parseAdminProfessionalProfile(value: unknown): AdminProfessionalProfile
     identityVerification: candidate.identityVerification as AdminProfessionalProfile["identityVerification"],
     categories: Array.isArray(candidate.categories) && candidate.categories.every((category) => isRecord(category) && typeof category.id === "string" && typeof category.name === "string" && typeof category.isActive === "boolean") ? candidate.categories : null,
   };
+}
+
+function ProfessionalReview({ item, accessToken, onReviewed }: { item: AdminProfessional; accessToken: string; onReviewed: (status: "APPROVED" | "REJECTED", reviewedAt: string, reviewNotes: string | null) => void }) {
+  const profile = item.professionalProfile;
+  return <details className="rounded-xl border border-blue-200 bg-white p-3 text-sm text-slate-700">
+    <summary className="cursor-pointer font-semibold text-blue-700">Analisar perfil profissional</summary>
+    {profile.reviewDetailsAvailable ? <div className="mt-3 space-y-2 break-words">
+      <p><strong>Nome público:</strong> {profile.displayName}</p>
+      <p><strong>Serviço principal:</strong> {profile.professionalTitle || "Não informado"}</p>
+      <p><strong>Área de atendimento:</strong> {profile.serviceArea || "Não informada"}</p>
+      <p className="whitespace-pre-wrap"><strong>Descrição:</strong> {profile.bio || "Não informada"}</p>
+      <p><strong>Categorias:</strong> {formatCategories(profile.categories)}</p>
+      <p><strong>Identidade:</strong> {formatIdentityStatus(profile.identityVerification)}</p>
+      <p className="text-xs text-slate-600">A análise do perfil é separada da conferência de identidade.</p>
+      <AdminProfessionalVerificationAction userId={item.id} verificationStatus={profile.verificationStatus} accessToken={accessToken} onReviewed={onReviewed} />
+    </div> : <p className="mt-3 text-red-700">Detalhes indisponíveis. Atualize a página e confira a versão da API antes de decidir.</p>}
+  </details>;
 }
 
 function parseAdminProfessional(value: unknown): AdminProfessional | null {
@@ -568,8 +593,8 @@ export function AdminProfessionalsPage() {
                       </p>
                     </div>
                     <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
-                      <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
-                      {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
+                      <ProfessionalReview item={item} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
+                      {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise de identidade"}</Link> : null}
                       <AdminUserStatusAction
                         userId={item.id}
                         userName={item.professionalProfile.displayName}
@@ -649,8 +674,8 @@ export function AdminProfessionalsPage() {
                           {formatRegistrationDate(item.createdAt)}
                         </td>
                         <td className="space-y-3 border-b border-slate-100 px-3 py-4 text-sm text-slate-700">
-                          <AdminProfessionalVerificationAction userId={item.id} verificationStatus={item.professionalProfile.verificationStatus} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
-                          {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise"}</Link> : null}
+                          <ProfessionalReview item={item} accessToken={accessToken ?? ""} onReviewed={(status, reviewedAt, reviewNotes) => handleVerificationReviewed(item.id, status, reviewedAt, reviewNotes)} />
+                          {item.professionalProfile.identityVerification ? <Link href={`/admin/verificacoes-identidade?attemptId=${encodeURIComponent(item.professionalProfile.identityVerification.id)}`} className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{item.professionalProfile.identityVerification.status === "UNDER_REVIEW" ? "Analisar documentos" : "Ver análise de identidade"}</Link> : null}
                           <AdminUserStatusAction
                             userId={item.id}
                             userName={item.professionalProfile.displayName}

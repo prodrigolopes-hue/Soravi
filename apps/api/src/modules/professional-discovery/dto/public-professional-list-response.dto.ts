@@ -18,6 +18,7 @@ export interface PublicProfessionalListItemProperties {
   id: string;
   displayName: string;
   professionalTitle: string | null;
+  identityVerified: boolean;
   serviceArea: string | null;
   categories: PublicProfessionalCategoryProperties[];
   reputation: PublicProfessionalReputationProperties;
@@ -60,6 +61,7 @@ export class PublicProfessionalListItemResponseDto {
   readonly id: string;
   readonly displayName: string;
   readonly professionalTitle: string | null;
+  readonly identityVerified: boolean;
   readonly serviceArea: string | null;
   readonly categories: PublicProfessionalCategoryResponseDto[];
   readonly reputation: PublicProfessionalReputationResponseDto;
@@ -69,6 +71,7 @@ export class PublicProfessionalListItemResponseDto {
     this.id = properties.id;
     this.displayName = properties.displayName;
     this.professionalTitle = properties.professionalTitle;
+    this.identityVerified = properties.identityVerified;
     this.serviceArea = properties.serviceArea;
     this.categories = properties.categories.map(
       (category) => new PublicProfessionalCategoryResponseDto(category),

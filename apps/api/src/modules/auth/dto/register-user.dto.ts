@@ -15,6 +15,7 @@ import {
 
 import { IsBrazilianPhone } from "../../../common/phone/is-brazilian-phone.decorator";
 import { Role } from "../../../generated/prisma/client";
+import { IsValidCpf } from "../../users/dto/record-personal-identity.dto";
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -29,6 +30,12 @@ type InitialRegistrationRole =
   (typeof INITIAL_REGISTRATION_ROLES)[number];
 
 export class RegisterUserDto {
+  @ValidateIf((object: RegisterUserDto) => object.initialRole === Role.PROFESSIONAL || object.cpf !== undefined)
+  @IsString()
+  @MaxLength(14)
+  @IsValidCpf({ message: "CPF inválido." })
+  cpf?: string;
+
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? value.trim() : value,
   )

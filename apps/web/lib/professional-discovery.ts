@@ -22,6 +22,7 @@ export interface PublicProfessionalListItem {
   id: string;
   displayName: string;
   professionalTitle: string | null;
+  identityVerified: boolean;
   serviceArea: string | null;
   categories: PublicCategory[];
   reputation: PublicReputation;
@@ -141,6 +142,7 @@ function parseProfessionalListItem(value: unknown): PublicProfessionalListItem |
     id: value.id,
     displayName: value.displayName,
     professionalTitle: value.professionalTitle,
+    identityVerified: value.identityVerified === true,
     serviceArea: value.serviceArea,
     categories,
     reputation: { averageRating: reputation.averageRating, reviewCount: reputation.reviewCount },
