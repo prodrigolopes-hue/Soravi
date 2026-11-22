@@ -10,6 +10,7 @@ import { CategoriesService } from "./categories.service";
 import { CategoriesAdminListResponseDto } from "./dto/categories-admin-list-response.dto";
 import { CategoriesAdminQueryDto } from "./dto/categories-admin-query.dto";
 import { CategoryResponseDto } from "./dto/category-response.dto";
+import { SetCategoryFeaturedDto } from "./dto/set-category-featured.dto";
 
 @Controller("categories")
 export class CategoriesController {
@@ -43,6 +44,13 @@ export class CategoriesController {
   @UseGuards(AccessTokenGuard, RolesGuard)
   editName(@Param("id", ParseUUIDPipe) id: string, @Body() input: EditAdminCategoryDto) {
     return this.categoriesService.editName(id, input.name, input.expectedName);
+  }
+
+  @Patch("admin/:id/featured")
+  @Roles(Role.ADMIN)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  setFeatured(@Param("id", ParseUUIDPipe) id: string, @Body() input: SetCategoryFeaturedDto) {
+    return this.categoriesService.setFeatured(id, input.isFeatured);
   }
 
   @Post("admin/:id/split")

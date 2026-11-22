@@ -12,7 +12,7 @@ import {
   adminCategorySuggestionsUrl,
 } from "../../lib/api";
 import { useAuth } from "../auth/auth-provider";
-import { CategoryManagementButtons, CategoryManagementDialog } from "./category-management-dialog";
+import { CategoryFeaturedToggle, CategoryManagementButtons, CategoryManagementDialog } from "./category-management-dialog";
 import { AdminBackLink } from "./admin-back-link";
 
 const PAGE_SIZE = 20;
@@ -40,6 +40,7 @@ interface AdminCategoryItem {
   name: string;
   slug: string;
   isActive: boolean;
+  isFeatured: boolean | null;
   displayOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -180,6 +181,7 @@ function parseCategoriesRoot(payload: unknown): AdminCategoriesApiResponse | nul
       name: candidate.name,
       slug: candidate.slug,
       isActive: candidate.isActive,
+      isFeatured: typeof candidate.isFeatured === "boolean" ? candidate.isFeatured : null,
       displayOrder: candidate.displayOrder,
       createdAt: candidate.createdAt,
       updatedAt: candidate.updatedAt,
@@ -618,6 +620,7 @@ function AdminCategoriesSection() {
                   <p><span className="font-medium text-slate-900">Criada em:</span> {formatDate(item.createdAt)}</p>
                   <p><span className="font-medium text-slate-900">Atualizada em:</span> {formatDate(item.updatedAt)}</p>
                   <CategoryManagementButtons item={item} onOpen={setManagement} />
+                  {accessToken ? <CategoryFeaturedToggle item={item} accessToken={accessToken} onSaved={() => fetchCategories(page)} /> : null}
                 </div>
               </article>
             ))}
@@ -646,7 +649,7 @@ function AdminCategoriesSection() {
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{item.displayOrder}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.createdAt)}</td>
                     <td className="border-b border-slate-100 px-3 py-4 text-sm text-slate-700">{formatDate(item.updatedAt)}</td>
-                    <td className="border-b border-slate-100 px-3 py-4"><CategoryManagementButtons item={item} onOpen={setManagement} /></td>
+                    <td className="space-y-2 border-b border-slate-100 px-3 py-4"><CategoryManagementButtons item={item} onOpen={setManagement} />{accessToken ? <CategoryFeaturedToggle item={item} accessToken={accessToken} onSaved={() => fetchCategories(page)} /> : null}</td>
                   </tr>
                 ))}
               </tbody>

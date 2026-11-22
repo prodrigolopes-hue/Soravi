@@ -41,6 +41,25 @@ describe("CategoriesService", () => {
     jest.clearAllMocks();
   });
 
+  it("limita os destaques a oito e permite retirar sem alterar a atividade", async () => {
+    const tx = { $executeRaw: jest.fn(), category: { findUnique: jest.fn(), count: jest.fn(), update: jest.fn() } };
+    prismaMock.$transaction.mockImplementation((callback) => callback(tx));
+    tx.category.findUnique.mockResolvedValue({ id: "id", isActive: true, isFeatured: false });
+    tx.category.count.mockResolvedValue(8);
+    await expect(service.setFeatured("id", true)).rejects.toThrow("oito categorias");
+    expect(tx.category.update).not.toHaveBeenCalled();
+    tx.category.findUnique.mockResolvedValue({ id: "id", isActive: true, isFeatured: true });
+    await service.setFeatured("id", false);
+    expect(tx.category.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isFeatured: false } }));
+  });
+
+  it("não coloca categorias inativas em destaque", async () => {
+    const tx = { $executeRaw: jest.fn(), category: { findUnique: jest.fn().mockResolvedValue({ id: "id", isActive: false, isFeatured: false }), count: jest.fn(), update: jest.fn() } };
+    prismaMock.$transaction.mockImplementation((callback) => callback(tx));
+    await expect(service.setFeatured("id", true)).rejects.toThrow("precisa estar ativa");
+    expect(tx.category.update).not.toHaveBeenCalled();
+  });
+
   it("deve retornar categorias ativas ordenadas por displayOrder e name", async () => {
     const categories = [
       {
@@ -84,6 +103,7 @@ describe("CategoriesService", () => {
         description: true,
         icon: true,
         displayOrder: true,
+        isFeatured: true,
       },
     });
     expect(result).toEqual(
@@ -133,6 +153,7 @@ describe("CategoriesService", () => {
         name: true,
         slug: true,
         isActive: true,
+        isFeatured: true,
         displayOrder: true,
         createdAt: true,
         updatedAt: true,
@@ -184,6 +205,7 @@ describe("CategoriesService", () => {
       name: "Alfaiataria",
       slug: "alfaiataria",
       isActive: false,
+      isFeatured: false,
       displayOrder: 1,
       createdAt: new Date("2026-08-10T10:00:00.000Z"),
       updatedAt: new Date("2026-08-11T10:00:00.000Z"),

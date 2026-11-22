@@ -750,6 +750,7 @@ model Category {
   description  String? @db.VarChar(500)
   icon         String? @db.VarChar(64)
   isActive     Boolean @default(true) @map("is_active")
+  isFeatured   Boolean @default(false) @map("is_featured")
   displayOrder Int     @default(0) @map("display_order")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

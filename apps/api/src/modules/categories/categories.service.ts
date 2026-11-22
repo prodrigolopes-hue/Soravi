@@ -15,6 +15,7 @@ const categoryPublicSelect = {
   description: true,
   icon: true,
   displayOrder: true,
+  isFeatured: true,
 } satisfies Prisma.CategorySelect;
 
 const categoryAdminSelect = {
@@ -22,6 +23,7 @@ const categoryAdminSelect = {
   name: true,
   slug: true,
   isActive: true,
+  isFeatured: true,
   displayOrder: true,
   createdAt: true,
   updatedAt: true,
@@ -30,6 +32,17 @@ const categoryAdminSelect = {
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async setFeatured(id: string, isFeatured: boolean) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(874217)`);
+      const category = await tx.category.findUnique({ where: { id }, select: { id: true, isActive: true, isFeatured: true } });
+      if (!category) throw new NotFoundException("Categoria não encontrada.");
+      if (isFeatured && !category.isActive) throw new BadRequestException("A categoria precisa estar ativa para aparecer na página inicial.");
+      if (isFeatured && !category.isFeatured && await tx.category.count({ where: { isFeatured: true } }) >= 8) throw new ConflictException("A página inicial já possui oito categorias. Remova um destaque antes de adicionar outro.");
+      return tx.category.update({ where: { id }, data: { isFeatured }, select: categoryAdminSelect });
+    });
+  }
 
   async editName(id: string, rawName: string, expectedName: string) {
     const name = rawName.trim();
