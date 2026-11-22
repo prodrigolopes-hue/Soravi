@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { categoriesUrl, categoryProfessionalsUrl, parsePublicCategories, parsePublicProfessionalsResponse, type PublicCategory, type PublicProfessionalsResponse } from "../../lib/professional-discovery";
+import { BackButton } from "./back-button";
 import { ProfessionalAvatar } from "../professional/professional-avatar";
 
 const PAGE_SIZE = 20;
@@ -71,7 +72,7 @@ export function CategoryProfessionalsPage({ categorySlug }: { categorySlug: stri
   const totalPages = Math.max(1, response?.pagination.totalPages ?? 1);
   const title = category ? `Profissionais de ${category.name}` : "Profissionais por categoria";
   return <main className="min-h-full bg-slate-50"><div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-    <Link href="/" className="inline-flex min-h-11 items-center text-sm font-semibold text-blue-700 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Voltar para categorias</Link>
+    <BackButton fallback="/categorias" />
     <header className="mt-5"><p className="font-semibold text-blue-600">Descubra profissionais</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">{title}</h1><p className="mt-3 max-w-2xl leading-7 text-slate-600">Conheça profissionais disponíveis e veja seus perfis públicos antes de descrever o que você precisa.</p></header>
     <section className="mt-8" aria-live="polite">
     {state === "empty" && category ? <EmptyCategory categoryName={category.name} /> : null}

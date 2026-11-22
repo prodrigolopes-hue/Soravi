@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { categoriesUrl, parsePublicCategories, type PublicCategory } from "../../lib/professional-discovery";
 import { filterCategoryDirectory } from "./category-directory-filter";
+import { BackButton } from "./back-button";
 
 export function CategoryDirectory() {
   const [categories, setCategories] = useState<PublicCategory[]>([]);
@@ -17,7 +18,7 @@ export function CategoryDirectory() {
   }, []);
   const filtered = useMemo(() => filterCategoryDirectory(categories, query, sort), [categories, query, sort]);
   return <main className="min-h-screen bg-slate-50"><div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-    <Link href="/" className="text-sm font-semibold text-blue-700">← Voltar para a página inicial</Link>
+    <BackButton fallback="/" />
     <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Todas as categorias</h1>
     <p className="mt-3 text-slate-600">Encontre o serviço que você precisa e conheça os profissionais disponíveis.</p>
     <div className="mt-8 grid gap-4 sm:grid-cols-[1fr_auto]"><label className="text-sm font-semibold text-slate-800">Pesquisar categoria<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ex.: eletricista" className="mt-2 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 font-normal" /></label><label className="text-sm font-semibold text-slate-800">Ordenar<select value={sort} onChange={(event) => setSort(event.target.value === "za" ? "za" : "az")} className="mt-2 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 font-normal"><option value="az">A a Z</option><option value="za">Z a A</option></select></label></div>
