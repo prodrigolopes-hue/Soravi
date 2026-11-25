@@ -16,7 +16,7 @@ interface CookieConsentContextValue {
   preference: CookieConsentStorageValue | null;
   isBannerOpen: boolean;
   openBanner: () => void;
-  savePreference: (analytics: "accepted" | "rejected") => void;
+  savePreference: (analytics: "accepted" | "rejected", advertising: "accepted" | "rejected") => void;
 }
 
 const CookieConsentContext = createContext<CookieConsentContextValue | null>(null);
@@ -39,6 +39,7 @@ function isValidPreference(value: unknown): value is CookieConsentStorageValue {
       candidate.status === "rejected") &&
     candidate.version === STORAGE_VERSION &&
     (candidate.analytics === "accepted" || candidate.analytics === "rejected") &&
+    (candidate.advertising === undefined || candidate.advertising === "accepted" || candidate.advertising === "rejected") &&
     typeof candidate.updatedAt === "string" &&
     isValidIsoDate(candidate.updatedAt)
   );
@@ -101,10 +102,12 @@ export function validateCookieConsentPreference(
 
 export function saveCookieConsentPreference(
   analytics: "accepted" | "rejected",
+  advertising: "accepted" | "rejected" = "rejected",
 ): CookieConsentStorageValue {
   const preference: CookieConsentPreference = {
     version: STORAGE_VERSION,
     analytics,
+    advertising,
     updatedAt: new Date().toISOString(),
   };
 
@@ -128,12 +131,12 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     const storedPreference = readStoredPreference();
     setPreference(storedPreference);
-    setIsBannerOpen(!storedPreference);
+    setIsBannerOpen(!storedPreference || storedPreference.advertising === undefined);
     setIsHydrated(true);
   }, []);
 
-  const savePreference = (analytics: "accepted" | "rejected") => {
-    const nextPreference = saveCookieConsentPreference(analytics);
+  const savePreference = (analytics: "accepted" | "rejected", advertising: "accepted" | "rejected") => {
+    const nextPreference = saveCookieConsentPreference(analytics, advertising);
     setPreference(nextPreference);
     setIsBannerOpen(false);
   };
@@ -172,6 +175,8 @@ export function useCookieConsent() {
 
 export function CookieConsentBanner() {
   const { preference, isBannerOpen, savePreference } = useCookieConsent();
+  const [analyticsChoice, setAnalyticsChoice] = useState(preference?.analytics === "accepted");
+  const [advertisingChoice, setAdvertisingChoice] = useState(preference?.advertising === "accepted");
 
   if (!isBannerOpen && preference) {
     return null;
@@ -180,7 +185,7 @@ export function CookieConsentBanner() {
   const heading = preference ? "Preferências de cookies" : "Privacidade e cookies";
   const helperText = preference
     ? "Você pode alterar sua escolha a qualquer momento. Recursos essenciais continuam ativos para o funcionamento do site."
-    : "A Soravi usa recursos essenciais para o funcionamento do site. Com sua autorização, também podemos usar dados de navegação para entender como a plataforma é utilizada e melhorar sua experiência.";
+    : "A Soravi usa recursos essenciais para o funcionamento do site. Com sua autorização, usamos analytics para entender o uso do site e publicidade para medir campanhas. Escolha cada opção separadamente.";
 
   return (
     <div
@@ -197,6 +202,8 @@ export function CookieConsentBanner() {
           <div className="min-w-0 space-y-2">
             <h2 className="text-lg font-semibold text-slate-950">{heading}</h2>
             <p className="text-sm leading-6 text-slate-600">{helperText}</p>
+            <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={analyticsChoice} onChange={(event) => setAnalyticsChoice(event.target.checked)} /> Analytics (Google Analytics)</label>
+            <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={advertisingChoice} onChange={(event) => setAdvertisingChoice(event.target.checked)} /> Publicidade (Meta Pixel)</label>
             <p className="text-sm text-slate-600">
               <Link
                 href="/politica-de-privacidade"
@@ -211,17 +218,17 @@ export function CookieConsentBanner() {
         <div className="flex flex-col gap-2 sm:min-w-[19rem] sm:flex-row sm:items-center sm:gap-3">
           <button
             type="button"
-            onClick={() => savePreference("rejected")}
+            onClick={() => savePreference("rejected", "rejected")}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
           >
             Recusar
           </button>
           <button
             type="button"
-            onClick={() => savePreference("accepted")}
+            onClick={() => savePreference(analyticsChoice ? "accepted" : "rejected", advertisingChoice ? "accepted" : "rejected")}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-sky-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
           >
-            Aceitar analytics
+            Salvar preferências
           </button>
         </div>
       </div>

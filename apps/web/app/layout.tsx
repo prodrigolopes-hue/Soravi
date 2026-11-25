@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import type { ReactNode } from "react";
 
 import { GoogleAnalytics } from "../components/analytics/google-analytics";
+import { MetaPixel } from "../components/analytics/meta-pixel";
 import { AuthProvider } from "../components/auth/auth-provider";
 import { PhoneVerificationGuard } from "../components/auth/phone-verification-guard";
 import { CookieConsentProvider } from "../components/cookies/cookie-consent";
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           <AuthProvider>
             <PhoneVerificationGuard>
               <GoogleAnalytics nonce={nonce} />
+              <MetaPixel nonce={nonce} />
               <div className="flex min-h-screen flex-col">
                 <PageHeader />
 

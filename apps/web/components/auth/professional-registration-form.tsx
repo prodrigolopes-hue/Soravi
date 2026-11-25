@@ -398,6 +398,9 @@ export function ProfessionalRegistrationForm() {
         "professional",
         preference?.analytics === "accepted",
       );
+      if (preference?.advertising === "accepted") {
+        window.dispatchEvent(new Event("soravi:professional-registration"));
+      }
 
       const authenticated = await signIn(data.email, data.password).catch(() => null);
       if (authenticated) {

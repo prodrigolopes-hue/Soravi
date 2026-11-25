@@ -13,6 +13,7 @@ function createContentSecurityPolicy(nonce: string): string {
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
     "https://www.googletagmanager.com",
+    "https://connect.facebook.net",
   ];
 
   if (process.env.NODE_ENV === "development") {
@@ -29,9 +30,9 @@ function createContentSecurityPolicy(nonce: string): string {
     "style-src 'self'",
     "style-src-elem 'self'",
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob: https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com",
+    "img-src 'self' data: blob: https://www.facebook.com https://soravi-service-requests.42c0679b95af0c1fb21f9f188ffa732e.r2.cloudflarestorage.com",
     "font-src 'self' data:",
-    `connect-src 'self' ${apiUrl.origin} ${websocketUrl.origin} https://viacep.com.br https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com`,
+    `connect-src 'self' ${apiUrl.origin} ${websocketUrl.origin} https://viacep.com.br https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com https://www.facebook.com`,
   ].join("; ");
 }
 
