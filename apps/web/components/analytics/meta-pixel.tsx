@@ -9,7 +9,7 @@ import { canLoadMetaPixel } from "./meta-pixel-policy";
 // the registration form. Do not add allow-same-origin to this iframe.
 const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() ?? "";
 
-export function MetaPixel({ nonce }: { nonce?: string }) {
+export function MetaPixel() {
   const { preference } = useCookieConsent();
   const pathname = usePathname();
   const iframe = useRef<HTMLIFrameElement>(null);
@@ -37,15 +37,5 @@ export function MetaPixel({ nonce }: { nonce?: string }) {
   }, [enabled, pathname]);
 
   if (!enabled) return null;
-  // Only fixed code and a validated numeric ID are interpolated. The frame has
-  // no access to the parent DOM, URL, storage or form data.
-  const source = `<!doctype html><html><head><meta name="referrer" content="no-referrer"></head><body><script nonce="${nonce ?? ""}">
-    (function(){
-      var q=window.fbq=function(){q.callMethod?q.callMethod.apply(q,arguments):q.queue.push(arguments)};
-      q.queue=[];q.loaded=true;q.version='2.0';q.push=q;window._fbq=q;
-      q('set','autoConfig',false,'${pixelId}');q('init','${pixelId}');q('trackSingle','${pixelId}','PageView');
-      var sent=false;window.addEventListener('message',function(e){if(e.source!==parent||!e.data||e.data.type!=='registration'||sent)return;sent=true;q('trackSingle','${pixelId}','CompleteRegistration')});
-      var s=document.createElement('script');s.async=true;s.src='https://connect.facebook.net/en_US/fbevents.js';s.onload=function(){parent.postMessage({type:'pixel-ready'},'*')};document.head.appendChild(s);
-    })();<\/script></body></html>`;
-  return <iframe key={pathname} ref={iframe} title="Medição de publicidade" hidden sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={source} />;
+  return <iframe key={pathname} ref={iframe} title="Medição de publicidade" hidden sandbox="allow-scripts" referrerPolicy="no-referrer" src="/meta-pixel-frame" onLoad={() => iframe.current?.contentWindow?.postMessage({ type: "initialize" }, "*")} />;
 }

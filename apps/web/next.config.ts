@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      { source: "/meta-pixel-frame", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
     ];
   },
 };

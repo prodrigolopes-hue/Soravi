@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           <AuthProvider>
             <PhoneVerificationGuard>
               <GoogleAnalytics nonce={nonce} />
-              <MetaPixel nonce={nonce} />
+              <MetaPixel />
               <div className="flex min-h-screen flex-col">
                 <PageHeader />
 

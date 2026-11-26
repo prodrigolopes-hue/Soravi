@@ -7,7 +7,7 @@ const apiUrl = new URL(
 const websocketUrl = new URL(apiUrl.origin);
 websocketUrl.protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
 
-function createContentSecurityPolicy(nonce: string): string {
+function createContentSecurityPolicy(nonce: string, isPixelFrame = false): string {
   const scriptSources = [
     "'self'",
     `'nonce-${nonce}'`,
@@ -24,7 +24,7 @@ function createContentSecurityPolicy(nonce: string): string {
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    "frame-ancestors 'none'",
+    isPixelFrame ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
     "form-action 'self'",
     `script-src ${scriptSources.join(" ")}`,
     "style-src 'self'",
@@ -38,7 +38,7 @@ function createContentSecurityPolicy(nonce: string): string {
 
 export function middleware(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
-  const contentSecurityPolicy = createContentSecurityPolicy(nonce);
+  const contentSecurityPolicy = createContentSecurityPolicy(nonce, request.nextUrl.pathname === "/meta-pixel-frame");
   const requestHeaders = new Headers(request.headers);
 
   requestHeaders.set("x-nonce", nonce);
