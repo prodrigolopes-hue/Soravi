@@ -765,12 +765,12 @@ export function ProfessionalRegistrationForm() {
           </p>
         ) : null}
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-900">
+        <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <p className="text-base font-bold text-slate-900">
             Não encontrou sua categoria?
           </p>
-          <p className="mt-1 text-sm text-slate-600">
-            Sugira uma nova categoria para análise da Soravi.
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Se seu serviço não aparece na lista, clique no botão abaixo para sugerir sua categoria. A Soravi vai analisar sua sugestão.
           </p>
 
           <button
@@ -779,12 +779,12 @@ export function ProfessionalRegistrationForm() {
               setIsSuggestionFormOpen((current) => !current);
               setSuggestionError(null);
             }}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 sm:w-auto"
             aria-expanded={isSuggestionFormOpen}
             aria-controls="category-suggestion-form"
           >
             <Lightbulb aria-hidden="true" className="size-4" />
-            {isSuggestionFormOpen ? "Fechar sugestão" : "Sugerir categoria"}
+            {isSuggestionFormOpen ? "Fechar sugestão" : "Sugerir minha categoria"}
           </button>
 
           {isSuggestionFormOpen ? (
