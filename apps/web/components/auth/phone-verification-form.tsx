@@ -16,6 +16,7 @@ import {
   updateCurrentUserPhone,
 } from "../../lib/phone-verification";
 import { useAuth } from "./auth-provider";
+import { ProfessionalCompletionProgress } from "../professional/professional-completion-progress";
 import {
   phoneVerificationDestination,
   postLoginDestination,
@@ -281,6 +282,7 @@ export function PhoneVerificationForm() {
               ? "Informe o novo número e confirme sua senha atual. O telefone só será alterado ao salvar este formulário."
               : "Enviaremos um código de 6 dígitos para o seu WhatsApp para verificar o telefone atual."}
           </p>
+          {user.roles.includes("PROFESSIONAL") && !user.roles.includes("ADMIN") ? <ProfessionalCompletionProgress user={user} showAction={false} /> : null}
 
           <div aria-live="polite">
             {successMessage ? (
