@@ -177,6 +177,7 @@ export function CookieConsentBanner() {
   const { preference, isBannerOpen, savePreference } = useCookieConsent();
   const [analyticsChoice, setAnalyticsChoice] = useState(preference?.analytics === "accepted");
   const [advertisingChoice, setAdvertisingChoice] = useState(preference?.advertising === "accepted");
+  const [customize, setCustomize] = useState(false);
 
   if (!isBannerOpen && preference) {
     return null;
@@ -202,8 +203,8 @@ export function CookieConsentBanner() {
           <div className="min-w-0 space-y-2">
             <h2 className="text-lg font-semibold text-slate-950">{heading}</h2>
             <p className="text-sm leading-6 text-slate-600">{helperText}</p>
-            <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={analyticsChoice} onChange={(event) => setAnalyticsChoice(event.target.checked)} /> Analytics (Google Analytics)</label>
-            <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={advertisingChoice} onChange={(event) => setAdvertisingChoice(event.target.checked)} /> Publicidade (Meta Pixel)</label>
+            {customize ? <><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={analyticsChoice} onChange={(event) => setAnalyticsChoice(event.target.checked)} /> Analytics (Google Analytics)</label>
+            <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={advertisingChoice} onChange={(event) => setAdvertisingChoice(event.target.checked)} /> Publicidade (Meta Pixel)</label></> : null}
             <p className="text-sm text-slate-600">
               <Link
                 href="/politica-de-privacidade"
@@ -221,14 +222,21 @@ export function CookieConsentBanner() {
             onClick={() => savePreference("rejected", "rejected")}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
           >
-            Recusar
+            Recusar opcionais
           </button>
           <button
             type="button"
-            onClick={() => savePreference(analyticsChoice ? "accepted" : "rejected", advertisingChoice ? "accepted" : "rejected")}
+            onClick={() => customize ? savePreference(analyticsChoice ? "accepted" : "rejected", advertisingChoice ? "accepted" : "rejected") : setCustomize(true)}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+          >
+            {customize ? "Salvar preferências" : "Personalizar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => savePreference("accepted", "accepted")}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-sky-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
           >
-            Salvar preferências
+            Aceitar todos
           </button>
         </div>
       </div>

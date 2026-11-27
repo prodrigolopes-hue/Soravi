@@ -21,7 +21,7 @@ export function GET(request: NextRequest) {
           var s=document.createElement('script');s.async=true;s.src='https://connect.facebook.net/en_US/fbevents.js';
           s.onload=function(){parent.postMessage({type:'pixel-ready'},'*')};document.head.appendChild(s);
         } else if(e.data.type==='registration'&&initialized&&!sent){
-          sent=true;window.fbq('trackSingle','${id}','CompleteRegistration');
+          sent=true;window.fbq('trackSingle','${id}','CompleteRegistration');parent.postMessage({type:'registration-dispatched'},'*');
         }
       });
     })();<\/script></body></html>`;

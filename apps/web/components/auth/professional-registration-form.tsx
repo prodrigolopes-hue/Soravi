@@ -23,6 +23,7 @@ import {
   type SignUpEventTracker,
 } from "../analytics/google-analytics-events";
 import { useCookieConsent } from "../cookies/cookie-consent";
+import { notifyMetaRegistration } from "../analytics/meta-registration";
 import { useAuth } from "./auth-provider";
 import {
   isRegistrationContactConflict,
@@ -399,7 +400,7 @@ export function ProfessionalRegistrationForm() {
         preference?.analytics === "accepted",
       );
       if (preference?.advertising === "accepted") {
-        window.dispatchEvent(new Event("soravi:professional-registration"));
+        await notifyMetaRegistration();
       }
 
       const authenticated = await signIn(data.email, data.password).catch(() => null);
