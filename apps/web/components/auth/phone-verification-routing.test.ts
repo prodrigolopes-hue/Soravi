@@ -66,6 +66,14 @@ test("login exige telefone dos papeis comuns e libera ADMIN", () => {
 
 test("profissional incompleto recebe a orientacao sem usar a aprovacao do perfil", () => {
   assert.equal(
+    postLoginDestination({ phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: false }),
+    "/cadastro/profissional/identidade",
+  );
+  assert.equal(
+    postLoginDestination({ phoneVerified: false, roles: ["PROFESSIONAL"], professionalRegistrationCompleted: true }),
+    "/verificar-telefone",
+  );
+  assert.equal(
     postLoginDestination({
       phoneVerified: true,
       roles: ["PROFESSIONAL"],

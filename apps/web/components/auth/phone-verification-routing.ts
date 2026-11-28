@@ -67,14 +67,6 @@ export function postLoginDestination(
     return "/admin";
   }
 
-  // A verificação do telefone continua tendo prioridade.
-  if (!user.phoneVerified) {
-    return withDirectedRequestReturnTo(
-      "/verificar-telefone",
-      returnTo ?? null,
-    );
-  }
-
   // O indicador é calculado pelo backend a partir do CPF privado e do
   // documento submetido; nunca usa o status de aprovação do perfil.
   // Um destino válido de solicitação direcionada é preservado.
@@ -84,6 +76,13 @@ export function postLoginDestination(
     !safeDirectedRequestReturnTo(returnTo)
   ) {
     return "/cadastro/profissional/identidade";
+  }
+
+  if (!user.phoneVerified) {
+    return withDirectedRequestReturnTo(
+      "/verificar-telefone",
+      returnTo ?? null,
+    );
   }
 
   return phoneVerificationDestination(user.roles, returnTo);
